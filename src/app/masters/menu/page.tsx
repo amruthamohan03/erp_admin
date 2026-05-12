@@ -1,13 +1,27 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Plus, Search, Trash2, Edit2, X, Eye, EyeOff } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Trash2,
+  Edit2,
+  X,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import type { MenuItem } from '@/types/menu';
 
 interface MenuRow extends MenuItem {
   parent_name: string | null;
 }
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuRow[]>([]);
@@ -16,6 +30,18 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<MenuRow | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Hydration guard: pagination renders only after client mount,
+  // so SSR HTML never contains the <button disabled=...> attributes
+  // that React's hydration check was complaining about.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,7 +66,7 @@ export default function MenuPage() {
     [items],
   );
 
-  // Apply search filter on the client (the list is small, ~110 rows).
+  // Filter, then paginate.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
@@ -51,6 +77,22 @@ export default function MenuPage() {
         m.parent_name?.toLowerCase().includes(q),
     );
   }, [items, search]);
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+  // Clamp page when filter/pageSize changes
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  // Serial number offset for the first row on this page
+  const startIndex = (page - 1) * pageSize;
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this menu? Children must be disabled first.')) return;
@@ -92,21 +134,27 @@ export default function MenuPage() {
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
               placeholder="Search name, url, parent..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1); // reset to first page on search
+              }}
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input
               type="checkbox"
               checked={showHidden}
-              onChange={(e) => setShowHidden(e.target.checked)}
+              onChange={(e) => {
+                setShowHidden(e.target.checked);
+                setPage(1);
+              }}
             />
             Show disabled
           </label>
@@ -116,7 +164,7 @@ export default function MenuPage() {
           <table className="table-base">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="w-16">#</th>
                 <th>Menu Name</th>
                 <th>Parent</th>
                 <th>Level</th>
@@ -135,7 +183,7 @@ export default function MenuPage() {
                   </td>
                 </tr>
               )}
-              {!loading && filtered.length === 0 && (
+              {!loading && paged.length === 0 && (
                 <tr>
                   <td colSpan={9} className="text-center text-slate-500 py-8">
                     No menus found
@@ -143,11 +191,12 @@ export default function MenuPage() {
                 </tr>
               )}
               {!loading &&
-                filtered.map((m) => {
+                paged.map((m, idx) => {
                   const isParent = (m.menu_level ?? 0) === 0;
+                  const serial = startIndex + idx + 1;
                   return (
                     <tr key={m.id} className="hover:bg-slate-50">
-                      <td>{m.id}</td>
+                      <td className="text-slate-500 font-medium">{serial}</td>
                       <td>
                         <span className={isParent ? 'font-semibold' : 'pl-4'}>
                           {!isParent && <span className="text-slate-400">└ </span>}
@@ -225,9 +274,77 @@ export default function MenuPage() {
           </table>
         </div>
 
-        <div className="p-4 border-t border-slate-200 text-sm text-slate-500">
-          Showing {filtered.length} of {items.length}
+        {/* Pagination footer — gated on mounted to avoid SSR hydration mismatch */}
+        {mounted ? (
+        <div className="flex items-center justify-between p-4 border-t border-slate-200 text-sm flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-slate-500">
+              {totalRows === 0
+                ? '0 results'
+                : `Showing ${startIndex + 1}–${Math.min(startIndex + pageSize, totalRows)} of ${totalRows}`}
+            </span>
+            <span className="text-slate-300">|</span>
+            <label className="flex items-center gap-2 text-slate-600">
+              Rows per page:
+              <select
+                className="input py-1 px-2 w-auto"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              className="btn-secondary px-2 py-1"
+              disabled={page === 1}
+              onClick={() => setPage(1)}
+              title="First page"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button
+              className="btn-secondary px-2 py-1"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              title="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 py-1 text-slate-700">
+              Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+            </span>
+            <button
+              className="btn-secondary px-2 py-1"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              title="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              className="btn-secondary px-2 py-1"
+              disabled={page >= totalPages}
+              onClick={() => setPage(totalPages)}
+              title="Last page"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+        ) : (
+          // Placeholder on SSR / pre-hydration: same vertical space, no buttons.
+          <div className="h-[60px] border-t border-slate-200" />
+        )}
       </div>
 
       {showCreate && (
