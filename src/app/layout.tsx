@@ -1,14 +1,23 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import ThemeProvider from '@/components/providers/ThemeProvider';
+import TranslateProvider from '@/components/providers/TranslateProvider';
+import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard',
-  description: 'Next.js 16 + PostgreSQL admin dashboard',
+  title: 'ERP Admin',
+  description: 'Modular ERP admin dashboard',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const store = await cookies();
+  const cookieLocale = store.get(LOCALE_COOKIE)?.value;
+  const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
+  const dir = localeDirs[locale];
+
   return (
-    <html lang="en">
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <head>
         {/* Tabler Icons webfont - powers the `ti ti-*` icon classes from menu_master_t */}
         <link
@@ -16,7 +25,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.21.0/dist/tabler-icons.min.css"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ThemeProvider>
+          <TranslateProvider initialLocale={locale}>{children}</TranslateProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

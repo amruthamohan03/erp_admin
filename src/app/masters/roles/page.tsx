@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import Toggle from '@/components/ui/Toggle';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { Role } from '@/types';
 
 export default function RolesPage() {
@@ -126,7 +128,7 @@ function RoleFormModal({
   const isEdit = !!role;
   const [form, setForm] = useState({
     role_name: role?.role_name || '',
-    parent_role_id: role?.parent_role_id || '',
+    parent_role_id: role?.parent_role_id ? String(role.parent_role_id) : '',
     approval_level: role?.approval_level ?? '',
     department: !!role?.department,
     management: !!role?.management,
@@ -191,11 +193,16 @@ function RoleFormModal({
           </div>
           <div>
             <label className="label">Parent Role</label>
-            <select className="input" value={form.parent_role_id}
-              onChange={(e) => setForm({ ...form, parent_role_id: e.target.value })}>
-              <option value="">— None —</option>
-              {parentOptions.map((r) => (<option key={r.id} value={r.id}>{r.role_name}</option>))}
-            </select>
+            <SearchableSelect
+              value={form.parent_role_id}
+              onChange={(v) => setForm({ ...form, parent_role_id: v })}
+              options={parentOptions.map((r) => ({
+                value: String(r.id),
+                label: r.role_name,
+              }))}
+              emptyLabel="— None —"
+              placeholder="Select parent role..."
+            />
           </div>
           <div>
             <label className="label">Approval Level</label>
@@ -203,21 +210,21 @@ function RoleFormModal({
               onChange={(e) => setForm({ ...form, approval_level: e.target.value })} />
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.department}
-                onChange={(e) => setForm({ ...form, department: e.target.checked })} />
-              Department
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.management}
-                onChange={(e) => setForm({ ...form, management: e.target.checked })} />
-              Management
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.finance}
-                onChange={(e) => setForm({ ...form, finance: e.target.checked })} />
-              Finance
-            </label>
+            <Toggle
+              checked={form.department}
+              onChange={(v) => setForm({ ...form, department: v })}
+              label="Department"
+            />
+            <Toggle
+              checked={form.management}
+              onChange={(v) => setForm({ ...form, management: v })}
+              label="Management"
+            />
+            <Toggle
+              checked={form.finance}
+              onChange={(v) => setForm({ ...form, finance: v })}
+              label="Finance"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>

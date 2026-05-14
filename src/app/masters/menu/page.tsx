@@ -15,6 +15,8 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import Toggle from '@/components/ui/Toggle';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { MenuItem } from '@/types/menu';
 
 interface MenuRow extends MenuItem {
@@ -147,17 +149,14 @@ export default function MenuPage() {
               }}
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={showHidden}
-              onChange={(e) => {
-                setShowHidden(e.target.checked);
-                setPage(1);
-              }}
-            />
-            Show disabled
-          </label>
+          <Toggle
+            checked={showHidden}
+            onChange={(v) => {
+              setShowHidden(v);
+              setPage(1);
+            }}
+            label="Show disabled"
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -464,18 +463,16 @@ function MenuFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Parent Menu</label>
-              <select
-                className="input"
+              <SearchableSelect
                 value={form.menu_id}
-                onChange={(e) => setForm({ ...form, menu_id: e.target.value })}
-              >
-                <option value="">— None (top-level) —</option>
-                {parents.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.menu_name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, menu_id: v })}
+                options={parents.map((p) => ({
+                  value: String(p.id),
+                  label: p.menu_name,
+                }))}
+                emptyLabel="— None (top-level) —"
+                placeholder="Select parent..."
+              />
               <p className="text-xs text-slate-500 mt-1">
                 Leave empty for a top-level menu.
               </p>

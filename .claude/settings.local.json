@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls src/components/ui/ 2>nul && echo --- && type package.json)",
+      "Bash(ls src/lib)",
+      "Bash(ls src/db)",
+      "Bash(ls scripts *)",
+      "Bash(ls scripts; ls src/types 2>nul)",
+      "Bash(ls migrations *)",
+      "Bash(ls db *)",
+      "Bash(ls sql *)",
+      "Bash(ls .env*)",
+      "Bash(pnpm add *)",
+      "Bash(node_modules/.bin/eslint . --ext .ts,.tsx)"
+    ],
+    "additionalDirectories": [
+      "c:\\next\\erp-admin",
+      "C:\\next\\erp-admin"
+    ]
+  }
+}
