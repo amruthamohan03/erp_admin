@@ -68,19 +68,19 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-100 min-h-screen flex flex-col">
-      <div className="px-6 py-5 border-b border-slate-800">
+    <aside className="flex min-h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
+      <div className="border-b border-sidebar-border px-6 py-5">
         <h2 className="text-lg font-semibold">ERP Admin Panel</h2>
-        <p className="text-xs text-slate-400 mt-0.5">Management Console</p>
+        <p className="mt-0.5 text-xs opacity-70">Management Console</p>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {loading && (
-          <div className="text-xs text-slate-500 px-3 py-2">Loading menu...</div>
+          <div className="text-xs text-sidebar-foreground/50 px-3 py-2">Loading menu...</div>
         )}
 
         {!loading && menus.length === 0 && (
-          <div className="text-xs text-slate-500 px-3 py-2">No menus available</div>
+          <div className="text-xs text-sidebar-foreground/50 px-3 py-2">No menus available</div>
         )}
 
         {!loading && menus.map((item) => {
@@ -99,8 +99,8 @@ export default function Sidebar() {
                 className={clsx(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                   active
-                    ? 'bg-primary-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
@@ -119,8 +119,8 @@ export default function Sidebar() {
                 className={clsx(
                   'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                   groupActive
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    ? 'bg-sidebar-accent/30 text-sidebar-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
@@ -135,7 +135,7 @@ export default function Sidebar() {
               </button>
 
               {isOpen && (
-                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-800 pl-2">
+                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2">
                   {item.children.map((child) => {
                     const childHref = toHref(child.url);
                     const childActive = isActive(pathname, childHref);
@@ -146,8 +146,8 @@ export default function Sidebar() {
                         className={clsx(
                           'flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors',
                           childActive
-                            ? 'bg-primary-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                            : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
                         )}
                       >
                         <Circle className="h-1.5 w-1.5 fill-current opacity-70" />
@@ -163,7 +163,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
+      <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/50">
         v0.1.0
       </div>
     </aside>
@@ -185,7 +185,7 @@ function MenuIcon({
     return <i className={clsx(cls, 'text-base w-4 h-4 inline-flex items-center justify-center')} />;
   }
   if (fallback) {
-    return <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-500" />;
+    return <span className="inline-block h-1.5 w-1.5 rounded-full bg-sidebar-foreground/40" />;
   }
   return null;
 }
@@ -194,7 +194,7 @@ function Badge({ text }: { text: string | null | undefined }) {
   const t = (text || '').trim();
   if (!t) return null;
   return (
-    <span className="text-[10px] uppercase rounded bg-primary-500/20 text-primary-100 px-1.5 py-0.5">
+    <span className="text-[10px] uppercase rounded bg-sidebar-accent/30 text-sidebar-accent-foreground px-1.5 py-0.5">
       {t}
     </span>
   );

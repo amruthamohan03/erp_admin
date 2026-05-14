@@ -10,27 +10,42 @@
     "seed": "node scripts/seed-admin.js"
   },
   "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "bcryptjs": "^2.4.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "jose": "^5.9.6",
+    "lucide-react": "^0.460.0",
     "next": "^16.2.5",
+    "next-themes": "^0.4.6",
+    "pg": "^8.13.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "pg": "^8.13.1",
-    "bcryptjs": "^2.4.3",
-    "jose": "^5.9.6",
-    "zod": "^3.23.8",
-    "lucide-react": "^0.460.0",
-    "clsx": "^2.1.1"
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/pg": "^8.11.10",
-    "@types/bcryptjs": "^2.4.6",
-    "typescript": "^5.7.2",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
     "eslint-config-next": "^16.2.5",
-    "tailwindcss": "^3.4.15",
     "postcss": "^8.4.49",
-    "autoprefixer": "^10.4.20"
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.7.2"
   }
 }

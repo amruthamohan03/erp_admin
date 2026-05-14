@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { User, Role } from '@/types';
 
 export default function UsersPage() {
@@ -263,10 +264,16 @@ function UserFormModal({
           </div>
           <div>
             <label className="label">Role *</label>
-            <select className="input" value={form.role_id}
-              onChange={(e) => setForm({ ...form, role_id: Number(e.target.value) })}>
-              {roles.map((r) => (<option key={r.id} value={r.id}>{r.role_name}</option>))}
-            </select>
+            <SearchableSelect
+              value={String(form.role_id)}
+              onChange={(v) => setForm({ ...form, role_id: Number(v) })}
+              options={roles.map((r) => ({
+                value: String(r.id),
+                label: r.role_name,
+              }))}
+              placeholder="Select role..."
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
