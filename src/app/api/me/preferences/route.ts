@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { usersT, type UserInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -21,37 +23,30 @@ export async function PUT(req: NextRequest) {
     return fail('Invalid input', 422, { errors: parsed.error.flatten() });
   }
 
-  const updates: string[] = [];
-  const params: unknown[] = [];
-  let idx = 1;
+  const patch: Partial<UserInsert> = {};
+  if (parsed.data.theme_preference !== undefined)
+    patch.themePreference = parsed.data.theme_preference;
+  if (parsed.data.locale_preference !== undefined)
+    patch.localePreference = parsed.data.locale_preference;
+  if (parsed.data.email_notifications !== undefined)
+    patch.emailNotifications = parsed.data.email_notifications ? 'Y' : 'N';
+  if (parsed.data.compact_mode !== undefined)
+    patch.compactMode = parsed.data.compact_mode ? 'Y' : 'N';
 
-  if (parsed.data.theme_preference !== undefined) {
-    updates.push(`theme_preference = $${idx++}`);
-    params.push(parsed.data.theme_preference);
-  }
-  if (parsed.data.locale_preference !== undefined) {
-    updates.push(`locale_preference = $${idx++}`);
-    params.push(parsed.data.locale_preference);
-  }
-  if (parsed.data.email_notifications !== undefined) {
-    updates.push(`email_notifications = $${idx++}`);
-    params.push(parsed.data.email_notifications ? 'Y' : 'N');
-  }
-  if (parsed.data.compact_mode !== undefined) {
-    updates.push(`compact_mode = $${idx++}`);
-    params.push(parsed.data.compact_mode ? 'Y' : 'N');
-  }
+  if (Object.keys(patch).length === 0) return fail('No fields to update', 400);
 
-  if (updates.length === 0) return fail('No fields to update', 400);
+  patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
-  updates.push(`updated_at = CURRENT_TIMESTAMP`);
-  params.push(session.uid);
+  const [row] = await db
+    .update(usersT)
+    .set(patch)
+    .where(eq(usersT.id, session.uid))
+    .returning({
+      theme_preference: usersT.themePreference,
+      locale_preference: usersT.localePreference,
+      email_notifications: usersT.emailNotifications,
+      compact_mode: usersT.compactMode,
+    });
 
-  const result = await query(
-    `UPDATE users_t SET ${updates.join(', ')} WHERE id = $${idx}
-       RETURNING theme_preference, locale_preference, email_notifications, compact_mode`,
-    params,
-  );
-
-  return ok(result.rows[0]);
+  return ok(row);
 }

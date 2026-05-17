@@ -1,11 +1,15 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Pool } from 'pg';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '@/db/schema';
 
 declare global {
   // eslint-disable-next-line no-var
   var _pgPool: Pool | undefined;
+  // eslint-disable-next-line no-var
+  var _drizzleDb: NodePgDatabase<typeof schema> | undefined;
 }
 
-const pool =
+export const pool =
   global._pgPool ??
   new Pool({
     host: process.env.PGHOST,
@@ -18,45 +22,20 @@ const pool =
     connectionTimeoutMillis: 20000,
   });
 
+export const db: NodePgDatabase<typeof schema> =
+  global._drizzleDb ??
+  drizzle(pool, {
+    schema,
+    logger: process.env.NODE_ENV !== 'production',
+  });
+
 if (process.env.NODE_ENV !== 'production') {
   global._pgPool = pool;
+  global._drizzleDb = db;
 }
 
-export async function query<T extends QueryResultRow = QueryResultRow>(
-  text: string,
-  params?: unknown[],
-): Promise<QueryResult<T>> {
-  const start = Date.now();
-  try {
-    const res = await pool.query<T>(text, params as never[]);
-    if (process.env.NODE_ENV !== 'production') {
-      const duration = Date.now() - start;
-      // eslint-disable-next-line no-console
-      console.log('[db]', { text: text.slice(0, 80), duration, rows: res.rowCount });
-    }
-    return res;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[db error]', err, { text: text.slice(0, 200) });
-    throw err;
-  }
-}
+export type Database = typeof db;
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-export async function withTransaction<T>(
-  fn: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-export default pool;
+export { schema };
+export default db;

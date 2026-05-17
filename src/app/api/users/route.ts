@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { and, eq, or, ilike, desc, count } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { usersT, roleMaster } from '@/db/schema';
 import { hashPassword, getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -17,30 +19,47 @@ export async function GET(req: NextRequest) {
   );
   const offset = (page - 1) * pageSize;
 
-  const params: unknown[] = [];
-  let where = `WHERE u.display = 'Y'`;
-  if (search) {
-    params.push(`%${search}%`);
-    where += ` AND (u.username ILIKE $${params.length} OR u.full_name ILIKE $${params.length} OR u.email ILIKE $${params.length})`;
-  }
+  const like = search ? `%${search}%` : null;
+  const whereClause = like
+    ? and(
+        eq(usersT.display, 'Y'),
+        or(
+          ilike(usersT.username, like),
+          ilike(usersT.fullName, like),
+          ilike(usersT.email, like),
+        ),
+      )
+    : eq(usersT.display, 'Y');
 
-  const countSql = `SELECT COUNT(*)::int AS total FROM users_t u ${where}`;
-  const countRes = await query<{ total: number }>(countSql, params);
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(usersT)
+    .where(whereClause);
 
-  params.push(pageSize, offset);
-  const dataSql = `
-    SELECT u.id, u.username, u.full_name, u.email, u.mobile, u.role_id,
-           r.role_name, u.profile_image, u.display, u.created_at, u.updated_at
-      FROM users_t u
-      LEFT JOIN role_master_t r ON r.id = u.role_id
-      ${where}
-     ORDER BY u.id DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`;
-  const dataRes = await query(dataSql, params);
+  const items = await db
+    .select({
+      id: usersT.id,
+      username: usersT.username,
+      full_name: usersT.fullName,
+      email: usersT.email,
+      mobile: usersT.mobile,
+      role_id: usersT.roleId,
+      role_name: roleMaster.roleName,
+      profile_image: usersT.profileImage,
+      display: usersT.display,
+      created_at: usersT.createdAt,
+      updated_at: usersT.updatedAt,
+    })
+    .from(usersT)
+    .leftJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
+    .where(whereClause)
+    .orderBy(desc(usersT.id))
+    .limit(pageSize)
+    .offset(offset);
 
   return ok({
-    items: dataRes.rows,
-    total: countRes.rows[0].total,
+    items,
+    total: countRow.total,
     page,
     pageSize,
   });
@@ -70,27 +89,34 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
     const hashed = await hashPassword(data.password);
 
-    const result = await query(
-      `INSERT INTO users_t
-         (username, password, email, mobile, full_name, role_id,
-          location_id, dept_id, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
-       RETURNING id, username, email, full_name, role_id, mobile,
-                 location_id, dept_id, display, created_at`,
-      [
-        data.username,
-        hashed,
-        data.email,
-        data.mobile ?? null,
-        data.full_name,
-        data.role_id,
-        data.location_id ?? null,
-        data.dept_id ?? null,
-        session.uid,
-      ],
-    );
+    const [row] = await db
+      .insert(usersT)
+      .values({
+        username: data.username,
+        password: hashed,
+        email: data.email,
+        mobile: data.mobile ?? null,
+        fullName: data.full_name,
+        roleId: data.role_id,
+        locationId: data.location_id ?? null,
+        deptId: data.dept_id ?? null,
+        createdBy: session.uid,
+        updatedBy: session.uid,
+      })
+      .returning({
+        id: usersT.id,
+        username: usersT.username,
+        email: usersT.email,
+        full_name: usersT.fullName,
+        role_id: usersT.roleId,
+        mobile: usersT.mobile,
+        location_id: usersT.locationId,
+        dept_id: usersT.deptId,
+        display: usersT.display,
+        created_at: usersT.createdAt,
+      });
 
-    return ok(result.rows[0], 201);
+    return ok(row, 201);
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === '23505') return fail('Username or email already exists', 409);

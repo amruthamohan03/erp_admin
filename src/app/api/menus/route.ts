@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db } from '@/lib/db';
+import { menuMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import type { MenuItem, MenuTreeNode } from '@/types/menu';
@@ -13,25 +16,39 @@ export async function GET(req: NextRequest) {
   const flat = searchParams.get('flat') === '1';
   const includeHidden = searchParams.get('includeHidden') === '1';
 
-  const where = includeHidden ? '' : `WHERE m.display = 'Y'`;
-  const result = await query<MenuItem & { parent_name: string | null }>(
-    `SELECT m.id, m.menu_id, m.menu_order, m.menu_level, m.menu_name,
-            m.url, m.text, m.icon, m.badge, m.display,
-            p.menu_name AS parent_name
-       FROM menu_master_t m
-       LEFT JOIN menu_master_t p ON p.id = m.menu_id
-       ${where}
-      ORDER BY m.menu_order ASC, m.id ASC`,
-  );
+  const parent = alias(menuMaster, 'p');
 
-  // Flat list (used by the management page)
+  const baseQuery = db
+    .select({
+      id: menuMaster.id,
+      menu_id: menuMaster.menuId,
+      menu_order: menuMaster.menuOrder,
+      menu_level: menuMaster.menuLevel,
+      menu_name: menuMaster.menuName,
+      url: menuMaster.url,
+      text: menuMaster.text,
+      icon: menuMaster.icon,
+      badge: menuMaster.badge,
+      display: menuMaster.display,
+      parent_name: parent.menuName,
+    })
+    .from(menuMaster)
+    .leftJoin(parent, eq(parent.id, menuMaster.menuId));
+
+  const rows = (await (includeHidden
+    ? baseQuery.orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id))
+    : baseQuery
+        .where(eq(menuMaster.display, 'Y'))
+        .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id)))) as Array<
+    MenuItem & { parent_name: string | null }
+  >;
+
   if (flat) {
-    return ok(result.rows);
+    return ok(rows);
   }
 
-  // Build a 2-level tree (used by the sidebar)
   const byId = new Map<number, MenuTreeNode>();
-  result.rows.forEach((row) => {
+  rows.forEach((row) => {
     byId.set(row.id, { ...row, children: [] });
   });
 
@@ -40,8 +57,8 @@ export async function GET(req: NextRequest) {
     if (node.menu_id == null) {
       tree.push(node);
     } else {
-      const parent = byId.get(node.menu_id);
-      if (parent) parent.children.push(node);
+      const p = byId.get(node.menu_id);
+      if (p) p.children.push(node);
       else tree.push(node);
     }
   }
@@ -79,37 +96,47 @@ export async function POST(req: NextRequest) {
     // Enforce 2-level rule: if parent is given, that parent must itself be top-level.
     let level = 0;
     if (d.menu_id) {
-      const parent = await query<{ menu_level: number | null }>(
-        `SELECT menu_level FROM menu_master_t WHERE id = $1`,
-        [d.menu_id],
-      );
-      if (!parent.rows[0]) return fail('Parent menu not found', 400);
-      if ((parent.rows[0].menu_level ?? 0) >= 1) {
+      const [p] = await db
+        .select({ menuLevel: menuMaster.menuLevel })
+        .from(menuMaster)
+        .where(eq(menuMaster.id, d.menu_id))
+        .limit(1);
+      if (!p) return fail('Parent menu not found', 400);
+      if ((p.menuLevel ?? 0) >= 1) {
         return fail('Only 2 levels of menus are supported', 400);
       }
       level = 1;
     }
 
-    const result = await query(
-      `INSERT INTO menu_master_t
-         (menu_id, menu_order, menu_level, menu_name, url, text, icon, badge,
-          created_by, updated_by, display)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,'Y')
-       RETURNING id, menu_id, menu_order, menu_level, menu_name, url, text, icon, badge, display`,
-      [
-        d.menu_id ?? null,
-        d.menu_order,
-        level,
-        d.menu_name,
-        d.url ?? '#',
-        d.text ?? null,
-        d.icon ?? null,
-        d.badge ?? null,
-        session.uid,
-      ],
-    );
+    const [row] = await db
+      .insert(menuMaster)
+      .values({
+        menuId: d.menu_id ?? null,
+        menuOrder: d.menu_order,
+        menuLevel: level,
+        menuName: d.menu_name,
+        url: d.url ?? '#',
+        text: d.text ?? null,
+        icon: d.icon ?? null,
+        badge: d.badge ?? null,
+        createdBy: session.uid,
+        updatedBy: session.uid,
+        display: 'Y',
+      })
+      .returning({
+        id: menuMaster.id,
+        menu_id: menuMaster.menuId,
+        menu_order: menuMaster.menuOrder,
+        menu_level: menuMaster.menuLevel,
+        menu_name: menuMaster.menuName,
+        url: menuMaster.url,
+        text: menuMaster.text,
+        icon: menuMaster.icon,
+        badge: menuMaster.badge,
+        display: menuMaster.display,
+      });
 
-    return ok(result.rows[0], 201);
+    return ok(row, 201);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[menus.POST]', err);
