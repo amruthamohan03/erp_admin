@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db } from '@/lib/db';
+import { roleMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -8,17 +11,27 @@ export async function GET() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const result = await query(
-    `SELECT r.id, r.role_name, r.parent_role_id, p.role_name AS parent_role_name,
-            r.approval_level, r.department, r.management, r.finance,
-            r.display, r.created_at, r.updated_at
-       FROM role_master_t r
-       LEFT JOIN role_master_t p ON p.id = r.parent_role_id
-      WHERE r.display = 'Y'
-      ORDER BY r.id ASC`,
-  );
+  const parent = alias(roleMaster, 'p');
+  const rows = await db
+    .select({
+      id: roleMaster.id,
+      role_name: roleMaster.roleName,
+      parent_role_id: roleMaster.parentRoleId,
+      parent_role_name: parent.roleName,
+      approval_level: roleMaster.approvalLevel,
+      department: roleMaster.department,
+      management: roleMaster.management,
+      finance: roleMaster.finance,
+      display: roleMaster.display,
+      created_at: roleMaster.createdAt,
+      updated_at: roleMaster.updatedAt,
+    })
+    .from(roleMaster)
+    .leftJoin(parent, eq(parent.id, roleMaster.parentRoleId))
+    .where(eq(roleMaster.display, 'Y'))
+    .orderBy(asc(roleMaster.id));
 
-  return ok(result.rows);
+  return ok(rows);
 }
 
 const createSchema = z.object({
@@ -42,25 +55,31 @@ export async function POST(req: NextRequest) {
     }
     const d = parsed.data;
 
-    const result = await query(
-      `INSERT INTO role_master_t
-         (role_name, parent_role_id, approval_level, department, management, finance,
-          created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
-       RETURNING id, role_name, parent_role_id, approval_level, department,
-                 management, finance, display, created_at`,
-      [
-        d.role_name,
-        d.parent_role_id ?? null,
-        d.approval_level ?? null,
-        d.department,
-        d.management,
-        d.finance,
-        session.uid,
-      ],
-    );
+    const [row] = await db
+      .insert(roleMaster)
+      .values({
+        roleName: d.role_name,
+        parentRoleId: d.parent_role_id ?? null,
+        approvalLevel: d.approval_level ?? null,
+        department: d.department,
+        management: d.management,
+        finance: d.finance,
+        createdBy: session.uid,
+        updatedBy: session.uid,
+      })
+      .returning({
+        id: roleMaster.id,
+        role_name: roleMaster.roleName,
+        parent_role_id: roleMaster.parentRoleId,
+        approval_level: roleMaster.approvalLevel,
+        department: roleMaster.department,
+        management: roleMaster.management,
+        finance: roleMaster.finance,
+        display: roleMaster.display,
+        created_at: roleMaster.createdAt,
+      });
 
-    return ok(result.rows[0], 201);
+    return ok(row, 201);
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === '23503') return fail('Invalid parent_role_id', 400);

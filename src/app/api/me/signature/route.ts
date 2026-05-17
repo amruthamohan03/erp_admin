@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
-import { query } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { usersT } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import { deleteUploadIfLocal, saveUploadedImage, UploadError } from '@/lib/storage';
@@ -13,10 +15,11 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return fail('No file uploaded', 400);
 
   try {
-    const existing = await query<{ signature_image: string | null }>(
-      `SELECT signature_image FROM users_t WHERE id = $1`,
-      [session.uid],
-    );
+    const [existing] = await db
+      .select({ signature_image: usersT.signatureImage })
+      .from(usersT)
+      .where(eq(usersT.id, session.uid))
+      .limit(1);
 
     const saved = await saveUploadedImage(file, {
       bucket: 'signatures',
@@ -24,11 +27,15 @@ export async function POST(req: NextRequest) {
       maxBytes: 1 * 1024 * 1024,
     });
 
-    await query(
-      `UPDATE users_t SET signature_image = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-      [saved.url, session.uid],
-    );
-    await deleteUploadIfLocal(existing.rows[0]?.signature_image);
+    await db
+      .update(usersT)
+      .set({
+        signatureImage: saved.url,
+        updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
+      })
+      .where(eq(usersT.id, session.uid));
+
+    await deleteUploadIfLocal(existing?.signature_image ?? null);
 
     return ok({ signature_image: saved.url });
   } catch (err) {
@@ -43,16 +50,21 @@ export async function DELETE() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const existing = await query<{ signature_image: string | null }>(
-    `SELECT signature_image FROM users_t WHERE id = $1`,
-    [session.uid],
-  );
+  const [existing] = await db
+    .select({ signature_image: usersT.signatureImage })
+    .from(usersT)
+    .where(eq(usersT.id, session.uid))
+    .limit(1);
 
-  await query(
-    `UPDATE users_t SET signature_image = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-    [session.uid],
-  );
-  await deleteUploadIfLocal(existing.rows[0]?.signature_image);
+  await db
+    .update(usersT)
+    .set({
+      signatureImage: null,
+      updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
+    })
+    .where(eq(usersT.id, session.uid));
+
+  await deleteUploadIfLocal(existing?.signature_image ?? null);
 
   return ok({ signature_image: null });
 }

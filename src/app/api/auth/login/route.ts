@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { usersT, roleMaster } from '@/db/schema';
 import { verifyPassword, signToken, setAuthCookie } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -8,17 +10,6 @@ const schema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
 });
-
-interface UserRow {
-  id: number;
-  username: string;
-  password: string;
-  full_name: string;
-  email: string;
-  role_id: number;
-  role_name: string;
-  display: string;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,17 +19,22 @@ export async function POST(req: NextRequest) {
 
     const { username, password } = parsed.data;
 
-    const result = await query<UserRow>(
-      `SELECT u.id, u.username, u.password, u.full_name, u.email, u.role_id,
-              u.display, r.role_name
-         FROM users_t u
-         JOIN role_master_t r ON r.id = u.role_id
-        WHERE u.username = $1
-        LIMIT 1`,
-      [username],
-    );
+    const [user] = await db
+      .select({
+        id: usersT.id,
+        username: usersT.username,
+        password: usersT.password,
+        full_name: usersT.fullName,
+        email: usersT.email,
+        role_id: usersT.roleId,
+        display: usersT.display,
+        role_name: roleMaster.roleName,
+      })
+      .from(usersT)
+      .innerJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
+      .where(eq(usersT.username, username))
+      .limit(1);
 
-    const user = result.rows[0];
     if (!user) return fail('Invalid credentials', 401);
     if (user.display !== 'Y') return fail('Account is disabled', 403);
 

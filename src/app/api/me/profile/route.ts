@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { usersT, roleMaster, type UserInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -8,20 +10,29 @@ export async function GET() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const result = await query(
-    `SELECT u.id, u.username, u.full_name, u.email, u.mobile, u.role_id,
-            r.role_name, u.profile_image, u.signature_image, u.bio,
-            u.theme_preference, u.locale_preference,
-            u.email_notifications, u.compact_mode
-       FROM users_t u
-       JOIN role_master_t r ON r.id = u.role_id
-      WHERE u.id = $1`,
-    [session.uid],
-  );
+  const [user] = await db
+    .select({
+      id: usersT.id,
+      username: usersT.username,
+      full_name: usersT.fullName,
+      email: usersT.email,
+      mobile: usersT.mobile,
+      role_id: usersT.roleId,
+      role_name: roleMaster.roleName,
+      profile_image: usersT.profileImage,
+      signature_image: usersT.signatureImage,
+      bio: usersT.bio,
+      theme_preference: usersT.themePreference,
+      locale_preference: usersT.localePreference,
+      email_notifications: usersT.emailNotifications,
+      compact_mode: usersT.compactMode,
+    })
+    .from(usersT)
+    .innerJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
+    .where(eq(usersT.id, session.uid))
+    .limit(1);
 
-  const user = result.rows[0];
   if (!user) return fail('User not found', 404);
-
   return ok(user);
 }
 
@@ -43,30 +54,30 @@ export async function PUT(req: NextRequest) {
       return fail('Invalid input', 422, { errors: parsed.error.flatten() });
     }
 
-    const updates: string[] = [];
-    const params: unknown[] = [];
-    let idx = 1;
+    const patch: Partial<UserInsert> = {};
+    if (parsed.data.full_name !== undefined) patch.fullName = parsed.data.full_name;
+    if (parsed.data.email !== undefined) patch.email = parsed.data.email;
+    if (parsed.data.mobile !== undefined) patch.mobile = parsed.data.mobile;
+    if (parsed.data.bio !== undefined) patch.bio = parsed.data.bio;
 
-    for (const [key, value] of Object.entries(parsed.data)) {
-      if (value === undefined) continue;
-      updates.push(`${key} = $${idx++}`);
-      params.push(value);
-    }
+    if (Object.keys(patch).length === 0) return fail('No fields to update', 400);
 
-    if (updates.length === 0) {
-      return fail('No fields to update', 400);
-    }
+    patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
-    updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    params.push(session.uid);
+    const [row] = await db
+      .update(usersT)
+      .set(patch)
+      .where(eq(usersT.id, session.uid))
+      .returning({
+        id: usersT.id,
+        username: usersT.username,
+        full_name: usersT.fullName,
+        email: usersT.email,
+        mobile: usersT.mobile,
+        bio: usersT.bio,
+      });
 
-    const result = await query(
-      `UPDATE users_t SET ${updates.join(', ')} WHERE id = $${idx}
-         RETURNING id, username, full_name, email, mobile, bio`,
-      params,
-    );
-
-    return ok(result.rows[0]);
+    return ok(row);
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === '23505') return fail('Email already in use', 409);
