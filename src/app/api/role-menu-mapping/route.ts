@@ -1,0 +1,173 @@
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db } from '@/lib/db';
+import { menuMaster, roleMaster, roleMenuMapping } from '@/db/schema';
+import { getSession } from '@/lib/auth';
+import { ok, fail } from '@/lib/api';
+
+// GET /api/role-menu-mapping?role_id=N
+// Returns every active menu row joined with its (possibly absent) mapping for the role.
+// Missing mapping rows surface as all-false permission flags so the UI can render the matrix.
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return fail('Unauthorized', 401);
+
+  const { searchParams } = new URL(req.url);
+  const roleIdParam = searchParams.get('role_id');
+  if (!roleIdParam) return fail('role_id is required', 400);
+  const roleId = Number(roleIdParam);
+  if (!Number.isInteger(roleId) || roleId <= 0) {
+    return fail('role_id must be a positive integer', 400);
+  }
+
+  // Reject unknown role early so the UI gets a clean error.
+  const [role] = await db
+    .select({ id: roleMaster.id })
+    .from(roleMaster)
+    .where(and(eq(roleMaster.id, roleId), eq(roleMaster.display, 'Y')))
+    .limit(1);
+  if (!role) return fail('Role not found', 404);
+
+  const parent = alias(menuMaster, 'p');
+  const rows = await db
+    .select({
+      menu_id: menuMaster.id,
+      menu_parent_id: menuMaster.menuId,
+      menu_name: menuMaster.menuName,
+      menu_level: menuMaster.menuLevel,
+      menu_order: menuMaster.menuOrder,
+      url: menuMaster.url,
+      icon: menuMaster.icon,
+      parent_name: parent.menuName,
+      can_view: roleMenuMapping.canView,
+      can_add: roleMenuMapping.canAdd,
+      can_edit: roleMenuMapping.canEdit,
+      can_delete: roleMenuMapping.canDelete,
+      can_approve: roleMenuMapping.canApprove,
+    })
+    .from(menuMaster)
+    .leftJoin(parent, eq(parent.id, menuMaster.menuId))
+    .leftJoin(
+      roleMenuMapping,
+      and(
+        eq(roleMenuMapping.menuId, menuMaster.id),
+        eq(roleMenuMapping.roleId, roleId),
+      ),
+    )
+    .where(eq(menuMaster.display, 'Y'))
+    .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id));
+
+  const data = rows.map((r) => ({
+    ...r,
+    can_view: r.can_view ?? false,
+    can_add: r.can_add ?? false,
+    can_edit: r.can_edit ?? false,
+    can_delete: r.can_delete ?? false,
+    can_approve: r.can_approve ?? false,
+  }));
+
+  return ok({ role_id: roleId, menus: data });
+}
+
+const mappingRow = z.object({
+  menu_id: z.number().int().positive(),
+  can_view: z.boolean().default(false),
+  can_add: z.boolean().default(false),
+  can_edit: z.boolean().default(false),
+  can_delete: z.boolean().default(false),
+  can_approve: z.boolean().default(false),
+});
+
+const putSchema = z.object({
+  role_id: z.number().int().positive(),
+  mappings: z.array(mappingRow),
+});
+
+// PUT /api/role-menu-mapping
+// Bulk upsert for one role. Rows where every permission is false are deleted
+// to keep the mapping table free of all-zero junk.
+export async function PUT(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return fail('Unauthorized', 401);
+
+  try {
+    const body = await req.json();
+    const parsed = putSchema.safeParse(body);
+    if (!parsed.success) {
+      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
+    }
+    const { role_id, mappings } = parsed.data;
+
+    const [role] = await db
+      .select({ id: roleMaster.id })
+      .from(roleMaster)
+      .where(eq(roleMaster.id, role_id))
+      .limit(1);
+    if (!role) return fail('Role not found', 404);
+
+    const grant = mappings.filter(
+      (m) =>
+        m.can_view || m.can_add || m.can_edit || m.can_delete || m.can_approve,
+    );
+    const revoke = mappings
+      .filter(
+        (m) =>
+          !m.can_view &&
+          !m.can_add &&
+          !m.can_edit &&
+          !m.can_delete &&
+          !m.can_approve,
+      )
+      .map((m) => m.menu_id);
+
+    await db.transaction(async (tx) => {
+      if (revoke.length > 0) {
+        await tx.execute(
+          sql`delete from ${roleMenuMapping}
+              where ${roleMenuMapping.roleId} = ${role_id}
+                and ${roleMenuMapping.menuId} = any(${revoke})`,
+        );
+      }
+
+      if (grant.length === 0) return;
+
+      const values = grant.map((m) => ({
+        roleId: role_id,
+        menuId: m.menu_id,
+        canView: m.can_view,
+        canAdd: m.can_add,
+        canEdit: m.can_edit,
+        canDelete: m.can_delete,
+        canApprove: m.can_approve,
+        createdBy: session.uid,
+        updatedBy: session.uid,
+      }));
+
+      await tx
+        .insert(roleMenuMapping)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [roleMenuMapping.roleId, roleMenuMapping.menuId],
+          set: {
+            canView: sql`excluded.can_view`,
+            canAdd: sql`excluded.can_add`,
+            canEdit: sql`excluded.can_edit`,
+            canDelete: sql`excluded.can_delete`,
+            canApprove: sql`excluded.can_approve`,
+            updatedBy: session.uid,
+            updatedAt: sql`now()`,
+          },
+        });
+    });
+
+    return ok({ role_id, saved: grant.length, removed: revoke.length });
+  } catch (err: unknown) {
+    const e = err as { code?: string };
+    if (e.code === '23503') return fail('Invalid role_id or menu_id', 400);
+    // eslint-disable-next-line no-console
+    console.error('[role-menu-mapping.PUT]', err);
+    return fail('Server error', 500);
+  }
+}

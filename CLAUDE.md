@@ -91,6 +91,29 @@ Workflow transitions live in `master_workflow` + `master_workflow_transition`. A
 ### 4.8 Reusable components
 UI components in `src/components/` are pure and config-driven. Module-specific composition lives in `src/modules/<module>/`. If you're about to copy a component, refactor instead.
 
+### 4.9 List pages — search & pagination
+**Every page that renders a table of rows must have a search box and a pagination footer.** No exceptions for "it's only a few rows" — the table grows, and inconsistent UX between masters is worse than a footer on a 3-row table.
+
+Two shared primitives drive this. Use them; do not hand-roll the state or the footer markup.
+
+- **Hook**: [src/lib/hooks/usePagedList.ts](src/lib/hooks/usePagedList.ts) — `usePagedList(items, { initialPageSize? })`. Returns `{ page, setPage, pageSize, setPageSize, totalRows, totalPages, startIndex, paged, mounted, resetPage }`. Pure client-side pagination over an already-filtered array (callers do their own search with `useMemo`).
+- **Footer**: [src/components/ui/PaginationFooter.tsx](src/components/ui/PaginationFooter.tsx) — renders rows-per-page selector, "Showing X–Y of Z", and first/prev/next/last buttons. Gates itself on `mounted` to avoid SSR hydration mismatch.
+
+**Required elements on every list page:**
+1. Search `<input>` above the table with a `<Search />` icon — placeholder lists the fields searched (e.g. `"Search name, url, parent..."`). Search handler calls `resetPage()` so a fresh filter starts on page 1.
+2. Serial-number `#` column as the first table column, computed from `startIndex + idx + 1`. **Do not show the raw DB `id`** in this column — it leaks primary keys and changes meaning when filters are applied.
+3. `<PaginationFooter />` at the bottom of the card, outside the `overflow-x-auto` table wrapper.
+
+**Client-side vs server-side pagination:**
+- **Client-side** (default — full list fits in one fetch): use `usePagedList(filtered)`. The hook handles everything. Reference: [src/app/masters/menu/page.tsx](src/app/masters/menu/page.tsx).
+- **Server-side** (large tables, e.g. users / transactions): keep your own `page` / `pageSize` / `total` / `mounted` state and call `<PaginationFooter />` directly. The API endpoint accepts `?page=&pageSize=&q=`, returns `{ items, total, page, pageSize }`. Reference: [src/app/masters/users/page.tsx](src/app/masters/users/page.tsx).
+
+**Picking server vs client:** if a `SELECT count(*)` over the unfiltered list could exceed ~500 rows, go server-side. Otherwise client-side keeps the UI snappier (no round trip on every filter keystroke).
+
+`PAGE_SIZE_OPTIONS` is exported from the hook file. Don't redefine it locally — that's how the options drift apart across pages.
+
+For **editable matrices** (e.g. [src/app/mapping/roletomenu/page.tsx](src/app/mapping/roletomenu/page.tsx)) where the user toggles cells across pages and saves at the end: keep the full edited state in a single `rows` array; let pagination/search slice only the *displayed* view. The save payload always sends the entire `rows` array, regardless of what's currently filtered or paged. Column-header "select all" checkboxes should scope to the **filtered** set, not the paged set, so a user can scope a bulk toggle with the search box.
+
 ---
 
 ## 5. Directory layout

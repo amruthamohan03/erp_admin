@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1779085361096,
+      "tag": "0000_add_role_menu_mapping",
+      "breakpoints": true
+    }
+  ]
+}

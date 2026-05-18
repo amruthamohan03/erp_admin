@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import PaginationFooter from '@/components/ui/PaginationFooter';
 import type { User, Role } from '@/types';
 
 export default function UsersPage() {
@@ -11,11 +12,18 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
-  const pageSize = 10;
+
+  // Hydration guard for the pagination footer (matches the convention in
+  // src/components/ui/PaginationFooter.tsx).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,7 +42,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, pageSize, search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -57,6 +65,7 @@ export default function UsersPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize;
 
   return (
     <DashboardShell>
@@ -84,7 +93,7 @@ export default function UsersPage() {
           <table className="table-base">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="w-16">#</th>
                 <th>Username</th>
                 <th>Full Name</th>
                 <th>Email</th>
@@ -96,9 +105,9 @@ export default function UsersPage() {
             <tbody>
               {loading && (<tr><td colSpan={7} className="text-center text-slate-500 py-8">Loading...</td></tr>)}
               {!loading && items.length === 0 && (<tr><td colSpan={7} className="text-center text-slate-500 py-8">No users found</td></tr>)}
-              {!loading && items.map((u) => (
+              {!loading && items.map((u, idx) => (
                 <tr key={u.id} className="hover:bg-slate-50">
-                  <td>{u.id}</td>
+                  <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
                   <td className="font-medium">{u.username}</td>
                   <td>{u.full_name}</td>
                   <td>{u.email}</td>
@@ -122,14 +131,19 @@ export default function UsersPage() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between p-4 border-t border-slate-200 text-sm">
-          <div className="text-slate-500">Showing {items.length} of {total}</div>
-          <div className="flex gap-2">
-            <button className="btn-secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
-            <span className="px-3 py-2">{page} / {totalPages}</span>
-            <button className="btn-secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
-          </div>
-        </div>
+        <PaginationFooter
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={(n) => {
+            setPageSize(n);
+            setPage(1);
+          }}
+          totalRows={total}
+          totalPages={totalPages}
+          startIndex={startIndex}
+          mounted={mounted}
+        />
       </div>
 
       {showCreate && (

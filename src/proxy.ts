@@ -59,5 +59,10 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|uploads).*)'],
+  // Skip middleware for Next internals, /uploads, and any static asset in /public
+  // (matched by extension). Without the extension exclusion, files like
+  // /login-bg.jpg get auth-redirected and the login page can't load its own image.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|avif)).*)',
+  ],
 };
