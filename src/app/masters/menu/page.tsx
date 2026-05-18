@@ -1,29 +1,17 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  Plus,
-  Search,
-  Trash2,
-  Edit2,
-  X,
-  Eye,
-  EyeOff,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, Eye, EyeOff } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import PaginationFooter from '@/components/ui/PaginationFooter';
+import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MenuItem } from '@/types/menu';
 
 interface MenuRow extends MenuItem {
   parent_name: string | null;
 }
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuRow[]>([]);
@@ -32,18 +20,6 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<MenuRow | null>(null);
-
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  // Hydration guard: pagination renders only after client mount,
-  // so SSR HTML never contains the <button disabled=...> attributes
-  // that React's hydration check was complaining about.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,7 +44,6 @@ export default function MenuPage() {
     [items],
   );
 
-  // Filter, then paginate.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
@@ -80,21 +55,18 @@ export default function MenuPage() {
     );
   }, [items, search]);
 
-  const totalRows = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-
-  // Clamp page when filter/pageSize changes
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
-  const paged = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
-
-  // Serial number offset for the first row on this page
-  const startIndex = (page - 1) * pageSize;
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalRows,
+    totalPages,
+    startIndex,
+    paged,
+    mounted,
+    resetPage,
+  } = usePagedList(filtered);
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this menu? Children must be disabled first.')) return;
@@ -145,7 +117,7 @@ export default function MenuPage() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1); // reset to first page on search
+                resetPage();
               }}
             />
           </div>
@@ -153,7 +125,7 @@ export default function MenuPage() {
             checked={showHidden}
             onChange={(v) => {
               setShowHidden(v);
-              setPage(1);
+              resetPage();
             }}
             label="Show disabled"
           />
@@ -273,77 +245,16 @@ export default function MenuPage() {
           </table>
         </div>
 
-        {/* Pagination footer — gated on mounted to avoid SSR hydration mismatch */}
-        {mounted ? (
-        <div className="flex items-center justify-between p-4 border-t border-slate-200 text-sm flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-slate-500">
-              {totalRows === 0
-                ? '0 results'
-                : `Showing ${startIndex + 1}–${Math.min(startIndex + pageSize, totalRows)} of ${totalRows}`}
-            </span>
-            <span className="text-slate-300">|</span>
-            <label className="flex items-center gap-2 text-slate-600">
-              Rows per page:
-              <select
-                className="input py-1 px-2 w-auto"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              className="btn-secondary px-2 py-1"
-              disabled={page === 1}
-              onClick={() => setPage(1)}
-              title="First page"
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </button>
-            <button
-              className="btn-secondary px-2 py-1"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              title="Previous page"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="px-3 py-1 text-slate-700">
-              Page <strong>{page}</strong> of <strong>{totalPages}</strong>
-            </span>
-            <button
-              className="btn-secondary px-2 py-1"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              title="Next page"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              className="btn-secondary px-2 py-1"
-              disabled={page >= totalPages}
-              onClick={() => setPage(totalPages)}
-              title="Last page"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        ) : (
-          // Placeholder on SSR / pre-hydration: same vertical space, no buttons.
-          <div className="h-[60px] border-t border-slate-200" />
-        )}
+        <PaginationFooter
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          totalRows={totalRows}
+          totalPages={totalPages}
+          startIndex={startIndex}
+          mounted={mounted}
+        />
       </div>
 
       {showCreate && (

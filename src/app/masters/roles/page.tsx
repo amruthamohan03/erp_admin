@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import PaginationFooter from '@/components/ui/PaginationFooter';
+import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
@@ -25,6 +28,29 @@ export default function RolesPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return roles;
+    return roles.filter(
+      (r) =>
+        r.role_name?.toLowerCase().includes(q) ||
+        r.parent_role_name?.toLowerCase().includes(q),
+    );
+  }, [roles, search]);
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalRows,
+    totalPages,
+    startIndex,
+    paged,
+    mounted,
+    resetPage,
+  } = usePagedList(filtered);
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this role?')) return;
@@ -46,44 +72,72 @@ export default function RolesPage() {
         </button>
       </div>
 
-      <div className="card overflow-x-auto">
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Role Name</th>
-              <th>Parent</th>
-              <th>Approval Level</th>
-              <th>Department</th>
-              <th>Management</th>
-              <th>Finance</th>
-              <th className="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (<tr><td colSpan={8} className="text-center text-slate-500 py-8">Loading...</td></tr>)}
-            {!loading && roles.length === 0 && (<tr><td colSpan={8} className="text-center text-slate-500 py-8">No roles</td></tr>)}
-            {!loading && roles.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50">
-                <td>{r.id}</td>
-                <td className="font-medium">{r.role_name}</td>
-                <td>{r.parent_role_name || '-'}</td>
-                <td>{r.approval_level ?? '-'}</td>
-                <td><Flag on={!!r.department} /></td>
-                <td><Flag on={!!r.management} /></td>
-                <td><Flag on={!!r.finance} /></td>
-                <td className="text-right">
-                  <button onClick={() => setEditing(r)} className="text-slate-500 hover:text-primary-600 p-1" title="Edit">
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => handleDelete(r.id)} className="text-slate-500 hover:text-red-600 p-1 ml-1" title="Disable">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
+      <div className="card">
+        <div className="p-4 border-b border-slate-200">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              className="input pl-9"
+              placeholder="Search role, parent..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                resetPage();
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th className="w-16">#</th>
+                <th>Role Name</th>
+                <th>Parent</th>
+                <th>Approval Level</th>
+                <th>Department</th>
+                <th>Management</th>
+                <th>Finance</th>
+                <th className="text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && (<tr><td colSpan={8} className="text-center text-slate-500 py-8">Loading...</td></tr>)}
+              {!loading && paged.length === 0 && (<tr><td colSpan={8} className="text-center text-slate-500 py-8">No roles found</td></tr>)}
+              {!loading && paged.map((r, idx) => (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                  <td className="font-medium">{r.role_name}</td>
+                  <td>{r.parent_role_name || '-'}</td>
+                  <td>{r.approval_level ?? '-'}</td>
+                  <td><Flag on={!!r.department} /></td>
+                  <td><Flag on={!!r.management} /></td>
+                  <td><Flag on={!!r.finance} /></td>
+                  <td className="text-right">
+                    <button onClick={() => setEditing(r)} className="text-slate-500 hover:text-primary-600 p-1" title="Edit">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleDelete(r.id)} className="text-slate-500 hover:text-red-600 p-1 ml-1" title="Disable">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <PaginationFooter
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          totalRows={totalRows}
+          totalPages={totalPages}
+          startIndex={startIndex}
+          mounted={mounted}
+        />
       </div>
 
       {showCreate && (
