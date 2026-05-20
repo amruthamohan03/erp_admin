@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { menuMaster, roleMaster, roleMenuMapping } from '@/db/schema';
@@ -124,11 +124,14 @@ export async function PUT(req: NextRequest) {
 
     await db.transaction(async (tx) => {
       if (revoke.length > 0) {
-        await tx.execute(
-          sql`delete from ${roleMenuMapping}
-              where ${roleMenuMapping.roleId} = ${role_id}
-                and ${roleMenuMapping.menuId} = any(${revoke})`,
-        );
+        await tx
+          .delete(roleMenuMapping)
+          .where(
+            and(
+              eq(roleMenuMapping.roleId, role_id),
+              inArray(roleMenuMapping.menuId, revoke),
+            ),
+          );
       }
 
       if (grant.length === 0) return;

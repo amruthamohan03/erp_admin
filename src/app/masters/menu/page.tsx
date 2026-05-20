@@ -24,7 +24,7 @@ export default function MenuPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ flat: '1' });
+      const params = new URLSearchParams({ flat: '1', all: '1' });
       if (showHidden) params.set('includeHidden', '1');
       const res = await fetch(`/api/menus?${params}`);
       const json = await res.json();
