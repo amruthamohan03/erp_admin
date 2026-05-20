@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, eq, or, ilike, desc, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { usersT, roleMaster } from '@/db/schema';
+import { usersT } from '@/db/schema';
 import { hashPassword, getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -31,31 +31,44 @@ export async function GET(req: NextRequest) {
       )
     : eq(usersT.display, 'Y');
 
-  const [countRow] = await db
-    .select({ total: count() })
-    .from(usersT)
-    .where(whereClause);
+  const [rows, [countRow]] = await Promise.all([
+    db.query.usersT.findMany({
+      where: whereClause,
+      columns: {
+        id: true,
+        username: true,
+        fullName: true,
+        email: true,
+        mobile: true,
+        roleId: true,
+        profileImage: true,
+        display: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      with: {
+        role: { columns: { roleName: true } },
+      },
+      orderBy: [desc(usersT.id)],
+      limit: pageSize,
+      offset,
+    }),
+    db.select({ total: count() }).from(usersT).where(whereClause),
+  ]);
 
-  const items = await db
-    .select({
-      id: usersT.id,
-      username: usersT.username,
-      full_name: usersT.fullName,
-      email: usersT.email,
-      mobile: usersT.mobile,
-      role_id: usersT.roleId,
-      role_name: roleMaster.roleName,
-      profile_image: usersT.profileImage,
-      display: usersT.display,
-      created_at: usersT.createdAt,
-      updated_at: usersT.updatedAt,
-    })
-    .from(usersT)
-    .leftJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
-    .where(whereClause)
-    .orderBy(desc(usersT.id))
-    .limit(pageSize)
-    .offset(offset);
+  const items = rows.map((u) => ({
+    id: u.id,
+    username: u.username,
+    full_name: u.fullName,
+    email: u.email,
+    mobile: u.mobile,
+    role_id: u.roleId,
+    role_name: u.role?.roleName ?? null,
+    profile_image: u.profileImage,
+    display: u.display,
+    created_at: u.createdAt,
+    updated_at: u.updatedAt,
+  }));
 
   return ok({
     items,

@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { dashboardCardMaster, roleDashboardCardMapping } from '@/db/schema';
+import { roleDashboardCardMapping } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -11,42 +11,34 @@ export async function GET() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const rows = await db
-    .select({
-      id: dashboardCardMaster.id,
-      card_key: dashboardCardMaster.cardKey,
-      card_content_id: dashboardCardMaster.cardContentId,
-      card_title: dashboardCardMaster.cardTitle,
-      card_subtitle: dashboardCardMaster.cardSubtitle,
-      card_icon: dashboardCardMaster.cardIcon,
-      card_color: dashboardCardMaster.cardColor,
-      card_url: dashboardCardMaster.cardUrl,
-      card_category: dashboardCardMaster.cardCategory,
-      data_source: dashboardCardMaster.dataSource,
-      default_order: dashboardCardMaster.cardOrder,
-      role_order: roleDashboardCardMapping.cardOrder,
-    })
-    .from(roleDashboardCardMapping)
-    .innerJoin(
-      dashboardCardMaster,
-      eq(dashboardCardMaster.id, roleDashboardCardMapping.cardId),
-    )
-    .where(
-      and(
-        eq(roleDashboardCardMapping.roleId, session.role_id),
-        eq(roleDashboardCardMapping.isVisible, true),
-        eq(dashboardCardMaster.display, 'Y'),
-      ),
-    )
-    .orderBy(
-      asc(roleDashboardCardMapping.cardOrder),
-      asc(dashboardCardMaster.cardOrder),
-      asc(dashboardCardMaster.id),
-    );
+  const rows = await db.query.roleDashboardCardMapping.findMany({
+    where: and(
+      eq(roleDashboardCardMapping.roleId, session.role_id),
+      eq(roleDashboardCardMapping.isVisible, true),
+    ),
+    columns: { cardOrder: true },
+    with: {
+      card: true,
+    },
+    orderBy: [asc(roleDashboardCardMapping.cardOrder)],
+  });
 
-  const visible = rows.map(
-    ({ default_order: _d, role_order: _r, ...rest }) => rest,
-  );
+  // Hide cards the master has disabled, then expose only the columns the
+  // dashboard actually renders.
+  const visible = rows
+    .filter((r) => r.card && r.card.display === 'Y')
+    .map((r) => ({
+      id: r.card.id,
+      card_key: r.card.cardKey,
+      card_content_id: r.card.cardContentId,
+      card_title: r.card.cardTitle,
+      card_subtitle: r.card.cardSubtitle,
+      card_icon: r.card.cardIcon,
+      card_color: r.card.cardColor,
+      card_url: r.card.cardUrl,
+      card_category: r.card.cardCategory,
+      data_source: r.card.dataSource,
+    }));
 
   return ok(visible);
 }

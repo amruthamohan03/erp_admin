@@ -18,5 +18,8 @@ public/uploads/profiles/*
 !public/uploads/profiles/.gitkeep
 public/uploads/signatures/*
 !public/uploads/signatures/.gitkeep
+public/uploads/branding/*
+!public/uploads/branding/.gitkeep
 
 next-env.d.ts
+tsconfig.tsbuildinfo

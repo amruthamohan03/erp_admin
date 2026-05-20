@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { and, asc, eq } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { menuMaster, roleMenuMapping } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -19,70 +18,62 @@ export async function GET(req: NextRequest) {
   // every other caller (sidebar, etc.) gets the role-scoped view.
   const all = searchParams.get('all') === '1';
 
-  const parent = alias(menuMaster, 'p');
+  const rows = await db.query.menuMaster.findMany({
+    where: includeHidden ? undefined : eq(menuMaster.display, 'Y'),
+    with: {
+      parent: { columns: { menuName: true } },
+      // Always loaded so we can compute role-scoped filtering below without
+      // a second round-trip. Filtered to the user's role.
+      roleMappings: {
+        where: eq(roleMenuMapping.roleId, session.role_id),
+        columns: { canView: true },
+      },
+    },
+    orderBy: [asc(menuMaster.menuOrder), asc(menuMaster.id)],
+  });
 
-  const baseQuery = db
-    .select({
-      id: menuMaster.id,
-      menu_id: menuMaster.menuId,
-      menu_order: menuMaster.menuOrder,
-      menu_level: menuMaster.menuLevel,
-      menu_name: menuMaster.menuName,
-      url: menuMaster.url,
-      text: menuMaster.text,
-      icon: menuMaster.icon,
-      badge: menuMaster.badge,
-      display: menuMaster.display,
-      parent_name: parent.menuName,
-      can_view: roleMenuMapping.canView,
-    })
-    .from(menuMaster)
-    .leftJoin(parent, eq(parent.id, menuMaster.menuId))
-    .leftJoin(
-      roleMenuMapping,
-      and(
-        eq(roleMenuMapping.menuId, menuMaster.id),
-        eq(roleMenuMapping.roleId, session.role_id),
-      ),
-    );
-
-  type RowWithView = MenuItem & {
+  type FlatRow = MenuItem & {
     parent_name: string | null;
-    can_view: boolean | null;
+    can_view: boolean;
   };
 
-  const allRows = (await (includeHidden
-    ? baseQuery.orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id))
-    : baseQuery
-        .where(eq(menuMaster.display, 'Y'))
-        .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id)))) as RowWithView[];
+  const allFlat: FlatRow[] = rows.map((r) => ({
+    id: r.id,
+    menu_id: r.menuId,
+    menu_order: r.menuOrder,
+    menu_level: r.menuLevel,
+    menu_name: r.menuName,
+    url: r.url ?? '#',
+    text: r.text,
+    icon: r.icon,
+    badge: r.badge,
+    display: r.display as 'Y' | 'N',
+    parent_name: r.parent?.menuName ?? null,
+    can_view: r.roleMappings.some((m) => m.canView),
+  }));
 
   // Role-scoped view: keep menus the role can view, plus auto-include any
   // parent whose child is viewable so the tree isn't orphaned.
-  let kept: RowWithView[] = allRows;
+  let kept: FlatRow[] = allFlat;
   if (!all) {
     const viewable = new Set<number>();
-    for (const r of allRows) {
+    for (const r of allFlat) {
       if (r.can_view) viewable.add(r.id);
     }
-    for (const r of allRows) {
+    for (const r of allFlat) {
       if (viewable.has(r.id) && r.menu_id != null) viewable.add(r.menu_id);
     }
-    kept = allRows.filter((r) => viewable.has(r.id));
+    kept = allFlat.filter((r) => viewable.has(r.id));
   }
 
-  const rows: Array<MenuItem & { parent_name: string | null }> = kept.map(
+  const stripped: Array<MenuItem & { parent_name: string | null }> = kept.map(
     ({ can_view: _cv, ...rest }) => rest,
   );
 
-  if (flat) {
-    return ok(rows);
-  }
+  if (flat) return ok(stripped);
 
   const byId = new Map<number, MenuTreeNode>();
-  rows.forEach((row) => {
-    byId.set(row.id, { ...row, children: [] });
-  });
+  stripped.forEach((row) => byId.set(row.id, { ...row, children: [] }));
 
   const tree: MenuTreeNode[] = [];
   for (const node of byId.values()) {
@@ -128,11 +119,10 @@ export async function POST(req: NextRequest) {
     // Enforce 2-level rule: if parent is given, that parent must itself be top-level.
     let level = 0;
     if (d.menu_id) {
-      const [p] = await db
-        .select({ menuLevel: menuMaster.menuLevel })
-        .from(menuMaster)
-        .where(eq(menuMaster.id, d.menu_id))
-        .limit(1);
+      const p = await db.query.menuMaster.findFirst({
+        where: eq(menuMaster.id, d.menu_id),
+        columns: { menuLevel: true },
+      });
       if (!p) return fail('Parent menu not found', 400);
       if ((p.menuLevel ?? 0) >= 1) {
         return fail('Only 2 levels of menus are supported', 400);

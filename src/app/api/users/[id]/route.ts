@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { usersT, roleMaster, type UserInsert } from '@/db/schema';
+import { usersT, type UserInsert } from '@/db/schema';
 import { hashPassword, getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -17,30 +17,45 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) return fail('Invalid id', 400);
 
-  const [row] = await db
-    .select({
-      id: usersT.id,
-      username: usersT.username,
-      full_name: usersT.fullName,
-      email: usersT.email,
-      mobile: usersT.mobile,
-      role_id: usersT.roleId,
-      role_name: roleMaster.roleName,
-      profile_image: usersT.profileImage,
-      signature_image: usersT.signatureImage,
-      location_id: usersT.locationId,
-      dept_id: usersT.deptId,
-      display: usersT.display,
-      created_at: usersT.createdAt,
-      updated_at: usersT.updatedAt,
-    })
-    .from(usersT)
-    .leftJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
-    .where(eq(usersT.id, id))
-    .limit(1);
+  const user = await db.query.usersT.findFirst({
+    where: eq(usersT.id, id),
+    columns: {
+      id: true,
+      username: true,
+      fullName: true,
+      email: true,
+      mobile: true,
+      roleId: true,
+      profileImage: true,
+      signatureImage: true,
+      locationId: true,
+      deptId: true,
+      display: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    with: {
+      role: { columns: { roleName: true } },
+    },
+  });
 
-  if (!row) return fail('Not found', 404);
-  return ok(row);
+  if (!user) return fail('Not found', 404);
+  return ok({
+    id: user.id,
+    username: user.username,
+    full_name: user.fullName,
+    email: user.email,
+    mobile: user.mobile,
+    role_id: user.roleId,
+    role_name: user.role?.roleName ?? null,
+    profile_image: user.profileImage,
+    signature_image: user.signatureImage,
+    location_id: user.locationId,
+    dept_id: user.deptId,
+    display: user.display,
+    created_at: user.createdAt,
+    updated_at: user.updatedAt,
+  });
 }
 
 const updateSchema = z.object({

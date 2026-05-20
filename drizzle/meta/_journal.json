@@ -15,6 +15,13 @@
       "when": 1779093408251,
       "tag": "0001_add_dashboard_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779288078917,
+      "tag": "0002_add_application_settings",
+      "breakpoints": true
     }
   ]
 }

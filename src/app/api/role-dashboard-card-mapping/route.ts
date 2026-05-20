@@ -25,45 +25,38 @@ export async function GET(req: NextRequest) {
     return fail('role_id must be a positive integer', 400);
   }
 
-  const [role] = await db
-    .select({ id: roleMaster.id })
-    .from(roleMaster)
-    .where(and(eq(roleMaster.id, roleId), eq(roleMaster.display, 'Y')))
-    .limit(1);
+  const role = await db.query.roleMaster.findFirst({
+    where: and(eq(roleMaster.id, roleId), eq(roleMaster.display, 'Y')),
+    columns: { id: true },
+  });
   if (!role) return fail('Role not found', 404);
 
-  const rows = await db
-    .select({
-      card_id: dashboardCardMaster.id,
-      card_key: dashboardCardMaster.cardKey,
-      card_title: dashboardCardMaster.cardTitle,
-      card_subtitle: dashboardCardMaster.cardSubtitle,
-      card_icon: dashboardCardMaster.cardIcon,
-      card_color: dashboardCardMaster.cardColor,
-      card_category: dashboardCardMaster.cardCategory,
-      default_order: dashboardCardMaster.cardOrder,
-      is_visible: roleDashboardCardMapping.isVisible,
-      role_order: roleDashboardCardMapping.cardOrder,
-    })
-    .from(dashboardCardMaster)
-    .leftJoin(
-      roleDashboardCardMapping,
-      and(
-        eq(roleDashboardCardMapping.cardId, dashboardCardMaster.id),
-        eq(roleDashboardCardMapping.roleId, roleId),
-      ),
-    )
-    .where(eq(dashboardCardMaster.display, 'Y'))
-    .orderBy(
-      asc(dashboardCardMaster.cardOrder),
-      asc(dashboardCardMaster.id),
-    );
+  const rows = await db.query.dashboardCardMaster.findMany({
+    where: eq(dashboardCardMaster.display, 'Y'),
+    with: {
+      roleMappings: {
+        where: eq(roleDashboardCardMapping.roleId, roleId),
+        columns: { isVisible: true, cardOrder: true },
+      },
+    },
+    orderBy: [asc(dashboardCardMaster.cardOrder), asc(dashboardCardMaster.id)],
+  });
 
-  const data = rows.map((r) => ({
-    ...r,
-    is_visible: r.is_visible ?? false,
-    role_order: r.role_order ?? r.default_order,
-  }));
+  const data = rows.map((c) => {
+    const mapping = c.roleMappings[0];
+    return {
+      card_id: c.id,
+      card_key: c.cardKey,
+      card_title: c.cardTitle,
+      card_subtitle: c.cardSubtitle,
+      card_icon: c.cardIcon,
+      card_color: c.cardColor,
+      card_category: c.cardCategory,
+      default_order: c.cardOrder,
+      is_visible: mapping?.isVisible ?? false,
+      role_order: mapping?.cardOrder ?? c.cardOrder,
+    };
+  });
 
   return ok({ role_id: roleId, cards: data });
 }
@@ -94,11 +87,10 @@ export async function PUT(req: NextRequest) {
     }
     const { role_id, mappings } = parsed.data;
 
-    const [role] = await db
-      .select({ id: roleMaster.id })
-      .from(roleMaster)
-      .where(eq(roleMaster.id, role_id))
-      .limit(1);
+    const role = await db.query.roleMaster.findFirst({
+      where: eq(roleMaster.id, role_id),
+      columns: { id: true },
+    });
     if (!role) return fail('Role not found', 404);
 
     const keep = mappings.filter((m) => m.is_visible || m.card_order > 0);
