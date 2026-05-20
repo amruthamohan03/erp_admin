@@ -28,7 +28,7 @@ export default function Sidebar() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/menus')
+    fetch('/api/v1/menus')
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setMenus(j.data);
@@ -199,3 +199,4 @@ function Badge({ text }: { text: string | null | undefined }) {
     </span>
   );
 }
+

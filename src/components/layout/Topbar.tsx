@@ -28,14 +28,14 @@ export default function Topbar() {
   const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/api/v1/auth/me')
       .then((r) => r.json())
       .then((j) => j.success && setMe(j.data))
       .catch(() => {});
   }, []);
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/v1/auth/logout', { method: 'POST' });
     window.location.href = '/login';
   }
 
@@ -100,3 +100,4 @@ export default function Topbar() {
     </header>
   );
 }
+

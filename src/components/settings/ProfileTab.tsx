@@ -29,7 +29,7 @@ export default function ProfileTab({
     e.preventDefault();
     setSaving(true);
     try {
-      await fetch('/api/me/profile', {
+      await fetch('/api/v1/me/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_name: fullName, email, mobile: mobile || null, bio: bio || null }),
@@ -45,7 +45,7 @@ export default function ProfileTab({
     try {
       const fd = new FormData();
       fd.append('file', file);
-      await fetch('/api/me/avatar', { method: 'POST', body: fd });
+      await fetch('/api/v1/me/avatar', { method: 'POST', body: fd });
       await onChange();
     } finally {
       setBusy(false);
@@ -55,7 +55,7 @@ export default function ProfileTab({
   async function removeAvatar() {
     setBusy(true);
     try {
-      await fetch('/api/me/avatar', { method: 'DELETE' });
+      await fetch('/api/v1/me/avatar', { method: 'DELETE' });
       await onChange();
     } finally {
       setBusy(false);
@@ -159,3 +159,4 @@ export default function ProfileTab({
     </Card>
   );
 }
+

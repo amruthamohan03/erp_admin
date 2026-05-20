@@ -5,7 +5,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'fallback-secret-change-me',
 );
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+const PUBLIC_PATHS = ['/login', '/api/v1/auth/login'];
 
 async function isAuthed(token: string | undefined): Promise<boolean> {
   if (!token) return false;
@@ -66,3 +66,4 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|avif)).*)',
   ],
 };
+

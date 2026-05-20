@@ -97,7 +97,7 @@ async function fetchTranslations(texts: string[], target: string): Promise<Recor
   for (let i = 0; i < texts.length; i += chunkSize) {
     const slice = texts.slice(i, i + chunkSize);
     try {
-      const r = await fetch('/api/translate', {
+      const r = await fetch('/api/v1/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texts: slice, target, source: 'en' }),
@@ -283,3 +283,4 @@ export default function TranslateProvider({
     </TranslateContext.Provider>
   );
 }
+

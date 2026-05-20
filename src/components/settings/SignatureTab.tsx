@@ -22,7 +22,7 @@ export default function SignatureTab({
     try {
       const fd = new FormData();
       fd.append('file', file);
-      await fetch('/api/me/signature', { method: 'POST', body: fd });
+      await fetch('/api/v1/me/signature', { method: 'POST', body: fd });
       await onChange();
     } finally {
       setBusy(false);
@@ -32,7 +32,7 @@ export default function SignatureTab({
   async function remove() {
     setBusy(true);
     try {
-      await fetch('/api/me/signature', { method: 'DELETE' });
+      await fetch('/api/v1/me/signature', { method: 'DELETE' });
       await onChange();
     } finally {
       setBusy(false);
@@ -95,3 +95,4 @@ export default function SignatureTab({
     </Card>
   );
 }
+

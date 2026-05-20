@@ -28,7 +28,7 @@ export default function SecurityTab() {
 
     setBusy(true);
     try {
-      const r = await fetch('/api/me/password', {
+      const r = await fetch('/api/v1/me/password', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ current_password: current, new_password: next }),
@@ -106,3 +106,4 @@ export default function SecurityTab() {
     </Card>
   );
 }
+

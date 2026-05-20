@@ -32,7 +32,7 @@ export interface PagedListState<T> {
  * Client-side pagination for an in-memory list. Pure pagination — callers do their
  * own search/filter (with `useMemo`) and pass the *already filtered* array in.
  *
- * For server-side pagination (e.g. /api/users), use the `<PaginationFooter />`
+ * For server-side pagination (e.g. /api/v1/users), use the `<PaginationFooter />`
  * directly with your own `page` / `pageSize` / `total` state.
  */
 export function usePagedList<T>(
@@ -86,3 +86,4 @@ export function usePagedList<T>(
     resetPage,
   };
 }
+

@@ -30,7 +30,7 @@ export default function PreferencesTab({
     email_notifications: boolean;
     compact_mode: boolean;
   }>) {
-    await fetch('/api/me/preferences', {
+    await fetch('/api/v1/me/preferences', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -120,3 +120,4 @@ export default function PreferencesTab({
     </Card>
   );
 }
+
