@@ -64,7 +64,7 @@ export default function DashboardCardsPage() {
       if (showHidden) params.set('includeHidden', '1');
       const res = await fetch(`/api/v1/dashboard-cards?${params}`);
       const json = await res.json();
-      if (json.success) setItems(json.data);
+      if (json.ok) setItems(json.data);
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function DashboardCardsPage() {
     fetch('/api/v1/menus?flat=1&all=1')
       .then((r) => r.json())
       .then((j) => {
-        if (j.success) setMenus(j.data);
+        if (j.ok) setMenus(j.data);
       })
       .catch(() => {});
   }, []);
@@ -113,8 +113,8 @@ export default function DashboardCardsPage() {
     if (!confirm('Disable this dashboard card?')) return;
     const res = await fetch(`/api/v1/dashboard-cards/${id}`, { method: 'DELETE' });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -127,8 +127,8 @@ export default function DashboardCardsPage() {
       body: JSON.stringify({ display: c.display === 'Y' ? 'N' : 'Y' }),
     });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -415,8 +415,8 @@ function CardFormModal({
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Save failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Save failed');
         return;
       }
       onSaved();

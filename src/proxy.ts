@@ -35,7 +35,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/api')) {
     if (!authed) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } },
         { status: 401 },
       );
     }

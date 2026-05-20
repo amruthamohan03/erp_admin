@@ -21,7 +21,7 @@ export default function RolesPage() {
     try {
       const res = await fetch('/api/v1/roles');
       const json = await res.json();
-      if (json.success) setRoles(json.data);
+      if (json.ok) setRoles(json.data);
     } finally {
       setLoading(false);
     }
@@ -56,8 +56,8 @@ export default function RolesPage() {
     if (!confirm('Disable this role?')) return;
     const res = await fetch(`/api/v1/roles/${id}`, { method: 'DELETE' });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -215,8 +215,8 @@ function RoleFormModal({
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Save failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Save failed');
         return;
       }
       onSaved();

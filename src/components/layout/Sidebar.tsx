@@ -31,7 +31,7 @@ export default function Sidebar() {
     fetch('/api/v1/menus')
       .then((r) => r.json())
       .then((j) => {
-        if (j.success) setMenus(j.data);
+        if (j.ok) setMenus(j.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

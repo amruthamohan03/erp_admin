@@ -38,7 +38,7 @@ export default function RoleToDashboardCardPage() {
     fetch('/api/v1/roles')
       .then((r) => r.json())
       .then((j) => {
-        if (j.success) setRoles(j.data);
+        if (j.ok) setRoles(j.data);
       })
       .catch(() => setError('Failed to load roles'))
       .finally(() => setLoadingRoles(false));
@@ -53,8 +53,8 @@ export default function RoleToDashboardCardPage() {
         `/api/v1/role-dashboard-card-mapping?role_id=${rid}`,
       );
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Failed to load mapping');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Failed to load mapping');
         setRows([]);
         return;
       }
@@ -160,8 +160,8 @@ export default function RoleToDashboardCardPage() {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Save failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Save failed');
         return;
       }
       setDirty(false);

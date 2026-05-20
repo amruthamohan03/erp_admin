@@ -31,7 +31,7 @@ export default function SettingsView() {
   const reload = React.useCallback(async () => {
     const r = await fetch('/api/v1/me/profile');
     const j = await r.json();
-    if (j.success) setMe(j.data);
+    if (j.ok) setMe(j.data);
     setLoading(false);
   }, []);
 

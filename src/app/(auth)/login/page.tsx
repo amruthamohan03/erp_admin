@@ -27,8 +27,8 @@ function LoginForm() {
         credentials: 'include',
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Login failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Login failed');
         setLoading(false);
         return;
       }

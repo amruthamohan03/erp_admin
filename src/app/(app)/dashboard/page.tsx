@@ -26,14 +26,14 @@ export default function DashboardPage() {
     fetch('/api/v1/dashboard-cards/me')
       .then((r) => r.json())
       .then((j) => {
-        if (j.success) setCards(j.data);
+        if (j.ok) setCards(j.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   // Resolve each card's data_source (must be an /api/v1/* path that returns
-  // { success, data }). Anything else is left as a plain card.
+  // { ok, data }). Anything else is left as a plain card.
   useEffect(() => {
     if (cards.length === 0) return;
     const apiCards = cards.filter(
@@ -47,7 +47,7 @@ export default function DashboardPage() {
         try {
           const res = await fetch(c.data_source as string);
           const json = await res.json();
-          if (!json?.success) return [c.card_key, '—'] as const;
+          if (!json?.ok) return [c.card_key, '—'] as const;
           const d = json.data;
           const v =
             typeof d === 'number'

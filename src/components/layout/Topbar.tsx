@@ -30,7 +30,7 @@ export default function Topbar() {
   useEffect(() => {
     fetch('/api/v1/auth/me')
       .then((r) => r.json())
-      .then((j) => j.success && setMe(j.data))
+      .then((j) => j.ok && setMe(j.data))
       .catch(() => {});
   }, []);
 

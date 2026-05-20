@@ -34,13 +34,13 @@ export default function SecurityTab() {
         body: JSON.stringify({ current_password: current, new_password: next }),
       });
       const j = await r.json();
-      if (j.success) {
+      if (j.ok) {
         setMessage({ kind: 'ok', text: 'Password updated.' });
         setCurrent('');
         setNext('');
         setConfirm('');
       } else {
-        setMessage({ kind: 'err', text: j.message ?? 'Something went wrong.' });
+        setMessage({ kind: 'err', text: j.error?.message ?? 'Something went wrong.' });
       }
     } finally {
       setBusy(false);

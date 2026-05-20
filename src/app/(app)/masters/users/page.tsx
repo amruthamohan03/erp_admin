@@ -35,7 +35,7 @@ export default function UsersPage() {
       });
       const res = await fetch(`/api/v1/users?${params}`);
       const json = await res.json();
-      if (json.success) {
+      if (json.ok) {
         setItems(json.data.items);
         setTotal(json.data.total);
       }
@@ -49,7 +49,7 @@ export default function UsersPage() {
   useEffect(() => {
     fetch('/api/v1/roles')
       .then((r) => r.json())
-      .then((j) => j.success && setRoles(j.data))
+      .then((j) => j.ok && setRoles(j.data))
       .catch(() => {});
   }, []);
 
@@ -57,8 +57,8 @@ export default function UsersPage() {
     if (!confirm('Disable this user?')) return;
     const res = await fetch(`/api/v1/users/${id}`, { method: 'DELETE' });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -222,8 +222,8 @@ function UserFormModal({
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Save failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Save failed');
         return;
       }
       onSaved();

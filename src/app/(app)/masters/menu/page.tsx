@@ -28,7 +28,7 @@ export default function MenuPage() {
       if (showHidden) params.set('includeHidden', '1');
       const res = await fetch(`/api/v1/menus?${params}`);
       const json = await res.json();
-      if (json.success) setItems(json.data);
+      if (json.ok) setItems(json.data);
     } finally {
       setLoading(false);
     }
@@ -72,8 +72,8 @@ export default function MenuPage() {
     if (!confirm('Disable this menu? Children must be disabled first.')) return;
     const res = await fetch(`/api/v1/menus/${id}`, { method: 'DELETE' });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -86,8 +86,8 @@ export default function MenuPage() {
       body: JSON.stringify({ display: m.display === 'Y' ? 'N' : 'Y' }),
     });
     const json = await res.json();
-    if (!json.success) {
-      alert(json.message || 'Failed');
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
       return;
     }
     load();
@@ -332,8 +332,8 @@ function MenuFormModal({
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || 'Save failed');
+      if (!res.ok || !json.ok) {
+        setError(json.error?.message || 'Save failed');
         return;
       }
       onSaved();

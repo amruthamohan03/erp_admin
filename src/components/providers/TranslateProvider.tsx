@@ -103,7 +103,7 @@ async function fetchTranslations(texts: string[], target: string): Promise<Recor
         body: JSON.stringify({ texts: slice, target, source: 'en' }),
       });
       const j = await r.json();
-      if (j.success && Array.isArray(j.data?.translations)) {
+      if (j.ok && Array.isArray(j.data?.translations)) {
         for (let k = 0; k < slice.length; k++) {
           out[slice[k]] = j.data.translations[k] ?? slice[k];
         }
