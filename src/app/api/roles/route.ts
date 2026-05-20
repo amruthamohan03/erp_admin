@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { asc, eq } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { roleMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -11,27 +10,41 @@ export async function GET() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const parent = alias(roleMaster, 'p');
-  const rows = await db
-    .select({
-      id: roleMaster.id,
-      role_name: roleMaster.roleName,
-      parent_role_id: roleMaster.parentRoleId,
-      parent_role_name: parent.roleName,
-      approval_level: roleMaster.approvalLevel,
-      department: roleMaster.department,
-      management: roleMaster.management,
-      finance: roleMaster.finance,
-      display: roleMaster.display,
-      created_at: roleMaster.createdAt,
-      updated_at: roleMaster.updatedAt,
-    })
-    .from(roleMaster)
-    .leftJoin(parent, eq(parent.id, roleMaster.parentRoleId))
-    .where(eq(roleMaster.display, 'Y'))
-    .orderBy(asc(roleMaster.id));
+  const rows = await db.query.roleMaster.findMany({
+    where: eq(roleMaster.display, 'Y'),
+    columns: {
+      id: true,
+      roleName: true,
+      parentRoleId: true,
+      approvalLevel: true,
+      department: true,
+      management: true,
+      finance: true,
+      display: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    with: {
+      parent: { columns: { roleName: true } },
+    },
+    orderBy: [asc(roleMaster.id)],
+  });
 
-  return ok(rows);
+  return ok(
+    rows.map((r) => ({
+      id: r.id,
+      role_name: r.roleName,
+      parent_role_id: r.parentRoleId,
+      parent_role_name: r.parent?.roleName ?? null,
+      approval_level: r.approvalLevel,
+      department: r.department,
+      management: r.management,
+      finance: r.finance,
+      display: r.display,
+      created_at: r.createdAt,
+      updated_at: r.updatedAt,
+    })),
+  );
 }
 
 const createSchema = z.object({

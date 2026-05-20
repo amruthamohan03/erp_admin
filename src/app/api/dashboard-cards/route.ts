@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { dashboardCardMaster, menuMaster } from '@/db/schema';
+import { dashboardCardMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const includeHidden = searchParams.get('includeHidden') === '1';
   const menuIdParam = searchParams.get('menu_id');
 
-  const conds = [] as ReturnType<typeof eq>[];
+  const conds: SQL[] = [];
   if (!includeHidden) conds.push(eq(dashboardCardMaster.display, 'Y'));
   if (menuIdParam) {
     const mid = Number(menuIdParam);
@@ -23,32 +23,32 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const rows = await db
-    .select({
-      id: dashboardCardMaster.id,
-      card_key: dashboardCardMaster.cardKey,
-      card_content_id: dashboardCardMaster.cardContentId,
-      card_title: dashboardCardMaster.cardTitle,
-      card_subtitle: dashboardCardMaster.cardSubtitle,
-      card_icon: dashboardCardMaster.cardIcon,
-      card_color: dashboardCardMaster.cardColor,
-      card_url: dashboardCardMaster.cardUrl,
-      card_order: dashboardCardMaster.cardOrder,
-      card_category: dashboardCardMaster.cardCategory,
-      menu_id: dashboardCardMaster.menuId,
-      menu_name: menuMaster.menuName,
-      data_source: dashboardCardMaster.dataSource,
-      display: dashboardCardMaster.display,
-    })
-    .from(dashboardCardMaster)
-    .leftJoin(menuMaster, eq(menuMaster.id, dashboardCardMaster.menuId))
-    .where(conds.length > 0 ? and(...conds) : undefined)
-    .orderBy(
-      asc(dashboardCardMaster.cardOrder),
-      asc(dashboardCardMaster.id),
-    );
+  const rows = await db.query.dashboardCardMaster.findMany({
+    where: conds.length > 0 ? and(...conds) : undefined,
+    with: {
+      menu: { columns: { menuName: true } },
+    },
+    orderBy: [asc(dashboardCardMaster.cardOrder), asc(dashboardCardMaster.id)],
+  });
 
-  return ok(rows);
+  return ok(
+    rows.map((c) => ({
+      id: c.id,
+      card_key: c.cardKey,
+      card_content_id: c.cardContentId,
+      card_title: c.cardTitle,
+      card_subtitle: c.cardSubtitle,
+      card_icon: c.cardIcon,
+      card_color: c.cardColor,
+      card_url: c.cardUrl,
+      card_order: c.cardOrder,
+      card_category: c.cardCategory,
+      menu_id: c.menuId,
+      menu_name: c.menu?.menuName ?? null,
+      data_source: c.dataSource,
+      display: c.display,
+    })),
+  );
 }
 
 const createSchema = z.object({

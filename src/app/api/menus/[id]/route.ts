@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, count, eq, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { menuMaster, type MenuInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -17,28 +16,27 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) return fail('Invalid id', 400);
 
-  const parent = alias(menuMaster, 'p');
-  const [row] = await db
-    .select({
-      id: menuMaster.id,
-      menu_id: menuMaster.menuId,
-      menu_order: menuMaster.menuOrder,
-      menu_level: menuMaster.menuLevel,
-      menu_name: menuMaster.menuName,
-      url: menuMaster.url,
-      text: menuMaster.text,
-      icon: menuMaster.icon,
-      badge: menuMaster.badge,
-      display: menuMaster.display,
-      parent_name: parent.menuName,
-    })
-    .from(menuMaster)
-    .leftJoin(parent, eq(parent.id, menuMaster.menuId))
-    .where(eq(menuMaster.id, id))
-    .limit(1);
+  const m = await db.query.menuMaster.findFirst({
+    where: eq(menuMaster.id, id),
+    with: {
+      parent: { columns: { menuName: true } },
+    },
+  });
 
-  if (!row) return fail('Not found', 404);
-  return ok(row);
+  if (!m) return fail('Not found', 404);
+  return ok({
+    id: m.id,
+    menu_id: m.menuId,
+    menu_order: m.menuOrder,
+    menu_level: m.menuLevel,
+    menu_name: m.menuName,
+    url: m.url,
+    text: m.text,
+    icon: m.icon,
+    badge: m.badge,
+    display: m.display,
+    parent_name: m.parent?.menuName ?? null,
+  });
 }
 
 const updateSchema = z.object({
@@ -77,11 +75,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       if (d.menu_id == null) {
         newLevel = 0;
       } else {
-        const [p] = await db
-          .select({ menuLevel: menuMaster.menuLevel })
-          .from(menuMaster)
-          .where(eq(menuMaster.id, d.menu_id))
-          .limit(1);
+        const p = await db.query.menuMaster.findFirst({
+          where: eq(menuMaster.id, d.menu_id),
+          columns: { menuLevel: true },
+        });
         if (!p) return fail('Parent menu not found', 400);
         if ((p.menuLevel ?? 0) >= 1) {
           return fail('Only 2 levels of menus are supported', 400);

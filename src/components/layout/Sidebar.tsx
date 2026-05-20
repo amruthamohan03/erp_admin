@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, Circle } from 'lucide-react';
 import clsx from 'clsx';
 import type { MenuTreeNode } from '@/types/menu';
+import { useAppSettings } from '@/components/providers/SettingsProvider';
 
 // Convert "menu/index"-style URLs into "/menu" Next.js routes.
 // Adjust this if your routing scheme differs.
@@ -23,6 +25,7 @@ function isActive(pathname: string, href: string): boolean {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const settings = useAppSettings();
   const [menus, setMenus] = useState<MenuTreeNode[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -69,9 +72,27 @@ export default function Sidebar() {
 
   return (
     <aside className="flex min-h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-6 py-5">
-        <h2 className="text-lg font-semibold">ERP Admin Panel</h2>
-        <p className="mt-0.5 text-xs opacity-70">Management Console</p>
+      <div className="border-b border-sidebar-border px-6 py-5 flex items-center gap-3">
+        {settings.logo_url ? (
+          <Image
+            src={settings.logo_url}
+            alt={settings.project_name}
+            width={36}
+            height={36}
+            className="rounded-md object-contain bg-white/10 p-1"
+            unoptimized
+          />
+        ) : null}
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold truncate">
+            {settings.project_name}
+          </h2>
+          {settings.tagline && (
+            <p className="mt-0.5 text-xs opacity-70 truncate">
+              {settings.tagline}
+            </p>
+          )}
+        </div>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">

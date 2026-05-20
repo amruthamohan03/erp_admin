@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { usersT, roleMaster } from '@/db/schema';
+import { usersT } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 
@@ -8,23 +8,34 @@ export async function GET() {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
 
-  const [user] = await db
-    .select({
-      id: usersT.id,
-      username: usersT.username,
-      full_name: usersT.fullName,
-      email: usersT.email,
-      mobile: usersT.mobile,
-      role_id: usersT.roleId,
-      role_name: roleMaster.roleName,
-      profile_image: usersT.profileImage,
-      display: usersT.display,
-    })
-    .from(usersT)
-    .innerJoin(roleMaster, eq(roleMaster.id, usersT.roleId))
-    .where(eq(usersT.id, session.uid))
-    .limit(1);
+  const user = await db.query.usersT.findFirst({
+    where: eq(usersT.id, session.uid),
+    columns: {
+      id: true,
+      username: true,
+      fullName: true,
+      email: true,
+      mobile: true,
+      roleId: true,
+      profileImage: true,
+      display: true,
+    },
+    with: {
+      role: { columns: { roleName: true } },
+    },
+  });
 
   if (!user) return fail('User not found', 404);
-  return ok(user);
+
+  return ok({
+    id: user.id,
+    username: user.username,
+    full_name: user.fullName,
+    email: user.email,
+    mobile: user.mobile,
+    role_id: user.roleId,
+    role_name: user.role?.roleName ?? null,
+    profile_image: user.profileImage,
+    display: user.display,
+  });
 }

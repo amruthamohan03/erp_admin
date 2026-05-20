@@ -8,6 +8,7 @@ import {
 import { relations } from 'drizzle-orm';
 import { menuMaster } from './menus';
 import { usersT } from './users';
+import { roleDashboardCardMapping } from './roleDashboardCardMapping';
 
 export const dashboardCardMaster = pgTable('dashboard_card_master_t', {
   id: serial('id').primaryKey(),
@@ -41,7 +42,7 @@ export const dashboardCardMaster = pgTable('dashboard_card_master_t', {
 
 export const dashboardCardMasterRelations = relations(
   dashboardCardMaster,
-  ({ one }) => ({
+  ({ one, many }) => ({
     menu: one(menuMaster, {
       fields: [dashboardCardMaster.menuId],
       references: [menuMaster.id],
@@ -56,6 +57,9 @@ export const dashboardCardMasterRelations = relations(
       references: [usersT.id],
       relationName: 'dashboard_card_updated_by',
     }),
+    // Reverse of roleDashboardCardMapping.card — used by the role-card
+    // mapping matrix and the /me feed to pull a role's mappings inline.
+    roleMappings: many(roleDashboardCardMapping),
   }),
 );
 

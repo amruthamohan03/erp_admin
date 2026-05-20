@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, count, eq, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { roleMaster, usersT, type RoleMasterInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -17,28 +16,39 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) return fail('Invalid id', 400);
 
-  const parent = alias(roleMaster, 'p');
-  const [row] = await db
-    .select({
-      id: roleMaster.id,
-      role_name: roleMaster.roleName,
-      parent_role_id: roleMaster.parentRoleId,
-      parent_role_name: parent.roleName,
-      approval_level: roleMaster.approvalLevel,
-      department: roleMaster.department,
-      management: roleMaster.management,
-      finance: roleMaster.finance,
-      display: roleMaster.display,
-      created_at: roleMaster.createdAt,
-      updated_at: roleMaster.updatedAt,
-    })
-    .from(roleMaster)
-    .leftJoin(parent, eq(parent.id, roleMaster.parentRoleId))
-    .where(eq(roleMaster.id, id))
-    .limit(1);
+  const role = await db.query.roleMaster.findFirst({
+    where: eq(roleMaster.id, id),
+    columns: {
+      id: true,
+      roleName: true,
+      parentRoleId: true,
+      approvalLevel: true,
+      department: true,
+      management: true,
+      finance: true,
+      display: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    with: {
+      parent: { columns: { roleName: true } },
+    },
+  });
 
-  if (!row) return fail('Not found', 404);
-  return ok(row);
+  if (!role) return fail('Not found', 404);
+  return ok({
+    id: role.id,
+    role_name: role.roleName,
+    parent_role_id: role.parentRoleId,
+    parent_role_name: role.parent?.roleName ?? null,
+    approval_level: role.approvalLevel,
+    department: role.department,
+    management: role.management,
+    finance: role.finance,
+    display: role.display,
+    created_at: role.createdAt,
+    updated_at: role.updatedAt,
+  });
 }
 
 const updateSchema = z.object({

@@ -4,7 +4,6 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   dashboardCardMaster,
-  menuMaster,
   type DashboardCardInsert,
 } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -20,30 +19,30 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) return fail('Invalid id', 400);
 
-  const [row] = await db
-    .select({
-      id: dashboardCardMaster.id,
-      card_key: dashboardCardMaster.cardKey,
-      card_content_id: dashboardCardMaster.cardContentId,
-      card_title: dashboardCardMaster.cardTitle,
-      card_subtitle: dashboardCardMaster.cardSubtitle,
-      card_icon: dashboardCardMaster.cardIcon,
-      card_color: dashboardCardMaster.cardColor,
-      card_url: dashboardCardMaster.cardUrl,
-      card_order: dashboardCardMaster.cardOrder,
-      card_category: dashboardCardMaster.cardCategory,
-      menu_id: dashboardCardMaster.menuId,
-      menu_name: menuMaster.menuName,
-      data_source: dashboardCardMaster.dataSource,
-      display: dashboardCardMaster.display,
-    })
-    .from(dashboardCardMaster)
-    .leftJoin(menuMaster, eq(menuMaster.id, dashboardCardMaster.menuId))
-    .where(eq(dashboardCardMaster.id, id))
-    .limit(1);
+  const c = await db.query.dashboardCardMaster.findFirst({
+    where: eq(dashboardCardMaster.id, id),
+    with: {
+      menu: { columns: { menuName: true } },
+    },
+  });
 
-  if (!row) return fail('Not found', 404);
-  return ok(row);
+  if (!c) return fail('Not found', 404);
+  return ok({
+    id: c.id,
+    card_key: c.cardKey,
+    card_content_id: c.cardContentId,
+    card_title: c.cardTitle,
+    card_subtitle: c.cardSubtitle,
+    card_icon: c.cardIcon,
+    card_color: c.cardColor,
+    card_url: c.cardUrl,
+    card_order: c.cardOrder,
+    card_category: c.cardCategory,
+    menu_id: c.menuId,
+    menu_name: c.menu?.menuName ?? null,
+    data_source: c.dataSource,
+    display: c.display,
+  });
 }
 
 const updateSchema = z.object({

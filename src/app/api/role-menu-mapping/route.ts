@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { menuMaster, roleMaster, roleMenuMapping } from '@/db/schema';
 import { getSession } from '@/lib/auth';
@@ -23,50 +22,48 @@ export async function GET(req: NextRequest) {
   }
 
   // Reject unknown role early so the UI gets a clean error.
-  const [role] = await db
-    .select({ id: roleMaster.id })
-    .from(roleMaster)
-    .where(and(eq(roleMaster.id, roleId), eq(roleMaster.display, 'Y')))
-    .limit(1);
+  const role = await db.query.roleMaster.findFirst({
+    where: and(eq(roleMaster.id, roleId), eq(roleMaster.display, 'Y')),
+    columns: { id: true },
+  });
   if (!role) return fail('Role not found', 404);
 
-  const parent = alias(menuMaster, 'p');
-  const rows = await db
-    .select({
-      menu_id: menuMaster.id,
-      menu_parent_id: menuMaster.menuId,
-      menu_name: menuMaster.menuName,
-      menu_level: menuMaster.menuLevel,
-      menu_order: menuMaster.menuOrder,
-      url: menuMaster.url,
-      icon: menuMaster.icon,
-      parent_name: parent.menuName,
-      can_view: roleMenuMapping.canView,
-      can_add: roleMenuMapping.canAdd,
-      can_edit: roleMenuMapping.canEdit,
-      can_delete: roleMenuMapping.canDelete,
-      can_approve: roleMenuMapping.canApprove,
-    })
-    .from(menuMaster)
-    .leftJoin(parent, eq(parent.id, menuMaster.menuId))
-    .leftJoin(
-      roleMenuMapping,
-      and(
-        eq(roleMenuMapping.menuId, menuMaster.id),
-        eq(roleMenuMapping.roleId, roleId),
-      ),
-    )
-    .where(eq(menuMaster.display, 'Y'))
-    .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id));
+  const rows = await db.query.menuMaster.findMany({
+    where: eq(menuMaster.display, 'Y'),
+    with: {
+      parent: { columns: { menuName: true } },
+      roleMappings: {
+        where: eq(roleMenuMapping.roleId, roleId),
+        columns: {
+          canView: true,
+          canAdd: true,
+          canEdit: true,
+          canDelete: true,
+          canApprove: true,
+        },
+      },
+    },
+    orderBy: [asc(menuMaster.menuOrder), asc(menuMaster.id)],
+  });
 
-  const data = rows.map((r) => ({
-    ...r,
-    can_view: r.can_view ?? false,
-    can_add: r.can_add ?? false,
-    can_edit: r.can_edit ?? false,
-    can_delete: r.can_delete ?? false,
-    can_approve: r.can_approve ?? false,
-  }));
+  const data = rows.map((m) => {
+    const mapping = m.roleMappings[0];
+    return {
+      menu_id: m.id,
+      menu_parent_id: m.menuId,
+      menu_name: m.menuName,
+      menu_level: m.menuLevel,
+      menu_order: m.menuOrder,
+      url: m.url,
+      icon: m.icon,
+      parent_name: m.parent?.menuName ?? null,
+      can_view: mapping?.canView ?? false,
+      can_add: mapping?.canAdd ?? false,
+      can_edit: mapping?.canEdit ?? false,
+      can_delete: mapping?.canDelete ?? false,
+      can_approve: mapping?.canApprove ?? false,
+    };
+  });
 
   return ok({ role_id: roleId, menus: data });
 }
@@ -100,11 +97,10 @@ export async function PUT(req: NextRequest) {
     }
     const { role_id, mappings } = parsed.data;
 
-    const [role] = await db
-      .select({ id: roleMaster.id })
-      .from(roleMaster)
-      .where(eq(roleMaster.id, role_id))
-      .limit(1);
+    const role = await db.query.roleMaster.findFirst({
+      where: eq(roleMaster.id, role_id),
+      columns: { id: true },
+    });
     if (!role) return fail('Role not found', 404);
 
     const grant = mappings.filter(
