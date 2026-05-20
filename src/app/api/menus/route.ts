@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
-import { menuMaster } from '@/db/schema';
+import { menuMaster, roleMenuMapping } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import type { MenuItem, MenuTreeNode } from '@/types/menu';
@@ -15,6 +15,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const flat = searchParams.get('flat') === '1';
   const includeHidden = searchParams.get('includeHidden') === '1';
+  // Admin/master screens need the full unfiltered list to manage menus;
+  // every other caller (sidebar, etc.) gets the role-scoped view.
+  const all = searchParams.get('all') === '1';
 
   const parent = alias(menuMaster, 'p');
 
@@ -31,17 +34,46 @@ export async function GET(req: NextRequest) {
       badge: menuMaster.badge,
       display: menuMaster.display,
       parent_name: parent.menuName,
+      can_view: roleMenuMapping.canView,
     })
     .from(menuMaster)
-    .leftJoin(parent, eq(parent.id, menuMaster.menuId));
+    .leftJoin(parent, eq(parent.id, menuMaster.menuId))
+    .leftJoin(
+      roleMenuMapping,
+      and(
+        eq(roleMenuMapping.menuId, menuMaster.id),
+        eq(roleMenuMapping.roleId, session.role_id),
+      ),
+    );
 
-  const rows = (await (includeHidden
+  type RowWithView = MenuItem & {
+    parent_name: string | null;
+    can_view: boolean | null;
+  };
+
+  const allRows = (await (includeHidden
     ? baseQuery.orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id))
     : baseQuery
         .where(eq(menuMaster.display, 'Y'))
-        .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id)))) as Array<
-    MenuItem & { parent_name: string | null }
-  >;
+        .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id)))) as RowWithView[];
+
+  // Role-scoped view: keep menus the role can view, plus auto-include any
+  // parent whose child is viewable so the tree isn't orphaned.
+  let kept: RowWithView[] = allRows;
+  if (!all) {
+    const viewable = new Set<number>();
+    for (const r of allRows) {
+      if (r.can_view) viewable.add(r.id);
+    }
+    for (const r of allRows) {
+      if (viewable.has(r.id) && r.menu_id != null) viewable.add(r.menu_id);
+    }
+    kept = allRows.filter((r) => viewable.has(r.id));
+  }
+
+  const rows: Array<MenuItem & { parent_name: string | null }> = kept.map(
+    ({ can_view: _cv, ...rest }) => rest,
+  );
 
   if (flat) {
     return ok(rows);
