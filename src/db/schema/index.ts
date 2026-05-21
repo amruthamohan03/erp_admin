@@ -5,3 +5,4 @@ export * from './roleMenuMapping';
 export * from './dashboardCards';
 export * from './roleDashboardCardMapping';
 export * from './rules';
+export * from './workflow';
