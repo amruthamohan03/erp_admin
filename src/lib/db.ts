@@ -3,9 +3,7 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '@/db/schema';
 
 declare global {
-  // eslint-disable-next-line no-var
   var _pgPool: Pool | undefined;
-  // eslint-disable-next-line no-var
   var _drizzleDb: NodePgDatabase<typeof schema> | undefined;
 }
 

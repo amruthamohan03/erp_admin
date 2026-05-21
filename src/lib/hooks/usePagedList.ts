@@ -41,10 +41,14 @@ export function usePagedList<T>(
 ): PagedListState<T> {
   const initialPageSize = options.initialPageSize ?? 10;
 
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const [pageSize, setPageSizeState] = useState<number>(initialPageSize);
   const [mounted, setMounted] = useState(false);
 
+  // `mounted` flips from server (false) → client (true) so PaginationFooter can
+  // gate itself and avoid hydration mismatch. There is no purely-derived form
+  // of this — setState-in-effect is the canonical React idiom for it.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -52,10 +56,10 @@ export function usePagedList<T>(
   const totalRows = items.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
 
-  // Clamp the page if the source list shrinks or pageSize grows.
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  // Derive an effective page rather than clamping via an effect. When the
+  // source list shrinks or pageSize grows the displayed page snaps down in
+  // the same render — no extra cycle, no flash of an out-of-range slice.
+  const page = Math.min(requestedPage, totalPages);
 
   const startIndex = (page - 1) * pageSize;
 

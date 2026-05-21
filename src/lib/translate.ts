@@ -137,7 +137,6 @@ export async function translateOne(text: string, target: string, source = 'en'):
     void writeDisk(key, out);
     return out;
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[translate]', (err as Error).message);
     return text;
   }

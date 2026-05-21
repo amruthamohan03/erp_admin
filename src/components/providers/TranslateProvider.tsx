@@ -162,7 +162,13 @@ export default function TranslateProvider({
   const [pending, setPending] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const localeRef = React.useRef(locale);
-  localeRef.current = locale;
+
+  // Keep localeRef in sync without writing the ref during render — the
+  // observer/flush callbacks below read .current to get the latest locale
+  // without forcing themselves to re-create on every locale change.
+  React.useLayoutEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   const translatePending = React.useRef(false);
   const dirty = React.useRef<Set<Text>>(new Set());

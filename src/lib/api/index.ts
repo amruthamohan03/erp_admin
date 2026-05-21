@@ -97,7 +97,6 @@ function mapError(err: unknown): NextResponse {
   const e = err as { code?: string; message?: string };
   if (e?.code === '23505') return fail('Resource already exists', 409);
   if (e?.code === '23503') return fail('Referenced resource not found', 400);
-  // eslint-disable-next-line no-console
   console.error('[withErrorHandler]', err);
   return fail('Server error', 500);
 }
