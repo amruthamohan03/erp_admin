@@ -9,6 +9,8 @@ interface ToggleProps {
   disabled?: boolean;
   size?: 'sm' | 'md';
   id?: string;
+  title?: string;
+  'aria-label'?: string;
 }
 
 export default function Toggle({
@@ -18,6 +20,8 @@ export default function Toggle({
   disabled = false,
   size = 'md',
   id,
+  title,
+  'aria-label': ariaLabel,
 }: ToggleProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -33,6 +37,8 @@ export default function Toggle({
       role="switch"
       id={inputId}
       aria-checked={checked}
+      aria-label={ariaLabel}
+      title={title}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={[
