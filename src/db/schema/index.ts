@@ -6,3 +6,4 @@ export * from './dashboardCards';
 export * from './roleDashboardCardMapping';
 export * from './rules';
 export * from './workflow';
+export * from './forms';
