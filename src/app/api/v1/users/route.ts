@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { and, eq, or, ilike, desc, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { usersT, roleMaster } from '@/db/schema';
-import { hashPassword, getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { hashPassword } from '@/lib/auth';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError, ConflictError } from '@/lib/errors';
+import { userCreateSchema } from '@/schemas';
 
-export async function GET(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('q')?.trim() || '';
@@ -63,32 +64,16 @@ export async function GET(req: NextRequest) {
     page,
     pageSize,
   });
-}
-
-const createSchema = z.object({
-  username: z.string().min(3).max(255),
-  password: z.string().min(6).max(100),
-  email: z.string().email().max(100),
-  full_name: z.string().min(1).max(255),
-  mobile: z.string().max(15).optional().nullable(),
-  role_id: z.number().int().positive(),
-  location_id: z.string().max(100).optional().nullable(),
-  dept_id: z.string().max(100).optional().nullable(),
 });
 
-export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
+
+  const data = userCreateSchema.parse(await req.json());
+  const hashed = await hashPassword(data.password);
 
   try {
-    const body = await req.json();
-    const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
-    const data = parsed.data;
-    const hashed = await hashPassword(data.password);
-
     const [row] = await db
       .insert(usersT)
       .values({
@@ -118,11 +103,9 @@ export async function POST(req: NextRequest) {
 
     return ok(row, 201);
   } catch (err: unknown) {
-    const e = err as { code?: string };
-    if (e.code === '23505') return fail('Username or email already exists', 409);
-    if (e.code === '23503') return fail('Invalid role_id', 400);
-    // eslint-disable-next-line no-console
-    console.error('[users.POST]', err);
-    return fail('Server error', 500);
+    const code = (err as { code?: string }).code;
+    if (code === '23505') throw new ConflictError('Username or email already exists');
+    if (code === '23503') throw new BadRequestError('Invalid role_id');
+    throw err;
   }
-}
+});

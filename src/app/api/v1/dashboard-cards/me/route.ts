@@ -1,15 +1,14 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { dashboardCardMaster, roleDashboardCardMapping } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 
 // Cards the logged-in user's role is allowed to see on the dashboard.
 // Mapping row with is_visible=true is required — there is no implicit fallback,
 // which matches how role-menu mapping behaves.
-export async function GET() {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async () => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const rows = await db
     .select({
@@ -49,4 +48,4 @@ export async function GET() {
   );
 
   return ok(visible);
-}
+});

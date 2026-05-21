@@ -2,53 +2,47 @@ import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { usersT } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
-import { deleteUploadIfLocal, saveUploadedImage, UploadError } from '@/lib/storage';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError } from '@/lib/errors';
+import { deleteUploadIfLocal, saveUploadedImage } from '@/lib/storage';
 
-export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const form = await req.formData();
   const file = form.get('file');
-  if (!(file instanceof File)) return fail('No file uploaded', 400);
+  if (!(file instanceof File)) throw new BadRequestError('No file uploaded');
 
-  try {
-    const [existing] = await db
-      .select({ profile_image: usersT.profileImage })
-      .from(usersT)
-      .where(eq(usersT.id, session.uid))
-      .limit(1);
+  const [existing] = await db
+    .select({ profile_image: usersT.profileImage })
+    .from(usersT)
+    .where(eq(usersT.id, session.uid))
+    .limit(1);
 
-    const saved = await saveUploadedImage(file, {
-      bucket: 'avatars',
-      ownerId: session.uid,
-      maxBytes: 2 * 1024 * 1024,
-    });
+  // saveUploadedImage throws UploadError (AppError subclass) — wrapper handles it.
+  const saved = await saveUploadedImage(file, {
+    bucket: 'avatars',
+    ownerId: session.uid,
+    maxBytes: 2 * 1024 * 1024,
+  });
 
-    await db
-      .update(usersT)
-      .set({
-        profileImage: saved.url,
-        updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
-      })
-      .where(eq(usersT.id, session.uid));
+  await db
+    .update(usersT)
+    .set({
+      profileImage: saved.url,
+      updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
+    })
+    .where(eq(usersT.id, session.uid));
 
-    await deleteUploadIfLocal(existing?.profile_image ?? null);
+  await deleteUploadIfLocal(existing?.profile_image ?? null);
 
-    return ok({ profile_image: saved.url });
-  } catch (err) {
-    if (err instanceof UploadError) return fail(err.message, err.status);
-    // eslint-disable-next-line no-console
-    console.error('[me.avatar.POST]', err);
-    return fail('Upload failed', 500);
-  }
-}
+  return ok({ profile_image: saved.url });
+});
 
-export async function DELETE() {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const DELETE = withErrorHandler(async () => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const [existing] = await db
     .select({ profile_image: usersT.profileImage })
@@ -67,4 +61,4 @@ export async function DELETE() {
   await deleteUploadIfLocal(existing?.profile_image ?? null);
 
   return ok({ profile_image: null });
-}
+});

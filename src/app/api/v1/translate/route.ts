@@ -1,23 +1,15 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
-import { ok, fail } from '@/lib/api';
+import { ok, withErrorHandler } from '@/lib/api';
+import { BadRequestError } from '@/lib/errors';
 import { translateBatch } from '@/lib/translate';
 import { isLocale } from '@/i18n/config';
+import { translateBatchSchema } from '@/schemas';
 
-const schema = z.object({
-  texts: z.array(z.string().max(5000)).max(200),
-  target: z.string().min(2).max(8),
-  source: z.string().min(2).max(8).optional(),
-});
-
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-
-  const { texts, target, source = 'en' } = parsed.data;
-  if (!isLocale(target)) return fail('Unsupported target locale', 400);
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const data = translateBatchSchema.parse(await req.json().catch(() => null));
+  const { texts, target, source = 'en' } = data;
+  if (!isLocale(target)) throw new BadRequestError('Unsupported target locale');
 
   const translations = await translateBatch(texts, target, source);
   return ok({ translations });
-}
+});

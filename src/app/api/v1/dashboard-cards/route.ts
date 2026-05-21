@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { dashboardCardMaster, menuMaster } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { ConflictError } from '@/lib/errors';
+import { dashboardCardCreateSchema } from '@/schemas';
 
-export async function GET(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { searchParams } = new URL(req.url);
   const includeHidden = searchParams.get('includeHidden') === '1';
@@ -49,34 +49,15 @@ export async function GET(req: NextRequest) {
     );
 
   return ok(rows);
-}
-
-const createSchema = z.object({
-  card_key: z.string().min(1).max(50),
-  card_content_id: z.string().min(1).max(50),
-  card_title: z.string().min(1).max(100),
-  card_subtitle: z.string().max(100).optional().nullable(),
-  card_icon: z.string().max(50).optional().nullable(),
-  card_color: z.string().max(30).optional().nullable(),
-  card_url: z.string().max(255).optional().nullable(),
-  card_order: z.number().int().min(0).default(0),
-  card_category: z.string().max(50).optional().nullable(),
-  menu_id: z.number().int().positive().nullable().optional(),
-  data_source: z.string().max(255).optional().nullable(),
 });
 
-export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
+
+  const d = dashboardCardCreateSchema.parse(await req.json());
 
   try {
-    const body = await req.json();
-    const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
-    const d = parsed.data;
-
     const [row] = await db
       .insert(dashboardCardMaster)
       .values({
@@ -96,13 +77,11 @@ export async function POST(req: NextRequest) {
         display: 'Y',
       })
       .returning({ id: dashboardCardMaster.id });
-
     return ok(row, 201);
   } catch (err: unknown) {
-    const e = err as { code?: string };
-    if (e.code === '23505') return fail('card_key already exists', 409);
-    // eslint-disable-next-line no-console
-    console.error('[dashboard-cards.POST]', err);
-    return fail('Server error', 500);
+    if ((err as { code?: string }).code === '23505') {
+      throw new ConflictError('card_key already exists');
+    }
+    throw err;
   }
-}
+});

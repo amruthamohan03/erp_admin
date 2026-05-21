@@ -1,6 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { AppError } from '@/lib/errors';
+import type { ErrorCode } from '@/lib/api';
 
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
 const UPLOADS_ROOT = path.join(PUBLIC_DIR, 'uploads');
@@ -85,11 +87,16 @@ export async function deleteUploadIfLocal(publicUrl: string | null | undefined):
   }
 }
 
-export class UploadError extends Error {
-  status: number;
+// Extends AppError so withErrorHandler in @/lib/api maps it straight to the
+// envelope — callers can throw it (or let saveUploadedImage throw it) and the
+// wrapper handles status, code, and response shape.
+export class UploadError extends AppError {
   constructor(message: string, status = 400) {
-    super(message);
-    this.status = status;
+    const code: ErrorCode =
+      status === 413 ? 'PAYLOAD_TOO_LARGE' :
+      status === 415 ? 'UNSUPPORTED_MEDIA_TYPE' :
+      'BAD_REQUEST';
+    super(message, status, code);
     this.name = 'UploadError';
   }
 }

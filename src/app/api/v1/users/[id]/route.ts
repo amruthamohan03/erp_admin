@@ -1,21 +1,22 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { usersT, roleMaster, type UserInsert } from '@/db/schema';
-import { hashPassword, getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { hashPassword } from '@/lib/auth';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
+import { userUpdateSchema } from '@/schemas';
 
 // Next 15+/16: route params are now a Promise.
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Ctx) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('Invalid id');
 
   const [row] = await db
     .select({
@@ -39,78 +40,60 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .where(eq(usersT.id, id))
     .limit(1);
 
-  if (!row) return fail('Not found', 404);
+  if (!row) throw new NotFoundError();
   return ok(row);
-}
-
-const updateSchema = z.object({
-  email: z.string().email().max(100).optional(),
-  full_name: z.string().min(1).max(255).optional(),
-  mobile: z.string().max(15).optional().nullable(),
-  role_id: z.number().int().positive().optional(),
-  password: z.string().min(6).max(100).optional(),
-  location_id: z.string().max(100).optional().nullable(),
-  dept_id: z.string().max(100).optional().nullable(),
-  display: z.enum(['Y', 'N']).optional(),
 });
 
-export async function PUT(req: NextRequest, { params }: Ctx) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('Invalid id');
+
+  const data = userUpdateSchema.parse(await req.json());
+
+  const patch: Partial<UserInsert> = {};
+  if (data.email !== undefined) patch.email = data.email;
+  if (data.full_name !== undefined) patch.fullName = data.full_name;
+  if (data.mobile !== undefined) patch.mobile = data.mobile;
+  if (data.role_id !== undefined) patch.roleId = data.role_id;
+  if (data.location_id !== undefined) patch.locationId = data.location_id;
+  if (data.dept_id !== undefined) patch.deptId = data.dept_id;
+  if (data.display !== undefined) patch.display = data.display;
+  if (data.password) patch.password = await hashPassword(data.password);
+
+  if (Object.keys(patch).length === 0) throw new BadRequestError('Nothing to update');
+
+  patch.updatedBy = session.uid;
+  patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
   try {
-    const body = await req.json();
-    const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
-    const data = parsed.data;
-
-    const patch: Partial<UserInsert> = {};
-    if (data.email !== undefined) patch.email = data.email;
-    if (data.full_name !== undefined) patch.fullName = data.full_name;
-    if (data.mobile !== undefined) patch.mobile = data.mobile;
-    if (data.role_id !== undefined) patch.roleId = data.role_id;
-    if (data.location_id !== undefined) patch.locationId = data.location_id;
-    if (data.dept_id !== undefined) patch.deptId = data.dept_id;
-    if (data.display !== undefined) patch.display = data.display;
-    if (data.password) patch.password = await hashPassword(data.password);
-
-    if (Object.keys(patch).length === 0) return fail('Nothing to update', 400);
-
-    patch.updatedBy = session.uid;
-    patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
-
     const [row] = await db
       .update(usersT)
       .set(patch)
       .where(eq(usersT.id, id))
       .returning({ id: usersT.id });
 
-    if (!row) return fail('Not found', 404);
+    if (!row) throw new NotFoundError();
     return ok({ id: row.id });
   } catch (err: unknown) {
-    const e = err as { code?: string };
-    if (e.code === '23505') return fail('Email already exists', 409);
-    if (e.code === '23503') return fail('Invalid role_id', 400);
-    // eslint-disable-next-line no-console
-    console.error('[users.PUT]', err);
-    return fail('Server error', 500);
+    const code = (err as { code?: string }).code;
+    if (code === '23505') throw new ConflictError('Email already exists');
+    if (code === '23503') throw new BadRequestError('Invalid role_id');
+    throw err;
   }
-}
+});
 
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const DELETE = withErrorHandler(async (_req: NextRequest, { params }: Ctx) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
-  if (id === session.uid) return fail('Cannot delete yourself', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('Invalid id');
+  if (id === session.uid) throw new BadRequestError('Cannot delete yourself');
 
   const [row] = await db
     .update(usersT)
@@ -122,6 +105,6 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     .where(eq(usersT.id, id))
     .returning({ id: usersT.id });
 
-  if (!row) return fail('Not found', 404);
+  if (!row) throw new NotFoundError();
   return ok({ id: row.id });
-}
+});

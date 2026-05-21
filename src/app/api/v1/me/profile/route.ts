@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { usersT, roleMaster, type UserInsert } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
+import { profileUpdateSchema } from '@/schemas';
 
-export async function GET() {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async () => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const [user] = await db
     .select({
@@ -32,38 +32,27 @@ export async function GET() {
     .where(eq(usersT.id, session.uid))
     .limit(1);
 
-  if (!user) return fail('User not found', 404);
+  if (!user) throw new NotFoundError('User not found');
   return ok(user);
-}
-
-const updateSchema = z.object({
-  full_name: z.string().min(1).max(255).optional(),
-  email: z.string().email().max(100).optional(),
-  mobile: z.string().max(15).nullable().optional(),
-  bio: z.string().max(1000).nullable().optional(),
 });
 
-export async function PUT(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const PUT = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
+
+  const data = profileUpdateSchema.parse(await req.json());
+
+  const patch: Partial<UserInsert> = {};
+  if (data.full_name !== undefined) patch.fullName = data.full_name;
+  if (data.email !== undefined) patch.email = data.email;
+  if (data.mobile !== undefined) patch.mobile = data.mobile;
+  if (data.bio !== undefined) patch.bio = data.bio;
+
+  if (Object.keys(patch).length === 0) throw new BadRequestError('No fields to update');
+
+  patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
   try {
-    const body = await req.json();
-    const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
-
-    const patch: Partial<UserInsert> = {};
-    if (parsed.data.full_name !== undefined) patch.fullName = parsed.data.full_name;
-    if (parsed.data.email !== undefined) patch.email = parsed.data.email;
-    if (parsed.data.mobile !== undefined) patch.mobile = parsed.data.mobile;
-    if (parsed.data.bio !== undefined) patch.bio = parsed.data.bio;
-
-    if (Object.keys(patch).length === 0) return fail('No fields to update', 400);
-
-    patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
-
     const [row] = await db
       .update(usersT)
       .set(patch)
@@ -76,13 +65,11 @@ export async function PUT(req: NextRequest) {
         mobile: usersT.mobile,
         bio: usersT.bio,
       });
-
     return ok(row);
   } catch (err: unknown) {
-    const e = err as { code?: string };
-    if (e.code === '23505') return fail('Email already in use', 409);
-    // eslint-disable-next-line no-console
-    console.error('[me.profile.PUT]', err);
-    return fail('Server error', 500);
+    if ((err as { code?: string }).code === '23505') {
+      throw new ConflictError('Email already in use');
+    }
+    throw err;
   }
-}
+});

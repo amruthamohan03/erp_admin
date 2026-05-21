@@ -1,12 +1,12 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { usersT, roleMaster } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { NotFoundError } from '@/lib/errors';
 
-export async function GET() {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async () => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const [user] = await db
     .select({
@@ -25,6 +25,6 @@ export async function GET() {
     .where(eq(usersT.id, session.uid))
     .limit(1);
 
-  if (!user) return fail('User not found', 404);
+  if (!user) throw new NotFoundError('User not found');
   return ok(user);
-}
+});

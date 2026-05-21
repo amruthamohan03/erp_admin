@@ -1,16 +1,16 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import { and, asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { menuMaster, roleMenuMapping } from '@/db/schema';
-import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError } from '@/lib/errors';
+import { menuCreateSchema } from '@/schemas';
 import type { MenuItem, MenuTreeNode } from '@/types/menu';
 
-export async function GET(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
   const { searchParams } = new URL(req.url);
   const flat = searchParams.get('flat') === '1';
@@ -101,77 +101,56 @@ export async function GET(req: NextRequest) {
   tree.forEach((n) => n.children.sort(sortByOrder));
 
   return ok(tree);
-}
-
-const createSchema = z.object({
-  menu_name: z.string().min(1).max(255),
-  url: z.string().max(255).optional().nullable(),
-  text: z.string().max(100).optional().nullable(),
-  icon: z.string().max(100).optional().nullable(),
-  badge: z.string().max(50).optional().nullable(),
-  menu_id: z.number().int().positive().nullable().optional(),
-  menu_order: z.number().int().min(0).default(1),
 });
 
-export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const session = await requireAuth();
+  if (isResponse(session)) return session;
 
-  try {
-    const body = await req.json();
-    const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
+  const d = menuCreateSchema.parse(await req.json());
+
+  // Enforce 2-level rule: if parent is given, that parent must itself be top-level.
+  let level = 0;
+  if (d.menu_id) {
+    const [p] = await db
+      .select({ menuLevel: menuMaster.menuLevel })
+      .from(menuMaster)
+      .where(eq(menuMaster.id, d.menu_id))
+      .limit(1);
+    if (!p) throw new BadRequestError('Parent menu not found');
+    if ((p.menuLevel ?? 0) >= 1) {
+      throw new BadRequestError('Only 2 levels of menus are supported');
     }
-    const d = parsed.data;
-
-    // Enforce 2-level rule: if parent is given, that parent must itself be top-level.
-    let level = 0;
-    if (d.menu_id) {
-      const [p] = await db
-        .select({ menuLevel: menuMaster.menuLevel })
-        .from(menuMaster)
-        .where(eq(menuMaster.id, d.menu_id))
-        .limit(1);
-      if (!p) return fail('Parent menu not found', 400);
-      if ((p.menuLevel ?? 0) >= 1) {
-        return fail('Only 2 levels of menus are supported', 400);
-      }
-      level = 1;
-    }
-
-    const [row] = await db
-      .insert(menuMaster)
-      .values({
-        menuId: d.menu_id ?? null,
-        menuOrder: d.menu_order,
-        menuLevel: level,
-        menuName: d.menu_name,
-        url: d.url ?? '#',
-        text: d.text ?? null,
-        icon: d.icon ?? null,
-        badge: d.badge ?? null,
-        createdBy: session.uid,
-        updatedBy: session.uid,
-        display: 'Y',
-      })
-      .returning({
-        id: menuMaster.id,
-        menu_id: menuMaster.menuId,
-        menu_order: menuMaster.menuOrder,
-        menu_level: menuMaster.menuLevel,
-        menu_name: menuMaster.menuName,
-        url: menuMaster.url,
-        text: menuMaster.text,
-        icon: menuMaster.icon,
-        badge: menuMaster.badge,
-        display: menuMaster.display,
-      });
-
-    return ok(row, 201);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[menus.POST]', err);
-    return fail('Server error', 500);
+    level = 1;
   }
-}
+
+  const [row] = await db
+    .insert(menuMaster)
+    .values({
+      menuId: d.menu_id ?? null,
+      menuOrder: d.menu_order,
+      menuLevel: level,
+      menuName: d.menu_name,
+      url: d.url ?? '#',
+      text: d.text ?? null,
+      icon: d.icon ?? null,
+      badge: d.badge ?? null,
+      createdBy: session.uid,
+      updatedBy: session.uid,
+      display: 'Y',
+    })
+    .returning({
+      id: menuMaster.id,
+      menu_id: menuMaster.menuId,
+      menu_order: menuMaster.menuOrder,
+      menu_level: menuMaster.menuLevel,
+      menu_name: menuMaster.menuName,
+      url: menuMaster.url,
+      text: menuMaster.text,
+      icon: menuMaster.icon,
+      badge: menuMaster.badge,
+      display: menuMaster.display,
+    });
+
+  return ok(row, 201);
+});
