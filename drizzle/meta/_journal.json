@@ -36,6 +36,13 @@
       "when": 1779389810609,
       "tag": "0004_add_master_forms",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779389944626,
+      "tag": "0005_add_master_case_template",
+      "breakpoints": true
     }
   ]
 }

@@ -7,3 +7,4 @@ export * from './roleDashboardCardMapping';
 export * from './rules';
 export * from './workflow';
 export * from './forms';
+export * from './caseTemplate';
