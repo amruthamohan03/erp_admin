@@ -31,6 +31,7 @@ const putSchema = z.object({
   accent_color: hex,
   sidebar_bg: hex,
   sidebar_fg: hex,
+  footer_text: z.string().max(300).nullable().optional(),
 });
 
 export async function PUT(req: NextRequest) {
@@ -59,6 +60,7 @@ export async function PUT(req: NextRequest) {
         accentColor: d.accent_color,
         sidebarBg: d.sidebar_bg,
         sidebarFg: d.sidebar_fg,
+        footerText: d.footer_text ?? null,
         updatedBy: session.uid,
       })
       .onConflictDoUpdate({
@@ -73,6 +75,7 @@ export async function PUT(req: NextRequest) {
           accentColor: d.accent_color,
           sidebarBg: d.sidebar_bg,
           sidebarFg: d.sidebar_fg,
+          footerText: d.footer_text ?? null,
           updatedBy: session.uid,
           updatedAt: sql`now()`,
         },

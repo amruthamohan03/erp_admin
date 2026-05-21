@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import Clock from '@/components/layout/Clock';
 
 interface Me {
   id: number;
@@ -50,7 +51,9 @@ export default function Topbar() {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <div className="text-sm text-muted-foreground">Welcome back</div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-3">
+        <Clock />
+        <div className="hidden md:block h-6 w-px bg-border" />
         <LanguageSwitcher />
         <ThemeToggle />
 

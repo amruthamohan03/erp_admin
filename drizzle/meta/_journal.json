@@ -22,6 +22,20 @@
       "when": 1779288078917,
       "tag": "0002_add_application_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779349154084,
+      "tag": "0003_add_banklist_and_kind_masters",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779353530784,
+      "tag": "0004_add_footer_text",
+      "breakpoints": true
     }
   ]
 }
