@@ -4,10 +4,12 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Circle } from 'lucide-react';
+import { ChevronDown, Circle, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import type { MenuTreeNode } from '@/types/menu';
 import { useAppSettings } from '@/components/providers/SettingsProvider';
+
+const COLLAPSED_STORAGE_KEY = 'sidebar:collapsed';
 
 // Convert "menu/index"-style URLs into "/menu" Next.js routes.
 // Adjust this if your routing scheme differs.
@@ -29,6 +31,21 @@ export default function Sidebar() {
   const [menus, setMenus] = useState<MenuTreeNode[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Hydrate collapsed state from localStorage after mount to avoid SSR mismatch.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      if (stored === '1') setCollapsed(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0');
+    } catch {}
+  }, [collapsed]);
 
   useEffect(() => {
     fetch('/api/menus')
@@ -62,6 +79,18 @@ export default function Sidebar() {
   }, [activeParentId]);
 
   function toggle(id: number) {
+    // When collapsed, clicking a parent should expand the sidebar back open
+    // and reveal that group, rather than toggling an invisible accordion.
+    if (collapsed) {
+      setCollapsed(false);
+      setOpenGroups((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      return;
+    }
     setOpenGroups((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -71,28 +100,51 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex min-h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-6 py-5 flex items-center gap-3">
+    <aside
+      className={clsx(
+        'relative flex min-h-screen flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200',
+        collapsed ? 'w-16' : 'w-64',
+      )}
+    >
+      {/* Floating toggle button on the right edge of the sidebar */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute top-7 -right-3 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-sidebar-border bg-background text-foreground/70 shadow-sm hover:text-foreground hover:bg-accent transition-colors"
+      >
+        <Menu className="h-3.5 w-3.5" />
+      </button>
+
+      <div
+        className={clsx(
+          'border-b border-sidebar-border flex items-center gap-3',
+          collapsed ? 'px-2 py-5 justify-center' : 'px-6 py-5',
+        )}
+      >
         {settings.logo_url ? (
           <Image
             src={settings.logo_url}
             alt={settings.project_name}
             width={36}
             height={36}
-            className="rounded-md object-contain bg-white/10 p-1"
+            className="rounded-md object-contain bg-white/10 p-1 shrink-0"
             unoptimized
           />
         ) : null}
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold truncate">
-            {settings.project_name}
-          </h2>
-          {settings.tagline && (
-            <p className="mt-0.5 text-xs opacity-70 truncate">
-              {settings.tagline}
-            </p>
-          )}
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold truncate">
+              {settings.project_name}
+            </h2>
+            {settings.tagline && (
+              <p className="mt-0.5 text-xs opacity-70 truncate">
+                {settings.tagline}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
@@ -117,16 +169,22 @@ export default function Sidebar() {
               <Link
                 key={item.id}
                 href={href}
+                title={collapsed ? item.menu_name : undefined}
                 className={clsx(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                  'flex items-center gap-3 rounded-md text-sm transition-colors',
+                  collapsed ? 'justify-center px-2 py-2' : 'px-3 py-2',
                   active
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
-                <span className="flex-1 truncate">{item.menu_name}</span>
-                <Badge text={item.badge} />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 truncate">{item.menu_name}</span>
+                    <Badge text={item.badge} />
+                  </>
+                )}
               </Link>
             );
           }
@@ -137,25 +195,31 @@ export default function Sidebar() {
               <button
                 type="button"
                 onClick={() => toggle(item.id)}
+                title={collapsed ? item.menu_name : undefined}
                 className={clsx(
-                  'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                  'w-full flex items-center gap-3 rounded-md text-sm transition-colors',
+                  collapsed ? 'justify-center px-2 py-2' : 'px-3 py-2',
                   groupActive
                     ? 'bg-sidebar-accent/30 text-sidebar-foreground'
                     : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
-                <span className="flex-1 truncate text-left">{item.menu_name}</span>
-                <Badge text={item.badge} />
-                <ChevronDown
-                  className={clsx(
-                    'h-4 w-4 transition-transform',
-                    isOpen ? 'rotate-180' : '',
-                  )}
-                />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 truncate text-left">{item.menu_name}</span>
+                    <Badge text={item.badge} />
+                    <ChevronDown
+                      className={clsx(
+                        'h-4 w-4 transition-transform',
+                        isOpen ? 'rotate-180' : '',
+                      )}
+                    />
+                  </>
+                )}
               </button>
 
-              {isOpen && (
+              {isOpen && !collapsed && (
                 <div className="ml-3 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2">
                   {item.children.map((child) => {
                     const childHref = toHref(child.url);
@@ -184,7 +248,12 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/50">
+      <div
+        className={clsx(
+          'border-t border-sidebar-border text-xs text-sidebar-foreground/50',
+          collapsed ? 'p-2 text-center' : 'p-4',
+        )}
+      >
         v0.1.0
       </div>
     </aside>

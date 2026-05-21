@@ -20,6 +20,7 @@ interface SettingsForm {
   accent_color: string;
   sidebar_bg: string;
   sidebar_fg: string;
+  footer_text: string;
 }
 
 const DEFAULTS: SettingsForm = {
@@ -32,6 +33,7 @@ const DEFAULTS: SettingsForm = {
   accent_color: '#2563eb',
   sidebar_bg: '#0f172a',
   sidebar_fg: '#e2e8f0',
+  footer_text: '© {year} ERP Admin · All rights reserved.',
 };
 
 export default function ApplicationSettingsPage() {
@@ -59,6 +61,7 @@ export default function ApplicationSettingsPage() {
             accent_color: j.data.accent_color ?? DEFAULTS.accent_color,
             sidebar_bg: j.data.sidebar_bg ?? DEFAULTS.sidebar_bg,
             sidebar_fg: j.data.sidebar_fg ?? DEFAULTS.sidebar_fg,
+            footer_text: j.data.footer_text ?? '',
           });
         }
       })
@@ -82,6 +85,7 @@ export default function ApplicationSettingsPage() {
       accent_color: form.accent_color,
       sidebar_bg: form.sidebar_bg,
       sidebar_fg: form.sidebar_fg,
+      footer_text: form.footer_text.trim() || null,
     };
 
     try {
@@ -196,6 +200,24 @@ export default function ApplicationSettingsPage() {
             />
             <p className="text-xs text-slate-500 mt-1">
               Optional subtitle under the project name.
+            </p>
+          </div>
+
+          <div>
+            <label className="label">Footer Text</label>
+            <input
+              className="input"
+              value={form.footer_text}
+              onChange={(e) =>
+                setForm({ ...form, footer_text: e.target.value })
+              }
+              disabled={loading}
+              maxLength={300}
+              placeholder="© {year} Your Company · All rights reserved."
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Shown across the bottom of every authenticated page. Use{' '}
+              <code>{'{year}'}</code> to insert the current year.
             </p>
           </div>
 

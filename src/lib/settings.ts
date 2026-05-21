@@ -12,6 +12,7 @@ export interface AppSettings {
   accent_color: string;
   sidebar_bg: string;
   sidebar_fg: string;
+  footer_text: string | null;
 }
 
 const DEFAULTS: AppSettings = {
@@ -24,6 +25,7 @@ const DEFAULTS: AppSettings = {
   accent_color: '#2563eb',
   sidebar_bg: '#0f172a',
   sidebar_fg: '#e2e8f0',
+  footer_text: '© {year} ERP Admin · All rights reserved.',
 };
 
 function toSettings(row: ApplicationSettingsRow): AppSettings {
@@ -37,6 +39,7 @@ function toSettings(row: ApplicationSettingsRow): AppSettings {
     accent_color: row.accentColor,
     sidebar_bg: row.sidebarBg,
     sidebar_fg: row.sidebarFg,
+    footer_text: row.footerText,
   };
 }
 

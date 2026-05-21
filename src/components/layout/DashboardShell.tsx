@@ -1,5 +1,6 @@
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
+import Footer from '@/components/layout/Footer';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
@@ -8,6 +9,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <div className="flex flex-1 flex-col">
         <Topbar />
         <main className="flex-1 p-6">{children}</main>
+        <Footer />
       </div>
     </div>
   );

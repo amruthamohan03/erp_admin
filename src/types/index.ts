@@ -33,6 +33,29 @@ export interface Role {
   updated_by: number | null;
 }
 
+export interface Bank {
+  id: number;
+  bank_name: string;
+  bank_code: string;
+  for_exchange: 'Y' | 'N';
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Kind {
+  id: number;
+  kind_name: string;
+  kind_short_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

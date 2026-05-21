@@ -5,3 +5,5 @@ export * from './roleMenuMapping';
 export * from './dashboardCards';
 export * from './roleDashboardCardMapping';
 export * from './applicationSettings';
+export * from './banklistMaster';
+export * from './kindMaster';

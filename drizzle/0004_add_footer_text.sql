@@ -1,0 +1,1 @@
+ALTER TABLE "application_settings_t" ADD COLUMN "footer_text" varchar(300);

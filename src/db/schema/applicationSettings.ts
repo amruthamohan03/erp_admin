@@ -36,6 +36,9 @@ export const applicationSettings = pgTable(
     sidebarFg: varchar('sidebar_fg', { length: 20 })
       .notNull()
       .default('#e2e8f0'),
+    // Customizable footer text shown across the authenticated app shell.
+    // Supports a simple {year} placeholder for the current year.
+    footerText: varchar('footer_text', { length: 300 }),
     updatedBy: integer('updated_by').references(() => usersT.id, {
       onDelete: 'set null',
     }),
