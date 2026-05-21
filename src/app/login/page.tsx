@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Toggle from '@/components/ui/Toggle';
 
 function LoginForm() {
   const sp = useSearchParams();

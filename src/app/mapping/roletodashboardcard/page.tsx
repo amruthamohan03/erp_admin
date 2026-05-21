@@ -5,6 +5,7 @@ import { LayoutDashboard, Save, Search } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
 
@@ -256,15 +257,15 @@ export default function RoleToDashboardCardPage() {
                   <th className="text-center">
                     <div className="flex flex-col items-center gap-1">
                       <span>Visible</span>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      <Toggle
+                        size="sm"
                         checked={columnAllOn}
-                        onChange={(e) => toggleColumn(e.target.checked)}
+                        onChange={(v) => toggleColumn(v)}
                         disabled={filtered.length === 0 || loadingRows}
                         title={`Toggle visibility for ${
                           search ? 'matching' : 'all'
                         } cards`}
+                        aria-label="Toggle visibility for all cards"
                       />
                     </div>
                   </th>
@@ -325,12 +326,14 @@ export default function RoleToDashboardCardPage() {
                         />
                       </td>
                       <td className="text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                          checked={r.is_visible}
-                          onChange={() => toggleVisible(r.card_id)}
-                        />
+                        <div className="inline-flex justify-center">
+                          <Toggle
+                            size="sm"
+                            checked={r.is_visible}
+                            onChange={() => toggleVisible(r.card_id)}
+                            aria-label={`Visibility for ${r.card_title}`}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
