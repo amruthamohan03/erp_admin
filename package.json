@@ -13,7 +13,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:introspect": "drizzle-kit introspect",
-    "seed": "node scripts/seed-admin.js"
+    "seed": "node scripts/seed-admin.js",
+    "openapi": "tsx scripts/generate-openapi.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -21,6 +22,7 @@
     ]
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

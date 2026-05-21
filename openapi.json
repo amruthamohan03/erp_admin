@@ -1,0 +1,646 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ERP Admin API",
+    "version": "0.1.0",
+    "description": "Customs clearance & logistics ERP. Schemas auto-generated from src/schemas/."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "LoginInput": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "PasswordChangeInput": {
+        "type": "object",
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ]
+      },
+      "PreferencesUpdateInput": {
+        "type": "object",
+        "properties": {
+          "theme_preference": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ]
+          },
+          "locale_preference": {
+            "type": "string",
+            "enum": [
+              "en",
+              "fr"
+            ]
+          },
+          "email_notifications": {
+            "type": "boolean"
+          },
+          "compact_mode": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProfileUpdateInput": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 100,
+            "format": "email"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 15
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          }
+        }
+      },
+      "TranslateBatchInput": {
+        "type": "object",
+        "properties": {
+          "texts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "maxItems": 200
+          },
+          "target": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 8
+          },
+          "source": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 8
+          }
+        },
+        "required": [
+          "texts",
+          "target"
+        ]
+      },
+      "UserCreateInput": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 100,
+            "format": "email"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 15
+          },
+          "role_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "location_id": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "dept_id": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "email",
+          "full_name",
+          "role_id"
+        ]
+      },
+      "UserUpdateInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 100,
+            "format": "email"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 15
+          },
+          "role_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 100
+          },
+          "location_id": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "dept_id": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          }
+        }
+      },
+      "UserListQuery": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        }
+      },
+      "MenuCreateInput": {
+        "type": "object",
+        "properties": {
+          "menu_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "badge": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "menu_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "menu_order": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          }
+        },
+        "required": [
+          "menu_name"
+        ]
+      },
+      "MenuUpdateInput": {
+        "type": "object",
+        "properties": {
+          "menu_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "badge": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "menu_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "menu_order": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          }
+        }
+      },
+      "RoleCreateInput": {
+        "type": "object",
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "parent_role_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "approval_level": {
+            "type": "integer",
+            "nullable": true
+          },
+          "department": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          },
+          "management": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          },
+          "finance": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          }
+        },
+        "required": [
+          "role_name"
+        ]
+      },
+      "RoleUpdateInput": {
+        "type": "object",
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "parent_role_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "approval_level": {
+            "type": "integer",
+            "nullable": true
+          },
+          "department": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "management": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "finance": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          }
+        }
+      },
+      "DashboardCardCreateInput": {
+        "type": "object",
+        "properties": {
+          "card_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "card_content_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "card_title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "card_subtitle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "card_icon": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "card_color": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30
+          },
+          "card_url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "card_order": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "card_category": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "menu_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "data_source": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "card_key",
+          "card_content_id",
+          "card_title"
+        ]
+      },
+      "DashboardCardUpdateInput": {
+        "type": "object",
+        "properties": {
+          "card_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "card_content_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "card_title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "card_subtitle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "card_icon": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "card_color": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30
+          },
+          "card_url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "card_order": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "card_category": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50
+          },
+          "menu_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "data_source": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          }
+        }
+      },
+      "RoleMenuMappingPutInput": {
+        "type": "object",
+        "properties": {
+          "role_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "menu_id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "can_view": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_add": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_edit": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_delete": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_approve": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "menu_id"
+              ]
+            }
+          }
+        },
+        "required": [
+          "role_id",
+          "mappings"
+        ]
+      },
+      "RoleDashboardCardMappingPutInput": {
+        "type": "object",
+        "properties": {
+          "role_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "is_visible": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "card_order": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                }
+              },
+              "required": [
+                "card_id"
+              ]
+            }
+          }
+        },
+        "required": [
+          "role_id",
+          "mappings"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {}
+}
