@@ -30,3 +30,24 @@ export const dashboardCardUpdateSchema = z.object({
   display: z.enum(['Y', 'N']).optional(),
 });
 export type DashboardCardUpdateInput = z.infer<typeof dashboardCardUpdateSchema>;
+
+// Superset shape — /dashboard-cards (admin list) returns everything,
+// /dashboard-cards/me strips menu/order/display since users don't need
+// to know about admin internals. Optional/nullable fields document that.
+export const dashboardCardResponseSchema = z.object({
+  id: z.number().int(),
+  card_key: z.string(),
+  card_content_id: z.string(),
+  card_title: z.string(),
+  card_subtitle: z.string().nullable(),
+  card_icon: z.string().nullable(),
+  card_color: z.string().nullable(),
+  card_url: z.string().nullable(),
+  card_category: z.string().nullable(),
+  data_source: z.string().nullable(),
+  card_order: z.number().int().optional(),
+  menu_id: z.number().int().nullable().optional(),
+  menu_name: z.string().nullable().optional(),
+  display: z.enum(['Y', 'N']).optional(),
+});
+export type DashboardCardResponse = z.infer<typeof dashboardCardResponseSchema>;
