@@ -16,9 +16,9 @@ If a proposed table doesn't satisfy all three, it is not a master — it's eithe
 
 ---
 
-## 2. Naming convention (real, not the spec)
+## 2. Naming convention
 
-The root CLAUDE.md mentions a `master_*` prefix. The **actual codebase uses an `_master_t` suffix** — follow the code, not the spec. When you next touch the root CLAUDE.md, flag the drift to the user.
+Master tables use the `_master_t` suffix (matches root §6). The table below maps the convention across every layer.
 
 | Layer       | Convention                                | Example                                       |
 |-------------|-------------------------------------------|-----------------------------------------------|

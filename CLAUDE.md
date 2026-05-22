@@ -18,7 +18,7 @@ If a task can be solved either by adding code OR by adding a config row, **prefe
 
 ## 2. Business domain & end-to-end flow
 
-The ERP follows a consignment from onboarding to payment. Every step below maps to a module driven by master configuration — license types, tracking templates, tax rules, invoice formats, and approval hierarchies all live in `master_*` tables.
+The ERP follows a consignment from onboarding to payment. Every step below maps to a module driven by master configuration — license types, tracking templates, tax rules, invoice formats, and approval hierarchies all live in `_master_t` tables (see §6 for the naming convention).
 
 1. **Client onboarding (Master)** — a client record is created in the master data layer.
 2. **License issuance** — a license is issued to the client. Two license types: **Import (IB)** or **Export**.
@@ -43,7 +43,7 @@ When implementing or modifying any feature, identify which stage above it belong
 - Drizzle Kit for migrations and Drizzle Studio for inspection
 - JWT auth: `jose` for sign/verify, `bcryptjs` for password hashing, httpOnly cookie
 - Tailwind CSS 3 (utility-first, no inline styles, no CSS-in-JS)
-- Zod 4 for all request/response/config validation
+- Zod 3 for all request/response/config validation (Zod 4 upgrade is a deferred migration — `@asteasolutions/zod-to-openapi` is pinned to v7 to match)
 - ESLint 9 flat config
 
 Do **not** introduce new top-level dependencies without flagging it explicitly and explaining why an existing tool can't do the job.
@@ -53,22 +53,22 @@ Do **not** introduce new top-level dependencies without flagging it explicitly a
 ## 4. Architectural rules (non-negotiable)
 
 ### 4.1 Master-driven
-Anything that varies between deployments or could change at runtime lives in a `master_*` table. Code reads master tables, it does not embed their values.
+Anything that varies between deployments or could change at runtime lives in a `_master_t` table. Code reads master tables, it does not embed their values.
 
-Examples:
-- Status codes → `master_status`
-- Document types → `master_document_type`
-- Approval levels → `master_approval_hierarchy`
-- Field validations → `master_field_validation`
-- License types (IB / Export) → `master_license_type`
-- Tracking templates → `master_tracking_template`
-- Tax / duty rules used by Fiche de Calcul → `master_tax_rule`
+Examples (see §6 for the suffix convention):
+- Status codes → `status_master_t`
+- Document types → `document_type_master_t`
+- Approval levels → `approval_hierarchy_master_t`
+- Field validations → `field_validation_master_t`
+- License types (IB / Export) → `license_type_master_t`
+- Tracking templates → `tracking_template_master_t`
+- Tax / duty rules used by Fiche de Calcul → `tax_rule_master_t`
 
 ### 4.2 Rule engine over `if/else`
-For any decision involving more than 2 conditions or any condition a user might want to change, route it through the rule engine (`src/engine/rules/`). Rules are stored as JSON in `master_rules` and evaluated by `evaluateRule(ruleId, context)`. Never inline business rules in route handlers.
+For any decision involving more than 2 conditions or any condition a user might want to change, route it through the rule engine (`src/engine/rules/`). Rules are stored as JSON in `rule_master_t` and evaluated by `evaluateRule(ruleKey, context)`. Never inline business rules in route handlers.
 
 ### 4.3 Template-driven modules
-New "case types" (license, tracking run, invoice, credit note, payment request, …) are created by inserting a template row in `master_case_template`, not by adding a new module folder. The generic case runtime in `src/modules/case-runtime/` reads the template and renders forms, runs validations, executes workflow.
+New "case types" (license, tracking run, invoice, credit note, payment request, …) are created by inserting a template row in `case_template_master_t`, not by adding a new module folder. The generic case runtime in `src/modules/case-runtime/` reads the template and renders forms, runs validations, executes workflow.
 
 ### 4.4 API-first
 Every feature ships as a documented API route under `src/app/api/v1/` before any UI is built. Zod schemas double as the OpenAPI source (`@asteasolutions/zod-to-openapi`). Response envelope is always:
@@ -79,14 +79,14 @@ Every feature ships as a documented API route under `src/app/api/v1/` before any
 ```
 
 ### 4.5 Dynamic forms & fields
-UI forms are generated from `master_form_definition` + `master_form_field`. Never hand-code a form unless it is itself a master configuration screen.
+UI forms are generated from `form_definition_master_t` + `form_field_master_t`. Never hand-code a form unless it is itself a master configuration screen.
 
 ### 4.6 Configurable workflow
-Workflow transitions live in `master_workflow` + `master_workflow_transition`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
+Workflow transitions live in `workflow_master_t` + `workflow_transition_master_t`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
 
 ### 4.7 Centralized validation & permission
 - Validation: every input goes through a Zod schema. Schemas live in `src/schemas/`. No ad-hoc `if (!x) throw …` in handlers.
-- Permission: every protected route calls `checkPermission(user, resource, action)` from `src/lib/auth/permissions.ts`. Permissions are stored in `master_permission` mapped to roles. Never check role names directly (`if (user.role === "admin")` is forbidden).
+- Permission: every protected route calls `checkPermission(user, resource, action)` from `src/lib/auth/permissions.ts`. Permissions are stored in `role_menu_mapping_t` (role × menu × `can_*` flags) — resources are menu URLs, actions are the five `can_*` columns. Never check role names directly (`if (user.role === "admin")` is forbidden).
 
 ### 4.8 Reusable components
 UI components in `src/components/` are pure and config-driven. Module-specific composition lives in `src/modules/<module>/`. If you're about to copy a component, refactor instead.
@@ -162,7 +162,7 @@ When adding files, match this layout. If something doesn't fit, ask before inven
 - **Async:** every async function has an explicit return type.
 - **Errors:** throw typed errors from `src/lib/errors/`. Route handlers wrap with `withErrorHandler()`.
 - **DB:** use Drizzle for all database access. See section 7 for the rules. Never import `pg` directly outside `src/lib/db.ts`.
-- **Naming:** `snake_case` in DB, `camelCase` in TS, `PascalCase` for components and types. Master tables prefixed `master_`. Drizzle table objects use `camelCase` matching the TS convention (`masterStatus`, not `master_status`) with the SQL name set explicitly: `pgTable("master_status", { ... })`.
+- **Naming:** `snake_case` in DB, `camelCase` in TS, `PascalCase` for components and types. Master tables use a `_master_t` suffix (e.g. `status_master_t`, `role_master_t`, `menu_master_t`). Drizzle table objects use `camelCase` (`statusMaster`, not `status_master_t`) with the SQL name set explicitly: `pgTable("status_master_t", { ... })`.
 - **Comments:** explain *why*, not *what*. No noise comments (`// increment i`).
 - **Files:** one default export per file, named the same as the file.
 
@@ -233,16 +233,16 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 
 ## 10. Things to refuse / push back on
 
-- Requests to hardcode a status, role, document type, license type, or workflow step → propose a master table instead.
-- Requests to hardcode tax/duty math in Fiche de Calcul → propose `master_tax_rule` + rule engine.
-- Requests to add a feature flag in code → use `master_feature_toggle` instead.
+- Requests to hardcode a status, role, document type, license type, or workflow step → propose a master table (e.g. `status_master_t`) instead.
+- Requests to hardcode tax/duty math in Fiche de Calcul → propose `tax_rule_master_t` + rule engine.
+- Requests to add a feature flag in code → use `feature_toggle_master_t` instead.
 - Requests to `if (user.email === "...")` or similar one-off logic → push back, propose a permission or rule.
 - Requests to skip the Zod schema "just this once" → no.
 - Requests to bypass the response envelope → no, unless it's a non-JSON response (file download, etc.).
 - Requests to write raw `pg.query("...")` calls → no, use Drizzle's `sql` tag or query builder.
 - Requests to edit an already-merged migration → no, write a new one.
 
-If the user insists after pushback, comply but add a `// TODO(config): move to master_*` comment.
+If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 
 ---
 
