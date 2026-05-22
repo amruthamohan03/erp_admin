@@ -58,11 +58,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .limit(pageSize)
     .offset(offset);
 
-  return ok({
-    items,
-    total: countRow.total,
-    page,
-    pageSize,
+  return ok(items, {
+    meta: { total: countRow.total, page, pageSize },
   });
 });
 

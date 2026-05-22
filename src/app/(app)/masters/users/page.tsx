@@ -36,8 +36,8 @@ export default function UsersPage() {
       const res = await fetch(`/api/v1/users?${params}`);
       const json = await res.json();
       if (json.ok) {
-        setItems(json.data.items);
-        setTotal(json.data.total);
+        setItems(json.data);
+        setTotal(json.meta?.total ?? 0);
       }
     } finally {
       setLoading(false);
