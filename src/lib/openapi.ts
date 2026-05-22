@@ -15,6 +15,7 @@ import {
   userCreateSchema,
   userUpdateSchema,
   userListQuerySchema,
+  userResponseSchema,
   menuCreateSchema,
   menuUpdateSchema,
   roleCreateSchema,
@@ -59,10 +60,30 @@ function okEnvelope<T extends z.ZodTypeAny>(data: T) {
   });
 }
 
+// Paginated list envelope: data is an array, meta carries pagination counts.
+function paginatedEnvelope<T extends z.ZodTypeAny>(item: T) {
+  return z.object({
+    ok: z.literal(true),
+    data: z.array(item),
+    meta: z.object({
+      total: z.number().int(),
+      page: z.number().int(),
+      pageSize: z.number().int(),
+    }),
+  });
+}
+
 function jsonOk<T extends z.ZodTypeAny>(description: string, data: T) {
   return {
     description,
     content: { 'application/json': { schema: okEnvelope(data) } },
+  };
+}
+
+function jsonPaginated<T extends z.ZodTypeAny>(description: string, item: T) {
+  return {
+    description,
+    content: { 'application/json': { schema: paginatedEnvelope(item) } },
   };
 }
 
@@ -72,6 +93,8 @@ function jsonError(description: string) {
     content: { 'application/json': { schema: errorEnvelopeSchema } },
   };
 }
+
+const idParamSchema = z.object({ id: z.string() });
 
 function buildRegistry(): OpenAPIRegistry {
   ensureExtended();
@@ -88,6 +111,7 @@ function buildRegistry(): OpenAPIRegistry {
   registry.register('UserCreateInput', userCreateSchema);
   registry.register('UserUpdateInput', userUpdateSchema);
   registry.register('UserListQuery', userListQuerySchema);
+  registry.register('UserResponse', userResponseSchema);
   registry.register('MenuCreateInput', menuCreateSchema);
   registry.register('MenuUpdateInput', menuUpdateSchema);
   registry.register('RoleCreateInput', roleCreateSchema);
@@ -146,6 +170,90 @@ function buildRegistry(): OpenAPIRegistry {
         'Logged out',
         z.object({ message: z.string() }),
       ),
+    },
+  });
+
+  // --- Users endpoints --------------------------------------------------
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users',
+    summary: 'Paginated list of active users; q filters by username/name/email',
+    tags: ['users'],
+    request: { query: userListQuerySchema },
+    responses: {
+      200: jsonPaginated('Paginated users', userResponseSchema),
+      401: jsonError('Unauthorized'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/users',
+    summary: 'Create a user',
+    tags: ['users'],
+    request: {
+      body: {
+        required: true,
+        content: { 'application/json': { schema: userCreateSchema } },
+      },
+    },
+    responses: {
+      201: jsonOk('Created', userResponseSchema),
+      400: jsonError('Invalid role_id'),
+      401: jsonError('Unauthorized'),
+      409: jsonError('Username or email already exists'),
+      422: jsonError('Invalid input'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users/{id}',
+    summary: 'Get a user by id',
+    tags: ['users'],
+    request: { params: idParamSchema },
+    responses: {
+      200: jsonOk('User', userResponseSchema),
+      400: jsonError('Invalid id'),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Not found'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'put',
+    path: '/users/{id}',
+    summary: 'Update a user (partial — only changed fields)',
+    tags: ['users'],
+    request: {
+      params: idParamSchema,
+      body: {
+        required: true,
+        content: { 'application/json': { schema: userUpdateSchema } },
+      },
+    },
+    responses: {
+      200: jsonOk('Updated', z.object({ id: z.number().int() })),
+      400: jsonError('Invalid id / nothing to update / invalid role_id'),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Not found'),
+      409: jsonError('Email already exists'),
+      422: jsonError('Invalid input'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/users/{id}',
+    summary: 'Soft-delete a user (sets display=N). Cannot delete self.',
+    tags: ['users'],
+    request: { params: idParamSchema },
+    responses: {
+      200: jsonOk('Deleted', z.object({ id: z.number().int() })),
+      400: jsonError('Invalid id / cannot delete yourself'),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Not found'),
     },
   });
 

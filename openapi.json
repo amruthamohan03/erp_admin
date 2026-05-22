@@ -325,6 +325,79 @@
           }
         }
       },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true
+          },
+          "role_id": {
+            "type": "integer"
+          },
+          "role_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "profile_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "signature_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "location_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "dept_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "full_name",
+          "email",
+          "mobile",
+          "role_id",
+          "role_name",
+          "profile_image",
+          "display"
+        ]
+      },
       "MenuCreateInput": {
         "type": "object",
         "properties": {
@@ -1181,6 +1254,1262 @@
                   "required": [
                     "ok",
                     "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "Paginated list of active users; q filters by username/name/email",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "username": {
+                            "type": "string"
+                          },
+                          "full_name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "mobile": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "role_id": {
+                            "type": "integer"
+                          },
+                          "role_name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "profile_image": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "signature_image": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "location_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "dept_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "display": {
+                            "type": "string",
+                            "enum": [
+                              "Y",
+                              "N"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "date-time"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "username",
+                          "full_name",
+                          "email",
+                          "mobile",
+                          "role_id",
+                          "role_name",
+                          "profile_image",
+                          "display"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "pageSize": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "page",
+                        "pageSize"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a user",
+        "tags": [
+          "users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 255
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 100
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "format": "email"
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "mobile": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 15
+                  },
+                  "role_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "location_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 100
+                  },
+                  "dept_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "username",
+                  "password",
+                  "email",
+                  "full_name",
+                  "role_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "full_name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "mobile": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "role_id": {
+                          "type": "integer"
+                        },
+                        "role_name": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "profile_image": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "signature_image": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "location_id": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "dept_id": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "display": {
+                          "type": "string",
+                          "enum": [
+                            "Y",
+                            "N"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "username",
+                        "full_name",
+                        "email",
+                        "mobile",
+                        "role_id",
+                        "role_name",
+                        "profile_image",
+                        "display"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid role_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username or email already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "summary": "Get a user by id",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "full_name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "mobile": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "role_id": {
+                          "type": "integer"
+                        },
+                        "role_name": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "profile_image": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "signature_image": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "location_id": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "dept_id": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "display": {
+                          "type": "string",
+                          "enum": [
+                            "Y",
+                            "N"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "username",
+                        "full_name",
+                        "email",
+                        "mobile",
+                        "role_id",
+                        "role_name",
+                        "profile_image",
+                        "display"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a user (partial — only changed fields)",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "format": "email"
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "mobile": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 15
+                  },
+                  "role_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 100
+                  },
+                  "location_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 100
+                  },
+                  "dept_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 100
+                  },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "Y",
+                      "N"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id / nothing to update / invalid role_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Soft-delete a user (sets display=N). Cannot delete self.",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id / cannot delete yourself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
                   ]
                 }
               }

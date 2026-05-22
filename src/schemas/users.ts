@@ -31,3 +31,26 @@ export const userListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type UserListQuery = z.infer<typeof userListQuerySchema>;
+
+// Superset of fields any users endpoint returns. List endpoint omits
+// signature_image/location_id/dept_id; detail (/users/{id}) returns them.
+// Create returns the trimmed list-style shape. Keeping one schema is simpler
+// than three near-duplicates — the optional/nullable fields document the
+// variance honestly.
+export const userResponseSchema = z.object({
+  id: z.number().int(),
+  username: z.string(),
+  full_name: z.string(),
+  email: z.string().email(),
+  mobile: z.string().nullable(),
+  role_id: z.number().int(),
+  role_name: z.string().nullable(),
+  profile_image: z.string().nullable(),
+  signature_image: z.string().nullable().optional(),
+  location_id: z.string().nullable().optional(),
+  dept_id: z.string().nullable().optional(),
+  display: z.enum(['Y', 'N']),
+  created_at: z.string().datetime().nullable().optional(),
+  updated_at: z.string().datetime().nullable().optional(),
+});
+export type UserResponse = z.infer<typeof userResponseSchema>;
