@@ -36,6 +36,62 @@
       "when": 1779353530784,
       "tag": "0004_add_footer_text",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779353530785,
+      "tag": "0005_add_currency_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779353530786,
+      "tag": "0006_add_department_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779353530787,
+      "tag": "0007_add_document_status_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779353530788,
+      "tag": "0008_add_clearance_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779353530789,
+      "tag": "0009_add_clearing_status_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779353530790,
+      "tag": "0010_add_bank_exchange_rate",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779353530791,
+      "tag": "0011_add_commodity_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779353530792,
+      "tag": "0012_add_expense_type_master",
+      "breakpoints": true
     }
   ]
 }

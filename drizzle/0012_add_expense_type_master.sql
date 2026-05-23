@@ -1,0 +1,65 @@
+CREATE TABLE "expense_type_master_t" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"expense_type_name" varchar(300) NOT NULL,
+	"import" boolean DEFAULT false NOT NULL,
+	"export" boolean DEFAULT false NOT NULL,
+	"local" boolean DEFAULT false NOT NULL,
+	"advance" boolean DEFAULT false NOT NULL,
+	"other" boolean DEFAULT false NOT NULL,
+	"display" varchar(1) DEFAULT 'Y' NOT NULL,
+	"created_by" integer,
+	"updated_by" integer,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "expense_type_master_t" ADD CONSTRAINT "expense_type_master_t_created_by_users_t_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users_t"("id") ON DELETE no action ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "expense_type_master_t" ADD CONSTRAINT "expense_type_master_t_updated_by_users_t_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users_t"("id") ON DELETE no action ON UPDATE no action;
+--> statement-breakpoint
+INSERT INTO "expense_type_master_t" ("id", "expense_type_name", "import", "export", "local", "advance", "other", "display", "created_by", "updated_by", "created_at", "updated_at") VALUES
+	(1, 'ADMINISTRATION EXPENSES', true, true, false, false, true, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(2, 'AIR FREIGHT CHARGES', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(3, 'ASSISTANCE DE CHARGEMENT', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(4, 'ASSISTANCE DECHARGEMENT', false, false, false, false, false, 'N', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(5, 'ASSURANCE', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(6, 'ASSURANCE KLSA', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(7, 'CEEC', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(8, 'CEEC - LOT SUPPLEMENTAIRE', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(9, 'CGEA', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(10, 'CLEARING', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(11, 'CNPR', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(12, 'COMMISSION', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(13, 'CREDIT D''ENLEVEMENT', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(14, 'DEMIAP - KANYAKA', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(15, 'DGDA SEAL', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(16, 'DIVISION DE MINE', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(17, 'ELECTRONIC SEAL', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(18, 'EMERGENCY REMOVAL', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(19, 'ESCORT FEES', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(20, 'LIQUIDATION', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(21, 'LMC', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(22, 'MOTIVATION', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(23, 'OCC', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(24, 'OGEFREM', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(25, 'OTHERS', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(26, 'PARKING KANIAKA', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(27, 'PARKING WHISKY', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(28, 'PERDIEM', true, true, true, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(29, 'PNHF - NAC', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(30, 'CLEARING/SCANNING', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(31, 'SEGUCE', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(32, 'SERVICE DE L''ETAT', false, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(33, 'TAXE CONCENTRATE LBB', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(34, 'TAXE VOIRIE KLZ', false, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(35, 'TRANSPORT CHARGES', false, false, false, true, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(36, 'TAXE VOIRIE LBB', false, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(37, 'DES ARMING ELECTRONIC SEAL', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(38, 'PRE CLEARING PERDIEM', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(39, 'RETURN PRE CLEARING PERDIEM', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(40, 'Domicile', false, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(41, 'Amicongo', true, false, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(42, 'WAREHOUSE STORAGE FEE', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	(43, 'TAXE CONCENTRATE KLZ', true, true, false, false, false, 'Y', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+--> statement-breakpoint
+SELECT setval(pg_get_serial_sequence('expense_type_master_t', 'id'), (SELECT MAX(id) FROM "expense_type_master_t"));
