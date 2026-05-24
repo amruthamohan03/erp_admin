@@ -110,6 +110,96 @@ export interface ClearingStatus {
   updated_by: number | null;
 }
 
+export interface TruckStatus {
+  id: number;
+  truck_status: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Unit {
+  id: number;
+  unit_name: string;
+  unit_code: string | null;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Origin {
+  id: number;
+  origin_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Industry {
+  id: number;
+  industry_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface TypeOfGoods {
+  id: number;
+  goods_type: string;
+  goods_short_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface TransportMode {
+  id: number;
+  transport_mode_name: string;
+  transport_letter: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface TransitPoint {
+  id: number;
+  transit_point_name: string;
+  entry_point: boolean;
+  exit_point: boolean;
+  loading: boolean;
+  destination: boolean;
+  warehouse: boolean;
+  location: boolean;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Regime {
+  id: number;
+  regime_name: string;
+  type: DocumentStatusType;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
 export interface ExpenseType {
   id: number;
   expense_type_name: string;
