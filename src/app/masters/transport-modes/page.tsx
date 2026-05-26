@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniqueAvailability from '@/components/ui/UniqueAvailability';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import type { TransportMode } from '@/types';
 
 export default function TransportModesPage() {
@@ -122,8 +124,15 @@ function TransportModeFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const unique = useUniqueCheck({
+    endpoint: '/api/uniqueness/transport-modes',
+    value: form.transport_mode_name,
+    excludeId: item?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (unique.status === 'taken') { setError('Already exists'); return; }
     setSaving(true); setError(null);
     const url = isEdit ? `/api/transport-modes/${item!.id}` : '/api/transport-modes';
     const method = isEdit ? 'PUT' : 'POST';
@@ -152,6 +161,7 @@ function TransportModeFormModal({
             <label className="label">Mode Name *</label>
             <input className="input uppercase" value={form.transport_mode_name}
               onChange={(e) => setForm({ ...form, transport_mode_name: e.target.value.toUpperCase() })} required maxLength={100} />
+            <UniqueAvailability status={unique.status} message={unique.message} />
           </div>
           <div>
             <label className="label">Transport Letter *</label>
@@ -160,7 +170,7 @@ function TransportModeFormModal({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save'}</button>
+            <button type="submit" disabled={saving || unique.status === 'taken'} className="btn-primary">{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </form>
       </div>

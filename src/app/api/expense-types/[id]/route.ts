@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { expenseTypeMaster, type ExpenseTypeMasterInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -85,6 +86,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     if (!row) return fail('Not found', 404);
     return ok({ id: row.id });
   } catch (err) {
+    const dup = uniqueViolationResponse(err, 'expense type name');
+    if (dup) return dup;
     // eslint-disable-next-line no-console
     console.error('[expense-types.PUT]', err);
     return fail('Server error', 500);

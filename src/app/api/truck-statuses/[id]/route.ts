@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { truckStatusMaster, type TruckStatusMasterInsert } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -70,6 +71,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     if (!row) return fail('Not found', 404);
     return ok({ id: row.id });
   } catch (err) {
+    const dup = uniqueViolationResponse(err, 'truck status');
+    if (dup) return dup;
     // eslint-disable-next-line no-console
     console.error('[truck-statuses.PUT]', err);
     return fail('Server error', 500);

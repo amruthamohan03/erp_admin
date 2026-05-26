@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniqueAvailability from '@/components/ui/UniqueAvailability';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import type { TruckStatus } from '@/types';
 
 export default function TruckStatusesPage() {
@@ -109,8 +111,15 @@ function TruckStatusFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const unique = useUniqueCheck({
+    endpoint: '/api/uniqueness/truck-statuses',
+    value: form.truck_status,
+    excludeId: item?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (unique.status === 'taken') { setError('Already exists'); return; }
     setSaving(true); setError(null);
     const url = isEdit ? `/api/truck-statuses/${item!.id}` : '/api/truck-statuses';
     const method = isEdit ? 'PUT' : 'POST';
@@ -139,10 +148,11 @@ function TruckStatusFormModal({
             <label className="label">Truck Status *</label>
             <input className="input uppercase" value={form.truck_status}
               onChange={(e) => setForm({ truck_status: e.target.value.toUpperCase() })} required maxLength={300} />
+            <UniqueAvailability status={unique.status} message={unique.message} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save'}</button>
+            <button type="submit" disabled={saving || unique.status === 'taken'} className="btn-primary">{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </form>
       </div>

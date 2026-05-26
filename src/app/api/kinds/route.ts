@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { kindMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 export async function GET() {
   const session = await getSession();
@@ -63,8 +64,11 @@ export async function POST(req: NextRequest) {
 
     return ok(row, 201);
   } catch (err) {
+    const dup = uniqueViolationResponse(err, 'kind name');
+    if (dup) return dup;
     // eslint-disable-next-line no-console
     console.error('[kinds.POST]', err);
     return fail('Server error', 500);
   }
+
 }

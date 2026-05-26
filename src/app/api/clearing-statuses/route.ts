@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { clearingStatusMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 export async function GET() {
   const session = await getSession();
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
 
     return ok(row, 201);
   } catch (err) {
+    const dup = uniqueViolationResponse(err, 'clearing status');
+    if (dup) return dup;
     // eslint-disable-next-line no-console
     console.error('[clearing-statuses.POST]', err);
     return fail('Server error', 500);
