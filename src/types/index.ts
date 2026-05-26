@@ -241,6 +241,108 @@ export interface BankExchangeRate {
   updated_by: number | null;
 }
 
+export interface GroupCompany {
+  id: number;
+  group_company_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface DoneBy {
+  id: number;
+  done_by_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface FeetContainer {
+  id: number;
+  feet_container_size: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface InvoiceBank {
+  id: number;
+  invoice_bank_name: string;
+  invoice_bank_account_name: string;
+  invoice_bank_account_number: string;
+  invoice_bank_swift: string | null;
+  invoice_bank_address: string | null;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface HsCode {
+  id: number;
+  hscode_number: string;
+  hscode_ddi: string | null;
+  hscode_ica: string | null;
+  hscode_dci: string | null;
+  hscode_dcl: string | null;
+  hscode_tpi: string | null;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Incoterm {
+  id: number;
+  incoterm_short_name: string;
+  incoterm_full_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Province {
+  id: number;
+  province_name: string;
+  origin_id: number;
+  origin_name?: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface OfficeLocation {
+  id: number;
+  location_name: string;
+  province_id: number | null;
+  province_name?: string | null;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface MainOffice {
+  id: number;
+  main_location_name: string | null;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

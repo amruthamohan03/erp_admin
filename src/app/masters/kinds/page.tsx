@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniqueAvailability from '@/components/ui/UniqueAvailability';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import type { Kind } from '@/types';
 
 export default function KindsPage() {
@@ -169,8 +171,15 @@ function KindFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const unique = useUniqueCheck({
+    endpoint: '/api/uniqueness/kinds',
+    value: form.kind_name,
+    excludeId: kind?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (unique.status === 'taken') { setError('Already exists'); return; }
     setSaving(true);
     setError(null);
 
@@ -216,6 +225,7 @@ function KindFormModal({
             <label className="label">Kind Name *</label>
             <input className="input" value={form.kind_name}
               onChange={(e) => setForm({ ...form, kind_name: e.target.value })} required maxLength={100} />
+            <UniqueAvailability status={unique.status} message={unique.message} />
           </div>
           <div>
             <label className="label">Short Name *</label>
@@ -224,7 +234,7 @@ function KindFormModal({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || unique.status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

@@ -23,3 +23,15 @@ export * from './unitMaster';
 export * from './typeOfGoodsMaster';
 export * from './originMaster';
 export * from './industryMaster';
+export * from './groupCompanyMaster';
+export * from './doneBy';
+export * from './feetContainerMaster';
+export * from './invoiceBankMaster';
+export * from './hscodeMaster';
+export * from './incotermMaster';
+// provinceMaster must come BEFORE officeLocationMaster — the latter's FK references it.
+export * from './provinceMaster';
+export * from './officeLocationMaster';
+export * from './mainOfficeMaster';
+// NOTE: masterTaxRule.ts is intentionally NOT exported. It's a planning stub
+// (no migration, no runtime usage). See the file header for the wire-up plan.

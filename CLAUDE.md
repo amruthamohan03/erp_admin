@@ -114,6 +114,78 @@ Two shared primitives drive this. Use them; do not hand-roll the state or the fo
 
 For **editable matrices** (e.g. [src/app/mapping/roletomenu/page.tsx](src/app/mapping/roletomenu/page.tsx)) where the user toggles cells across pages and saves at the end: keep the full edited state in a single `rows` array; let pagination/search slice only the *displayed* view. The save payload always sends the entire `rows` array, regardless of what's currently filtered or paged. Column-header "select all" checkboxes should scope to the **filtered** set, not the paged set, so a user can scope a bulk toggle with the search box.
 
+### 4.10 Audit logging — every user-initiated change is recorded
+Every create / update / delete / state-transition performed by a user must be persisted to a dedicated **audit table**, not to a log file. A database table is the source of truth because it is queryable, joinable with `users` and the affected entity, survives across instances/serverless cold-starts, and can be surfaced in admin UI and reports. Application log files are for diagnostics, not for accountability.
+
+**Table:** `audit_log` (single global table; do not create per-module variants).
+
+**Required columns (minimum):**
+- `id` — uuid PK
+- `actor_id` — FK to `users.id` (the user who performed the action; nullable only for system jobs, in which case set `actor_type = 'system'`)
+- `actor_type` — enum: `user` | `system` | `api`
+- `action` — enum: `create` | `update` | `delete` | `transition` | `login` | `logout` | `permission_change`
+- `entity_type` — table/resource name (e.g. `master_status`, `license`, `invoice`)
+- `entity_id` — uuid/text of the affected row
+- `before` — `jsonb`, the row snapshot before the change (null for `create`)
+- `after` — `jsonb`, the row snapshot after the change (null for `delete`)
+- `diff` — `jsonb`, optional computed field-level diff for fast rendering
+- `metadata` — `jsonb` (request id, IP, user agent, workflow transition id, reason text, etc.)
+- `created_at` — `timestamp with time zone`, default `now()`
+
+**Rules:**
+1. **Never write to `audit_log` from the UI or from a route handler directly.** Writes go through `src/lib/audit/recordAudit.ts` (a single helper) so the shape stays consistent.
+2. Audit writes happen **inside the same Drizzle transaction** as the change they describe — if the business write rolls back, the audit row must roll back too. No fire-and-forget.
+3. `audit_log` is **append-only**. No `UPDATE` or `DELETE` against it from application code. Corrections are new rows with `action = 'update'` referencing the prior row in `metadata.corrects`.
+4. For **master table edits** and **workflow transitions**, recording is mandatory. For high-volume read endpoints, do not audit reads — use application logs for that.
+5. Sensitive fields (password hashes, tokens, secrets) must be **redacted** in `before` / `after` before insertion. The redaction list lives in `src/lib/audit/redact.ts`.
+6. Retention and archival policy lives in a master table (`master_retention_policy`), not in code.
+7. Surface audit history in admin UI via a generic `<AuditTrail entityType=… entityId=… />` component — do not hand-roll per-module audit views.
+
+If you are about to write a route handler that mutates data and you are not calling `recordAudit(...)`, stop and add it.
+
+### 4.11 File storage — S3 only
+All binary files (PDFs, images, scans, attachments, generated invoices, customs docs, signed licenses, anything that isn't a row in Postgres) live in **S3 or an S3-compatible object store** (AWS S3, Cloudflare R2, MinIO for local dev). The database stores **metadata and a reference**, never the bytes.
+
+**Hard rules:**
+1. **No filesystem writes** for user content. Do not write to `public/`, `uploads/`, `/tmp` (except as transient buffer in a single request), or any disk path. Serverless/multi-instance deploys lose those files.
+2. **No `bytea` / blob columns** in Postgres for user content. Postgres holds the pointer (`bucket`, `key`, `mime`, `size`, `sha256`).
+3. **One client.** All S3 access goes through `src/lib/storage/s3.ts` (configured `S3Client` from `@aws-sdk/client-s3`). No ad-hoc clients in route handlers.
+4. **One helper module.** Upload, download, presign, delete, copy all go through `src/lib/storage/` (e.g. `presignUpload()`, `presignDownload()`, `deleteObject()`). Route handlers call these; they do not import the SDK directly.
+
+**Files table:** every uploaded object is registered in `files`:
+- `id` — uuid PK
+- `bucket` — text
+- `key` — text (S3 object key)
+- `mime` — text
+- `size` — bigint (bytes)
+- `sha256` — text (computed server-side after upload completes)
+- `original_name` — text (the filename the user uploaded)
+- `uploader_id` — FK to `users.id`
+- `entity_type` / `entity_id` — what this file is attached to (license, invoice, credit_note, …)
+- `status` — enum: `pending` | `committed` | `quarantined` | `deleted`
+- `created_at` — timestamptz
+
+A row in `files` with `status = 'pending'` and no matching S3 object is acceptable for short windows (presign issued, upload not yet completed). A nightly job sweeps stale `pending` rows.
+
+**Upload pattern (default):** server issues a **presigned PUT URL** (`presignUpload`), client uploads directly to S3, then calls a `POST /api/v1/files/:id/commit` to flip status to `committed`. The commit handler verifies the object exists, reads its size/mime/sha256, and records an `audit_log` entry (see 4.10). Do not proxy file bytes through the Next.js server unless there's a specific reason (e.g. server-side generation).
+
+**Download pattern:** never expose raw S3 URLs. Always return a **presigned GET URL** with a short TTL (default 5 minutes) via `presignDownload(fileId, user)`. The presign helper checks `checkPermission(user, 'file', 'read')` and that the user can see the parent entity before signing.
+
+**Bucket layout:** `{env}/{entity_type}/{entity_id}/{file_id}-{slug(original_name)}`. Never put user-controlled strings directly into the key path without slugging. The bucket name comes from env, never hardcoded.
+
+**Validation:**
+- Max size and allowed mime types come from `master_file_policy` (per `entity_type`), not from constants in code.
+- The commit handler rejects files outside the policy and marks the row `quarantined`.
+- Virus scanning is a transition hook (`master_workflow_transition.action = 'scan_file'`) — not inline in the upload route.
+
+**Lifecycle:** retention and archival are configured on the **bucket** (S3 lifecycle rules), not in application code. Soft-deletes flip `files.status = 'deleted'` and let the lifecycle rule purge the object after the configured grace period.
+
+**Env vars (required):** `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` (true for MinIO/R2). Local dev uses MinIO via docker-compose; the same code path runs against AWS in prod.
+
+**Dependency note:** this adds `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` as new top-level deps. Per section 3 these are flagged here explicitly — no other S3 client should be introduced.
+
+If you are about to accept a file upload and you are not calling `presignUpload(...)` (or are writing bytes to disk), stop and rewrite the route.
+
 ---
 
 ## 5. Directory layout
@@ -146,6 +218,8 @@ src/
     validation/          shared Zod helpers
     api/                 response envelope, error handling
     errors/              typed error classes
+    audit/               recordAudit() + redact list (see 4.10)
+    storage/             S3 client + presign / upload / download helpers (see 4.11)
   schemas/               Zod schemas (request/response/config)
 drizzle/                 generated migration SQL (committed)
 drizzle.config.ts        Drizzle Kit config

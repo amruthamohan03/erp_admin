@@ -5,7 +5,9 @@ import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import Toggle from '@/components/ui/Toggle';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniqueAvailability from '@/components/ui/UniqueAvailability';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import type { Bank } from '@/types';
 
 export default function BanksPage() {
@@ -177,8 +179,15 @@ function BankFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const unique = useUniqueCheck({
+    endpoint: '/api/uniqueness/banks',
+    value: form.bank_name,
+    excludeId: bank?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (unique.status === 'taken') { setError('Already exists'); return; }
     setSaving(true);
     setError(null);
 
@@ -225,6 +234,7 @@ function BankFormModal({
             <label className="label">Bank Name *</label>
             <input className="input" value={form.bank_name}
               onChange={(e) => setForm({ ...form, bank_name: e.target.value })} required />
+            <UniqueAvailability status={unique.status} message={unique.message} />
           </div>
           <div>
             <label className="label">Bank Code *</label>
@@ -240,7 +250,7 @@ function BankFormModal({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || unique.status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

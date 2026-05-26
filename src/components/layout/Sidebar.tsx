@@ -25,6 +25,14 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + '/');
 }
 
+// Sidebar-only alpha sort for submenus. Top-level groups stay in the
+// master-defined menu_order; only each group's children are alphabetized.
+function sortMenusAlpha(menus: MenuTreeNode[]): MenuTreeNode[] {
+  const cmp = (a: MenuTreeNode, b: MenuTreeNode) =>
+    a.menu_name.localeCompare(b.menu_name, undefined, { sensitivity: 'base' });
+  return menus.map((m) => ({ ...m, children: [...m.children].sort(cmp) }));
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const settings = useAppSettings();
@@ -51,7 +59,7 @@ export default function Sidebar() {
     fetch('/api/menus')
       .then((r) => r.json())
       .then((j) => {
-        if (j.success) setMenus(j.data);
+        if (j.success) setMenus(sortMenusAlpha(j.data));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
