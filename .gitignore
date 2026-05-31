@@ -20,3 +20,10 @@ public/uploads/signatures/*
 !public/uploads/signatures/.gitkeep
 
 next-env.d.ts
+
+# TypeScript incremental build cache — generated, not source.
+tsconfig.tsbuildinfo
+
+# Ad-hoc dumps from `npm run lint > lint-output.txt` etc. — never source.
+lint-output*.txt
+typecheck-output*.txt
