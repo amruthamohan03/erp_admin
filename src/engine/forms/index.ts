@@ -8,16 +8,27 @@ import {
 } from '@/db/schema';
 import { NotFoundError } from '@/lib/errors';
 
+export * from './validation';
+
 // Dynamic form runtime per root CLAUDE.md §4.5.
 //
 // `formKey` is the stable string identifier from form_definition_master_t.
 // Code looks forms up by key, never id — same convention as the rule (§4.2)
 // and workflow (§4.6) engines.
 //
-// The renderer is intentionally not implemented yet. Picking how to map
-// `field_type` strings to React components — and how `validation_json` /
-// `options_json` shape — is a design decision that should land alongside
-// the first real dynamic form, not now.
+// Validation: buildFieldZodSchema / buildFormZodSchema in ./validation
+// translate a form definition into a Zod schema that case-runtime uses to
+// validate createCase / advanceCase input.
+//
+// Rendering: the <DynamicForm> React component in ./DynamicForm.tsx wires
+// each field_type to a UI primitive (Input/Textarea/Switch/SearchableSelect)
+// and uses the same buildFormZodSchema for client-side validation before
+// hitting the server. Import it directly:
+//
+//   import { DynamicForm } from '@/engine/forms/DynamicForm';
+//
+// Not re-exported here because this index module is server-safe and we don't
+// want a stray 'use client' to land in server bundles.
 
 export interface FormDefinitionWithFields extends FormDefinitionRow {
   fields: FormFieldRow[];
@@ -50,12 +61,3 @@ export async function loadForm(formKey: string): Promise<FormDefinitionWithField
   return { ...form, fields };
 }
 
-// The renderer signature exists so callers can type-check against it, but
-// the body throws — picking the field_type → component mapping deserves a
-// real design conversation when the first form goes live.
-export function renderForm(_form: FormDefinitionWithFields): never {
-  throw new Error(
-    `renderForm: no renderer is wired up yet. Pick the field_type → component ` +
-      `mapping and validation_json format in src/engine/forms/.`,
-  );
-}

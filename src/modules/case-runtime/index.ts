@@ -1,31 +1,42 @@
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
 import { loadTemplate, type LoadedTemplate } from '@/engine/templates';
-import { loadForm } from '@/engine/forms';
-import { listTransitions } from '@/engine/workflow';
+import { loadForm, buildFormZodSchema } from '@/engine/forms';
+import {
+  executeTransition,
+  listTransitions,
+  type SideEffectDescriptor,
+} from '@/engine/workflow';
+import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
 
 // Generic case runtime per root CLAUDE.md §4.3.
 //
 // Templates (case_template_master_t) wire a form, a workflow, and a target
 // table together. The runtime orchestrates the lifecycle:
 //
-//   1. createCase  — render the form, validate input, insert a row in
-//                    target_table with state = workflow.initial_state.
-//   2. advanceCase — run the workflow transition (rule gate, action_json
-//                    side effects, state column update).
+//   createCase  — insert a row in template.target_table with state =
+//                 workflow.initial_state. Field validation against the form
+//                 definition is the caller's responsibility today (per-field
+//                 validation_json format isn't picked yet, §4.5).
+//   advanceCase — read the entity, validate from_state matches, run the
+//                 transition (gate + actions via @/engine/workflow), splice
+//                 patch + state + audit into one UPDATE.
 //
-// Both operations are skeleton-only today. Wiring them up needs:
-//   - A picked validation_json format (§4.5)
-//   - A picked rule_json format and evaluator (§4.2)
-//   - A picked action_json format and executor (§4.6)
-//   - A way to write to an arbitrary target_table via Drizzle (the spec
-//     forbids raw pg, so we need a registry or a sql-tag based write).
-//
-// Until those decisions are made the runtime fails loud so callers can't
-// quietly skip half the lifecycle.
+// Dynamic target_table access uses Drizzle's sql tag with sql.identifier
+// (§7.6 — no raw pg). Multi-statement work is wrapped in db.transaction
+// per §7.3.
 
 export interface CreateCaseInput {
   templateKey: string;
   actorUserId: number;
+  /** Column → value map. Validated by the caller until §4.5 forms is real. */
   values: Record<string, unknown>;
+}
+
+export interface CreateCaseResult {
+  caseId: number;
+  templateKey: string;
+  state: string;
 }
 
 export interface AdvanceCaseInput {
@@ -34,6 +45,17 @@ export interface AdvanceCaseInput {
   transitionKey: string;
   actorUserId: number;
   payload?: Record<string, unknown>;
+}
+
+export interface AdvanceCaseResult {
+  caseId: number;
+  templateKey: string;
+  workflowKey: string;
+  transitionKey: string;
+  previousState: string;
+  newState: string;
+  /** Notify / outbox descriptors — the caller dispatches after this returns. */
+  sideEffects: SideEffectDescriptor[];
 }
 
 export async function describeTemplate(templateKey: string): Promise<{
@@ -55,18 +77,124 @@ export async function describeTemplate(templateKey: string): Promise<{
   };
 }
 
-export async function createCase(_input: CreateCaseInput): Promise<never> {
-  throw new Error(
-    `createCase: case runtime is scaffold-only. Implement target_table writes ` +
-      `(via Drizzle registry or sql-tag) and field validation in ` +
-      `src/modules/case-runtime/.`,
+export async function createCase(input: CreateCaseInput): Promise<CreateCaseResult> {
+  const loaded = await loadTemplate(input.templateKey);
+  const form = await loadForm(loaded.form.formKey);
+  const targetTable = loaded.template.targetTable;
+  const initialState = loaded.workflow.initialState;
+
+  // Validate caller-provided values against the form's Zod schema. Bad input
+  // throws ZodError, which withErrorHandler maps to a 422 — same path as any
+  // hand-written Zod boundary.
+  const validator = buildFormZodSchema(form.fields);
+  const validated = validator.parse(input.values);
+
+  // Caller-provided columns + system columns (state + audit). Same order in
+  // both the column list and the values list so the INSERT is unambiguous.
+  const cols: { col: string; val: unknown }[] = [
+    ...Object.entries(validated).map(([col, val]) => ({ col, val })),
+    { col: 'state', val: initialState },
+    { col: 'created_by', val: input.actorUserId },
+    { col: 'updated_by', val: input.actorUserId },
+  ];
+
+  const colNames = sql.join(
+    cols.map((c) => sql.identifier(c.col)),
+    sql`, `,
   );
+  const colValues = sql.join(
+    cols.map((c) => sql`${c.val}`),
+    sql`, `,
+  );
+
+  const result = await db.execute(sql`
+    INSERT INTO ${sql.identifier(targetTable)} (${colNames})
+    VALUES (${colValues})
+    RETURNING id, state
+  `);
+
+  const rows = (result.rows ?? []) as unknown as ReadonlyArray<{ id: number; state: string }>;
+  const inserted = rows[0];
+  if (!inserted) {
+    throw new Error(`createCase: INSERT into ${targetTable} returned no row`);
+  }
+  return {
+    caseId: inserted.id,
+    templateKey: input.templateKey,
+    state: inserted.state,
+  };
 }
 
-export async function advanceCase(_input: AdvanceCaseInput): Promise<never> {
-  throw new Error(
-    `advanceCase: case runtime is scaffold-only. Implement workflow ` +
-      `transition application (rule gate, action_json executor, state ` +
-      `column update) in src/modules/case-runtime/.`,
-  );
+export async function advanceCase(input: AdvanceCaseInput): Promise<AdvanceCaseResult> {
+  const loaded = await loadTemplate(input.templateKey);
+  const targetTable = loaded.template.targetTable;
+
+  return await db.transaction(async (tx) => {
+    // Read the entity row dynamically — case-runtime doesn't have static
+    // typing for arbitrary target_table columns, so the row lands as an
+    // untyped Record. The id column is required to be `id`.
+    const entityResult = await tx.execute(sql`
+      SELECT * FROM ${sql.identifier(targetTable)}
+      WHERE id = ${input.caseId}
+      LIMIT 1
+    `);
+    const entityRow = (entityResult.rows ?? [])[0];
+    if (!entityRow) {
+      throw new NotFoundError(`Case ${input.caseId} not found in ${targetTable}`);
+    }
+    const entity = entityRow as Record<string, unknown>;
+    const currentState = entity.state;
+    if (typeof currentState !== 'string') {
+      throw new BadRequestError(
+        `Entity in ${targetTable} has no string 'state' column — cannot advance`,
+      );
+    }
+
+    // Compute the execution plan (rule gate + actions) — engine layer.
+    const plan = await executeTransition(
+      loaded.workflow.workflowKey,
+      input.transitionKey,
+      {
+        entity,
+        actorUserId: input.actorUserId,
+        payload: input.payload,
+      },
+    );
+
+    // Refuse if the transition doesn't apply to the entity's current state.
+    if (plan.fromState !== currentState) {
+      throw new ConflictError(
+        `Cannot apply transition '${input.transitionKey}': entity is in state ` +
+          `'${currentState}' but the transition requires '${plan.fromState}'`,
+      );
+    }
+
+    // Splice action patch + new state + audit columns into a single UPDATE.
+    const updates: { col: string; val: unknown }[] = [
+      ...Object.entries(plan.patch).map(([col, val]) => ({ col, val })),
+      { col: 'state', val: plan.toState },
+      { col: 'updated_by', val: input.actorUserId },
+    ];
+
+    const setClauses = sql.join(
+      updates.map((u) => sql`${sql.identifier(u.col)} = ${u.val}`),
+      sql`, `,
+    );
+
+    await tx.execute(sql`
+      UPDATE ${sql.identifier(targetTable)}
+      SET ${setClauses}, updated_at = now()
+      WHERE id = ${input.caseId}
+    `);
+
+    return {
+      caseId: input.caseId,
+      templateKey: input.templateKey,
+      workflowKey: plan.workflowKey,
+      transitionKey: plan.transitionKey,
+      previousState: plan.fromState,
+      newState: plan.toState,
+      sideEffects: plan.sideEffects,
+    };
+  });
 }

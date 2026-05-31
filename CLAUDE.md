@@ -65,10 +65,16 @@ Examples (see §6 for the suffix convention):
 - Tax / duty rules used by Fiche de Calcul → `tax_rule_master_t`
 
 ### 4.2 Rule engine over `if/else`
-For any decision involving more than 2 conditions or any condition a user might want to change, route it through the rule engine (`src/engine/rules/`). Rules are stored as JSON in `rule_master_t` and evaluated by `evaluateRule(ruleKey, context)`. Never inline business rules in route handlers.
+For any decision involving more than 2 conditions or any condition a user might want to change, route it through the rule engine (`src/engine/rules/`). Rules are stored as [JSON Logic](https://jsonlogic.com) expressions in `rule_master_t.rule_json` and evaluated by `evaluateRule(ruleKey, context)` (or `applyRule(ruleJson, context)` when the expression is already in hand). Never inline business rules in route handlers.
 
 ### 4.3 Template-driven modules
 New "case types" (license, tracking run, invoice, credit note, payment request, …) are created by inserting a template row in `case_template_master_t`, not by adding a new module folder. The generic case runtime in `src/modules/case-runtime/` reads the template and renders forms, runs validations, executes workflow.
+
+Two entry points today:
+- `createCase({ templateKey, actorUserId, values })` — inserts a row in `template.target_table` with `state = workflow.initial_state`. Field validation against the form definition is the caller's responsibility until §4.5 picks `validation_json`.
+- `advanceCase({ templateKey, caseId, transitionKey, actorUserId, payload })` — reads the entity, calls `executeTransition` (rule gate + actions), validates `from_state` matches the entity's current state, and splices `patch + state + audit` into one UPDATE. Returns `sideEffects` (notify descriptors) for the caller to dispatch after the transaction commits.
+
+Both use Drizzle's `sql` tag with `sql.identifier` for the dynamic `target_table` (§7.6 — no raw `pg`) and wrap multi-statement work in `db.transaction` (§7.3).
 
 ### 4.4 API-first
 Every feature ships as a documented API route under `src/app/api/v1/` before any UI is built. Zod schemas double as the OpenAPI source (`@asteasolutions/zod-to-openapi`). Response envelope is always:
@@ -81,8 +87,20 @@ Every feature ships as a documented API route under `src/app/api/v1/` before any
 ### 4.5 Dynamic forms & fields
 UI forms are generated from `form_definition_master_t` + `form_field_master_t`. Never hand-code a form unless it is itself a master configuration screen.
 
+`validation_json` on each field is a small token bag — `{ required?, min?, max?, pattern?, enum? }` — interpreted per `field_type`. `min`/`max` are length limits for strings and numeric bounds for numbers; `pattern` is a regex for string types; `enum` restricts allowed values (useful for select/hidden when `options_json` already drives the UI). `buildFieldZodSchema` / `buildFormZodSchema` in [src/engine/forms/validation.ts](src/engine/forms/validation.ts) compose these into Zod schemas — `createCase` uses the form schema to validate input before any INSERT.
+
+Cross-field validation isn't handled by `validation_json` — wire those through the rule engine (§4.2) as a separate rule attached to the form definition.
+
+React renderer: `<DynamicForm>` in [src/engine/forms/DynamicForm.tsx](src/engine/forms/DynamicForm.tsx) maps each supported `field_type` to a UI primitive (Input/Textarea/Switch/SearchableSelect) and runs `buildFormZodSchema` client-side before submit. Server `createCase` re-validates with the same schema — single source of truth on both sides.
+
 ### 4.6 Configurable workflow
 Workflow transitions live in `workflow_master_t` + `workflow_transition_master_t`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
+
+`action_json` is an ordered array of typed actions, validated by Zod (`src/engine/workflow/actions.ts`):
+- `{ "type": "set_field", "field": "approved_by", "value": { "var": "actor.userId" } }` — patches a field on the entity; `value` is a JSON Logic expression (or literal) evaluated against the rule context.
+- `{ "type": "notify", "channel": "email" | "sms" | "in_app", "to": { "var": "entity.email" }, "template": "license_approved" }` — declarative recipient/template; not dispatched by the engine. `executeTransition` returns it under `sideEffects` and the caller (case-runtime) decides when to send (after the UPDATE commits).
+
+`executeTransition(workflowKey, transitionKey, context)` returns an `ExecutedTransition` plan (`{ toState, patch, sideEffects, actions }`) instead of writing — case-runtime owns the target_table and is the right layer to splice the patch + new state into a single dynamic UPDATE via Drizzle's `sql` tag.
 
 ### 4.7 Centralized validation & permission
 - Validation: every input goes through a Zod schema. Schemas live in `src/schemas/`. No ad-hoc `if (!x) throw …` in handlers.
@@ -121,20 +139,22 @@ For **editable matrices** (e.g. [src/app/mapping/roletomenu/page.tsx](src/app/ma
 ```
 src/
   app/
-    (auth)/              login, logout pages
-    (app)/               authenticated app shell
+    (auth)/              login page
+    (app)/               authenticated app shell + admin screens
     api/v1/              versioned API routes
   components/            reusable UI primitives (no module logic)
   modules/
     user-management/     plug-and-play
     role-management/     plug-and-play
     menu-management/     plug-and-play
-    case-runtime/        generic case engine
+    case-runtime/        generic case engine (template-driven)
+    masters/             cross-cutting masters notes (see its CLAUDE.md)
   engine/
-    rules/               rule engine
-    workflow/            workflow engine
-    forms/               dynamic form renderer
-    templates/           template loader
+    rules/               rule engine — loadRule, evaluateRule (scaffold)
+    workflow/            workflow engine — loadWorkflow, listTransitions,
+                         executeTransition (scaffold)
+    forms/               dynamic form renderer — loadForm (scaffold)
+    templates/           case-template loader — loadTemplate
   db/
     schema/              Drizzle table definitions (one file per domain)
     schema/index.ts      re-exports all tables and relations
@@ -142,14 +162,22 @@ src/
     seed/                seed scripts for master tables
   lib/
     db.ts                Drizzle client + pg Pool
-    auth/                jwt, password, permissions
+    auth/                jwt, password, permissions (incl. checkPermission)
     validation/          shared Zod helpers
-    api/                 response envelope, error handling
+    api/                 response envelope, requireAuth, withErrorHandler
     errors/              typed error classes
+    hooks/               shared React hooks (usePagedList, …)
+    openapi.ts           OpenAPI document generator
+    storage.ts           file-upload validation + write
+    translate.ts         translation provider integration
   schemas/               Zod schemas (request/response/config)
+  proxy.ts               Next.js 16 route guard (must live under src/
+                         when the project uses a src directory)
 drizzle/                 generated migration SQL (committed)
 drizzle.config.ts        Drizzle Kit config
-proxy.ts                 Next.js 16 route guard
+openapi.json             generated by `npm run openapi` — do not hand-edit
+scripts/                 dev tooling — seed-admin.js, generate-openapi.ts
+docs/                    project-wide docs (e.g. masters.md table index)
 ```
 
 When adding files, match this layout. If something doesn't fit, ask before inventing a new top-level folder.

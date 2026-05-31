@@ -1,20 +1,44 @@
+import jsonLogic from 'json-logic-js';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ruleMaster, type RuleMasterRow } from '@/db/schema';
 import { NotFoundError } from '@/lib/errors';
 
-// Rule engine entry point per root CLAUDE.md §4.2.
+// Rule engine per root CLAUDE.md §4.2.
 //
-// `ruleKey` is the stable string identifier from `rule_master_t.rule_key`
-// (spec calls it ruleId but ids drift across deployments — keys don't).
+// Format: JSON Logic (https://jsonlogic.com). Declarative JSON expression —
+// safe to store in rule_master_t.rule_json, edit through an admin UI, and
+// evaluate at request time without an interpreter or `eval`.
 //
-// `rule_json` format is intentionally undecided: pick JSON Logic, CEL, or a
-// custom DSL when the first real rule lands, then add the evaluator below.
-// Today this stub loads the rule but refuses to evaluate so a premature
-// caller fails loudly rather than silently allowing/denying.
+// Example: gate a workflow transition on draft status + amount over 1000:
+//   {
+//     "and": [
+//       { "==": [{ "var": "status" }, "draft"] },
+//       { ">":  [{ "var": "amount" }, 1000] }
+//     ]
+//   }
+//
+// Code looks rules up by `ruleKey` (stable string), never id. Spec calls it
+// ruleId — ids drift across deployments, keys don't.
 
 export type RuleContext = Record<string, unknown>;
 
+// Apply a JSON Logic expression to a context. Pure — no DB. Useful when the
+// expression is already in hand (e.g. evaluated inline, or piped from a
+// workflow transition row).
+export function applyRule(ruleJson: unknown, context: RuleContext = {}): unknown {
+  if (ruleJson === undefined || ruleJson === null) {
+    throw new Error('applyRule: rule_json is empty');
+  }
+  // json-logic-js accepts the full RulesLogic union; the DB column is jsonb
+  // so it lands here as `unknown`. Cast at this single boundary.
+  return jsonLogic.apply(
+    ruleJson as Parameters<typeof jsonLogic.apply>[0],
+    context,
+  );
+}
+
+// Fetch a rule row by key. Throws NotFoundError on missing or display='N'.
 export async function loadRule(ruleKey: string): Promise<RuleMasterRow> {
   const [row] = await db
     .select()
@@ -25,13 +49,24 @@ export async function loadRule(ruleKey: string): Promise<RuleMasterRow> {
   return row;
 }
 
+// Fetch a rule row by primary key. Used when a row from another table holds
+// a FK (e.g. workflow_transition_master_t.rule_id) and round-tripping through
+// rule_key would be wasteful. Throws NotFoundError on missing or display='N'.
+export async function loadRuleById(id: number): Promise<RuleMasterRow> {
+  const [row] = await db
+    .select()
+    .from(ruleMaster)
+    .where(and(eq(ruleMaster.id, id), eq(ruleMaster.display, 'Y')))
+    .limit(1);
+  if (!row) throw new NotFoundError(`Rule not found: id=${id}`);
+  return row;
+}
+
+// Load a rule by key, then apply its rule_json against the given context.
 export async function evaluateRule(
   ruleKey: string,
-  _context: RuleContext,
+  context: RuleContext = {},
 ): Promise<unknown> {
-  await loadRule(ruleKey);
-  throw new Error(
-    `evaluateRule: rule "${ruleKey}" loaded but no evaluator is wired up yet. ` +
-      `Pick a rule_json format and implement evaluation in src/engine/rules/.`,
-  );
+  const rule = await loadRule(ruleKey);
+  return applyRule(rule.ruleJson, context);
 }
