@@ -330,6 +330,13 @@
       "when": 1779353530826,
       "tag": "0046_seed_menu_client_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1779353530827,
+      "tag": "0047_seed_client_dashboard_cards",
+      "breakpoints": true
     }
   ]
 }
