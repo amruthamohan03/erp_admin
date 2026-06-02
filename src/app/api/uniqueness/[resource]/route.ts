@@ -30,6 +30,9 @@ import {
   officeLocationMaster,
   mainOfficeMaster,
   provinceMaster,
+  phaseMaster,
+  refererMaster,
+  masterPage,
 } from '@/db/schema';
 
 type ResourceConfig = {
@@ -72,6 +75,11 @@ const RESOURCES: Record<string, ResourceConfig> = {
   'office-locations':  { table: officeLocationMaster,   nameColumn: officeLocationMaster.locationName,    idColumn: officeLocationMaster.id },
   'main-offices':      { table: mainOfficeMaster,       nameColumn: mainOfficeMaster.mainLocationName,    idColumn: mainOfficeMaster.id },
   provinces:           { table: provinceMaster,         nameColumn: provinceMaster.provinceName,          idColumn: provinceMaster.id },
+  phases:              { table: phaseMaster,             nameColumn: phaseMaster.phaseName,                idColumn: phaseMaster.id },
+  // phase_code has its own UNIQUE index, so it gets its own slug for the live check.
+  'phase-codes':       { table: phaseMaster,             nameColumn: phaseMaster.phaseCode,                idColumn: phaseMaster.id },
+  referers:            { table: refererMaster,           nameColumn: refererMaster.refererName,            idColumn: refererMaster.id },
+  'master-pages-slug': { table: masterPage,               nameColumn: masterPage.slug,                      idColumn: masterPage.id },
 };
 
 type Ctx = { params: Promise<{ resource: string }> };

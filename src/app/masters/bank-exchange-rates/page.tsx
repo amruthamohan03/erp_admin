@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import BackButton from '@/components/ui/BackButton';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { BankExchangeRate, Bank, Currency } from '@/types';
@@ -71,6 +72,7 @@ export default function BankExchangeRatesPage() {
 
   return (
     <DashboardShell>
+      <div className="mb-4"><BackButton /></div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Bank Exchange Rates</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">

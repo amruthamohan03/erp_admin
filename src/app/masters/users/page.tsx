@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import BackButton from '@/components/ui/BackButton';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import type { User, Role } from '@/types';
@@ -69,6 +70,7 @@ export default function UsersPage() {
 
   return (
     <DashboardShell>
+      <div className="mb-4"><BackButton /></div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Users</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">

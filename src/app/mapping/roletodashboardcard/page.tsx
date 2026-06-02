@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard, Save, Search } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import BackButton from '@/components/ui/BackButton';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
@@ -178,6 +179,7 @@ export default function RoleToDashboardCardPage() {
 
   return (
     <DashboardShell>
+      <div className="mb-4"><BackButton /></div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
