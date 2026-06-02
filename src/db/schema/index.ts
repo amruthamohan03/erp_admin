@@ -33,5 +33,15 @@ export * from './incotermMaster';
 export * from './provinceMaster';
 export * from './officeLocationMaster';
 export * from './mainOfficeMaster';
+export * from './phaseMaster';
+export * from './refererMaster';
+// clients_t depends on phase/referer/group-company/industry/office-location/done-by — all above.
+export * from './clients';
+// §4.12 page master tables + §4.10 audit log.
+export * from './masterPage';
+export * from './masterPageAccordion';
+export * from './masterPageAccordionRole';
+export * from './masterPageAccordionField';
+export * from './auditLog';
 // NOTE: masterTaxRule.ts is intentionally NOT exported. It's a planning stub
 // (no migration, no runtime usage). See the file header for the wire-up plan.

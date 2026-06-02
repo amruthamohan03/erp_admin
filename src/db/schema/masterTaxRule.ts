@@ -25,7 +25,7 @@ import {
 import { usersT } from './users';
 import { hscodeMaster } from './hscodeMaster';
 
-export const masterTaxRule = pgTable('master_tax_rule', {
+export const masterTaxRule = pgTable('master_tax_rule_t', {
   id: serial('id').primaryKey(),
   hscodeId: integer('hscode_id')
     .notNull()

@@ -62,7 +62,7 @@ Examples:
 - Field validations → `master_field_validation`
 - License types (IB / Export) → `master_license_type`
 - Tracking templates → `master_tracking_template`
-- Tax / duty rules used by Fiche de Calcul → `master_tax_rule`
+- Tax / duty rules used by Fiche de Calcul → `master_tax_rule_t`
 
 ### 4.2 Rule engine over `if/else`
 For any decision involving more than 2 conditions or any condition a user might want to change, route it through the rule engine (`src/engine/rules/`). Rules are stored as JSON in `master_rules` and evaluated by `evaluateRule(ruleId, context)`. Never inline business rules in route handlers.
@@ -117,7 +117,7 @@ For **editable matrices** (e.g. [src/app/mapping/roletomenu/page.tsx](src/app/ma
 ### 4.10 Audit logging — every user-initiated change is recorded
 Every create / update / delete / state-transition performed by a user must be persisted to a dedicated **audit table**, not to a log file. A database table is the source of truth because it is queryable, joinable with `users` and the affected entity, survives across instances/serverless cold-starts, and can be surfaced in admin UI and reports. Application log files are for diagnostics, not for accountability.
 
-**Table:** `audit_log` (single global table; do not create per-module variants).
+**Table:** `audit_log_t` (single global table; do not create per-module variants).
 
 **Required columns (minimum):**
 - `id` — uuid PK
@@ -133,9 +133,9 @@ Every create / update / delete / state-transition performed by a user must be pe
 - `created_at` — `timestamp with time zone`, default `now()`
 
 **Rules:**
-1. **Never write to `audit_log` from the UI or from a route handler directly.** Writes go through `src/lib/audit/recordAudit.ts` (a single helper) so the shape stays consistent.
+1. **Never write to `audit_log_t` from the UI or from a route handler directly.** Writes go through `src/lib/audit/recordAudit.ts` (a single helper) so the shape stays consistent.
 2. Audit writes happen **inside the same Drizzle transaction** as the change they describe — if the business write rolls back, the audit row must roll back too. No fire-and-forget.
-3. `audit_log` is **append-only**. No `UPDATE` or `DELETE` against it from application code. Corrections are new rows with `action = 'update'` referencing the prior row in `metadata.corrects`.
+3. `audit_log_t` is **append-only**. No `UPDATE` or `DELETE` against it from application code. Corrections are new rows with `action = 'update'` referencing the prior row in `metadata.corrects`.
 4. For **master table edits** and **workflow transitions**, recording is mandatory. For high-volume read endpoints, do not audit reads — use application logs for that.
 5. Sensitive fields (password hashes, tokens, secrets) must be **redacted** in `before` / `after` before insertion. The redaction list lives in `src/lib/audit/redact.ts`.
 6. Retention and archival policy lives in a master table (`master_retention_policy`), not in code.
@@ -167,7 +167,7 @@ All binary files (PDFs, images, scans, attachments, generated invoices, customs 
 
 A row in `files` with `status = 'pending'` and no matching S3 object is acceptable for short windows (presign issued, upload not yet completed). A nightly job sweeps stale `pending` rows.
 
-**Upload pattern (default):** server issues a **presigned PUT URL** (`presignUpload`), client uploads directly to S3, then calls a `POST /api/v1/files/:id/commit` to flip status to `committed`. The commit handler verifies the object exists, reads its size/mime/sha256, and records an `audit_log` entry (see 4.10). Do not proxy file bytes through the Next.js server unless there's a specific reason (e.g. server-side generation).
+**Upload pattern (default):** server issues a **presigned PUT URL** (`presignUpload`), client uploads directly to S3, then calls a `POST /api/v1/files/:id/commit` to flip status to `committed`. The commit handler verifies the object exists, reads its size/mime/sha256, and records an `audit_log_t` entry (see 4.10). Do not proxy file bytes through the Next.js server unless there's a specific reason (e.g. server-side generation).
 
 **Download pattern:** never expose raw S3 URLs. Always return a **presigned GET URL** with a short TTL (default 5 minutes) via `presignDownload(fileId, user)`. The presign helper checks `checkPermission(user, 'file', 'read')` and that the user can see the parent entity before signing.
 
@@ -185,6 +185,80 @@ A row in `files` with `status = 'pending'` and no matching S3 object is acceptab
 **Dependency note:** this adds `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` as new top-level deps. Per section 3 these are flagged here explicitly — no other S3 client should be introduced.
 
 If you are about to accept a file upload and you are not calling `presignUpload(...)` (or are writing bytes to disk), stop and rewrite the route.
+
+### 4.12 Custom transactional pages — accordions are the unit of composition, permission, and audit
+
+Operational pages (anything that is **not** a master CRUD list) — quotation forms, license issuance, tracking updates, Fiche de Calcul, invoice creation, credit notes, payment requests, etc. — are built from **accordions**. The accordion is the only legal container for inputs on these pages. The same accordion definition drives layout, role-based visibility, and audit context — they are not three separate concerns.
+
+**Required master tables** (read §4.5 and §4.10 first):
+
+- `master_page_t` — registers each transactional page. Columns: `slug`, `title`, `route`, `display_order`, `display`. Slug is the URL key (e.g. `license-issuance`, `invoice-create`).
+- `master_page_accordion_t` — accordions on a page. Columns: `page_id` (FK), `slug`, `title`, `display_order`, `display`. Slug is unique within the page.
+- `master_page_accordion_role_t` — which roles can see / edit which accordion. Composite key `(accordion_id, role_id)`. `permission` column with values `view` | `edit` so a role can be granted read-only access to a section without being able to mutate it.
+- `master_page_accordion_field_t` — inputs inside the accordion. Columns: `accordion_id` (FK), `name`, `label`, `field_type`, `required`, `validation_rule_id` (FK to `master_field_validation`), `display_order`, `display`. **Every field is owned by exactly one accordion.**
+
+**Hard rules:**
+
+1. **No inputs outside an accordion.** Every input on every transactional page is bound to a row in `master_page_accordion_field_t`. If a field doesn't fit any existing accordion, the answer is a new accordion row — never an exception in code.
+2. **Visibility is master-driven, not code-driven.** Server-side rendering reads `master_page_accordion_role_t` joined with the current user's roles to decide which accordions to send to the client. The client must never receive accordions the user can't see (defense in depth — don't rely on client-side hide). `view` renders the accordion read-only; `edit` enables inputs and the save button. **Never check role names in the page component** — go through `checkPermission(user, 'page:<slug>:<accordion_slug>', 'view' | 'edit')` per §4.7.
+3. **No backdoor "admin sees everything."** Super Admin and any other elevated role must be granted access via `master_page_accordion_role_t` rows like every other role. The audit trail and the visibility logic must agree.
+4. **Audit is per-field, per-accordion.** Every input change on a transactional page records an `audit_log_t` row (per §4.10) with:
+   - `entity_type = 'page:<page_slug>'`
+   - `entity_id = <transaction_id>` (the consignment / license / invoice id)
+   - `metadata.accordion = <accordion_slug>`
+   - `metadata.field = <field_name>`
+
+   The accordion slug is **mandatory** — it's what lets the audit UI reconstruct "who edited which section, and when."
+5. **One save = one transaction = one batch of audit rows.** When a user clicks Save on an accordion, the API wraps all field writes and all `recordAudit(...)` calls in a single Drizzle transaction. Partial accordion saves are not allowed. If any field fails validation, the whole accordion save rolls back.
+6. **Use the shared runtime component.** Render via `<TransactionalPage slug={...} entityId={...} />` from `src/components/transactional/`. It fetches the page definition + accordions + role-filtered fields + current entity values, and handles save + audit. **Do not hand-roll an accordion page** — copy-paste is how the rules drift.
+7. **Server-side filtering is required.** The API endpoint that returns a transactional page's structure (`GET /api/v1/pages/:slug?entity_id=...`) must filter accordions and fields by the caller's roles before responding. The same endpoint is the source of truth for what the user can see; the client never decides this.
+
+**File layout:**
+
+```
+src/
+  app/
+    (app)/
+      pages/
+        [slug]/
+          [id]/
+            page.tsx          # one-line shim that renders <TransactionalPage>
+  components/
+    transactional/
+      TransactionalPage.tsx   # the runtime renderer
+      Accordion.tsx           # one collapsible section
+      FieldRenderer.tsx       # dispatches by field_type
+  app/api/v1/pages/
+    [slug]/
+      route.ts                # GET structure + values for the page
+    [slug]/[id]/
+      route.ts                # save accordion (POST/PUT) — wraps audit
+```
+
+If you are about to write a transactional page and you are (a) hand-coding role checks, (b) adding inputs that aren't in `master_page_accordion_field_t`, (c) writing save logic that doesn't call `recordAudit(...)`, or (d) sending accordions to the client without a server-side role filter, **stop and follow this section**.
+
+### 4.13 Back navigation — every page has a Back button
+
+Every authenticated page in the app gets a Back button. **No exceptions** for the pages listed below; the inconsistency between "this page has back, that one doesn't" is worse than the visual cost of one extra control on a list page.
+
+**Where it goes**
+
+- One `<BackButton />` at the top of the page, before any title or toolbar.
+- Implemented as a shared component at [src/components/ui/BackButton.tsx](src/components/ui/BackButton.tsx). Do not hand-roll an `<ArrowLeft />` + `<Link>` per page — copy-paste is how the rule drifts.
+
+**Behavior**
+
+- Default action: `router.back()` so the user lands exactly where they came from (sidebar click, prior search results, prior edit screen).
+- Fallback: if `window.history.length <= 1` (the page was opened in a new tab, reached via a typed URL, or after a refresh that cleared the navigation stack), it navigates to a safe URL — default `/dashboard`.
+- Override via prop only when the default fallback is wrong for the flow. Example: a "New X" form may want `fallback="/x"` so a refresh-then-back lands on the list, not the dashboard.
+
+**Pages that DO NOT get a Back button**
+
+- `/login` — there's nowhere meaningful to go back to before authenticating.
+- `/dashboard` — the back-stop itself; a Back button here would either dead-end or send the user to login.
+- `/` (the root redirector).
+
+**If you are about to ship a new page and it does not import BackButton, stop and add it.**
 
 ---
 
@@ -236,7 +310,8 @@ When adding files, match this layout. If something doesn't fit, ask before inven
 - **Async:** every async function has an explicit return type.
 - **Errors:** throw typed errors from `src/lib/errors/`. Route handlers wrap with `withErrorHandler()`.
 - **DB:** use Drizzle for all database access. See section 7 for the rules. Never import `pg` directly outside `src/lib/db.ts`.
-- **Naming:** `snake_case` in DB, `camelCase` in TS, `PascalCase` for components and types. Master tables prefixed `master_`. Drizzle table objects use `camelCase` matching the TS convention (`masterStatus`, not `master_status`) with the SQL name set explicitly: `pgTable("master_status", { ... })`.
+- **Naming:** `snake_case` in DB, `camelCase` in TS, `PascalCase` for components and types. Master tables prefixed `master_`. Drizzle table objects use `camelCase` matching the TS convention (`masterStatus`, not `master_status`) with the SQL name set explicitly: `pgTable("master_status_t", { ... })`.
+- **Every DB table ends with `_t`.** No exceptions. `users` → `users_t`, `audit_log_t` → `audit_log_t`, `master_page_t` → `master_page_t`. The suffix lets a quick grep over migrations distinguish table identifiers from columns/functions/aliases, and prevents collisions with Postgres-reserved or common names (`user`, `order`, `group`, `role`). If you see a `pgTable("…", { ... })` literal without `_t`, that's a bug — fix it, rename in the schema file, and update the migration. Drizzle table object names in TS are unaffected (still `masterStatus`, not `masterStatusT`).
 - **Comments:** explain *why*, not *what*. No noise comments (`// increment i`).
 - **Files:** one default export per file, named the same as the file.
 
@@ -308,7 +383,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 ## 10. Things to refuse / push back on
 
 - Requests to hardcode a status, role, document type, license type, or workflow step → propose a master table instead.
-- Requests to hardcode tax/duty math in Fiche de Calcul → propose `master_tax_rule` + rule engine.
+- Requests to hardcode tax/duty math in Fiche de Calcul → propose `master_tax_rule_t` + rule engine.
 - Requests to add a feature flag in code → use `master_feature_toggle` instead.
 - Requests to `if (user.email === "...")` or similar one-off logic → push back, propose a permission or rule.
 - Requests to skip the Zod schema "just this once" → no.

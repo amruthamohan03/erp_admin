@@ -239,6 +239,97 @@
       "when": 1779353530813,
       "tag": "0033_seed_role_master",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1779353530814,
+      "tag": "0034_add_phase_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1779353530815,
+      "tag": "0035_add_referer_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779353530816,
+      "tag": "0036_add_clients",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779353530817,
+      "tag": "0037_seed_menu_phases_referers",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779353530818,
+      "tag": "0038_seed_phase_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779353530819,
+      "tag": "0039_add_page_master_and_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1779353530820,
+      "tag": "0040_seed_clients_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1779353530821,
+      "tag": "0041_seed_menu_clients",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779353530822,
+      "tag": "0042_restructure_clients_menu_with_children",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1779353530823,
+      "tag": "0043_seed_clients",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1779353530824,
+      "tag": "0044_seed_menu_pages_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1779353530825,
+      "tag": "0045_restructure_pages_menu_with_children",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1779353530826,
+      "tag": "0046_seed_menu_client_dashboard",
+      "breakpoints": true
     }
   ]
 }

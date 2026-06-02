@@ -9,6 +9,7 @@ import {
   Upload,
 } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
+import BackButton from '@/components/ui/BackButton';
 
 interface SettingsForm {
   project_name: string;
@@ -114,6 +115,7 @@ export default function ApplicationSettingsPage() {
 
   return (
     <DashboardShell>
+      <div className="mb-4"><BackButton /></div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">

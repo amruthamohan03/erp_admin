@@ -333,6 +333,27 @@ export interface OfficeLocation {
   updated_by: number | null;
 }
 
+export interface Phase {
+  id: number;
+  phase_name: string;
+  phase_code: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+export interface Referer {
+  id: number;
+  refferer_name: string;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
 export interface MainOffice {
   id: number;
   main_location_name: string | null;
@@ -341,6 +362,161 @@ export interface MainOffice {
   updated_at: string;
   created_by: number | null;
   updated_by: number | null;
+}
+
+export interface Client {
+  id: number;
+  company_name: string;
+  short_name: string;
+  client_type: string;
+  group_company_id: number | null;
+  industry_type_id: number | null;
+  referred_by_id: number | null;
+  office_location_id: number | null;
+  address: string | null;
+  phase_id: number | null;
+  phase_start_date: string | null;
+  phase_end_date: string | null;
+  contact_person: string | null;
+  email: string | null;
+  email_secondary: string | null;
+  phone: string | null;
+  phone_secondary: string | null;
+  id_nat_number: string | null;
+  id_nat_file: string | null;
+  rccm_number: string | null;
+  rccm_file: string | null;
+  import_export_number: string | null;
+  import_export_validity: string | null;
+  import_export_file: string | null;
+  attestation_number: string | null;
+  attestation_validity: string | null;
+  attestation_file: string | null;
+  nif_number: string | null;
+  payment_contact_email: string | null;
+  payment_contact_phone: string | null;
+  payment_term: string | null;
+  credit_term: number | null;
+  liquidation_paid_by: number | null;
+  license_cleared_by: number | null;
+  license_submit_to_bank: number | null;
+  contract_start_date: string | null;
+  contract_validity: string | null;
+  approval_code: string | null;
+  invoice_template: string;
+  verified_by_id: number | null;
+  verified_by_date: string | null;
+  approved_by_id: number | null;
+  approved_by_date: string | null;
+  remarks: string | null;
+  display: 'Y' | 'N';
+  created_by: number | null;
+  created_at: string;
+  updated_by: number | null;
+  updated_at: string;
+}
+
+// §4.12 transactional page model — what the runtime fetches and renders.
+
+// Admin shapes for the master_page* CRUD UI (one type per table).
+export interface MasterPage {
+  id: number;
+  slug: string;
+  title: string;
+  route: string;
+  target_table: string;
+  display_order: number;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MasterPageAccordion {
+  id: number;
+  page_id: number;
+  slug: string;
+  title: string;
+  icon: string | null;
+  display_order: number;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MasterPageField {
+  id: number;
+  accordion_id: number;
+  name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  options_source: string | null;
+  options_label_field: string | null;
+  options_static: unknown;
+  props: unknown;
+  display_order: number;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoleGrantMatrix {
+  // Roles displayed as rows.
+  roles: Array<{ id: number; role_name: string }>;
+  // Accordions on the page displayed as columns.
+  accordions: Array<{ id: number; slug: string; title: string; display_order: number }>;
+  // Sparse map: `${accordion_id}:${role_id}` → permission. Missing keys = no access.
+  grants: Record<string, 'view' | 'edit'>;
+}
+
+export type AccordionPermission = 'view' | 'edit';
+
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'email'
+  | 'tel'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'checkbox-group'
+  | 'file';
+
+export interface PageFieldDef {
+  id: number;
+  name: string;
+  label: string;
+  field_type: FieldType;
+  required: boolean;
+  options_source: string | null;
+  options_label_field: string | null;
+  options_static: Array<{ value: string; label: string }> | null;
+  props: Record<string, unknown> | null;
+  display_order: number;
+}
+
+export interface PageAccordionDef {
+  id: number;
+  slug: string;
+  title: string;
+  icon: string | null;
+  display_order: number;
+  permission: AccordionPermission;
+  fields: PageFieldDef[];
+}
+
+export interface PageDef {
+  id: number;
+  slug: string;
+  title: string;
+  route: string;
+  accordions: PageAccordionDef[];
+}
+
+export interface PageFetchResponse {
+  page: PageDef;
+  // Map of column name → current value. Empty for new entities.
+  values: Record<string, unknown>;
 }
 
 export interface ApiResponse<T = unknown> {
