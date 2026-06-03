@@ -93,6 +93,11 @@ export const clients = pgTable(
 
     remarks: text('remarks'),
 
+    // Test field driven by the §4.12 transactional-page runtime. Bound to the
+    // 'test' select field on the Clients "Verification & Approval" accordion,
+    // whose options come from /api/industries — so it stores an industry id.
+    test: integer('test'),
+
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references((): AnyPgColumn => usersT.id),
     createdAt: timestamp('created_at', { withTimezone: false }).defaultNow().notNull(),

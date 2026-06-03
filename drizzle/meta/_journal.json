@@ -337,6 +337,27 @@
       "when": 1779353530827,
       "tag": "0047_seed_client_dashboard_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780475276289,
+      "tag": "0048_add_clients_test_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1780480000000,
+      "tag": "0049_add_payment_masters_and_licenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1780480000001,
+      "tag": "0050_seed_licenses_page",
+      "breakpoints": true
     }
   ]
 }

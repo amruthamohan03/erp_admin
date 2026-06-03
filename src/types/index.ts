@@ -416,6 +416,24 @@ export interface Client {
   updated_at: string;
 }
 
+// License list-row shape returned by GET /api/licenses (joined display names,
+// not the raw FK ids — used by the /license list table).
+export interface LicenseListRow {
+  id: number;
+  license_number: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  bank_name: string | null;
+  kind_name: string | null;
+  transport_mode_id: number | null;
+  transport_mode_name: string | null;
+  invoice_number: string | null;
+  license_applied_date: string | null;
+  license_expiry_date: string | null;
+  status: string;
+  display: 'Y' | 'N';
+}
+
 // §4.12 transactional page model — what the runtime fetches and renders.
 
 // Admin shapes for the master_page* CRUD UI (one type per table).

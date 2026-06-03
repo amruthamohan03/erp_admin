@@ -37,6 +37,12 @@ export * from './phaseMaster';
 export * from './refererMaster';
 // clients_t depends on phase/referer/group-company/industry/office-location/done-by — all above.
 export * from './clients';
+// Payment masters — paymentSubtype FKs to paymentType, so type must come first.
+export * from './paymentTypeMaster';
+export * from './paymentSubtypeMaster';
+// licenses_t depends on bank/client/done-by/transit-point/type-of-goods/unit/
+// transport-mode/currency/kind/origin/payment-type/payment-subtype — all above.
+export * from './licenses';
 // §4.12 page master tables + §4.10 audit log.
 export * from './masterPage';
 export * from './masterPageAccordion';
