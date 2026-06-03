@@ -105,6 +105,7 @@ export default function FieldRenderer({ field, value, readonly, onChange }: Fiel
           value={asString(value)}
           min={getNumber(field.props, 'min')}
           max={getNumber(field.props, 'max')}
+          step={getString(field.props, 'step')}
           onChange={(e) => {
             const raw = e.target.value;
             onChange(raw === '' ? null : Number(raw));
