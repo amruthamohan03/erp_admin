@@ -434,6 +434,22 @@ export interface LicenseListRow {
   display: 'Y' | 'N';
 }
 
+// Import list-row shape returned by GET /api/imports (joined display names).
+export interface ImportListRow {
+  id: number;
+  mca_ref: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  license_number: string | null;
+  invoice: string | null;
+  pre_alert_date: string | null;
+  weight: string | null;
+  fob: string | null;
+  clearing_status_id: number | null;
+  clearing_status_name: string | null;
+  display: 'Y' | 'N';
+}
+
 // §4.12 transactional page model — what the runtime fetches and renders.
 
 // Admin shapes for the master_page* CRUD UI (one type per table).

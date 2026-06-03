@@ -358,6 +358,27 @@
       "when": 1780480000001,
       "tag": "0050_seed_licenses_page",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1780480000002,
+      "tag": "0051_add_import_masters_and_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1780480000003,
+      "tag": "0052_seed_imports_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1780480000004,
+      "tag": "0053_seed_import_dashboard_cards",
+      "breakpoints": true
     }
   ]
 }

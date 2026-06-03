@@ -43,6 +43,11 @@ export * from './paymentSubtypeMaster';
 // licenses_t depends on bank/client/done-by/transit-point/type-of-goods/unit/
 // transport-mode/currency/kind/origin/payment-type/payment-subtype — all above.
 export * from './licenses';
+// Import-tracking masters (minimal id+name) — must precede imports_t (FK targets).
+export * from './partialMaster';
+export * from './subOfficeMaster';
+// imports_t depends on clients/licenses/partial/sub-office + many masters above.
+export * from './imports';
 // §4.12 page master tables + §4.10 audit log.
 export * from './masterPage';
 export * from './masterPageAccordion';

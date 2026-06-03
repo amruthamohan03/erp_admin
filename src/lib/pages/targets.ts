@@ -5,7 +5,7 @@
 import { sql, getTableColumns } from 'drizzle-orm';
 import { type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
-import { clients, licenses } from '@/db/schema';
+import { clients, licenses, imports } from '@/db/schema';
 
 interface PageTarget {
   table: PgTable;
@@ -23,6 +23,10 @@ const TARGETS: Record<string, PageTarget> = {
   license: {
     table: licenses,
     allowedColumns: new Set(Object.values(getTableColumns(licenses)).map((c) => c.name)),
+  },
+  import: {
+    table: imports,
+    allowedColumns: new Set(Object.values(getTableColumns(imports)).map((c) => c.name)),
   },
 };
 
