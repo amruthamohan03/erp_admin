@@ -191,12 +191,21 @@ function DynamicSelect({ field, value, readonly, onChange }: DynamicSelectProps)
     if (!source) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/${source}`)
+    // Some master endpoints are server-paginated ({ data: { items, total } });
+    // request a large page so the dropdown is populated, and accept either a flat
+    // `data` array or a `data.items` array.
+    const url = `/api/${source}${source.includes('?') ? '&' : '?'}pageSize=1000`;
+    fetch(url)
       .then((r) => r.json())
       .then((json) => {
         if (cancelled) return;
-        if (json?.success && Array.isArray(json.data)) {
-          const opts = json.data.map((row: Record<string, unknown>) => {
+        const list = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.items)
+            ? json.data.items
+            : null;
+        if (json?.success && list) {
+          const opts = list.map((row: Record<string, unknown>) => {
             const v = row['id'] as string | number;
             let label = '';
             if (labelTemplate) {
