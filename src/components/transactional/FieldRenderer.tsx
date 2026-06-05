@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 
 interface FieldRendererProps {
@@ -8,6 +9,10 @@ interface FieldRendererProps {
   value: unknown;
   readonly: boolean;
   onChange: (next: unknown) => void;
+  // §4.11 — entity context for file uploads (e.g. 'page:clients' + the row id
+  // or 'new'). Used to key the S3 object and the files row.
+  entityType?: string;
+  entityId?: string;
 }
 
 type Props = Record<string, unknown> | null;
@@ -31,7 +36,7 @@ function getBool(props: Props, key: string): boolean {
   return props?.[key] === true;
 }
 
-export default function FieldRenderer({ field, value, readonly, onChange }: FieldRendererProps) {
+export default function FieldRenderer({ field, value, readonly, onChange, entityType, entityId }: FieldRendererProps) {
   const baseProps = {
     id: field.name,
     name: field.name,
@@ -158,22 +163,113 @@ export default function FieldRenderer({ field, value, readonly, onChange }: Fiel
     }
 
     case 'file':
-      // TODO(storage): hook this up to presignUpload per CLAUDE.md §4.11 once the
-      // `files` table + S3 setup land. For now the file column on clients_t is a
-      // varchar path mirroring the source dump.
       return (
-        <input
-          type="file"
-          {...baseProps}
-          className="input"
-          accept={getString(field.props, 'accept')}
-          onChange={(e) => onChange(e.target.files?.[0]?.name ?? null)}
+        <FileUpload
+          field={field}
+          value={value}
+          readonly={readonly}
+          onChange={onChange}
+          entityType={entityType}
+          entityId={entityId}
         />
       );
 
     default:
       return <span className="text-xs text-amber-600">Unsupported field_type: {String(field.field_type)}</span>;
   }
+}
+
+// §4.11 — file field: presign → direct-to-S3 PUT → commit, storing the files.id
+// as the field value. A committed value renders a masked "View File" link.
+function FileUpload({ field, value, readonly, onChange, entityType, entityId }: FieldRendererProps) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileId = asString(value); // stored files.id, or ''
+  const accept = getString(field.props, 'accept');
+
+  async function handleSelect(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      // 1) register + presign
+      const presignRes = await fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original_name: file.name,
+          mime: file.type || 'application/octet-stream',
+          size: file.size,
+          entity_type: entityType ?? null,
+          entity_id: entityId ?? null,
+          // Name the stored file after this input field (e.g. 'id_nat_file.pdf').
+          field_name: field.name,
+        }),
+      });
+      const presign = await presignRes.json();
+      if (!presignRes.ok || !presign.success) throw new Error(presign.message || 'Could not start upload');
+      const { file_id, upload_url, mode } = presign.data as {
+        file_id: number; upload_url: string; mode: 's3' | 'local';
+      };
+
+      // 2) upload the bytes — to S3 directly, or to our local endpoint.
+      const put = await fetch(upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`);
+
+      // 3) S3 needs a separate commit; the local endpoint commits itself.
+      if (mode === 's3') {
+        const commitRes = await fetch(`/api/files/${file_id}/commit`, { method: 'POST' });
+        const commit = await commitRes.json();
+        if (!commitRes.ok || !commit.success) throw new Error(commit.message || 'Commit failed');
+      }
+
+      onChange(String(file_id));
+    } catch (err) {
+      setError((err as Error).message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      {fileId && (
+        <div className="mb-1 text-sm flex items-center gap-2">
+          <a
+            href={`/api/files/${fileId}/view`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+          >
+            <FileText className="h-4 w-4" /> View File
+          </a>
+          {!readonly && (
+            <button type="button" onClick={() => onChange(null)} className="text-xs text-red-600 hover:text-red-700">
+              Remove
+            </button>
+          )}
+        </div>
+      )}
+      {!readonly && (
+        <input
+          type="file"
+          id={field.name}
+          name={field.name}
+          className="input"
+          accept={accept}
+          disabled={uploading}
+          onChange={handleSelect}
+        />
+      )}
+      {uploading && <p className="text-xs text-slate-500 mt-1">Uploading…</p>}
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
 }
 
 interface DynamicSelectProps extends FieldRendererProps {}

@@ -19,6 +19,7 @@ import {
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import { fetchEntityValues, safeColumnsFor, getPageTarget } from '@/lib/pages/targets';
+import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -208,6 +209,10 @@ async function loadPage(
     else fieldsByAcc.set(f.accordion_id, [f]);
   }
 
+  // §4.14 — field-level overrides for this role. Empty ⇒ every field inherits
+  // its accordion (back-compat).
+  const fieldOverrides = await fetchFieldOverrides(fieldRows.map((f) => f.id), roleId);
+
   const accordions = accordionRows.map((a) => ({
     id: a.id,
     slug: a.slug,
@@ -215,18 +220,27 @@ async function loadPage(
     icon: a.icon,
     display_order: a.display_order,
     permission: a.permission,
-    fields: (fieldsByAcc.get(a.id) ?? []).map((f) => ({
-      id: f.id,
-      name: f.name,
-      label: f.label,
-      field_type: f.field_type,
-      required: f.required,
-      options_source: f.options_source,
-      options_label_field: f.options_label_field,
-      options_static: f.options_static,
-      props: f.props,
-      display_order: f.display_order,
-    })),
+    // Resolve each field's effective permission; drop hidden fields (defense in
+    // depth — the client never receives a field the role can't see).
+    fields: (fieldsByAcc.get(a.id) ?? [])
+      .map((f) => ({
+        f,
+        eff: effectiveFieldPermission(a.permission as 'view' | 'edit', fieldOverrides.get(f.id)),
+      }))
+      .filter((x) => x.eff !== 'hidden')
+      .map(({ f, eff }) => ({
+        id: f.id,
+        name: f.name,
+        label: f.label,
+        field_type: f.field_type,
+        required: f.required,
+        options_source: f.options_source,
+        options_label_field: f.options_label_field,
+        options_static: f.options_static,
+        props: f.props,
+        display_order: f.display_order,
+        permission: eff as 'view' | 'edit',
+      })),
   }));
 
   // 4) If an entity id is supplied, fetch values for the visible columns only.

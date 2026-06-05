@@ -23,3 +23,9 @@ public/uploads/branding/*
 
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# §4.11 local upload fallback (dev/single-server) — ignore runtime-uploaded files.
+/public/uploads/*
+!/public/uploads/profiles/
+!/public/uploads/signatures/
+!/public/uploads/branding/

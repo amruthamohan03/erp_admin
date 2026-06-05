@@ -260,6 +260,37 @@ Every authenticated page in the app gets a Back button. **No exceptions** for th
 
 **If you are about to ship a new page and it does not import BackButton, stop and add it.**
 
+### 4.14 Field-level role grants in transactional pages
+
+§4.12 grants access per **accordion** (`master_page_accordion_role_t`). That is the coarse gate. Some sections need finer control: within an accordion a role can see, a specific **field** must be hidden, or read-only, or editable. Field-level grants provide that, **layered on top of** accordion grants — they refine, never replace, §4.12.
+
+**Table:** `master_page_accordion_field_role_t` — composite unique `(field_id, role_id)`.
+- `field_id` — FK to `master_page_accordion_field_t`
+- `role_id` — FK to `role_master_t`
+- `permission` — enum: `view` | `edit` | `hidden`
+
+**Resolution (inherit-by-default — this is the non-negotiable rule):**
+
+For a given field + the current user's role, the **effective** permission is computed server-side as:
+
+1. The field's accordion must be visible to the role (an accordion role row exists). If not, the accordion and **all** its fields are hidden — field grants are never consulted. (Unchanged §4.12 behavior.)
+2. Let `A` = the accordion's permission for the role (`view` | `edit`).
+3. Let `F` = the `(field, role)` override permission if a row exists, else **none**.
+4. If `F` is none → **effective = A** (the field *inherits* its accordion). This is what makes the feature backward-compatible: a page with zero field-role rows behaves exactly as before.
+5. If `F = hidden` → the field is **hidden**.
+6. Otherwise → **effective = min(F, A)** with rank `hidden < view < edit`. A field grant can only ever *restrict*, never elevate above its accordion. (`edit` field inside a `view` accordion resolves to `view`.)
+
+**Hard rules:**
+
+1. **Inherit by default.** Absence of a `(field, role)` row means inherit the accordion permission. Never require a row per field — that would force seeding grants for every field of every page and break existing pages.
+2. **Server-side enforcement, both directions.** The `GET /api/pages/:slug` structure endpoint must drop `hidden` fields before responding (defense in depth — the client never receives a field the role can't see) and tag every returned field with its effective `permission`. The `POST /api/pages/:slug/:id` save must restrict the write to fields whose effective permission is `edit`; required-field validation runs only over editable fields. Never rely on the client to hide or freeze a field.
+3. **Never check role names.** Resolution joins `master_page_accordion_field_role_t` with the caller's role id, exactly like §4.7 / §4.12. No `if (user.role === …)`.
+4. **Render read-only fields read-only.** The runtime renders a field whose effective permission is `view` as disabled, even inside an `edit` accordion. The shared `Accordion` / `FieldRenderer` honor the per-field `permission`, not just the accordion's.
+5. **Clamp, don't elevate.** A field grant can never grant more than its accordion (rule 6 above). Granting `edit` on a field in a `view` accordion does not make it editable.
+6. **Configure via the Fields tab.** The Custom Pages → Fields admin screen carries a **role selector** alongside the accordion selector; picking a role shows each field's override (`Inherit` / `View` / `Edit` / `Hidden`) and saves the matrix through `master-page-field-grants`. Do not hand-edit the grant table or hardcode field visibility in the page component.
+
+If you are about to render or save a transactional-page field and you are not resolving its effective permission through `master_page_accordion_field_role_t` (inheriting from the accordion when no row exists), stop and follow this section.
+
 ---
 
 ## 5. Directory layout

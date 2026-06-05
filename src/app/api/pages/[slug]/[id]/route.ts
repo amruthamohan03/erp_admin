@@ -23,6 +23,7 @@ import {
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import { fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
+import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { recordAudit } from '@/lib/audit/recordAudit';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // 2) Fetch the field definitions for THIS accordion to build a whitelist.
   const fields = await db
     .select({
+      id: masterPageAccordionField.id,
       name: masterPageAccordionField.name,
       required: masterPageAccordionField.required,
       field_type: masterPageAccordionField.fieldType,
@@ -95,19 +97,29 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   if (fields.length === 0) return fail('Accordion has no fields configured', 500);
 
-  // 3) Restrict the incoming values to (accordion fields ∩ target columns).
-  const fieldNames = fields.map((f) => f.name);
-  const safeColumns = safeColumnsFor(slug, fieldNames);
+  // §4.14 — resolve each field's effective permission for this role; only fields
+  // that resolve to 'edit' may be written (absence of an override ⇒ inherit the
+  // accordion's 'edit', i.e. the prior behavior).
+  const overrides = await fetchFieldOverrides(fields.map((f) => f.id), session.role_id);
+  const editableNames = new Set<string>();
+  for (const f of fields) {
+    if (effectiveFieldPermission(grant.permission as 'view' | 'edit', overrides.get(f.id)) === 'edit') {
+      editableNames.add(f.name);
+    }
+  }
+
+  // 3) Restrict the incoming values to (editable fields ∩ accordion fields ∩ target columns).
+  const safeColumns = safeColumnsFor(slug, fields.map((f) => f.name));
   const safeColumnSet = new Set(safeColumns);
 
   const patch: Record<string, unknown> = {};
   for (const k of Object.keys(submittedValues)) {
-    if (safeColumnSet.has(k)) patch[k] = submittedValues[k];
+    if (safeColumnSet.has(k) && editableNames.has(k)) patch[k] = submittedValues[k];
   }
 
-  // 4) Required-field check.
+  // 4) Required-field check — only over fields this role can actually edit.
   for (const f of fields) {
-    if (f.required) {
+    if (f.required && editableNames.has(f.name)) {
       const v = patch[f.name];
       const empty = v === undefined || v === null || v === '';
       if (empty) return fail(`Required field missing: ${f.name}`, 422, { field: f.name });

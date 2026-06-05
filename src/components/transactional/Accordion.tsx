@@ -12,6 +12,9 @@ interface AccordionProps {
   onChange: (fieldName: string, value: unknown) => void;
   onSave: () => Promise<void>;
   defaultOpen?: boolean;
+  // §4.11 — entity context passed down to file fields for S3 upload keying.
+  entityType?: string;
+  entityId?: string;
 }
 
 const COL_CLASS: Record<string, string> = {
@@ -25,7 +28,7 @@ function colClassFor(props: Record<string, unknown> | null): string {
   return COL_CLASS[span] ?? COL_CLASS['5-per-row'];
 }
 
-export default function Accordion({ accordion, values, onChange, onSave, defaultOpen }: AccordionProps) {
+export default function Accordion({ accordion, values, onChange, onSave, defaultOpen, entityType, entityId }: AccordionProps) {
   const [open, setOpen] = useState(!!defaultOpen);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +89,12 @@ export default function Accordion({ accordion, values, onChange, onSave, default
                 <FieldRenderer
                   field={field}
                   value={values[field.name]}
-                  readonly={readonly}
+                  // §4.14 — a field can be read-only even inside an editable
+                  // accordion when its resolved permission is 'view'.
+                  readonly={readonly || field.permission === 'view'}
                   onChange={(v) => onChange(field.name, v)}
+                  entityType={entityType}
+                  entityId={entityId}
                 />
               </div>
             ))}
