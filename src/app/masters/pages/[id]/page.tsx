@@ -1,10 +1,12 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Save, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { Save, Plus, Trash2, Edit2, X, Check, Search } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import BackButton from '@/components/ui/BackButton';
+import PaginationFooter from '@/components/ui/PaginationFooter';
+import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MasterPage, MasterPageAccordion, MasterPageField, RoleGrantMatrix } from '@/types';
 
 type Tab = 'general' | 'accordions' | 'roles' | 'fields';
@@ -349,6 +351,7 @@ function RolesTab({ pageId }: { pageId: number }) {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -400,6 +403,16 @@ function RolesTab({ pageId }: { pageId: number }) {
     finally { setSaving(false); }
   }
 
+  // §4.9 — paginate/search only the DISPLAYED roles; the save payload below
+  // still iterates the full matrix.roles, so off-screen grants are preserved.
+  const filteredRoles = useMemo(() => {
+    if (!matrix) return [];
+    const q = search.trim().toLowerCase();
+    return q ? matrix.roles.filter((r) => r.role_name.toLowerCase().includes(q)) : matrix.roles;
+  }, [matrix, search]);
+  const { page, setPage, pageSize, setPageSize, totalRows, totalPages, startIndex, paged, mounted, resetPage } =
+    usePagedList(filteredRoles, { initialPageSize: 25 });
+
   if (loading || !matrix) return <div className="card p-6 text-center text-slate-500">Loading matrix...</div>;
   if (matrix.accordions.length === 0) return <div className="card p-6 text-center text-slate-500">Add accordions first (see the Accordions tab).</div>;
   if (matrix.roles.length === 0) return <div className="card p-6 text-center text-slate-500">No active roles found in role_master_t.</div>;
@@ -412,6 +425,15 @@ function RolesTab({ pageId }: { pageId: number }) {
           <p className="text-xs text-slate-500 mt-0.5">For each cell, choose <code>none</code> / <code>view</code> / <code>edit</code>. Save commits the whole matrix in one transaction.</p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              className="input pl-9 text-sm w-56"
+              placeholder="Search role..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+            />
+          </div>
           {savedAt && !dirty && !saving && (<span className="text-xs text-emerald-600">Saved {savedAt.toLocaleTimeString()}</span>)}
           <button onClick={save} disabled={!dirty || saving} className="btn-primary">
             <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Matrix'}
@@ -425,16 +447,18 @@ function RolesTab({ pageId }: { pageId: number }) {
         <table className="table-base">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-slate-50">Role</th>
+              <th className="w-12">#</th>
+              <th>Role</th>
               {matrix.accordions.map((a) => (
                 <th key={a.id} className="text-center min-w-[110px]">{a.title}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {matrix.roles.map((r) => (
+            {paged.map((r, idx) => (
               <tr key={r.id}>
-                <td className="sticky left-0 bg-white font-medium">{r.role_name}</td>
+                <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                <td className="font-medium">{r.role_name}</td>
                 {matrix.accordions.map((a) => {
                   const k = `${a.id}:${r.id}`;
                   const cur = matrix.grants[k] ?? 'none';
@@ -461,6 +485,17 @@ function RolesTab({ pageId }: { pageId: number }) {
           </tbody>
         </table>
       </div>
+
+      <PaginationFooter
+        page={page}
+        setPage={setPage}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
+        totalRows={totalRows}
+        totalPages={totalPages}
+        startIndex={startIndex}
+        mounted={mounted}
+      />
     </div>
   );
 }
@@ -469,6 +504,9 @@ function RolesTab({ pageId }: { pageId: number }) {
 // Fields tab — scoped by accordion (dropdown selector)
 // ============================================================================
 
+type FieldOverride = 'view' | 'edit' | 'hidden';
+interface GrantRole { id: number; role_name: string }
+
 function FieldsTab({ pageId }: { pageId: number }) {
   const [accordions, setAccordions] = useState<MasterPageAccordion[]>([]);
   const [accordionId, setAccordionId] = useState<number | null>(null);
@@ -476,6 +514,14 @@ function FieldsTab({ pageId }: { pageId: number }) {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<MasterPageField | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // §4.14 — field-level role grants for the selected role.
+  const [roles, setRoles] = useState<GrantRole[]>([]);
+  const [roleId, setRoleId] = useState<number | null>(null);
+  const [overrides, setOverrides] = useState<Record<number, FieldOverride>>({});
+  const [grantDirty, setGrantDirty] = useState(false);
+  const [grantSaving, setGrantSaving] = useState(false);
+  const [grantSavedAt, setGrantSavedAt] = useState<Date | null>(null);
 
   // Load accordions list once for the dropdown.
   useEffect(() => {
@@ -501,6 +547,53 @@ function FieldsTab({ pageId }: { pageId: number }) {
 
   useEffect(() => { loadFields(); }, [loadFields]);
 
+  // Roles list + current overrides for the (accordion, role) pair.
+  const loadGrants = useCallback(async () => {
+    if (accordionId === null) return;
+    const url = `/api/master-page-field-grants?accordion_id=${accordionId}${roleId ? `&role_id=${roleId}` : ''}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.success) {
+      setRoles(json.data.roles);
+      const ov: Record<number, FieldOverride> = {};
+      for (const f of json.data.fields as Array<{ id: number; override: FieldOverride | null }>) {
+        if (f.override) ov[f.id] = f.override;
+      }
+      setOverrides(ov);
+      setGrantDirty(false);
+    }
+  }, [accordionId, roleId]);
+
+  useEffect(() => { loadGrants(); }, [loadGrants]);
+
+  function setOverride(fieldId: number, value: FieldOverride | 'inherit') {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (value === 'inherit') delete next[fieldId];
+      else next[fieldId] = value;
+      return next;
+    });
+    setGrantDirty(true);
+  }
+
+  async function saveGrants() {
+    if (accordionId === null || roleId === null) return;
+    setGrantSaving(true);
+    try {
+      const payload: Record<string, FieldOverride | null> = {};
+      for (const f of fields) payload[String(f.id)] = overrides[f.id] ?? null;
+      const res = await fetch(`/api/master-page-field-grants?accordion_id=${accordionId}&role_id=${roleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides: payload }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) { alert(json.message || 'Save failed'); return; }
+      setGrantDirty(false);
+      setGrantSavedAt(new Date());
+    } finally { setGrantSaving(false); }
+  }
+
   async function handleDelete(id: number) {
     if (!confirm('Disable this field?')) return;
     const res = await fetch(`/api/master-page-fields/${id}`, { method: 'DELETE' });
@@ -509,30 +602,60 @@ function FieldsTab({ pageId }: { pageId: number }) {
     loadFields();
   }
 
+  const showAccess = roleId !== null;
+  const colCount = showAccess ? 8 : 7;
+
   return (
     <div className="card">
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-200">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-600">Accordion:</label>
-          <select
-            className="input max-w-xs"
-            value={accordionId ?? ''}
-            onChange={(e) => setAccordionId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="" disabled>— Select —</option>
-            {accordions.map((a) => (
-              <option key={a.id} value={a.id}>{a.title}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-slate-600">Accordion:</label>
+            <select
+              className="input max-w-xs"
+              value={accordionId ?? ''}
+              onChange={(e) => setAccordionId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="" disabled>— Select —</option>
+              {accordions.map((a) => (<option key={a.id} value={a.id}>{a.title}</option>))}
+            </select>
+          </div>
+          {/* §4.14 — pick a role to manage per-field access. */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-slate-600">Role access:</label>
+            <select
+              className="input max-w-xs"
+              value={roleId ?? ''}
+              onChange={(e) => setRoleId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">— None (manage fields) —</option>
+              {roles.map((r) => (<option key={r.id} value={r.id}>{r.role_name}</option>))}
+            </select>
+          </div>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          disabled={accordionId === null}
-          className="btn-primary disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" /> Add Field
-        </button>
+        <div className="flex items-center gap-3">
+          {showAccess && grantSavedAt && !grantDirty && !grantSaving && (
+            <span className="text-xs text-emerald-600">Saved {grantSavedAt.toLocaleTimeString()}</span>
+          )}
+          {showAccess ? (
+            <button onClick={saveGrants} disabled={!grantDirty || grantSaving} className="btn-primary disabled:opacity-50">
+              <Save className="h-4 w-4" /> {grantSaving ? 'Saving...' : 'Save Access'}
+            </button>
+          ) : (
+            <button onClick={() => setCreating(true)} disabled={accordionId === null} className="btn-primary disabled:opacity-50">
+              <Plus className="h-4 w-4" /> Add Field
+            </button>
+          )}
+        </div>
       </div>
+
+      {showAccess && (
+        <p className="text-xs text-slate-500 px-4 pt-3">
+          Per-field access for <strong>{roles.find((r) => r.id === roleId)?.role_name}</strong>.
+          <code className="ml-1">Inherit</code> = use the accordion grant. Field access can only
+          restrict, never exceed, the accordion grant (§4.14).
+        </p>
+      )}
 
       <div className="overflow-x-auto">
         <table className="table-base">
@@ -544,30 +667,53 @@ function FieldsTab({ pageId }: { pageId: number }) {
               <th>Type</th>
               <th className="w-16">Required</th>
               <th>Options Source</th>
+              {showAccess && <th className="w-40">Access</th>}
               <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (<tr><td colSpan={7} className="text-center text-slate-500 py-6">Loading...</td></tr>)}
-            {!loading && fields.length === 0 && (<tr><td colSpan={7} className="text-center text-slate-500 py-6">No fields on this accordion yet</td></tr>)}
-            {!loading && fields.map((f) => (
-              <tr key={f.id} className="hover:bg-slate-50">
-                <td className="text-slate-500 font-medium">{f.display_order}</td>
-                <td className="font-mono text-xs">{f.name}</td>
-                <td>{f.label}</td>
-                <td><code className="font-mono text-xs">{f.field_type}</code></td>
-                <td className="text-center">{f.required ? <Check className="h-4 w-4 text-emerald-600 inline" /> : <span className="text-slate-300">—</span>}</td>
-                <td className="font-mono text-xs">{f.options_source ?? <span className="text-slate-400">—</span>}</td>
-                <td className="text-right">
-                  <button onClick={() => setEditing(f)} className="text-slate-500 hover:text-primary-600 p-1" title="Edit">
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => handleDelete(f.id)} className="text-slate-500 hover:text-red-600 p-1 ml-1" title="Disable">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {loading && (<tr><td colSpan={colCount} className="text-center text-slate-500 py-6">Loading...</td></tr>)}
+            {!loading && fields.length === 0 && (<tr><td colSpan={colCount} className="text-center text-slate-500 py-6">No fields on this accordion yet</td></tr>)}
+            {!loading && fields.map((f) => {
+              const cur = overrides[f.id] ?? 'inherit';
+              return (
+                <tr key={f.id} className="hover:bg-slate-50">
+                  <td className="text-slate-500 font-medium">{f.display_order}</td>
+                  <td className="font-mono text-xs">{f.name}</td>
+                  <td>{f.label}</td>
+                  <td><code className="font-mono text-xs">{f.field_type}</code></td>
+                  <td className="text-center">{f.required ? <Check className="h-4 w-4 text-emerald-600 inline" /> : <span className="text-slate-300">—</span>}</td>
+                  <td className="font-mono text-xs">{f.options_source ?? <span className="text-slate-400">—</span>}</td>
+                  {showAccess && (
+                    <td>
+                      <select
+                        value={cur}
+                        onChange={(e) => setOverride(f.id, e.target.value as FieldOverride | 'inherit')}
+                        className={`text-xs rounded border px-1.5 py-0.5 w-full ${
+                          cur === 'edit' ? 'border-primary-300 bg-primary-50 text-primary-700' :
+                          cur === 'view' ? 'border-slate-300 bg-slate-50 text-slate-700' :
+                          cur === 'hidden' ? 'border-red-300 bg-red-50 text-red-700' :
+                          'border-slate-200 text-slate-400'
+                        }`}
+                      >
+                        <option value="inherit">Inherit</option>
+                        <option value="view">View (read-only)</option>
+                        <option value="edit">Edit</option>
+                        <option value="hidden">Hidden</option>
+                      </select>
+                    </td>
+                  )}
+                  <td className="text-right">
+                    <button onClick={() => setEditing(f)} className="text-slate-500 hover:text-primary-600 p-1" title="Edit">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleDelete(f.id)} className="text-slate-500 hover:text-red-600 p-1 ml-1" title="Disable">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

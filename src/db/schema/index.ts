@@ -53,6 +53,10 @@ export * from './masterPage';
 export * from './masterPageAccordion';
 export * from './masterPageAccordionRole';
 export * from './masterPageAccordionField';
+// §4.14 — field-level role grants (refines accordion grants).
+export * from './masterPageAccordionFieldRole';
 export * from './auditLog';
+// §4.11 — S3 file registry.
+export * from './files';
 // NOTE: masterTaxRule.ts is intentionally NOT exported. It's a planning stub
 // (no migration, no runtime usage). See the file header for the wire-up plan.

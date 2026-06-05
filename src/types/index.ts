@@ -527,6 +527,10 @@ export interface PageFieldDef {
   options_static: Array<{ value: string; label: string }> | null;
   props: Record<string, unknown> | null;
   display_order: number;
+  // §4.14 — effective permission of this field for the current user's role
+  // ('view' renders read-only, 'edit' editable). Hidden fields are never sent.
+  // Absent ⇒ inherit the accordion permission (back-compat).
+  permission?: 'view' | 'edit';
 }
 
 export interface PageAccordionDef {

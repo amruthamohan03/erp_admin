@@ -104,6 +104,8 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
               onChange={handleFieldChange}
               onSave={() => saveAccordion(acc.slug, acc.fields.map((f) => f.name))}
               defaultOpen={idx === 0}
+              entityType={`page:${slug}`}
+              entityId={entityId}
             />
           ))}
         </form>
