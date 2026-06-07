@@ -58,5 +58,7 @@ export * from './masterPageAccordionFieldRole';
 export * from './auditLog';
 // §4.11 — S3 file registry.
 export * from './files';
+// §4.9 — bulk-update filter config.
+export * from './masterBulkFilter';
 // NOTE: masterTaxRule.ts is intentionally NOT exported. It's a planning stub
 // (no migration, no runtime usage). See the file header for the wire-up plan.

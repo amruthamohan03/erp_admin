@@ -4,13 +4,16 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import type { PageAccordionDef } from '@/types';
+import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
 import FieldRenderer from './FieldRenderer';
 
 interface AccordionProps {
   accordion: PageAccordionDef;
   values: Record<string, unknown>;
   onChange: (fieldName: string, value: unknown) => void;
-  onSave: () => Promise<void>;
+  // §4.12 — receives the names of the fields that are currently VISIBLE (per the
+  // config-driven conditions) so a kind-hidden section isn't written on save.
+  onSave: (visibleFieldNames: string[]) => Promise<void>;
   defaultOpen?: boolean;
   // §4.11 — entity context passed down to file fields for S3 upload keying.
   entityType?: string;
@@ -36,11 +39,20 @@ export default function Accordion({ accordion, values, onChange, onSave, default
 
   const readonly = accordion.permission === 'view';
 
+  // §4.12 — resolve every field's effective state against the current form values
+  // once per render. Hidden fields are dropped from the DOM and from the save
+  // payload; the same rules run server-side (defense in depth).
+  const resolved = accordion.fields.map((field) => ({
+    field,
+    state: resolveFieldState(parseConditions(field.conditions), field.required, values),
+  }));
+  const visibleFields = resolved.filter((r) => r.state.visible);
+
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
-      await onSave();
+      await onSave(visibleFields.map((r) => r.field.name));
       setSavedAt(new Date());
     } catch (e) {
       setError((e as Error).message || 'Save failed');
@@ -80,18 +92,22 @@ export default function Accordion({ accordion, values, onChange, onSave, default
           )}
 
           <div className="flex flex-wrap -mx-2">
-            {accordion.fields.map((field) => (
+            {visibleFields.map(({ field, state }) => (
               <div key={field.id} className={`${colClassFor(field.props)} mb-3`}>
                 <label htmlFor={field.name} className="label">
                   {field.label}
-                  {field.required && <span className="text-red-600 ml-0.5">*</span>}
+                  {state.required && <span className="text-red-600 ml-0.5">*</span>}
                 </label>
                 <FieldRenderer
                   field={field}
                   value={values[field.name]}
-                  // §4.14 — a field can be read-only even inside an editable
-                  // accordion when its resolved permission is 'view'.
-                  readonly={readonly || field.permission === 'view'}
+                  // §4.14 — read-only via resolved permission, §4.12 — via a
+                  // readonlyWhen condition, and derived fields (computed/fetched)
+                  // are always read-only since their value isn't hand-entered.
+                  readonly={readonly || field.permission === 'view' || state.readonly || field.derive != null}
+                  requiredOverride={state.required}
+                  minBound={state.min}
+                  maxBound={state.max}
                   onChange={(v) => onChange(field.name, v)}
                   entityType={entityType}
                   entityId={entityId}

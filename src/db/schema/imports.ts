@@ -154,7 +154,12 @@ export const imports = pgTable(
     truckStatus: varchar('truck_status', { length: 100 }),
 
     // ── Status & Remarks ──
-    clearingStatus: integer('clearing_status').notNull().default(1).references(() => clearingStatusMaster.id),
+    // Nullable + no default: the §4.12 runtime creates a row from a single
+    // accordion (usually 'basic'), which doesn't carry clearing_status. A
+    // NOT NULL DEFAULT 1 here forced a bogus FK to clearing_status_master_t id=1
+    // on create. Presence is enforced via the field's `required` flag on the
+    // Status accordion instead (see 0062).
+    clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
     invExportDisabled: boolean('inv_export_disabled').notNull().default(false),
     invExportDisabledRemark: varchar('inv_export_disabled_remark', { length: 500 }),
     // JSON array of remarks (kept as text to mirror the source column type).

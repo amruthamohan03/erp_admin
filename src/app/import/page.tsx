@@ -323,15 +323,26 @@ export default function ImportsListPage() {
         </div>
       </div>
 
-      {/* ---- Create card ---- */}
-      <Link href="/import/new" className="card p-4 mb-4 flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group">
-        <span className="flex items-center gap-2 text-slate-800 font-medium">
-          <Truck className="h-4 w-4 text-primary-600" /> Import Tracking
-        </span>
-        <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
-          <Plus className="h-3.5 w-3.5" /> New Import
-        </span>
-      </Link>
+      {/* ---- Create + bulk ---- */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <Link href="/import/new" className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group">
+          <span className="flex items-center gap-2 text-slate-800 font-medium">
+            <Truck className="h-4 w-4 text-primary-600" /> Import Tracking
+          </span>
+          <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
+            <Plus className="h-3.5 w-3.5" /> New Import
+          </span>
+        </Link>
+        {/* §4.9 — filter-driven bulk editor (pending/missing fields). */}
+        <Link href="/import/bulk" className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-amber-300 hover:shadow-sm transition group">
+          <span className="flex items-center gap-2 text-slate-800 font-medium">
+            <Layers className="h-4 w-4 text-amber-600" /> Bulk Update
+          </span>
+          <span className="flex items-center gap-1 text-xs text-amber-600 group-hover:text-amber-700">
+            <Edit2 className="h-3.5 w-3.5" /> Fill pending fields
+          </span>
+        </Link>
+      </div>
 
       {/* ---- List card ---- */}
       <div className="card">

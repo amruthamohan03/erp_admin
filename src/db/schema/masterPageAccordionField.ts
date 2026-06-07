@@ -43,6 +43,14 @@ export const masterPageAccordionField = pgTable(
     optionsStatic: jsonb('options_static'),
     // Catch-all for renderer hints: min/max/pattern/accept/maxSizeKb/rows/cols/etc.
     props: jsonb('props'),
+    // §4.5/§4.12 — config-driven conditional logic: visibleWhen / requiredWhen /
+    // readonlyWhen predicates + min/max bounds, all keyed off other field values.
+    // NULL ⇒ the field behaves statically (back-compat). See migration 0056 and
+    // src/lib/pages/conditions.ts for the shape + evaluator.
+    conditions: jsonb('conditions'),
+    // §4.5/§4.12 — config-driven DERIVED value (statusMap / formula / fromRelated
+    // / template). NULL ⇒ a plain field. See migration 0059 + src/lib/pages/derive.ts.
+    derive: jsonb('derive'),
     displayOrder: integer('display_order').notNull().default(1),
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id),

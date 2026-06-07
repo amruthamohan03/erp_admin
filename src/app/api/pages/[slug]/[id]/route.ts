@@ -25,6 +25,8 @@ import { ok, fail } from '@/lib/api';
 import { fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
+import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
 
@@ -83,8 +85,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .select({
       id: masterPageAccordionField.id,
       name: masterPageAccordionField.name,
+      label: masterPageAccordionField.label,
       required: masterPageAccordionField.required,
       field_type: masterPageAccordionField.fieldType,
+      conditions: masterPageAccordionField.conditions,
+      derive: masterPageAccordionField.derive,
     })
     .from(masterPageAccordionField)
     .where(
@@ -108,36 +113,67 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
   }
 
-  // 3) Restrict the incoming values to (editable fields ∩ accordion fields ∩ target columns).
-  const safeColumns = safeColumnsFor(slug, fields.map((f) => f.name));
-  const safeColumnSet = new Set(safeColumns);
-
-  const patch: Record<string, unknown> = {};
-  for (const k of Object.keys(submittedValues)) {
-    if (safeColumnSet.has(k) && editableNames.has(k)) patch[k] = submittedValues[k];
-  }
-
-  // 4) Required-field check — only over fields this role can actually edit.
-  for (const f of fields) {
-    if (f.required && editableNames.has(f.name)) {
-      const v = patch[f.name];
-      const empty = v === undefined || v === null || v === '';
-      if (empty) return fail(`Required field missing: ${f.name}`, 422, { field: f.name });
-    }
-  }
-
-  // 5) Decide create vs update.
+  // 3) Decide create vs update — needed before condition evaluation so we can
+  //    build the evaluation context from the existing row.
   const isCreate = rawId === 'new';
   const entityId = isCreate ? null : Number(rawId);
   if (!isCreate && (entityId === null || Number.isNaN(entityId))) {
     return fail('Invalid entity id', 400);
   }
 
-  // 6) Audit "before" snapshot (only for updates).
+  // §4.12 — config-driven conditions reference OTHER fields (e.g. an invoice
+  // field hidden when kind_id is MCA), which may live on a different accordion.
+  // Build the evaluation context from the full existing row (for updates) merged
+  // with this submission, so the rules see the complete form state. This is the
+  // server-side mirror of the client's reactive evaluation — defense in depth.
+  // fetchEntityValues already projects `id`; don't list it twice.
+  const allColumns = safeColumnsFor(slug, Array.from(target.allowedColumns)).filter((c) => c !== 'id');
   const before = !isCreate && entityId !== null
-    ? await fetchEntityValues(slug, entityId, safeColumns)
+    ? await fetchEntityValues(slug, entityId, allColumns)
     : null;
   if (!isCreate && !before) return fail('Entity not found', 404);
+  const evalContext: Record<string, unknown> = { ...(before ?? {}), ...submittedValues };
+
+  // 4) Restrict the incoming values to (editable ∩ accordion ∩ target columns),
+  //    and drop any field that resolves to hidden or read-only for these values.
+  const safeColumnSet = new Set(safeColumnsFor(slug, fields.map((f) => f.name)));
+
+  const patch: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (!safeColumnSet.has(f.name) || !editableNames.has(f.name)) continue;
+    if (!(f.name in submittedValues)) continue;
+    const state = resolveFieldState(parseConditions(f.conditions), f.required, evalContext);
+    // A field the rules hide or freeze must not be written from this request.
+    if (!state.visible || state.readonly) continue;
+    patch[f.name] = submittedValues[f.name];
+  }
+
+  // §4.12 — pure derives (statusMap / formula) are authoritative: recompute them
+  // server-side from the full context so a tampered client value can't persist a
+  // wrong Document Status / remaining amount.
+  for (const f of fields) {
+    if (!(f.name in patch)) continue;
+    const spec = parseDerive(f.derive);
+    if (!isPureDerive(spec)) continue;
+    const computed = computePureDerive(spec, evalContext);
+    if (computed !== undefined) patch[f.name] = computed;
+  }
+
+  // 5) Validation — required + min/max — only over fields that are editable AND
+  //    currently visible. resolveFieldState already forces required=false for a
+  //    hidden field, so a section the kind hides won't block the save.
+  for (const f of fields) {
+    if (!editableNames.has(f.name)) continue;
+    const state = resolveFieldState(parseConditions(f.conditions), f.required, evalContext);
+    if (!state.visible) continue;
+    if (state.required) {
+      const v = patch[f.name];
+      const empty = v === undefined || v === null || v === '';
+      if (empty) return fail(`Required field missing: ${f.label}`, 422, { field: f.name });
+    }
+    const boundError = checkBounds(state, f.label, submittedValues[f.name]);
+    if (boundError) return fail(boundError, 422, { field: f.name });
+  }
 
   // 7) Transactional write + audit.
   const newId = await db.transaction(async (tx) => {

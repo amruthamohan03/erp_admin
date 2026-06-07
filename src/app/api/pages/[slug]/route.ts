@@ -190,6 +190,8 @@ async function loadPage(
       options_label_field: masterPageAccordionField.optionsLabelField,
       options_static: masterPageAccordionField.optionsStatic,
       props: masterPageAccordionField.props,
+      conditions: masterPageAccordionField.conditions,
+      derive: masterPageAccordionField.derive,
       display_order: masterPageAccordionField.displayOrder,
     })
     .from(masterPageAccordionField)
@@ -238,6 +240,8 @@ async function loadPage(
         options_label_field: f.options_label_field,
         options_static: f.options_static,
         props: f.props,
+        conditions: f.conditions ?? null,
+        derive: f.derive ?? null,
         display_order: f.display_order,
         permission: eff as 'view' | 'edit',
       })),
