@@ -13,6 +13,13 @@ interface FieldRendererProps {
   // or 'new'). Used to key the S3 object and the files row.
   entityType?: string;
   entityId?: string;
+  // §4.12 — config-driven overrides resolved from the field's `conditions`
+  // against the current form values. `requiredOverride` reflects requiredWhen;
+  // `minBound`/`maxBound` constrain date/number inputs (e.g. expiry ≥ validation,
+  // invoice ≤ today). Absent ⇒ fall back to the static field/props values.
+  requiredOverride?: boolean;
+  minBound?: string | number;
+  maxBound?: string | number;
 }
 
 type Props = Record<string, unknown> | null;
@@ -36,11 +43,22 @@ function getBool(props: Props, key: string): boolean {
   return props?.[key] === true;
 }
 
-export default function FieldRenderer({ field, value, readonly, onChange, entityType, entityId }: FieldRendererProps) {
+export default function FieldRenderer({
+  field,
+  value,
+  readonly,
+  onChange,
+  entityType,
+  entityId,
+  requiredOverride,
+  minBound,
+  maxBound,
+}: FieldRendererProps) {
+  const effectiveRequired = requiredOverride ?? field.required;
   const baseProps = {
     id: field.name,
     name: field.name,
-    required: field.required,
+    required: effectiveRequired,
     disabled: readonly,
   };
 
@@ -108,8 +126,8 @@ export default function FieldRenderer({ field, value, readonly, onChange, entity
           {...baseProps}
           className="input"
           value={asString(value)}
-          min={getNumber(field.props, 'min')}
-          max={getNumber(field.props, 'max')}
+          min={typeof minBound === 'number' ? minBound : getNumber(field.props, 'min')}
+          max={typeof maxBound === 'number' ? maxBound : getNumber(field.props, 'max')}
           step={getString(field.props, 'step')}
           onChange={(e) => {
             const raw = e.target.value;
@@ -125,13 +143,21 @@ export default function FieldRenderer({ field, value, readonly, onChange, entity
           {...baseProps}
           className="input"
           value={asString(value).slice(0, 10)}
+          min={minBound !== undefined ? String(minBound) : undefined}
+          max={maxBound !== undefined ? String(maxBound) : undefined}
           onChange={(e) => onChange(e.target.value || null)}
         />
       );
 
     case 'select':
       return (
-        <DynamicSelect field={field} value={value} readonly={readonly} onChange={onChange} />
+        <DynamicSelect
+          field={field}
+          value={value}
+          readonly={readonly}
+          onChange={onChange}
+          requiredOverride={effectiveRequired}
+        />
       );
 
     case 'checkbox-group': {
@@ -274,7 +300,7 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
 
 interface DynamicSelectProps extends FieldRendererProps {}
 
-function DynamicSelect({ field, value, readonly, onChange }: DynamicSelectProps) {
+function DynamicSelect({ field, value, readonly, onChange, requiredOverride }: DynamicSelectProps) {
   const staticOptions = (field.options_static ?? []) as Array<{ value: string; label: string }>;
   const source = field.options_source;
   const labelField = field.options_label_field ?? 'name';
@@ -331,7 +357,7 @@ function DynamicSelect({ field, value, readonly, onChange }: DynamicSelectProps)
     <select
       id={field.name}
       name={field.name}
-      required={field.required}
+      required={requiredOverride ?? field.required}
       disabled={readonly || (source != null && loading)}
       className="input"
       value={asString(value)}

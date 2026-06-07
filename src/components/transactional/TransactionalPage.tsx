@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '@/components/layout/DashboardShell';
 import BackButton from '@/components/ui/BackButton';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { parseDerive, isPureDerive, isAsyncDerive, computePureDerive } from '@/lib/pages/derive';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion from './Accordion';
 
@@ -45,9 +46,66 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
 
   useEffect(() => { load(); }, [load]);
 
+  // Flatten every field once per page load for derive bookkeeping.
+  const allFields = useMemo(
+    () => page?.accordions.flatMap((a) => a.fields) ?? [],
+    [page],
+  );
+
+  // Fields whose change triggers an async (fromRelated / template) derive — e.g.
+  // picking a license autofills kind/goods/currency/remaining, picking a client
+  // fills Liquidation Paid By, and either rebuilds the MCA reference.
+  const asyncTriggers = useMemo(() => {
+    const s = new Set<string>();
+    for (const f of allFields) {
+      const spec = parseDerive(f.derive);
+      if (isAsyncDerive(spec)) s.add(spec.trigger);
+    }
+    return s;
+  }, [allFields]);
+
+  // §4.12 — resolve async derives on the server and merge the returned values.
+  const runAsyncDerive = useCallback(
+    async (triggerField: string, current: Record<string, unknown>) => {
+      const res = await fetch(`/api/pages/${slug}/derive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger_field: triggerField, values: current }),
+      });
+      const json: { success: boolean; data?: { values: Record<string, unknown> } } = await res.json();
+      if (res.ok && json.success && json.data) {
+        setValues((prev) => ({ ...prev, ...json.data!.values }));
+      }
+    },
+    [slug],
+  );
+
   const handleFieldChange = useCallback((fieldName: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [fieldName]: value }));
-  }, []);
+    setValues((prev) => {
+      const next = { ...prev, [fieldName]: value };
+      if (asyncTriggers.has(fieldName)) void runAsyncDerive(fieldName, next);
+      return next;
+    });
+  }, [asyncTriggers, runAsyncDerive]);
+
+  // Pure derives (statusMap / formula) recompute reactively from the current
+  // values. Compare as strings so a numeric result doesn't churn against a
+  // stringified field value.
+  useEffect(() => {
+    if (!page) return;
+    let next: Record<string, unknown> | null = null;
+    for (const f of allFields) {
+      const spec = parseDerive(f.derive);
+      if (!isPureDerive(spec)) continue;
+      const computed = computePureDerive(spec, values);
+      if (computed === undefined) continue;
+      if (String(computed) !== String(values[f.name] ?? '')) {
+        if (!next) next = { ...values };
+        next[f.name] = computed;
+      }
+    }
+    if (next) setValues(next);
+  }, [values, page, allFields]);
 
   const saveAccordion = useCallback(async (accordionSlug: string, fieldNames: string[]) => {
     const payloadValues: Record<string, unknown> = {};
@@ -102,7 +160,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
               accordion={acc}
               values={values}
               onChange={handleFieldChange}
-              onSave={() => saveAccordion(acc.slug, acc.fields.map((f) => f.name))}
+              onSave={(visibleFieldNames) => saveAccordion(acc.slug, visibleFieldNames)}
               defaultOpen={idx === 0}
               entityType={`page:${slug}`}
               entityId={entityId}
