@@ -24,6 +24,19 @@ export interface FormulaDerive {
   fields: string[];
 }
 
+// Tiered lookup: pick the first matching rule and resolve a value. A rule (or the
+// default) yields either a flat `value` or `rate * base` (base = a numeric field),
+// which expresses the export charge tables (CEEC weight≥30→800; LMC goods8→w×8 etc.)
+// and the OGEFREM container tiers entirely as JSONB config — no hardcoded math.
+// Pure + isomorphic: computed reactively on the client and re-enforced on save.
+export interface TieredDerive {
+  kind: 'tiered';
+  /** Field whose numeric value multiplies a rule's `rate` (e.g. 'weight'). */
+  base?: string;
+  rules: Array<{ when: Predicate; value?: number; rate?: number }>;
+  default?: { value?: number; rate?: number };
+}
+
 export interface FromRelatedDerive {
   kind: 'fromRelated';
   // The field whose change triggers this fetch (e.g. 'license_id').
@@ -45,7 +58,12 @@ export interface TemplateDerive {
   template: string;
 }
 
-export type DeriveSpec = StatusMapDerive | FormulaDerive | FromRelatedDerive | TemplateDerive;
+export type DeriveSpec =
+  | StatusMapDerive
+  | FormulaDerive
+  | TieredDerive
+  | FromRelatedDerive
+  | TemplateDerive;
 
 type Values = Record<string, unknown>;
 
@@ -54,8 +72,10 @@ export function parseDerive(raw: unknown): DeriveSpec | null {
   return raw as DeriveSpec;
 }
 
-export function isPureDerive(spec: DeriveSpec | null): spec is StatusMapDerive | FormulaDerive {
-  return !!spec && (spec.kind === 'statusMap' || spec.kind === 'formula');
+export function isPureDerive(
+  spec: DeriveSpec | null,
+): spec is StatusMapDerive | FormulaDerive | TieredDerive {
+  return !!spec && (spec.kind === 'statusMap' || spec.kind === 'formula' || spec.kind === 'tiered');
 }
 
 export function isAsyncDerive(spec: DeriveSpec | null): spec is FromRelatedDerive | TemplateDerive {
@@ -86,6 +106,22 @@ export function computePureDerive(spec: DeriveSpec | null, values: Values): stri
     if (spec.op === 'subtract') return nums.reduce((a, b) => a - b);
     // add and sum both total the operands.
     return nums.reduce((a, b) => a + b, 0);
+  }
+  if (spec.kind === 'tiered') {
+    const base = spec.base ? num(values[spec.base]) : 0;
+    const resolve = (r?: { value?: number; rate?: number }): number | undefined => {
+      if (!r) return undefined;
+      if (r.value !== undefined && r.value !== null) return r.value;
+      if (r.rate !== undefined && r.rate !== null) return r.rate * base;
+      return undefined;
+    };
+    for (const rule of spec.rules) {
+      if (evaluatePredicate(rule.when, values)) {
+        const v = resolve(rule);
+        if (v !== undefined) return v;
+      }
+    }
+    return resolve(spec.default);
   }
   return undefined;
 }

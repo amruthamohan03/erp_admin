@@ -450,6 +450,22 @@ export interface ImportListRow {
   display: 'Y' | 'N';
 }
 
+// Export list-row shape returned by GET /api/exports (joined display names).
+export interface ExportListRow {
+  id: number;
+  mca_ref: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  license_number: string | null;
+  invoice: string | null;
+  loading_date: string | null;
+  weight: string | null;
+  fob: string | null;
+  clearing_status_id: number | null;
+  clearing_status_name: string | null;
+  display: 'Y' | 'N';
+}
+
 // §4.12 transactional page model — what the runtime fetches and renders.
 
 // Re-exported so page-model consumers get the conditions shape from one import.
