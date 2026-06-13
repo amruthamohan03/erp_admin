@@ -11,7 +11,9 @@
       "Bash(ls sql *)",
       "Bash(ls .env*)",
       "Bash(pnpm add *)",
-      "Bash(node_modules/.bin/eslint . --ext .ts,.tsx)"
+      "Bash(node_modules/.bin/eslint . --ext .ts,.tsx)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm db:migrate)"
     ],
     "additionalDirectories": [
       "c:\\next\\erp-admin",

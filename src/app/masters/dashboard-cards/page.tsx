@@ -47,7 +47,12 @@ const COLOR_OPTIONS = [
   'pink',
 ];
 
-const CATEGORY_OPTIONS = ['general', 'import', 'export', 'finance', 'admin'];
+const CATEGORY_OPTIONS = [
+  'general', 'import', 'export', 'finance', 'admin',
+  // Page-scoped stat-card categories — a page renders only its own category
+  // (e.g. /license shows 'license_dashboard'). Keep in sync with the seeds.
+  'client_dashboard', 'import_dashboard', 'license_dashboard',
+];
 
 export default function DashboardCardsPage() {
   const [items, setItems] = useState<CardRow[]>([]);

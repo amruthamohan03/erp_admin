@@ -1,11 +1,7 @@
-// List endpoint for the /license page. Returns joined display names (client
-// code, bank, kind, transport mode) rather than raw FK ids. Mutations on a
-// single license go through the §4.12 transactional-page API at
-// /api/pages/license/[id].
-//
-// Optional advanced filters (?client_id=&transport_mode_id=&start_date=&end_date=)
-// are applied server-side; the page does its own search + pagination client-side
-// over the returned set (mirrors the /clients list UX).
+// GET /api/licenses/export-all → CSV download of the license list (summary view).
+// Honours the same advanced filters + stat-card filter as the /license list
+// (?client_id=&transport_mode_id=&start_date=&end_date=&card=) so "Export All"
+// exports exactly what the current view is scoped to.
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm';
@@ -18,7 +14,8 @@ import {
   transportModeMaster,
 } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { ok, fail } from '@/lib/api';
+import { fail } from '@/lib/api';
+import { toCsv, csvResponse, dateStamp } from '@/lib/csv';
 import { cardCondition } from '@/lib/licenses/cardConditions';
 
 const filterSchema = z.object({
@@ -26,7 +23,6 @@ const filterSchema = z.object({
   transport_mode_id: z.coerce.number().int().positive().optional(),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  // Dashboard stat-card filter (e.g. 'expired', 'incomplete'); 'all'/absent = no filter.
   card: z.string().max(40).optional(),
 });
 
@@ -42,9 +38,7 @@ export async function GET(req: NextRequest) {
     end_date: searchParams.get('end_date') || undefined,
     card: searchParams.get('card') || undefined,
   });
-  if (!parsed.success) {
-    return fail('Invalid filter', 422, { errors: parsed.error.flatten() });
-  }
+  if (!parsed.success) return fail('Invalid filter', 422, { errors: parsed.error.flatten() });
   const f = parsed.data;
 
   const conditions: SQL[] = [eq(licenses.display, 'Y')];
@@ -61,17 +55,15 @@ export async function GET(req: NextRequest) {
     .select({
       id: licenses.id,
       license_number: licenses.licenseNumber,
-      client_id: licenses.clientId,
       client_name: clients.shortName,
       bank_name: banklistMaster.bankName,
       kind_name: kindMaster.kindName,
-      transport_mode_id: licenses.transportModeId,
       transport_mode_name: transportModeMaster.transportModeName,
       invoice_number: licenses.invoiceNumber,
       license_applied_date: licenses.licenseAppliedDate,
+      license_validation_date: licenses.licenseValidationDate,
       license_expiry_date: licenses.licenseExpiryDate,
       status: licenses.status,
-      display: licenses.display,
     })
     .from(licenses)
     .leftJoin(clients, eq(clients.id, licenses.clientId))
@@ -81,5 +73,20 @@ export async function GET(req: NextRequest) {
     .where(and(...conditions))
     .orderBy(desc(licenses.id));
 
-  return ok(rows);
+  const csv = toCsv(rows, [
+    { key: 'id', header: 'ID' },
+    { key: 'license_number', header: 'License Number' },
+    { key: 'client_name', header: 'Client' },
+    { key: 'bank_name', header: 'Bank' },
+    { key: 'kind_name', header: 'Kind' },
+    { key: 'transport_mode_name', header: 'Transport Mode' },
+    { key: 'invoice_number', header: 'Invoice Number' },
+    { key: 'license_applied_date', header: 'Applied Date' },
+    { key: 'license_validation_date', header: 'Validation Date' },
+    { key: 'license_expiry_date', header: 'Expiry Date' },
+    { key: 'status', header: 'Status' },
+  ]);
+
+  const suffix = f.card && f.card !== 'all' ? `-${f.card}` : '';
+  return csvResponse(csv, `licenses-export-all${suffix}-${dateStamp()}.csv`);
 }

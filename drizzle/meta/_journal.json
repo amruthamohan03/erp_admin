@@ -442,6 +442,13 @@
       "when": 1780480000013,
       "tag": "0062_imports_clearing_status_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1780480000014,
+      "tag": "0063_seed_license_dashboard_cards",
+      "breakpoints": true
     }
   ]
 }
