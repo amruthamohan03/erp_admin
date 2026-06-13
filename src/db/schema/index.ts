@@ -48,6 +48,8 @@ export * from './partialMaster';
 export * from './subOfficeMaster';
 // imports_t depends on clients/licenses/partial/sub-office + many masters above.
 export * from './imports';
+// exports_t depends on clients/licenses + the same masters above.
+export * from './exports';
 // §4.12 page master tables + §4.10 audit log.
 export * from './masterPage';
 export * from './masterPageAccordion';

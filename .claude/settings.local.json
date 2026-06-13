@@ -13,7 +13,9 @@
       "Bash(pnpm add *)",
       "Bash(node_modules/.bin/eslint . --ext .ts,.tsx)",
       "Bash(pnpm exec *)",
-      "Bash(pnpm db:migrate)"
+      "Bash(pnpm db:migrate)",
+      "Bash(find /c:/next/erp-admin/src/app/api/pages -type f -name \"*.ts\" 2>/dev/null | head -5)",
+      "Read(//c:/next/erp-admin/src/app/api/**)"
     ],
     "additionalDirectories": [
       "c:\\next\\erp-admin",
