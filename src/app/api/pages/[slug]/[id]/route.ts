@@ -19,6 +19,7 @@ import {
   masterPageAccordion,
   masterPageAccordionRole,
   masterPageAccordionField,
+  sealIndividualNumbers,
 } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
@@ -212,6 +213,29 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         sql`UPDATE ${target.table} SET ${setSql} WHERE id = ${entityId}`,
       );
       savedId = entityId as number;
+    }
+
+    // Seal reservation for the export page: keep seal_individual_numbers in sync
+    // with the export's dgda_seal_no — reserve newly-added seals (Available→Used)
+    // and release removed ones (Used→Available). Only runs when the export's seal
+    // field is part of this save.
+    if (slug === 'export' && 'dgda_seal_no' in patch) {
+      const splitSeals = (v: unknown) => String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      const newSeals = splitSeals(patch['dgda_seal_no']);
+      const oldSeals = splitSeals(before?.['dgda_seal_no']);
+      const toReserve = newSeals.filter((s) => !oldSeals.includes(s));
+      const toRelease = oldSeals.filter((s) => !newSeals.includes(s));
+      const mcaRef = String(patch['mca_ref'] ?? before?.['mca_ref'] ?? savedId);
+      if (toRelease.length > 0) {
+        await tx.update(sealIndividualNumbers)
+          .set({ status: 'Available', notes: null, updatedBy: session.uid, updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date })
+          .where(and(inArray(sealIndividualNumbers.sealNumber, toRelease), eq(sealIndividualNumbers.status, 'Used')));
+      }
+      if (toReserve.length > 0) {
+        await tx.update(sealIndividualNumbers)
+          .set({ status: 'Used', notes: `Export ${mcaRef}`, updatedBy: session.uid, updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date })
+          .where(and(inArray(sealIndividualNumbers.sealNumber, toReserve), eq(sealIndividualNumbers.status, 'Available')));
+      }
     }
 
     // §4.10: audit row, same transaction.

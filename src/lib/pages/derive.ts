@@ -58,10 +58,18 @@ export interface TemplateDerive {
   template: string;
 }
 
+// Count of comma-separated non-empty values in another field (e.g. number_of_seals
+// from the dgda_seal_no list). Pure — recomputed on the client and re-enforced on save.
+export interface CountDerive {
+  kind: 'count';
+  field: string;
+}
+
 export type DeriveSpec =
   | StatusMapDerive
   | FormulaDerive
   | TieredDerive
+  | CountDerive
   | FromRelatedDerive
   | TemplateDerive;
 
@@ -74,8 +82,8 @@ export function parseDerive(raw: unknown): DeriveSpec | null {
 
 export function isPureDerive(
   spec: DeriveSpec | null,
-): spec is StatusMapDerive | FormulaDerive | TieredDerive {
-  return !!spec && (spec.kind === 'statusMap' || spec.kind === 'formula' || spec.kind === 'tiered');
+): spec is StatusMapDerive | FormulaDerive | TieredDerive | CountDerive {
+  return !!spec && (spec.kind === 'statusMap' || spec.kind === 'formula' || spec.kind === 'tiered' || spec.kind === 'count');
 }
 
 export function isAsyncDerive(spec: DeriveSpec | null): spec is FromRelatedDerive | TemplateDerive {
@@ -122,6 +130,11 @@ export function computePureDerive(spec: DeriveSpec | null, values: Values): stri
       }
     }
     return resolve(spec.default);
+  }
+  if (spec.kind === 'count') {
+    const v = values[spec.field];
+    if (v === undefined || v === null || v === '') return 0;
+    return String(v).split(',').map((s) => s.trim()).filter(Boolean).length;
   }
   return undefined;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Layers, Save, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Layers, Save, ArrowRight, Shield, Search, X, Check } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import BackButton from '@/components/ui/BackButton';
 
@@ -79,21 +79,28 @@ export default function BulkCreateExportsPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [numEntries, setNumEntries] = useState(1);
   const [rows, setRows] = useState<GridRow[]>([]);
+
+  // §legacy — DGDA seal picker (Road only). Pulls Available seals; the chosen seal
+  // numbers fill dgda_seal_no and number_of_seals auto-counts.
+  const [availableSeals, setAvailableSeals] = useState<{ id: number; seal_number: string }[]>([]);
+  const [sealRow, setSealRow] = useState<number | null>(null);
+  const [sealSearch, setSealSearch] = useState('');
+  const [sealChecked, setSealChecked] = useState<Set<string>>(new Set());
+  const [sealLoading, setSealLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [c, r, cl, s, e, fc] = await Promise.all([
+      const [c, cl, s, e, fc] = await Promise.all([
         fetchOptions('/api/clients?pageSize=1000', 'short_name'),
-        fetchOptions('/api/regimes?pageSize=1000', 'regime_name'),
         fetchOptions('/api/clearances?pageSize=1000', 'clearance_name'),
         fetchOptions('/api/transit-points?pageSize=1000', 'transit_point_name'),
         fetchOptions('/api/transit-points?pageSize=1000', 'transit_point_name'),
         fetchOptions('/api/feet-containers?pageSize=1000', 'feet_container_size'),
       ]);
-      setClientOpts(c); setRegimeOpts(r); setClearanceOpts(cl);
+      setClientOpts(c); setClearanceOpts(cl);
       setSiteOpts(s); setExitOpts(e); setFeetOpts(fc);
     })();
   }, []);
@@ -103,6 +110,13 @@ export default function BulkCreateExportsPage() {
     setLicenseId(''); setUsage(null); setLicenseOpts([]);
     if (!clientId) return;
     fetchOptions(`/api/licenses?client_id=${clientId}&pageSize=1000`, 'license_number').then(setLicenseOpts);
+  }, [clientId]);
+
+  // §4.5 — Regime options depend on the client's trade direction (client_type).
+  useEffect(() => {
+    setRegime('');
+    const url = clientId ? `/api/regimes?client_id=${clientId}&pageSize=1000` : '/api/regimes?pageSize=1000';
+    fetchOptions(url, 'regime_name').then(setRegimeOpts);
   }, [clientId]);
 
   // Load usage when license changes.
@@ -154,6 +168,36 @@ export default function BulkCreateExportsPage() {
   }
   function removeRow(i: number) {
     setRows((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  // Seal picker: union of Available seals + whatever this row already holds, filtered.
+  const sealOptions = useMemo(() => {
+    const names = new Set(availableSeals.map((s) => s.seal_number));
+    sealChecked.forEach((c) => names.add(c));
+    const q = sealSearch.trim().toLowerCase();
+    return [...names].filter((nm) => !q || nm.toLowerCase().includes(q)).sort();
+  }, [availableSeals, sealChecked, sealSearch]);
+
+  function openSeal(i: number) {
+    const current = new Set((rows[i]?.dgda_seal_no || '').split(',').map((s) => s.trim()).filter(Boolean));
+    setSealChecked(current);
+    setSealSearch('');
+    setSealRow(i);
+    setSealLoading(true);
+    fetch('/api/seal-numbers/available?limit=1000')
+      .then((r) => r.json())
+      .then((j) => { if (j.success) setAvailableSeals(j.data.seals.map((s: { id: number; seal_number: string }) => ({ id: s.id, seal_number: s.seal_number }))); })
+      .catch(() => {})
+      .finally(() => setSealLoading(false));
+  }
+  function toggleSeal(name: string) {
+    setSealChecked((prev) => { const x = new Set(prev); if (x.has(name)) x.delete(name); else x.add(name); return x; });
+  }
+  function confirmSeals() {
+    if (sealRow === null) return;
+    const picked = [...sealChecked];
+    setRows((prev) => prev.map((r, idx) => (idx === sealRow ? { ...r, dgda_seal_no: picked.join(', '), number_of_seals: String(picked.length) } : r)));
+    setSealRow(null);
   }
 
   async function save() {
@@ -371,8 +415,18 @@ export default function BulkCreateExportsPage() {
                     <td><input type="number" step="0.01" min="0" className="input py-1 text-xs min-w-[110px] text-right" value={r.fob} onChange={(e) => updateRow(i, 'fob', e.target.value)} /></td>
                     <td><input type="number" min="0" className="input py-1 text-xs min-w-[90px] text-right" value={r.number_of_bags} onChange={(e) => updateRow(i, 'number_of_bags', e.target.value)} /></td>
                     <td><input className="input py-1 text-xs min-w-[110px]" value={r.lot_number} onChange={(e) => updateRow(i, 'lot_number', e.target.value)} /></td>
-                    <td><input className="input py-1 text-xs min-w-[140px]" value={r.dgda_seal_no} onChange={(e) => updateRow(i, 'dgda_seal_no', e.target.value)} /></td>
-                    <td><input type="number" min="0" className="input py-1 text-xs min-w-[90px] text-right" value={r.number_of_seals} onChange={(e) => updateRow(i, 'number_of_seals', e.target.value)} /></td>
+                    <td>
+                      {isRoad ? (
+                        <div className="flex items-center gap-1 min-w-[180px]">
+                          <input className="input py-1 text-xs flex-1" value={r.dgda_seal_no} readOnly placeholder="No seals selected" />
+                          <button type="button" onClick={() => openSeal(i)} title="Select DGDA seals"
+                            className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded bg-emerald-600 hover:bg-emerald-700 text-white"><Plus className="h-3.5 w-3.5" /></button>
+                        </div>
+                      ) : (
+                        <input className="input py-1 text-xs min-w-[140px]" value={r.dgda_seal_no} onChange={(e) => updateRow(i, 'dgda_seal_no', e.target.value)} />
+                      )}
+                    </td>
+                    <td><input type="number" min="0" className={`input py-1 text-xs min-w-[90px] text-right${isRoad ? ' bg-slate-100' : ''}`} value={r.number_of_seals} onChange={(e) => updateRow(i, 'number_of_seals', e.target.value)} readOnly={isRoad} /></td>
                     <td className="text-center">
                       <button type="button" onClick={() => removeRow(i)} title="Remove row" className="text-red-500 hover:text-red-700">
                         <Trash2 className="h-4 w-4" />
@@ -388,6 +442,39 @@ export default function BulkCreateExportsPage() {
             <button type="button" onClick={() => setRows((p) => [...p, emptyRow(defaultFeet)])} className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700">
               <Plus className="h-4 w-4" /> Add row
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- DGDA seal picker (Road) ---- */}
+      {sealRow !== null && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setSealRow(null)}>
+          <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
+              <h2 className="font-semibold flex items-center gap-2"><Shield className="h-5 w-5" /> Select DGDA Seals</h2>
+              <button type="button" onClick={() => setSealRow(null)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input className="input pl-9" placeholder="Search seals..." value={sealSearch} onChange={(e) => setSealSearch(e.target.value)} />
+              </div>
+              <div className="text-xs text-slate-500 mb-2">{sealChecked.size} selected</div>
+              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
+                {sealLoading && <div className="py-6 text-center text-sm text-slate-500">Loading…</div>}
+                {!sealLoading && sealOptions.length === 0 && <div className="py-6 text-center text-sm text-slate-500">No available seals.</div>}
+                {!sealLoading && sealOptions.map((s) => (
+                  <label key={s} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={sealChecked.has(s)} onChange={() => toggleSeal(s)} />
+                    <span className="font-mono">{s}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+              <button type="button" onClick={() => setSealRow(null)} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
+              <button type="button" onClick={confirmSeals} className="btn-primary"><Check className="h-4 w-4" /> Confirm Selection</button>
+            </div>
           </div>
         </div>
       )}

@@ -491,6 +491,76 @@
       "when": 1780480000020,
       "tag": "0069_seed_export_charge_derives",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1780480000021,
+      "tag": "0070_seed_export_bulk_filters",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1780480000022,
+      "tag": "0071_regime_filter_by_client",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1780480000023,
+      "tag": "0072_add_quotation_category_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1780480000024,
+      "tag": "0073_add_item_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1780480000025,
+      "tag": "0074_alter_quotation_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1780480000026,
+      "tag": "0075_add_quotations",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1780480000027,
+      "tag": "0076_seed_quotation_dashboard_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1780480000028,
+      "tag": "0077_add_seals",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1780480000029,
+      "tag": "0078_seed_seal_dashboard_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1780480000030,
+      "tag": "0079_export_seal_picker",
+      "breakpoints": true
     }
   ]
 }

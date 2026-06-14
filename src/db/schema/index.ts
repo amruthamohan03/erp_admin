@@ -16,6 +16,15 @@ export * from './bankExchangeRate';
 export * from './commodityMaster';
 export * from './expenseTypeMaster';
 export * from './regimeMaster';
+// Quotation category master + item master (item.category_id → quotation category).
+export * from './quotationCategoryMaster';
+export * from './itemMaster';
+// Quotation header + line items (items → quotation/category/item/unit/currency).
+export * from './quotations';
+export * from './quotationItems';
+// Seal master (purchase batch) + individual seal numbers.
+export * from './sealNos';
+export * from './sealIndividualNumbers';
 export * from './transitPointMaster';
 export * from './truckStatusMaster';
 export * from './transportModeMaster';

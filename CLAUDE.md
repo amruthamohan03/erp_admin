@@ -81,6 +81,26 @@ Every feature ships as a documented API route under `src/app/api/v1/` before any
 ### 4.5 Dynamic forms & fields
 UI forms are generated from `master_form_definition` + `master_form_field`. Never hand-code a form unless it is itself a master configuration screen.
 
+**Dependent (cascading) dropdowns — config, not code.** When a `select` field's options must
+narrow based on another field's value, drive it through config, never a hand-coded handler. Add
+`optionsParams` to the field's `props` (in `master_page_accordion_field_t`): a map of
+`{ "<query-param>": "<other-field-name>" }`. The transactional runtime
+([src/components/transactional/FieldRenderer.tsx](src/components/transactional/FieldRenderer.tsx) →
+`DynamicSelect`) appends each non-empty mapped form value to the `options_source` request and
+refetches when it changes; the master endpoint does the filtering. Do not filter options client-side
+and do not branch on field names in the renderer.
+
+**Regime ↔ client_type rule (license / import / export pages).** The **Regime** dropdown must be
+filtered by the selected client's trade direction. `clients_t.client_type` is a letter string
+(`I` Import · `E` Export · `L` Local, e.g. `IEL`) and `regime_master_t.type` is 1–2 of those
+letters. A regime is offered only when its `type` letters intersect the client's `client_type`.
+This is wired as config: the regime field carries `props.optionsParams = {"client_id":"client_id"}`,
+and `GET /api/regimes?client_id=` applies the intersection filter (regex char-class
+`client_type ~ '[' || type || ']'`). Any page that exposes a regime field inherits the rule by
+seeding the same `optionsParams` — never re-implement the filter per page. (Non-runtime grids that
+build their own regime `<select>`, e.g. the export bulk-create grid, call
+`/api/regimes?client_id=<selected>` directly for the same behaviour.)
+
 ### 4.6 Configurable workflow
 Workflow transitions live in `master_workflow` + `master_workflow_transition`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
 
