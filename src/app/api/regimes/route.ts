@@ -1,15 +1,32 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { regimeMaster } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
-export async function GET() {
+// Optional ?client_id= filters regimes to the selected client's trade direction:
+// a regime is kept only when its type letter(s) intersect the client's client_type
+// (I = Import, E = Export, L = Local). regime_master_t.type is 1–2 letters and
+// client_type is a letter string (e.g. 'IEL'); the regex char-class [<type>] matches
+// when the client carries any of those letters. Drives the master-config rule that
+// filters the Regime dropdown by client on the license/import/export pages (§4.5).
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
+
+  const clientIdRaw = new URL(req.url).searchParams.get('client_id');
+  const clientId = clientIdRaw && /^\d+$/.test(clientIdRaw) ? Number(clientIdRaw) : null;
+
+  const conditions: SQL[] = [eq(regimeMaster.display, 'Y')];
+  if (clientId) {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM clients_t c
+      WHERE c.id = ${clientId} AND c.client_type ~ ('[' || ${regimeMaster.type} || ']')
+    )`);
+  }
 
   const rows = await db
     .select({
@@ -23,7 +40,7 @@ export async function GET() {
       updated_by: regimeMaster.updatedBy,
     })
     .from(regimeMaster)
-    .where(eq(regimeMaster.display, 'Y'))
+    .where(and(...conditions))
     .orderBy(asc(regimeMaster.id));
 
   return ok(rows);

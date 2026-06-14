@@ -111,6 +111,7 @@ export default function Accordion({ accordion, values, onChange, onSave, default
                   onChange={(v) => onChange(field.name, v)}
                   entityType={entityType}
                   entityId={entityId}
+                  values={values}
                 />
               </div>
             ))}

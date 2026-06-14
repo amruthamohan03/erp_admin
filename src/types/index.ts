@@ -189,6 +189,92 @@ export interface TransitPoint {
   updated_by: number | null;
 }
 
+// Quotation line category master (item_master_t.category_id → this).
+export interface QuotationCategory {
+  id: number;
+  category_name: string;
+  category_header: string | null;
+  display_order: number;
+  is_customs: boolean;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+// Item / service master. tax_not_tax is a single-letter tax-class code; item_type
+// is the trade direction (I/E/U and combinations).
+export type ItemTaxClass =
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'M' | 'O' | 'P';
+export type ItemType = 'I' | 'E' | 'U' | 'IE' | 'IU' | 'EU' | 'IEU';
+
+export interface Item {
+  id: number;
+  item_name: string;
+  item_code: string | null;
+  category_id: number | null;
+  category_name: string | null;
+  tax_not_tax: ItemTaxClass;
+  percentage: string | null;
+  item_type: ItemType;
+  display: 'Y' | 'N';
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+  updated_by: number | null;
+}
+
+// Quotation list-row shape returned by GET /api/quotations (joined display names).
+export interface QuotationListRow {
+  id: number;
+  quotation_ref: string;
+  client_id: number | null;
+  client_code: string | null;
+  quotation_date: string | null;
+  kind_id: number | null;
+  kind_name: string | null;
+  total_amount: string | null;
+  total_amount_cdf: string | null;
+  display: 'Y' | 'N';
+}
+
+// Seal master list-row (GET /api/seals) — joined location name + added-count.
+export interface SealMasterListRow {
+  id: number;
+  office_location_id: number | null;
+  location_name: string | null;
+  sub_office_code: string | null;
+  purchase_date: string | null;
+  total_amount: string | null;
+  total_seal: number;
+  added_seals: number;
+  display: 'Y' | 'N';
+}
+
+export type SealStatus = 'Available' | 'Used' | 'Damaged';
+
+// Individual seal-number list-row (GET /api/seal-numbers).
+export interface SealNumberListRow {
+  id: number;
+  seal_number: string;
+  status: SealStatus;
+  location: string | null;
+  location_id: number | null;
+  seal_master_id: number;
+  purchase_date: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface SealStats {
+  total_seals: number;
+  added_seals: number;
+  used_seals: number;
+  damaged_seals: number;
+  location_counts: Array<{ id: number; main_location_name: string; seal_count: number; added_count: number }>;
+}
+
 export interface Regime {
   id: number;
   regime_name: string;
@@ -538,7 +624,8 @@ export type FieldType =
   | 'date'
   | 'select'
   | 'checkbox-group'
-  | 'file';
+  | 'file'
+  | 'seal-picker';
 
 export interface PageFieldDef {
   id: number;

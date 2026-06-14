@@ -6,7 +6,7 @@
 // writes one audit row per created export (§4.10) — all rolled back together on error.
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   exports,
@@ -14,6 +14,7 @@ import {
   masterPageAccordion,
   masterPageAccordionRole,
   masterPageAccordionField,
+  sealIndividualNumbers,
 } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { ok, fail } from '@/lib/api';
@@ -216,13 +217,23 @@ export async function POST(req: NextRequest) {
       const [inserted] = await tx.insert(exports).values(values).returning({ id: exports.id });
       ids.push(inserted.id);
 
+      // Reserve the chosen DGDA seals (Road) — flip Available → Used so they leave
+      // the available pool. Only seals currently Available are reserved.
+      const sealNums = (r.dgda_seal_no || '').split(',').map((s) => s.trim()).filter(Boolean);
+      if (sealNums.length > 0) {
+        await tx
+          .update(sealIndividualNumbers)
+          .set({ status: 'Used', notes: `Export ${mcaRef}`, updatedBy: session.uid, updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date })
+          .where(and(inArray(sealIndividualNumbers.sealNumber, sealNums), eq(sealIndividualNumbers.status, 'Available')));
+      }
+
       await recordAudit(tx, {
         actorId: session.uid,
         action: 'create',
         entityType: 'page:export',
         entityId: String(inserted.id),
         after: values,
-        metadata: { accordion: 'bulk-insert', mca_ref: mcaRef },
+        metadata: { accordion: 'bulk-insert', mca_ref: mcaRef, seals: sealNums },
       });
     }
     return ids;

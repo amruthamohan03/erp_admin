@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Shield, Search, X, Check, Plus } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 
 interface FieldRendererProps {
@@ -20,6 +20,9 @@ interface FieldRendererProps {
   requiredOverride?: boolean;
   minBound?: string | number;
   maxBound?: string | number;
+  // §4.5 — current form state, so a select with `props.optionsParams` can filter
+  // its options by another field (e.g. Regime filtered by the selected client).
+  values?: Record<string, unknown>;
 }
 
 type Props = Record<string, unknown> | null;
@@ -53,6 +56,7 @@ export default function FieldRenderer({
   requiredOverride,
   minBound,
   maxBound,
+  values,
 }: FieldRendererProps) {
   const effectiveRequired = requiredOverride ?? field.required;
   const baseProps = {
@@ -157,6 +161,7 @@ export default function FieldRenderer({
           readonly={readonly}
           onChange={onChange}
           requiredOverride={effectiveRequired}
+          values={values}
         />
       );
 
@@ -187,6 +192,17 @@ export default function FieldRenderer({
         </div>
       );
     }
+
+    case 'seal-picker':
+      return (
+        <SealPicker
+          field={field}
+          value={value}
+          readonly={readonly}
+          onChange={onChange}
+          requiredOverride={effectiveRequired}
+        />
+      );
 
     case 'file':
       return (
@@ -298,13 +314,110 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
   );
 }
 
+// §legacy — DGDA seal picker. Read-only display + modal of Available seals (plus
+// any already on the value), checkbox multi-select; the value is the comma-joined
+// seal numbers. number_of_seals auto-counts via a `count` derive.
+function SealPicker({ field, value, readonly, onChange }: FieldRendererProps) {
+  const [open, setOpen] = useState(false);
+  const [avail, setAvail] = useState<Array<{ id: number; seal_number: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const current = asString(value);
+
+  function openModal() {
+    setChecked(new Set(current.split(',').map((s) => s.trim()).filter(Boolean)));
+    setSearch('');
+    setOpen(true);
+    setLoading(true);
+    fetch('/api/seal-numbers/available?limit=1000')
+      .then((r) => r.json())
+      .then((j) => { if (j.success) setAvail(j.data.seals.map((s: { id: number; seal_number: string }) => ({ id: s.id, seal_number: s.seal_number }))); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }
+  const options = (() => {
+    const names = new Set(avail.map((s) => s.seal_number));
+    checked.forEach((c) => names.add(c));
+    const q = search.trim().toLowerCase();
+    return [...names].filter((nm) => !q || nm.toLowerCase().includes(q)).sort();
+  })();
+  function toggle(name: string) {
+    setChecked((prev) => { const x = new Set(prev); if (x.has(name)) x.delete(name); else x.add(name); return x; });
+  }
+  function confirm() { onChange([...checked].join(', ')); setOpen(false); }
+
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        <input id={field.name} className="input flex-1" value={current} readOnly placeholder="No seals selected" />
+        {!readonly && (
+          <button type="button" onClick={openModal} title="Select DGDA seals"
+            className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setOpen(false)}>
+          <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
+              <h2 className="font-semibold flex items-center gap-2"><Shield className="h-5 w-5" /> Select DGDA Seals</h2>
+              <button type="button" onClick={() => setOpen(false)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input className="input pl-9" placeholder="Search seals..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <div className="text-xs text-slate-500 mb-2">{checked.size} selected</div>
+              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
+                {loading && <div className="py-6 text-center text-sm text-slate-500">Loading…</div>}
+                {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-slate-500">No available seals.</div>}
+                {!loading && options.map((s) => (
+                  <label key={s} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
+                    <span className="font-mono">{s}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+              <button type="button" onClick={() => setOpen(false)} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
+              <button type="button" onClick={confirm} className="btn-primary"><Check className="h-4 w-4" /> Confirm Selection</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 interface DynamicSelectProps extends FieldRendererProps {}
 
-function DynamicSelect({ field, value, readonly, onChange, requiredOverride }: DynamicSelectProps) {
+function DynamicSelect({ field, value, readonly, onChange, requiredOverride, values }: DynamicSelectProps) {
   const staticOptions = (field.options_static ?? []) as Array<{ value: string; label: string }>;
   const source = field.options_source;
   const labelField = field.options_label_field ?? 'name';
   const labelTemplate = getString(field.props, 'labelTemplate');
+
+  // §4.5 — dependent options. `props.optionsParams` maps a query-param name to the
+  // form field whose value supplies it (e.g. { "client_id": "client_id" }). Each
+  // non-empty mapped value is appended to the options request, so the endpoint can
+  // scope the list (e.g. /api/regimes?client_id=42 → only that client's regimes).
+  const optionsParams =
+    field.props && typeof field.props === 'object'
+      ? ((field.props as Record<string, unknown>)['optionsParams'] as Record<string, string> | undefined)
+      : undefined;
+  const paramQuery = (() => {
+    if (!optionsParams) return '';
+    const sp = new URLSearchParams();
+    for (const [param, formField] of Object.entries(optionsParams)) {
+      const v = values ? values[formField] : undefined;
+      if (v !== null && v !== undefined && v !== '') sp.set(param, String(v));
+    }
+    return sp.toString();
+  })();
 
   const [dynamic, setDynamic] = useState<Array<{ value: string | number; label: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -316,7 +429,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride }: D
     // Some master endpoints are server-paginated ({ data: { items, total } });
     // request a large page so the dropdown is populated, and accept either a flat
     // `data` array or a `data.items` array.
-    const url = `/api/${source}${source.includes('?') ? '&' : '?'}pageSize=1000`;
+    const url = `/api/${source}${source.includes('?') ? '&' : '?'}pageSize=1000${paramQuery ? `&${paramQuery}` : ''}`;
     fetch(url)
       .then((r) => r.json())
       .then((json) => {
@@ -349,7 +462,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride }: D
     return () => {
       cancelled = true;
     };
-  }, [source, labelField, labelTemplate]);
+  }, [source, labelField, labelTemplate, paramQuery]);
 
   const options = source ? dynamic : staticOptions.map((o) => ({ value: o.value, label: o.label }));
 
