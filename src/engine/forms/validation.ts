@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FormFieldRow } from '@/db/schema';
+import { loadFieldValidation } from '@/lib/fieldValidations';
 
 // validation_json format for form_field_master_t per root CLAUDE.md §4.5.
 //
@@ -11,8 +12,15 @@ import type { FormFieldRow } from '@/db/schema';
 //
 // Examples in rule_json style:
 //   { "required": true, "min": 3, "max": 255 }
-//   { "pattern": "^[A-Z]{2,3}$" }                // license type code
-//   { "enum": ["IB", "Export"] }                  // alternative to options_json
+//   { "pattern": "^[A-Z]{2,3}$" }                       // inline regex
+//   { "validationKey": "drc.phone" }                    // reference field_validation_master_t
+//   { "validationKey": "drc.phone", "required": true }  // mix
+//   { "enum": ["IB", "Export"] }                         // alternative to options_json
+//
+// resolveValidationKey() below loads a field_validation_master_t row when
+// `validationKey` is set, then inlines its pattern + errorMessage into the
+// field's validation_json. loadForm calls it for every field so the rest of
+// the runtime (buildFieldZodSchema, DynamicForm) sees fully-resolved data.
 //
 // Cross-field validation isn't handled here — wire it through the rule
 // engine (§4.2) as a separate row in rule_master_t once it's needed.
@@ -22,7 +30,11 @@ export const fieldValidationSchema = z.object({
   min: z.number().optional(),
   max: z.number().optional(),
   pattern: z.string().optional(),
+  /** Used as the message on .regex(...) when pattern is also set. */
+  errorMessage: z.string().optional(),
   enum: z.array(z.unknown()).optional(),
+  /** Reference a row in field_validation_master_t — resolved before schema build. */
+  validationKey: z.string().optional(),
 });
 
 export type FieldValidation = z.infer<typeof fieldValidationSchema>;
@@ -59,7 +71,12 @@ export function buildFieldZodSchema(field: FormFieldRow): z.ZodTypeAny {
       let s = z.string();
       if (v.min !== undefined) s = s.min(v.min);
       if (v.max !== undefined) s = s.max(v.max);
-      if (v.pattern !== undefined) s = s.regex(new RegExp(v.pattern));
+      if (v.pattern !== undefined) {
+        s = s.regex(
+          new RegExp(v.pattern),
+          v.errorMessage ? { message: v.errorMessage } : undefined,
+        );
+      }
       base = s;
       break;
     }
@@ -128,4 +145,42 @@ export function buildFormZodSchema(fields: FormFieldRow[]): z.ZodObject<Record<s
     shape[f.fieldKey] = buildFieldZodSchema(f);
   }
   return z.object(shape);
+}
+
+/**
+ * Inline the pattern + errorMessage from a field_validation_master_t row
+ * referenced via `validation_json.validationKey`. If the field doesn't carry
+ * a key (or carries no validation_json at all), it's returned unchanged.
+ *
+ * The merged shape lets buildFieldZodSchema stay synchronous and means the
+ * client (DynamicForm) sees pattern + errorMessage in the form definition
+ * it loads, so client-side messages match server-side ones.
+ *
+ * Locally-declared pattern / errorMessage take precedence — admins can
+ * override a master pattern in one field without forking the row.
+ */
+export async function resolveValidationKey(field: FormFieldRow): Promise<FormFieldRow> {
+  if (field.validationJson == null) return field;
+  const parsed = fieldValidationSchema.safeParse(field.validationJson);
+  if (!parsed.success || !parsed.data.validationKey) return field;
+
+  const v = parsed.data;
+  const master = await loadFieldValidation(v.validationKey!);
+  const merged: FieldValidation = {
+    ...v,
+    pattern: v.pattern ?? master.pattern,
+    errorMessage: v.errorMessage ?? master.errorMessage ?? undefined,
+  };
+  return { ...field, validationJson: merged };
+}
+
+/**
+ * Resolve every field's validation_json via resolveValidationKey. Used by
+ * loadForm so downstream consumers (buildFormZodSchema, DynamicForm) never
+ * see unresolved validationKey references.
+ */
+export async function resolveValidationKeys(
+  fields: FormFieldRow[],
+): Promise<FormFieldRow[]> {
+  return Promise.all(fields.map(resolveValidationKey));
 }

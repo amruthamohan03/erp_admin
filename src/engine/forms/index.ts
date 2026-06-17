@@ -7,6 +7,7 @@ import {
   type FormFieldRow,
 } from '@/db/schema';
 import { NotFoundError } from '@/lib/errors';
+import { resolveValidationKeys } from './validation';
 
 export * from './validation';
 
@@ -58,6 +59,10 @@ export async function loadForm(formKey: string): Promise<FormDefinitionWithField
     )
     .orderBy(asc(formFieldMaster.displayOrder), asc(formFieldMaster.id));
 
-  return { ...form, fields };
+  // Inline any validation_json.validationKey references against
+  // field_validation_master_t so downstream consumers (buildFormZodSchema,
+  // DynamicForm) only see resolved patterns / errorMessages.
+  const resolved = await resolveValidationKeys(fields);
+  return { ...form, fields: resolved };
 }
 

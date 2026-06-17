@@ -96,6 +96,35 @@ describe('buildFieldZodSchema — validation_json tokens', () => {
     expect(() => s.parse('TOOLONG')).toThrow(ZodError);
   });
 
+  it('errorMessage on pattern is used as the ZodError message', () => {
+    const s = buildFieldZodSchema(
+      field({
+        validationJson: {
+          pattern: '^[A-Z]{2,3}$',
+          errorMessage: 'Must be 2–3 uppercase letters',
+        },
+      }),
+    );
+    try {
+      s.parse('lowercase');
+      throw new Error('expected ZodError');
+    } catch (err) {
+      if (!(err instanceof ZodError)) throw err;
+      expect(err.issues[0]?.message).toBe('Must be 2–3 uppercase letters');
+    }
+  });
+
+  it('validationKey is accepted in validation_json (resolved upstream)', () => {
+    // resolveValidationKey lives in loadForm — buildFieldZodSchema sees the
+    // pattern that's already been inlined. But the schema must accept the
+    // unresolved shape too, in case a caller passes raw master rows.
+    expect(() =>
+      buildFieldZodSchema(
+        field({ validationJson: { validationKey: 'drc.phone' } }),
+      ),
+    ).not.toThrow();
+  });
+
   it('validation_json.required overrides field.required', () => {
     const s = buildFieldZodSchema(
       field({ required: false, validationJson: { required: true } }),
