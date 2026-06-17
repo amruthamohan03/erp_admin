@@ -25,6 +25,10 @@ const EXPECTED_PATHS: Record<string, ReadonlyArray<string>> = {
   '/translate': ['post'],
   '/role-menu-mapping': ['get', 'put'],
   '/role-dashboard-card-mapping': ['get', 'put'],
+  '/forms/{formKey}': ['get'],
+  '/cases/{templateKey}': ['post'],
+  '/cases/{templateKey}/{caseId}': ['get'],
+  '/cases/{templateKey}/{caseId}/transitions/{transitionKey}': ['post'],
 };
 
 // Schema components that must be exposed regardless of which endpoints
@@ -55,6 +59,11 @@ const EXPECTED_SCHEMAS = [
   'RoleMenuMappingGetResponse',
   'RoleDashboardCardMappingPutInput',
   'RoleDashboardCardMappingGetResponse',
+  'FormDefinitionResponse',
+  'CaseCreateInput',
+  'CaseCreateResponse',
+  'CaseReadResponse',
+  'CaseAdvanceResponse',
   'ErrorEnvelope',
 ] as const;
 

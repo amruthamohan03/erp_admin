@@ -824,6 +824,173 @@ function buildRegistry(): OpenAPIRegistry {
     },
   });
 
+  // --- Generic forms / cases endpoints (§4.3 + §4.5) --------------------
+  // Entity-agnostic. Same routes drive every case_template_master_t row:
+  // license_default today, invoice_default / payment_request_default later.
+  // Response shapes leave the entity column set unspecified (record<unknown>)
+  // because target_table columns aren't statically known to the engine.
+
+  const formFieldShape = z.object({
+    id: z.number().int(),
+    formId: z.number().int(),
+    fieldKey: z.string(),
+    label: z.string(),
+    fieldType: z.string(),
+    required: z.boolean(),
+    defaultValue: z.string().nullable(),
+    helpText: z.string().nullable(),
+    validationJson: z.unknown().nullable(),
+    optionsJson: z.unknown().nullable(),
+    displayOrder: z.number().int(),
+    display: z.enum(['Y', 'N']),
+  });
+
+  const formDefinitionResponseSchema = z.object({
+    id: z.number().int(),
+    formKey: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    entityType: z.string(),
+    display: z.enum(['Y', 'N']),
+    fields: z.array(formFieldShape),
+  });
+
+  const transitionShape = z.object({
+    id: z.number().int(),
+    workflowId: z.number().int(),
+    transitionKey: z.string(),
+    fromState: z.string(),
+    toState: z.string(),
+    ruleId: z.number().int().nullable(),
+    actionJson: z.unknown().nullable(),
+    display: z.enum(['Y', 'N']),
+  });
+
+  const caseCreateRequestSchema = z.object({
+    values: z.record(z.string(), z.unknown()),
+  });
+
+  const caseCreateResponseSchema = z.object({
+    caseId: z.number().int(),
+    templateKey: z.string(),
+    state: z.string(),
+  });
+
+  const caseReadResponseSchema = z.object({
+    caseId: z.number().int(),
+    templateKey: z.string(),
+    state: z.string(),
+    entity: z.record(z.string(), z.unknown()),
+    availableTransitions: z.array(transitionShape),
+  });
+
+  const caseAdvanceRequestSchema = z
+    .object({ payload: z.record(z.string(), z.unknown()).optional() })
+    .optional();
+
+  const sideEffectShape = z.object({
+    type: z.literal('notify'),
+    channel: z.enum(['email', 'sms', 'in_app']),
+    to: z.unknown(),
+    template: z.string(),
+  });
+
+  const caseAdvanceResponseSchema = z.object({
+    caseId: z.number().int(),
+    templateKey: z.string(),
+    workflowKey: z.string(),
+    transitionKey: z.string(),
+    previousState: z.string(),
+    newState: z.string(),
+    sideEffects: z.array(sideEffectShape),
+  });
+
+  registry.register('FormDefinitionResponse', formDefinitionResponseSchema);
+  registry.register('CaseCreateInput', caseCreateRequestSchema);
+  registry.register('CaseCreateResponse', caseCreateResponseSchema);
+  registry.register('CaseReadResponse', caseReadResponseSchema);
+  registry.register('CaseAdvanceResponse', caseAdvanceResponseSchema);
+
+  const formKeyParam = z.object({ formKey: z.string() });
+  const caseParams = z.object({ templateKey: z.string(), caseId: z.string() });
+  const caseAdvanceParams = z.object({
+    templateKey: z.string(),
+    caseId: z.string(),
+    transitionKey: z.string(),
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/forms/{formKey}',
+    summary: 'Form definition + ordered fields for client-side rendering',
+    tags: ['forms'],
+    request: { params: formKeyParam },
+    responses: {
+      200: jsonOk('Form definition', formDefinitionResponseSchema),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Form not found'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/cases/{templateKey}',
+    summary:
+      'Create a case via case_template_master_t. Validates the body against the form definition.',
+    tags: ['cases'],
+    request: {
+      params: z.object({ templateKey: z.string() }),
+      body: {
+        required: true,
+        content: { 'application/json': { schema: caseCreateRequestSchema } },
+      },
+    },
+    responses: {
+      201: jsonOk('Created', caseCreateResponseSchema),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Template / form / workflow not found'),
+      422: jsonError('Body or form values failed validation'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/cases/{templateKey}/{caseId}',
+    summary:
+      'Read a case row from its target_table plus transitions available from the current state',
+    tags: ['cases'],
+    request: { params: caseParams },
+    responses: {
+      200: jsonOk('Case + available transitions', caseReadResponseSchema),
+      400: jsonError('Invalid caseId / entity missing string state column'),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Template or case not found'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/cases/{templateKey}/{caseId}/transitions/{transitionKey}',
+    summary:
+      'Apply a workflow transition. Rule gate + action_json executed inside a transaction.',
+    tags: ['cases'],
+    request: {
+      params: caseAdvanceParams,
+      body: {
+        required: false,
+        content: { 'application/json': { schema: caseAdvanceRequestSchema } },
+      },
+    },
+    responses: {
+      200: jsonOk('Transition applied', caseAdvanceResponseSchema),
+      400: jsonError('Invalid caseId / entity missing string state column'),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Rule gate denied (e.g. license.no_self_approve)'),
+      404: jsonError('Template / case / transition not found'),
+      409: jsonError("Entity's current state doesn't match transition.from_state"),
+    },
+  });
+
   return registry;
 }
 

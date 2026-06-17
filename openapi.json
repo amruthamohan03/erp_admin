@@ -1251,6 +1251,276 @@
           "ok",
           "error"
         ]
+      },
+      "FormDefinitionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "formKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "Y",
+              "N"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "formId": {
+                  "type": "integer"
+                },
+                "fieldKey": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "fieldType": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "defaultValue": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "helpText": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "validationJson": {
+                  "nullable": true
+                },
+                "optionsJson": {
+                  "nullable": true
+                },
+                "displayOrder": {
+                  "type": "integer"
+                },
+                "display": {
+                  "type": "string",
+                  "enum": [
+                    "Y",
+                    "N"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "formId",
+                "fieldKey",
+                "label",
+                "fieldType",
+                "required",
+                "defaultValue",
+                "helpText",
+                "displayOrder",
+                "display"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "formKey",
+          "name",
+          "description",
+          "entityType",
+          "display",
+          "fields"
+        ]
+      },
+      "CaseCreateInput": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          }
+        },
+        "required": [
+          "values"
+        ]
+      },
+      "CaseCreateResponse": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer"
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "caseId",
+          "templateKey",
+          "state"
+        ]
+      },
+      "CaseReadResponse": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer"
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "availableTransitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "workflowId": {
+                  "type": "integer"
+                },
+                "transitionKey": {
+                  "type": "string"
+                },
+                "fromState": {
+                  "type": "string"
+                },
+                "toState": {
+                  "type": "string"
+                },
+                "ruleId": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "actionJson": {
+                  "nullable": true
+                },
+                "display": {
+                  "type": "string",
+                  "enum": [
+                    "Y",
+                    "N"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "workflowId",
+                "transitionKey",
+                "fromState",
+                "toState",
+                "ruleId",
+                "display"
+              ]
+            }
+          }
+        },
+        "required": [
+          "caseId",
+          "templateKey",
+          "state",
+          "entity",
+          "availableTransitions"
+        ]
+      },
+      "CaseAdvanceResponse": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer"
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "workflowKey": {
+            "type": "string"
+          },
+          "transitionKey": {
+            "type": "string"
+          },
+          "previousState": {
+            "type": "string"
+          },
+          "newState": {
+            "type": "string"
+          },
+          "sideEffects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "notify"
+                  ]
+                },
+                "channel": {
+                  "type": "string",
+                  "enum": [
+                    "email",
+                    "sms",
+                    "in_app"
+                  ]
+                },
+                "to": {
+                  "nullable": true
+                },
+                "template": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "channel",
+                "template"
+              ]
+            }
+          }
+        },
+        "required": [
+          "caseId",
+          "templateKey",
+          "workflowKey",
+          "transitionKey",
+          "previousState",
+          "newState",
+          "sideEffects"
+        ]
       }
     },
     "parameters": {}
@@ -9122,6 +9392,1037 @@
           },
           "422": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/{formKey}": {
+      "get": {
+        "summary": "Form definition + ordered fields for client-side rendering",
+        "tags": [
+          "forms"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "formKey",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Form definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "formKey": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "entityType": {
+                          "type": "string"
+                        },
+                        "display": {
+                          "type": "string",
+                          "enum": [
+                            "Y",
+                            "N"
+                          ]
+                        },
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "formId": {
+                                "type": "integer"
+                              },
+                              "fieldKey": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "fieldType": {
+                                "type": "string"
+                              },
+                              "required": {
+                                "type": "boolean"
+                              },
+                              "defaultValue": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "helpText": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "validationJson": {
+                                "nullable": true
+                              },
+                              "optionsJson": {
+                                "nullable": true
+                              },
+                              "displayOrder": {
+                                "type": "integer"
+                              },
+                              "display": {
+                                "type": "string",
+                                "enum": [
+                                  "Y",
+                                  "N"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "formId",
+                              "fieldKey",
+                              "label",
+                              "fieldType",
+                              "required",
+                              "defaultValue",
+                              "helpText",
+                              "displayOrder",
+                              "display"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "formKey",
+                        "name",
+                        "description",
+                        "entityType",
+                        "display",
+                        "fields"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Form not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{templateKey}": {
+      "post": {
+        "summary": "Create a case via case_template_master_t. Validates the body against the form definition.",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "templateKey",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "nullable": true
+                    }
+                  }
+                },
+                "required": [
+                  "values"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "caseId": {
+                          "type": "integer"
+                        },
+                        "templateKey": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "caseId",
+                        "templateKey",
+                        "state"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template / form / workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body or form values failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{templateKey}/{caseId}": {
+      "get": {
+        "summary": "Read a case row from its target_table plus transitions available from the current state",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "templateKey",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Case + available transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "caseId": {
+                          "type": "integer"
+                        },
+                        "templateKey": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "entity": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "nullable": true
+                          }
+                        },
+                        "availableTransitions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "workflowId": {
+                                "type": "integer"
+                              },
+                              "transitionKey": {
+                                "type": "string"
+                              },
+                              "fromState": {
+                                "type": "string"
+                              },
+                              "toState": {
+                                "type": "string"
+                              },
+                              "ruleId": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "actionJson": {
+                                "nullable": true
+                              },
+                              "display": {
+                                "type": "string",
+                                "enum": [
+                                  "Y",
+                                  "N"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "workflowId",
+                              "transitionKey",
+                              "fromState",
+                              "toState",
+                              "ruleId",
+                              "display"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "caseId",
+                        "templateKey",
+                        "state",
+                        "entity",
+                        "availableTransitions"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid caseId / entity missing string state column",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template or case not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{templateKey}/{caseId}/transitions/{transitionKey}": {
+      "post": {
+        "summary": "Apply a workflow transition. Rule gate + action_json executed inside a transaction.",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "templateKey",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "transitionKey",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "caseId": {
+                          "type": "integer"
+                        },
+                        "templateKey": {
+                          "type": "string"
+                        },
+                        "workflowKey": {
+                          "type": "string"
+                        },
+                        "transitionKey": {
+                          "type": "string"
+                        },
+                        "previousState": {
+                          "type": "string"
+                        },
+                        "newState": {
+                          "type": "string"
+                        },
+                        "sideEffects": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "notify"
+                                ]
+                              },
+                              "channel": {
+                                "type": "string",
+                                "enum": [
+                                  "email",
+                                  "sms",
+                                  "in_app"
+                                ]
+                              },
+                              "to": {
+                                "nullable": true
+                              },
+                              "template": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "channel",
+                              "template"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "caseId",
+                        "templateKey",
+                        "workflowKey",
+                        "transitionKey",
+                        "previousState",
+                        "newState",
+                        "sideEffects"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid caseId / entity missing string state column",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rule gate denied (e.g. license.no_self_approve)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template / case / transition not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Entity's current state doesn't match transition.from_state",
             "content": {
               "application/json": {
                 "schema": {
