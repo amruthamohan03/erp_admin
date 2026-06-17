@@ -85,6 +85,13 @@
       "when": 1781717083813,
       "tag": "0011_add_notification_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781717339774,
+      "tag": "0012_add_approval_hierarchy_master",
+      "breakpoints": true
     }
   ]
 }

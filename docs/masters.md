@@ -44,14 +44,20 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | `license_type_master_t` | [src/db/schema/licenseTypes.ts](../src/db/schema/licenseTypes.ts) | [0006_add_foundational_masters.sql](../drizzle/0006_add_foundational_masters.sql) | License kinds (Import/`IB`, `Export`, …). Each license row picks its workflow + form via the matching `case_template_master_t` row. |
 | `tax_rule_master_t` | [src/db/schema/taxRules.ts](../src/db/schema/taxRules.ts) | [0008_add_tax_rule_master.sql](../drizzle/0008_add_tax_rule_master.sql) | Tax / duty / fee formulas for Fiche de Calcul (§2 tracking phase). `formula` is JSON Logic — same evaluator as `rule_master_t`. `effective_from` / `effective_to` let rates change without deletion; `loadTaxRule` filters by `asOf` and orders by most-recent. |
 | `feature_toggle_master_t` | [src/db/schema/featureToggles.ts](../src/db/schema/featureToggles.ts) | [0009_add_feature_toggle_master.sql](../drizzle/0009_add_feature_toggle_master.sql) | Global on/off switches. Callers consult `isFeatureEnabled(toggleKey, fallback?)` from [src/lib/featureToggles.ts](../src/lib/featureToggles.ts); a missing row or `display='N'` returns the fallback. Per-role / per-user scoping is deliberately deferred. |
-| `field_validation_master_t` | [src/db/schema/fieldValidations.ts](../src/db/schema/fieldValidations.ts) | [0010_add_field_validation_master.sql](../drizzle/0010_add_field_validation_master.sql) | Reusable regex validations keyed by `validation_key` (e.g. `drc.phone`, `drc.tin`). `loadFieldValidation(key)` + `isValid(key, value)` in [src/lib/fieldValidations.ts](../src/lib/fieldValidations.ts) load and apply. Follow-up: extend `form_field_master_t.validation_json` so `{ "validationKey": "drc.phone" }` resolves through `buildFieldZodSchema`. |
+| `field_validation_master_t` | [src/db/schema/fieldValidations.ts](../src/db/schema/fieldValidations.ts) | [0010_add_field_validation_master.sql](../drizzle/0010_add_field_validation_master.sql) | Reusable regex validations keyed by `validation_key` (e.g. `drc.phone`, `drc.tin`). `loadFieldValidation(key)` + `isValid(key, value)` in [src/lib/fieldValidations.ts](../src/lib/fieldValidations.ts) load and apply. Resolved by `loadForm` so `validation_json: { "validationKey": "drc.phone" }` inlines `pattern` + `errorMessage` before `buildFieldZodSchema` runs. |
+| `approval_hierarchy_master_t` | [src/db/schema/approvalHierarchy.ts](../src/db/schema/approvalHierarchy.ts) | [0012_add_approval_hierarchy_master.sql](../drizzle/0012_add_approval_hierarchy_master.sql) | Named multi-stage approval chains for §2 step 6 (Payment Request). `stages_json` is an ordered `[{ role_id, level, label }]` array; [src/lib/approvalHierarchy.ts](../src/lib/approvalHierarchy.ts) exposes `loadApprovalHierarchy`, `parseStages`, `nextApprovalStages`, `canApproveAtLevel`, `maxApprovalLevel`. Workflow rules consult `canApproveAtLevel` as the gate. |
+
+## Other tables
+
+| Table | Schema file | Migration | Purpose |
+| ----- | ----------- | --------- | ------- |
+| `notification_outbox_t` | [src/db/schema/notificationOutbox.ts](../src/db/schema/notificationOutbox.ts) | [0011_add_notification_outbox.sql](../drizzle/0011_add_notification_outbox.sql) | Transactional outbox for `notify` side effects. `case-runtime/advanceCase` writes rows here in the same transaction as the entity UPDATE — a dispatcher worker polls `status='pending'`. |
 
 ## Pending — domain masters
 
 Still referenced in CLAUDE.md §2/§4.1 but not yet schema'd:
 
 - [ ] `tracking_template_master_t`
-- [ ] `approval_hierarchy_master_t`
 
 ## Conventions
 
