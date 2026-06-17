@@ -1,7 +1,12 @@
 import jsonLogic from 'json-logic-js';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { ruleMaster, type RuleMasterRow } from '@/db/schema';
+import {
+  ruleMaster,
+  taxRuleMaster,
+  type RuleMasterRow,
+  type TaxRuleMasterRow,
+} from '@/db/schema';
 import { NotFoundError } from '@/lib/errors';
 
 // Rule engine per root CLAUDE.md §4.2.
@@ -69,4 +74,61 @@ export async function evaluateRule(
 ): Promise<unknown> {
   const rule = await loadRule(ruleKey);
   return applyRule(rule.ruleJson, context);
+}
+
+// --- Tax rules (tax_rule_master_t) -----------------------------------------
+//
+// Same JSON Logic format as rule_master_t but the rows carry jurisdiction +
+// scope + effective dates so they can change over time without deletion.
+// Loading filters by:
+//   * exact rule_key match
+//   * display='Y'
+//   * effectiveFrom is null OR effectiveFrom <= asOf
+//   * effectiveTo   is null OR effectiveTo   >= asOf
+// then orders by effective_from DESC so the most-recently-effective rule
+// wins when versions overlap.
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export async function loadTaxRule(
+  ruleKey: string,
+  asOf: Date = new Date(),
+): Promise<TaxRuleMasterRow> {
+  const date = isoDate(asOf);
+  const [row] = await db
+    .select()
+    .from(taxRuleMaster)
+    .where(
+      and(
+        eq(taxRuleMaster.ruleKey, ruleKey),
+        eq(taxRuleMaster.display, 'Y'),
+        or(
+          isNull(taxRuleMaster.effectiveFrom),
+          lte(taxRuleMaster.effectiveFrom, date),
+        ),
+        or(
+          isNull(taxRuleMaster.effectiveTo),
+          gte(taxRuleMaster.effectiveTo, date),
+        ),
+      ),
+    )
+    .orderBy(desc(taxRuleMaster.effectiveFrom))
+    .limit(1);
+  if (!row) {
+    throw new NotFoundError(
+      `Tax rule not found or not in effect on ${date}: ${ruleKey}`,
+    );
+  }
+  return row;
+}
+
+export async function evaluateTaxRule(
+  ruleKey: string,
+  context: RuleContext = {},
+  asOf: Date = new Date(),
+): Promise<unknown> {
+  const rule = await loadTaxRule(ruleKey, asOf);
+  return applyRule(rule.formula, context);
 }

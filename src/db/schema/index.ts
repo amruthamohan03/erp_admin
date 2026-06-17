@@ -13,3 +13,4 @@ export * from './status';
 export * from './documentTypes';
 export * from './licenseTypes';
 export * from './license';
+export * from './taxRules';

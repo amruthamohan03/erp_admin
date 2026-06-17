@@ -57,6 +57,13 @@
       "when": 1781713623015,
       "tag": "0007_add_license_entity",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781716154559,
+      "tag": "0008_add_tax_rule_master",
+      "breakpoints": true
     }
   ]
 }

@@ -42,13 +42,13 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | `status_master_t` | [src/db/schema/status.ts](../src/db/schema/status.ts) | [0006_add_foundational_masters.sql](../drizzle/0006_add_foundational_masters.sql) | Statuses per `entity_type` (license / invoice / payment_request / …). `is_final` marks terminal states; workflow tables carry `status_key` strings rather than FKs so workflows can be configured before statuses are seeded. |
 | `document_type_master_t` | [src/db/schema/documentTypes.ts](../src/db/schema/documentTypes.ts) | [0006_add_foundational_masters.sql](../drizzle/0006_add_foundational_masters.sql) | Document type catalogue (bill of lading, customs declaration, …). Concrete document rows in a future `document_t` FK back via `type_key`. |
 | `license_type_master_t` | [src/db/schema/licenseTypes.ts](../src/db/schema/licenseTypes.ts) | [0006_add_foundational_masters.sql](../drizzle/0006_add_foundational_masters.sql) | License kinds (Import/`IB`, `Export`, …). Each license row picks its workflow + form via the matching `case_template_master_t` row. |
+| `tax_rule_master_t` | [src/db/schema/taxRules.ts](../src/db/schema/taxRules.ts) | [0008_add_tax_rule_master.sql](../drizzle/0008_add_tax_rule_master.sql) | Tax / duty / fee formulas for Fiche de Calcul (§2 tracking phase). `formula` is JSON Logic — same evaluator as `rule_master_t`. `effective_from` / `effective_to` let rates change without deletion; `loadTaxRule` filters by `asOf` and orders by most-recent. |
 
 ## Pending — domain masters
 
 Still referenced in CLAUDE.md §2/§4.1 but not yet schema'd:
 
 - [ ] `tracking_template_master_t`
-- [ ] `tax_rule_master_t` — Fiche de Calcul rule rows
 - [ ] `approval_hierarchy_master_t`
 - [ ] `field_validation_master_t`
 - [ ] `feature_toggle_master_t`
