@@ -58,7 +58,9 @@ npm run dev
 | `npm run db:migrate`    | Apply pending migrations                                              |
 | `npm run db:studio`     | Open Drizzle Studio                                                   |
 | `npm run db:introspect` | Reverse-engineer schema from an existing DB                           |
-| `npm run seed`          | Seed initial admin user / roles / menus                               |
+| `npm run db:seed`       | Seed master tables (license + invoice modules, field validations, …)  |
+| `npm run seed`          | Bootstrap the admin user                                              |
+| `npm run dispatch:notifications` | Drain the notification outbox via configured channels (console by default) |
 | `npm run openapi`       | Regenerate `openapi.json` from the centralized Zod schemas             |
 
 ---
@@ -101,7 +103,21 @@ scripts/
 src/proxy.ts             Next.js 16 route guard
 ```
 
-The engine subdirectories (`rules/`, `workflow/`, `forms/`, `case-runtime/`) currently expose scaffolds — load helpers work, but the runtime evaluators throw fail-loud until their respective formats (`rule_json`, `validation_json`, `action_json`) are decided. See CLAUDE.md §4.2 / §4.5 / §4.6 / §4.3.
+The §4 engines are all live:
+
+- **`engine/rules/`** — `applyRule` / `evaluateRule` / `loadTaxRule` / `evaluateTaxRule` run JSON Logic expressions against a context (`{ entity, actor, payload, now }`). `tax_rule_master_t` carries effective-date metadata for Fiche de Calcul.
+- **`engine/workflow/`** — `executeTransition` returns a plan `{ toState, patch, sideEffects, actions }`. Rule gates use `applyRule`; actions parse from a typed Zod discriminated union (`set_field`, `notify`).
+- **`engine/forms/`** — `loadForm` resolves `form_field_master_t.validation_json.validationKey` against `field_validation_master_t` so admins can reference shared regexes by stable key. `<DynamicForm>` (`src/engine/forms/DynamicForm.tsx`) is the React renderer.
+- **`modules/case-runtime/`** — `createCase` / `readCase` / `listCases` / `advanceCase` orchestrate the full lifecycle against any `case_template_master_t` row. Writes to the dynamic `target_table` via Drizzle's `sql` tag (no raw `pg`). `advanceCase` enqueues `notify` side effects into `notification_outbox_t` in the same transaction as the UPDATE — classic outbox.
+
+### What ships today
+
+Two end-to-end domain modules drive `case-runtime` from real master data — both reachable via the sidebar:
+
+- **Licenses** (`/licenses` · §2 step 2) — `license_create` form, 7-transition `license_default` workflow with `license.no_self_approve` rule gate, `set_field` actions populating `approved_by` / `approved_at`.
+- **Invoices** (`/invoices` · §2 step 4) — `invoice_create` form (currency validated via `iso.currency_code`), 7-transition workflow with `set_field` actions for `issue_date` / `paid_at`.
+
+Both run on the same generic API routes (`/api/v1/cases/{templateKey}/...`) and the same `<DynamicForm>` renderer. Adding a third module (credit note, payment request, …) is master data + a transactional table, not new engine code.
 
 ---
 

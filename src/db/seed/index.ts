@@ -12,6 +12,7 @@ import { seedInvoiceForm } from './invoiceForm';
 import { seedInvoiceWorkflow } from './invoiceWorkflow';
 import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
 import { seedInvoicesMenu } from './invoicesMenu';
+import { seedTrackingTemplates } from './trackingTemplates';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -42,6 +43,10 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedLicenseWorkflow(db);  // depends on licenseRules
   await seedLicenseCaseTemplate(db); // depends on licenseForm + licenseWorkflow
 
+  // Tracking templates (Import + Export). Depend on license types being
+  // seeded so they can resolve license_type_id by code.
+  await seedTrackingTemplates(db);
+
   // --- Invoice module (§2 step 4) -------------------------------------
   await seedInvoiceStatuses(db);
   await seedInvoiceForm(db);       // depends on fieldValidations (iso.currency_code)
@@ -68,4 +73,5 @@ export {
   seedInvoiceWorkflow,
   seedInvoiceCaseTemplate,
   seedInvoicesMenu,
+  seedTrackingTemplates,
 };
