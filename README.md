@@ -52,8 +52,10 @@ npm run dev
 | `npm run build`         | Production build                                                      |
 | `npm run typecheck`     | `tsc --noEmit`                                                        |
 | `npm run lint`          | ESLint (Next config)                                                  |
-| `npm run test`          | Run the vitest suite once                                             |
+| `npm run test`          | Unit tests (vitest, fast, no DB)                                      |
 | `npm run test:watch`    | Vitest in watch mode                                                  |
+| `npm run test:integration` | DB-backed integration tests via Testcontainers (or `TEST_DATABASE_URL`) |
+| `npm run test:all`      | Unit + integration                                                    |
 | `npm run db:generate`   | Generate a Drizzle migration after editing `src/db/schema/*`           |
 | `npm run db:migrate`    | Apply pending migrations                                              |
 | `npm run db:studio`     | Open Drizzle Studio                                                   |
@@ -155,6 +157,19 @@ export const GET = withErrorHandler(async () => {
 ## OpenAPI
 
 `npm run openapi` regenerates [`openapi.json`](openapi.json) from the Zod schemas in `src/schemas/` plus the endpoint annotations in `src/lib/openapi.ts`. Drop the file into any OpenAPI viewer (Swagger UI, Stoplight, etc.) to browse the API.
+
+---
+
+## Integration tests
+
+`npm run test:integration` runs DB-backed tests under `src/**/*.integration.test.ts`. The harness ([src/test/dbHarness.ts](src/test/dbHarness.ts)) auto-detects:
+
+1. **`TEST_DATABASE_URL`** — if set, integration tests run against that Postgres. Useful in CI when a database is already provisioned.
+2. **Docker / Testcontainers** — otherwise, spins up a fresh `postgres:16-alpine` container, applies every migration, and runs `seedMasters` so tests have realistic case templates to work against.
+
+The vitest `globalSetup` owns the container lifecycle; individual tests TRUNCATE the entity tables they touch in `beforeEach` so suites can run in any order.
+
+If neither Docker nor `TEST_DATABASE_URL` is available, integration tests `it.skip` rather than fail — unit-only contributors stay unblocked.
 
 ---
 
