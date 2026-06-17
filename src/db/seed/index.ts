@@ -5,6 +5,7 @@ import { seedLicenseRules } from './licenseRules';
 import { seedLicenseForm } from './licenseForm';
 import { seedLicenseWorkflow } from './licenseWorkflow';
 import { seedLicenseCaseTemplate } from './licenseCaseTemplate';
+import { seedLicensesMenu } from './licensesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -43,6 +44,12 @@ export async function seedMasters(db: Database): Promise<void> {
   // Glue: ties license_create form + license_default workflow + license_t
   // target. Must come last.
   await seedLicenseCaseTemplate(db);
+
+  // Sidebar entry for /licenses + admin-role permission grant. Independent
+  // of the rest (it touches menu_master_t + role_menu_mapping_t) so order
+  // doesn't matter — keep last so the navigation light up after everything
+  // it points at is real.
+  await seedLicensesMenu(db);
 }
 
 export {
@@ -52,4 +59,5 @@ export {
   seedLicenseForm,
   seedLicenseWorkflow,
   seedLicenseCaseTemplate,
+  seedLicensesMenu,
 };
