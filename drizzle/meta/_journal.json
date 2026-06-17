@@ -71,6 +71,13 @@
       "when": 1781716367485,
       "tag": "0009_add_feature_toggle_master",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781716588575,
+      "tag": "0010_add_field_validation_master",
+      "breakpoints": true
     }
   ]
 }
