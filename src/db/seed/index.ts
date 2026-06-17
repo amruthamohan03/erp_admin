@@ -11,6 +11,7 @@ import { seedInvoiceStatuses } from './invoiceStatuses';
 import { seedInvoiceForm } from './invoiceForm';
 import { seedInvoiceWorkflow } from './invoiceWorkflow';
 import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
+import { seedInvoicesMenu } from './invoicesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -47,9 +48,10 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedInvoiceWorkflow(db);
   await seedInvoiceCaseTemplate(db); // depends on invoiceForm + invoiceWorkflow
 
-  // Sidebar entry + permission grants. Last so the navigation lights up
+  // Sidebar entries + permission grants. Last so the navigation lights up
   // only after every route it points at is real.
   await seedLicensesMenu(db);
+  await seedInvoicesMenu(db);
 }
 
 export {
@@ -65,4 +67,5 @@ export {
   seedInvoiceForm,
   seedInvoiceWorkflow,
   seedInvoiceCaseTemplate,
+  seedInvoicesMenu,
 };
