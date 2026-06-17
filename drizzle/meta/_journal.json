@@ -64,6 +64,13 @@
       "when": 1781716154559,
       "tag": "0008_add_tax_rule_master",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781716367485,
+      "tag": "0009_add_feature_toggle_master",
+      "breakpoints": true
     }
   ]
 }
