@@ -106,6 +106,13 @@
       "when": 1781717915113,
       "tag": "0014_add_invoice_entity",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781726628707,
+      "tag": "0015_add_payment_request_entity",
+      "breakpoints": true
     }
   ]
 }

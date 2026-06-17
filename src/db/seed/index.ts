@@ -13,6 +13,12 @@ import { seedInvoiceWorkflow } from './invoiceWorkflow';
 import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
 import { seedInvoicesMenu } from './invoicesMenu';
 import { seedTrackingTemplates } from './trackingTemplates';
+import { seedPaymentRequestApprovals } from './paymentRequestApprovals';
+import { seedPaymentRequestStatuses } from './paymentRequestStatuses';
+import { seedPaymentRequestForm } from './paymentRequestForm';
+import { seedPaymentRequestWorkflow } from './paymentRequestWorkflow';
+import { seedPaymentRequestCaseTemplate } from './paymentRequestCaseTemplate';
+import { seedPaymentRequestsMenu } from './paymentRequestsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -24,9 +30,9 @@ import { seedTrackingTemplates } from './trackingTemplates';
 // Ordering rules:
 //   * Pure masters (no FK to other seeds) can run in any order.
 //   * Seeds that depend on other seeds' rows (looked up by natural key)
-//     must come after their dependency. Today the license/invoice modules
-//     follow the same shape: statuses + rules → form → workflow → case
-//     template.
+//     must come after their dependency. Each domain module follows the
+//     same shape: statuses + rules + hierarchy → form → workflow →
+//     case_template → menu.
 //
 // Seeds are idempotent (onConflictDoUpdate on the natural key) so
 // re-running against a populated DB just refreshes the rows.
@@ -40,23 +46,30 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedLicenseStatuses(db);
   await seedLicenseRules(db);
   await seedLicenseForm(db);
-  await seedLicenseWorkflow(db);  // depends on licenseRules
+  await seedLicenseWorkflow(db); // depends on licenseRules
   await seedLicenseCaseTemplate(db); // depends on licenseForm + licenseWorkflow
-
-  // Tracking templates (Import + Export). Depend on license types being
-  // seeded so they can resolve license_type_id by code.
-  await seedTrackingTemplates(db);
+  await seedTrackingTemplates(db); // depends on licenseTypes
 
   // --- Invoice module (§2 step 4) -------------------------------------
   await seedInvoiceStatuses(db);
-  await seedInvoiceForm(db);       // depends on fieldValidations (iso.currency_code)
+  await seedInvoiceForm(db); // depends on fieldValidations (iso.currency_code)
   await seedInvoiceWorkflow(db);
-  await seedInvoiceCaseTemplate(db); // depends on invoiceForm + invoiceWorkflow
+  await seedInvoiceCaseTemplate(db);
+
+  // --- Payment Request module (§2 step 6) -----------------------------
+  // Approvals must seed before the workflow (transitions reference the
+  // hierarchy by key from action_json).
+  await seedPaymentRequestApprovals(db);
+  await seedPaymentRequestStatuses(db);
+  await seedPaymentRequestForm(db); // depends on fieldValidations
+  await seedPaymentRequestWorkflow(db); // depends on approvals
+  await seedPaymentRequestCaseTemplate(db);
 
   // Sidebar entries + permission grants. Last so the navigation lights up
   // only after every route it points at is real.
   await seedLicensesMenu(db);
   await seedInvoicesMenu(db);
+  await seedPaymentRequestsMenu(db);
 }
 
 export {
@@ -74,4 +87,10 @@ export {
   seedInvoiceCaseTemplate,
   seedInvoicesMenu,
   seedTrackingTemplates,
+  seedPaymentRequestApprovals,
+  seedPaymentRequestStatuses,
+  seedPaymentRequestForm,
+  seedPaymentRequestWorkflow,
+  seedPaymentRequestCaseTemplate,
+  seedPaymentRequestsMenu,
 };
