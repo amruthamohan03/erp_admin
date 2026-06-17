@@ -9,6 +9,7 @@ import {
 } from '@/engine/workflow';
 import type { WorkflowTransitionMasterRow } from '@/db/schema';
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
+import { enqueueNotifications } from '@/lib/notifications';
 
 // Generic case runtime per root CLAUDE.md §4.3.
 //
@@ -300,6 +301,15 @@ export async function advanceCase(input: AdvanceCaseInput): Promise<AdvanceCaseR
       SET ${setClauses}, updated_at = now()
       WHERE id = ${input.caseId}
     `);
+
+    // Persist notify side effects in the same transaction so either both
+    // the UPDATE and the outbox rows land or neither does — classic
+    // outbox pattern. The dispatcher worker (future slice) reads
+    // status='pending' rows and actually sends.
+    await enqueueNotifications(tx, plan.sideEffects, {
+      templateKey: input.templateKey,
+      caseId: input.caseId,
+    });
 
     return {
       caseId: input.caseId,
