@@ -6,6 +6,7 @@ import { seedLicenseForm } from './licenseForm';
 import { seedLicenseWorkflow } from './licenseWorkflow';
 import { seedLicenseCaseTemplate } from './licenseCaseTemplate';
 import { seedLicensesMenu } from './licensesMenu';
+import { seedFieldValidations } from './fieldValidations';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -30,6 +31,7 @@ import { seedLicensesMenu } from './licensesMenu';
 
 export async function seedMasters(db: Database): Promise<void> {
   // Independent foundational masters.
+  await seedFieldValidations(db);
   await seedLicenseTypes(db);
   await seedLicenseStatuses(db);
   await seedLicenseRules(db);
@@ -53,6 +55,7 @@ export async function seedMasters(db: Database): Promise<void> {
 }
 
 export {
+  seedFieldValidations,
   seedLicenseTypes,
   seedLicenseStatuses,
   seedLicenseRules,
