@@ -101,11 +101,18 @@ export async function listTransitions(
   return workflow.transitions.filter((t) => t.fromState === fromState);
 }
 
-export function buildRuleContext(context: TransitionContext): Record<string, unknown> {
+export function buildRuleContext(
+  context: TransitionContext,
+  now: string = new Date().toISOString(),
+): Record<string, unknown> {
+  // `now` is an ISO 8601 timestamp computed once per transition so every
+  // set_field action sees the same value (atomic). Override at the call
+  // site for deterministic tests.
   return {
     entity: context.entity,
     actor: { userId: context.actorUserId },
     payload: context.payload ?? {},
+    now,
   };
 }
 

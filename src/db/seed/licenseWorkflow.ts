@@ -81,6 +81,14 @@ export async function seedLicenseWorkflow(db: Database | Transaction): Promise<v
           field: 'approved_by',
           value: { var: 'actor.userId' },
         },
+        {
+          // ISO timestamp from buildRuleContext — Postgres accepts ISO 8601
+          // strings as timestamp values, so this lands in the timestamp col
+          // without further conversion.
+          type: 'set_field',
+          field: 'approved_at',
+          value: { var: 'now' },
+        },
       ],
     },
     {

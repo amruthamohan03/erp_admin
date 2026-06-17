@@ -7,26 +7,47 @@ import { applyRule } from '@/engine/rules';
 // rule-gate logic end-to-end at the wire boundary the master config will see.
 
 describe('buildRuleContext', () => {
-  it('exposes entity / actor / payload to JSON Logic vars', () => {
+  const FIXED_NOW = '2026-06-01T12:00:00.000Z';
+
+  it('exposes entity / actor / payload / now to JSON Logic vars', () => {
     const tx: TransitionContext = {
       entity: { id: 7, status: 'draft', amount: 1500 },
       actorUserId: 42,
       payload: { reason: 'manual override' },
     };
-    const ctx = buildRuleContext(tx);
+    const ctx = buildRuleContext(tx, FIXED_NOW);
     expect(ctx).toEqual({
       entity: { id: 7, status: 'draft', amount: 1500 },
       actor: { userId: 42 },
       payload: { reason: 'manual override' },
+      now: FIXED_NOW,
     });
   });
 
   it('defaults payload to {} when not provided', () => {
-    const ctx = buildRuleContext({
-      entity: { id: 1 },
-      actorUserId: 1,
-    });
+    const ctx = buildRuleContext(
+      { entity: { id: 1 }, actorUserId: 1 },
+      FIXED_NOW,
+    );
     expect(ctx.payload).toEqual({});
+  });
+
+  it('defaults now to current ISO timestamp when not overridden', () => {
+    const before = Date.now();
+    const ctx = buildRuleContext({ entity: {}, actorUserId: 1 });
+    const after = Date.now();
+    expect(typeof ctx.now).toBe('string');
+    const nowMs = new Date(ctx.now as string).getTime();
+    expect(nowMs).toBeGreaterThanOrEqual(before);
+    expect(nowMs).toBeLessThanOrEqual(after);
+  });
+
+  it('exposes now as a JSON Logic var (action_json can read it)', () => {
+    const ctx = buildRuleContext(
+      { entity: {}, actorUserId: 1 },
+      FIXED_NOW,
+    );
+    expect(applyRule({ var: 'now' }, ctx)).toBe(FIXED_NOW);
   });
 });
 
