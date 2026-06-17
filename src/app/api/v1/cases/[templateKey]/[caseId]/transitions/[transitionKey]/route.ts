@@ -47,6 +47,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     caseId,
     transitionKey,
     actorUserId: session.uid,
+    actorRoleId: session.role_id,
     payload: parsed?.payload,
   });
   return ok(result);

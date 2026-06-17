@@ -9,6 +9,7 @@ import {
 import { ForbiddenError, NotFoundError } from '@/lib/errors';
 import { applyRule, loadRuleById } from '@/engine/rules';
 import {
+  applyApprovalGates,
   collectFieldUpdates,
   parseActions,
   sideEffectDescriptors,
@@ -29,9 +30,13 @@ export * from './actions';
 //   2. If transition.rule_id is set, evaluate the gate rule against the rule
 //      context — falsy throws ForbiddenError. (JSON Logic, §4.2.)
 //   3. Parse transition.action_json into typed Action[].
-//   4. Collect a field-patch from `set_field` actions, evaluating each value
-//      via applyRule so rules can read entity / actor / payload.
-//   5. Collect side-effect descriptors (notify, …) for the caller to dispatch
+//   4. Apply approval gates — any `approval` action loads its hierarchy and
+//      throws ForbiddenError if the actor's role can't grant the named level.
+//      Runs before patch / side-effect collection so a denied approval never
+//      writes anything to the entity.
+//   5. Collect a field-patch from `set_field` actions, evaluating each value
+//      via applyRule so rules can read entity / actor / payload / now.
+//   6. Collect side-effect descriptors (notify, …) for the caller to dispatch
 //      after its UPDATE commits.
 //
 // executeTransition returns the **execution plan** rather than writing —
@@ -54,6 +59,11 @@ export interface TransitionContext {
   entity: Record<string, unknown>;
   /** Caller identity for audit + rule evaluation. */
   actorUserId: number;
+  /**
+   * Caller's role_id. Used by `approval` actions to check canApproveAtLevel
+   * and surfaced to rule_json as `{ var: "actor.roleId" }`.
+   */
+  actorRoleId: number;
   /** Free-form extra inputs (form data, request body, …). */
   payload?: Record<string, unknown>;
 }
@@ -110,7 +120,7 @@ export function buildRuleContext(
   // site for deterministic tests.
   return {
     entity: context.entity,
-    actor: { userId: context.actorUserId },
+    actor: { userId: context.actorUserId, roleId: context.actorRoleId },
     payload: context.payload ?? {},
     now,
   };
@@ -141,6 +151,12 @@ export async function executeTransition(
   }
 
   const actions = parseActions(transition.actionJson);
+
+  // Approval gates — any `approval` action loads its hierarchy and checks
+  // canApproveAtLevel against the actor's role. Throws ForbiddenError on
+  // miss, which aborts the transition before any state is written.
+  await applyApprovalGates(actions, ruleContext);
+
   const patch = collectFieldUpdates(actions, ruleContext);
   const sideEffects = sideEffectDescriptors(actions, ruleContext);
 

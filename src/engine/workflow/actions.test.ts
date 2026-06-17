@@ -4,8 +4,11 @@ import {
   parseActions,
   collectFieldUpdates,
   sideEffectDescriptors,
+  checkApprovalGate,
   type Action,
 } from './actions';
+import { ForbiddenError } from '@/lib/errors';
+import type { ApprovalStage } from '@/lib/approvalHierarchy';
 import { buildRuleContext } from './index';
 
 describe('parseActions', () => {
@@ -71,6 +74,7 @@ describe('collectFieldUpdates', () => {
   const ruleContext = buildRuleContext({
     entity: { id: 7, amount: 1000 },
     actorUserId: 42,
+    actorRoleId: 1,
     payload: { note: 'looks good' },
   });
 
@@ -123,6 +127,7 @@ describe('sideEffectDescriptors', () => {
   const ruleContext = buildRuleContext({
     entity: { email: 'client@example.com' },
     actorUserId: 1,
+    actorRoleId: 1,
   });
 
   it('resolves notify.to via applyRule and emits one descriptor per notify', () => {
@@ -149,5 +154,70 @@ describe('sideEffectDescriptors', () => {
       { type: 'set_field', field: 'x', value: 1 },
     ];
     expect(sideEffectDescriptors(actions, ruleContext)).toEqual([]);
+  });
+});
+
+describe('parseActions — approval', () => {
+  it('accepts an approval action with hierarchyKey + level', () => {
+    expect(() =>
+      parseActions([
+        { type: 'approval', hierarchyKey: 'pr_default', level: 2 },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('rejects level < 1 (1-based per the schema)', () => {
+    expect(() =>
+      parseActions([
+        { type: 'approval', hierarchyKey: 'pr_default', level: 0 },
+      ]),
+    ).toThrow(ZodError);
+  });
+
+  it('rejects missing hierarchyKey', () => {
+    expect(() =>
+      parseActions([{ type: 'approval', level: 1 }]),
+    ).toThrow(ZodError);
+  });
+});
+
+describe('checkApprovalGate (pure)', () => {
+  const hierarchy: ApprovalStage[] = [
+    { role_id: 5, level: 1, label: 'Dept Head' },
+    { role_id: 12, level: 2, label: 'Finance' },
+    { role_id: 30, level: 3, label: 'CEO' },
+  ];
+
+  it('allows the actor when their role matches the requested level', () => {
+    expect(() => checkApprovalGate('pr', hierarchy, 5, 1)).not.toThrow();
+    expect(() => checkApprovalGate('pr', hierarchy, 12, 2)).not.toThrow();
+    expect(() => checkApprovalGate('pr', hierarchy, 30, 3)).not.toThrow();
+  });
+
+  it("throws ForbiddenError when the actor's role is at the wrong level", () => {
+    expect(() => checkApprovalGate('pr', hierarchy, 12, 1)).toThrow(
+      ForbiddenError,
+    );
+    expect(() => checkApprovalGate('pr', hierarchy, 5, 2)).toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it('throws for unknown roles', () => {
+    expect(() => checkApprovalGate('pr', hierarchy, 999, 1)).toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it('throws when actorRoleId is undefined (missing from context)', () => {
+    expect(() => checkApprovalGate('pr', hierarchy, undefined, 1)).toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it('throws when granting a level past the chain', () => {
+    expect(() => checkApprovalGate('pr', hierarchy, 30, 4)).toThrow(
+      ForbiddenError,
+    );
   });
 });

@@ -46,6 +46,7 @@ export interface AdvanceCaseInput {
   caseId: number;
   transitionKey: string;
   actorUserId: number;
+  actorRoleId: number;
   payload?: Record<string, unknown>;
 }
 
@@ -272,6 +273,7 @@ export async function advanceCase(input: AdvanceCaseInput): Promise<AdvanceCaseR
       {
         entity,
         actorUserId: input.actorUserId,
+        actorRoleId: input.actorRoleId,
         payload: input.payload,
       },
     );
