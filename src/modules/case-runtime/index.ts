@@ -59,6 +59,64 @@ export interface AdvanceCaseResult {
   sideEffects: SideEffectDescriptor[];
 }
 
+export interface ListCasesInput {
+  templateKey: string;
+  /** 1-based. Defaults to 1. */
+  page?: number;
+  /** Defaults to 20. Capped at 100. */
+  pageSize?: number;
+  /** Filter to rows whose `state` column matches. */
+  state?: string;
+}
+
+export interface ListCasesResult {
+  items: Array<Record<string, unknown>>;
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Paginated list of case rows from a template's target_table. Filters by
+ * display='Y' always (matches the master-soft-delete convention) and by
+ * state when provided. Ordered newest-first by id.
+ */
+export async function listCases(input: ListCasesInput): Promise<ListCasesResult> {
+  const loaded = await loadTemplate(input.templateKey);
+  const targetTable = loaded.template.targetTable;
+  const page = Math.max(1, input.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 20));
+  const offset = (page - 1) * pageSize;
+
+  // Conditions composed via sql.join so the WHERE clause stays parameterised
+  // even when filters drop in/out. display='Y' is always present; state is
+  // optional.
+  const conds = [sql`display = 'Y'`];
+  if (input.state) conds.push(sql`state = ${input.state}`);
+  const where = sql.join(conds, sql` AND `);
+
+  const countResult = await db.execute(sql`
+    SELECT count(*)::int AS total FROM ${sql.identifier(targetTable)}
+    WHERE ${where}
+  `);
+  const countRow = (countResult.rows ?? [])[0] as { total?: number } | undefined;
+  const total = Number(countRow?.total ?? 0);
+
+  const result = await db.execute(sql`
+    SELECT * FROM ${sql.identifier(targetTable)}
+    WHERE ${where}
+    ORDER BY id DESC
+    LIMIT ${pageSize} OFFSET ${offset}
+  `);
+
+  return {
+    items: (result.rows ?? []) as Array<Record<string, unknown>>,
+    total,
+    page,
+    pageSize,
+  };
+}
+
 export interface ReadCaseInput {
   templateKey: string;
   caseId: number;

@@ -933,6 +933,30 @@ function buildRegistry(): OpenAPIRegistry {
   });
 
   registry.registerPath({
+    method: 'get',
+    path: '/cases/{templateKey}',
+    summary:
+      'Paginated list of case rows from template.target_table. Optional ?state filter.',
+    tags: ['cases'],
+    request: {
+      params: z.object({ templateKey: z.string() }),
+      query: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        state: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: jsonPaginated(
+        'Case rows (entity column set is template-specific)',
+        z.record(z.string(), z.unknown()),
+      ),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Template not found'),
+    },
+  });
+
+  registry.registerPath({
     method: 'post',
     path: '/cases/{templateKey}',
     summary:

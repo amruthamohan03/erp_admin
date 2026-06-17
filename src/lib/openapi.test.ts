@@ -26,7 +26,7 @@ const EXPECTED_PATHS: Record<string, ReadonlyArray<string>> = {
   '/role-menu-mapping': ['get', 'put'],
   '/role-dashboard-card-mapping': ['get', 'put'],
   '/forms/{formKey}': ['get'],
-  '/cases/{templateKey}': ['post'],
+  '/cases/{templateKey}': ['get', 'post'],
   '/cases/{templateKey}/{caseId}': ['get'],
   '/cases/{templateKey}/{caseId}/transitions/{transitionKey}': ['post'],
 };
