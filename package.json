@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:introspect": "drizzle-kit introspect",
+    "db:seed": "tsx scripts/db-seed.ts",
     "seed": "node scripts/seed-admin.js",
     "openapi": "tsx scripts/generate-openapi.ts",
     "test": "vitest run",
