@@ -22,6 +22,7 @@ export default function UsersPage() {
   // src/components/ui/PaginationFooter.tsx).
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -44,7 +45,10 @@ export default function UsersPage() {
     }
   }, [page, pageSize, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   useEffect(() => {
     fetch('/api/v1/roles')

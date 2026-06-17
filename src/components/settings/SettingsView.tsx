@@ -36,6 +36,7 @@ export default function SettingsView() {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Save, Search, ShieldCheck } from 'lucide-react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
@@ -46,8 +46,9 @@ export default function RoleToMenuPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Load roles once.
+  // Load roles once on mount.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingRoles(true);
     fetch('/api/v1/roles')
       .then((r) => r.json())
@@ -81,8 +82,10 @@ export default function RoleToMenuPage() {
     }
   }, []);
 
+  // Refetch the mapping whenever the chosen role changes.
   useEffect(() => {
     if (!roleId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRows([]);
       setDirty(false);
       return;
@@ -132,16 +135,17 @@ export default function RoleToMenuPage() {
   // Pagination + search operate on the displayed slice only. The full `rows`
   // array still backs the save payload, so toggling permissions on page 2 and
   // saving on page 1 still persists everything.
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) =>
-        r.menu_name?.toLowerCase().includes(q) ||
-        r.url?.toLowerCase().includes(q) ||
-        r.parent_name?.toLowerCase().includes(q),
-    );
-  }, [rows, search]);
+  // (React Compiler memoizes this automatically — explicit useMemo blocks its
+  // analysis here.)
+  const q = search.trim().toLowerCase();
+  const filtered = !q
+    ? rows
+    : rows.filter(
+        (r) =>
+          r.menu_name?.toLowerCase().includes(q) ||
+          r.url?.toLowerCase().includes(q) ||
+          r.parent_name?.toLowerCase().includes(q),
+      );
 
   const {
     page,
@@ -158,20 +162,18 @@ export default function RoleToMenuPage() {
 
   // Column "select all" applies to the filtered set so the user can scope it
   // with the search box — clicking "View ✓" while filtered toggles every match.
-  const columnAllOn = useMemo(() => {
-    const map: Record<PermKey, boolean> = {
-      can_view: false,
-      can_add: false,
-      can_edit: false,
-      can_delete: false,
-      can_approve: false,
-    };
-    if (filtered.length === 0) return map;
+  const columnAllOn: Record<PermKey, boolean> = {
+    can_view: false,
+    can_add: false,
+    can_edit: false,
+    can_delete: false,
+    can_approve: false,
+  };
+  if (filtered.length > 0) {
     for (const c of PERM_COLUMNS) {
-      map[c.key] = filtered.every((r) => r[c.key]);
+      columnAllOn[c.key] = filtered.every((r) => r[c.key]);
     }
-    return map;
-  }, [filtered]);
+  }
 
   async function handleSave() {
     if (!roleId) return;

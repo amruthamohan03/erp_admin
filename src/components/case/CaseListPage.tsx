@@ -73,8 +73,10 @@ export function CaseListPage({
   const [mounted, setMounted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // Hydration guard — pagination UI gates itself on `mounted` to avoid SSR
+  // mismatch. See [src/components/ui/PaginationFooter.tsx].
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -102,7 +104,10 @@ export function CaseListPage({
     }
   }, [templateKey, page, pageSize, state]);
 
+  // Re-fetch when the filter / page changes. `load` is memoized via useCallback
+  // so this only fires when one of its inputs actually changes.
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

@@ -27,7 +27,10 @@ export default function RolesPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

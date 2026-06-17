@@ -17,7 +17,9 @@ export function ThemeToggle(): React.ReactElement {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
+  // next-themes hydration guard — see "Avoid Hydration Mismatch" in their docs.
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

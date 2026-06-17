@@ -33,7 +33,9 @@ export default function RoleToDashboardCardPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Load roles once on mount.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingRoles(true);
     fetch('/api/v1/roles')
       .then((r) => r.json())
@@ -68,8 +70,10 @@ export default function RoleToDashboardCardPage() {
     }
   }, []);
 
+  // Refetch the mapping whenever the chosen role changes.
   useEffect(() => {
     if (!roleId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRows([]);
       setDirty(false);
       return;

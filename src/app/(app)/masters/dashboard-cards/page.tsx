@@ -70,7 +70,9 @@ export default function DashboardCardsPage() {
     }
   }, [showHidden]);
 
+  // Re-fetch the card list whenever the showHidden filter flips (via load deps).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

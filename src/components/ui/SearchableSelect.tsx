@@ -61,12 +61,13 @@ export default function SearchableSelect({
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  // Reset search & focus on open
+  // Reset search & focus when the panel opens. The setState here is in response
+  // to a prop transition (open false → true), not a cascading render cycle.
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery('');
       setHighlight(0);
-      // Focus after the panel renders.
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);

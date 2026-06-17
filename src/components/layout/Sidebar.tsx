@@ -47,8 +47,11 @@ export default function Sidebar() {
     return null;
   }, [menus, pathname]);
 
+  // Auto-open the group containing the active route. setState is guarded so it's
+  // a no-op once the group is already open — no cascading render loop.
   useEffect(() => {
     if (activeParentId != null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpenGroups((prev) => {
         if (prev.has(activeParentId)) return prev;
         const next = new Set(prev);

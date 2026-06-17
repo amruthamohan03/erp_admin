@@ -86,7 +86,9 @@ export function CaseDetailPage({
     }
   }, [templateKey, caseId]);
 
+  // Reload when the caseId / templateKey props change. `load` is memoized.
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

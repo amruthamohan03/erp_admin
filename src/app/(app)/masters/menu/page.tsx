@@ -34,7 +34,9 @@ export default function MenuPage() {
     }
   }, [showHidden]);
 
+  // Re-fetch the menu list whenever the showHidden filter flips (via load deps).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

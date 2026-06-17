@@ -48,8 +48,8 @@ export function usePagedList<T>(
   // `mounted` flips from server (false) → client (true) so PaginationFooter can
   // gate itself and avoid hydration mismatch. There is no purely-derived form
   // of this — setState-in-effect is the canonical React idiom for it.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

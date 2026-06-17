@@ -180,7 +180,6 @@ export async function dispatchPendingNotifications(
  */
 export const consoleChannel: NotificationChannel = {
   async send(row) {
-    // eslint-disable-next-line no-console
     console.log(
       `[notify] [${row.channel}] → ${row.recipient}` +
         ` (template=${row.template}${row.caseId != null ? `, caseId=${row.caseId}` : ''})`,
@@ -199,7 +198,6 @@ export const consoleChannel: NotificationChannel = {
  */
 export function buildDefaultChannels(): Record<string, NotificationChannel> {
   // Lazy require to avoid pulling nodemailer into modules that never need it.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { buildSmtpEmailChannel } = require('./notificationChannels/email') as typeof import('./notificationChannels/email');
   return {
     email: buildSmtpEmailChannel() ?? consoleChannel,
