@@ -7,6 +7,7 @@ import {
   listTransitions,
   type SideEffectDescriptor,
 } from '@/engine/workflow';
+import type { WorkflowTransitionMasterRow } from '@/db/schema';
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
 
 // Generic case runtime per root CLAUDE.md §4.3.
@@ -56,6 +57,61 @@ export interface AdvanceCaseResult {
   newState: string;
   /** Notify / outbox descriptors — the caller dispatches after this returns. */
   sideEffects: SideEffectDescriptor[];
+}
+
+export interface ReadCaseInput {
+  templateKey: string;
+  caseId: number;
+}
+
+export interface ReadCaseResult {
+  caseId: number;
+  templateKey: string;
+  state: string;
+  /** Raw row from the dynamic target_table — schema is per-entity. */
+  entity: Record<string, unknown>;
+  /** Transitions whose from_state matches the entity's current state. */
+  availableTransitions: WorkflowTransitionMasterRow[];
+}
+
+/**
+ * Read one case row from its target_table plus the transitions a caller
+ * could invoke from its current state. Used by detail pages and any client
+ * that needs to render advance buttons.
+ */
+export async function readCase(input: ReadCaseInput): Promise<ReadCaseResult> {
+  const loaded = await loadTemplate(input.templateKey);
+  const targetTable = loaded.template.targetTable;
+
+  const result = await db.execute(sql`
+    SELECT * FROM ${sql.identifier(targetTable)}
+    WHERE id = ${input.caseId}
+    LIMIT 1
+  `);
+  const entityRow = (result.rows ?? [])[0];
+  if (!entityRow) {
+    throw new NotFoundError(`Case ${input.caseId} not found in ${targetTable}`);
+  }
+  const entity = entityRow as Record<string, unknown>;
+  const state = entity.state;
+  if (typeof state !== 'string') {
+    throw new BadRequestError(
+      `Entity in ${targetTable} has no string 'state' column`,
+    );
+  }
+
+  const availableTransitions = await listTransitions(
+    loaded.workflow.workflowKey,
+    state,
+  );
+
+  return {
+    caseId: input.caseId,
+    templateKey: input.templateKey,
+    state,
+    entity,
+    availableTransitions,
+  };
 }
 
 export async function describeTemplate(templateKey: string): Promise<{
