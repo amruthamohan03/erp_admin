@@ -10,6 +10,10 @@ export default defineConfig({
       'src/**/*.{test,spec}.{ts,tsx}',
       'src/**/__tests__/**/*.{test,spec}.{ts,tsx}',
     ],
+    // Integration tests live in *.integration.test.ts and need the DB
+    // harness from vitest.integration.config.ts. Excluding them here keeps
+    // `npm run test` fast for unit-only workflows.
+    exclude: ['**/node_modules/**', '**/*.integration.test.ts'],
   },
   resolve: {
     alias: {
