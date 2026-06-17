@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/db';
+import { seedFieldValidations } from './fieldValidations';
 import { seedLicenseTypes } from './licenseTypes';
 import { seedLicenseStatuses } from './licenseStatuses';
 import { seedLicenseRules } from './licenseRules';
@@ -6,7 +7,10 @@ import { seedLicenseForm } from './licenseForm';
 import { seedLicenseWorkflow } from './licenseWorkflow';
 import { seedLicenseCaseTemplate } from './licenseCaseTemplate';
 import { seedLicensesMenu } from './licensesMenu';
-import { seedFieldValidations } from './fieldValidations';
+import { seedInvoiceStatuses } from './invoiceStatuses';
+import { seedInvoiceForm } from './invoiceForm';
+import { seedInvoiceWorkflow } from './invoiceWorkflow';
+import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -16,41 +20,35 @@ import { seedFieldValidations } from './fieldValidations';
 //   2. a call from seedMasters() below in the right order.
 //
 // Ordering rules:
-//   * Pure masters (no FK to other seeds) can run in any order — they're
-//     listed alphabetically.
+//   * Pure masters (no FK to other seeds) can run in any order.
 //   * Seeds that depend on other seeds' rows (looked up by natural key)
-//     must come after their dependency. Today: license_workflow depends on
-//     license_rules; license_case_template depends on license_form +
-//     license_workflow.
+//     must come after their dependency. Today the license/invoice modules
+//     follow the same shape: statuses + rules → form → workflow → case
+//     template.
 //
 // Seeds are idempotent (onConflictDoUpdate on the natural key) so
 // re-running against a populated DB just refreshes the rows.
-//
-// The full runner lives in scripts/seed-admin.js (legacy admin-user seed) —
-// the migration to scripts/seed.ts that calls seedMasters() is a follow-up.
 
 export async function seedMasters(db: Database): Promise<void> {
   // Independent foundational masters.
   await seedFieldValidations(db);
   await seedLicenseTypes(db);
+
+  // --- License module (§2 step 2) -------------------------------------
   await seedLicenseStatuses(db);
   await seedLicenseRules(db);
-
-  // Form definition + fields for license creation.
   await seedLicenseForm(db);
+  await seedLicenseWorkflow(db);  // depends on licenseRules
+  await seedLicenseCaseTemplate(db); // depends on licenseForm + licenseWorkflow
 
-  // Workflow + transitions; the approve transition references
-  // license.no_self_approve, so rules must be seeded first.
-  await seedLicenseWorkflow(db);
+  // --- Invoice module (§2 step 4) -------------------------------------
+  await seedInvoiceStatuses(db);
+  await seedInvoiceForm(db);       // depends on fieldValidations (iso.currency_code)
+  await seedInvoiceWorkflow(db);
+  await seedInvoiceCaseTemplate(db); // depends on invoiceForm + invoiceWorkflow
 
-  // Glue: ties license_create form + license_default workflow + license_t
-  // target. Must come last.
-  await seedLicenseCaseTemplate(db);
-
-  // Sidebar entry for /licenses + admin-role permission grant. Independent
-  // of the rest (it touches menu_master_t + role_menu_mapping_t) so order
-  // doesn't matter — keep last so the navigation light up after everything
-  // it points at is real.
+  // Sidebar entry + permission grants. Last so the navigation lights up
+  // only after every route it points at is real.
   await seedLicensesMenu(db);
 }
 
@@ -63,4 +61,8 @@ export {
   seedLicenseWorkflow,
   seedLicenseCaseTemplate,
   seedLicensesMenu,
+  seedInvoiceStatuses,
+  seedInvoiceForm,
+  seedInvoiceWorkflow,
+  seedInvoiceCaseTemplate,
 };

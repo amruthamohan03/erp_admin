@@ -99,6 +99,13 @@
       "when": 1781717656205,
       "tag": "0013_add_tracking_template_master",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781717915113,
+      "tag": "0014_add_invoice_entity",
+      "breakpoints": true
     }
   ]
 }
