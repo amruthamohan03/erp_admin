@@ -189,9 +189,30 @@ export const consoleChannel: NotificationChannel = {
 };
 
 /**
- * Sensible defaults for `npm run dispatch:notifications`: every supported
- * channel falls back to the console handler. Provider-backed implementations
- * override entries here.
+ * Sensible defaults for `npm run dispatch:notifications`:
+ *   email  — SMTP via nodemailer when SMTP_HOST is set, else console
+ *   sms    — console stub (Twilio / Vonage / etc. = follow-up slice)
+ *   in_app — console stub (notifications_t table + UI = follow-up slice)
+ *
+ * Provider-backed implementations replace these entries (e.g. swap email
+ * for a SendGrid SDK channel) inside scripts/dispatch-notifications.ts.
+ */
+export function buildDefaultChannels(): Record<string, NotificationChannel> {
+  // Lazy require to avoid pulling nodemailer into modules that never need it.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { buildSmtpEmailChannel } = require('./notificationChannels/email') as typeof import('./notificationChannels/email');
+  return {
+    email: buildSmtpEmailChannel() ?? consoleChannel,
+    sms: consoleChannel,
+    in_app: consoleChannel,
+  };
+}
+
+/**
+ * @deprecated Use buildDefaultChannels() — the function form picks up
+ * SMTP_HOST etc. at call time so env changes during a process's lifetime
+ * (e.g. dotenv reloads) take effect. Kept as a const for now in case any
+ * code is importing it directly.
  */
 export const defaultChannels: Record<string, NotificationChannel> = {
   email: consoleChannel,

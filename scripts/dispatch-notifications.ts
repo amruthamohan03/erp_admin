@@ -1,16 +1,18 @@
 import { db, pool } from '@/lib/db';
 import {
   dispatchPendingNotifications,
-  defaultChannels,
+  buildDefaultChannels,
 } from '@/lib/notifications';
 
 // `npm run dispatch:notifications` entry point.
 //
 // Pulls one batch of pending notification_outbox_t rows and sends them via
-// the configured channels (console by default — swap in provider-backed
-// handlers in this file once SES / SendGrid / Twilio / etc. credentials
-// are wired). Exit code 0 on success regardless of per-row failures —
-// they're recorded in last_error and retried on the next run.
+// buildDefaultChannels(), which picks up SMTP_HOST from the env at call
+// time: real SMTP via nodemailer if set, console fallback otherwise. SMS
+// + in-app stay on consoleChannel — provider wire-up is a future slice.
+//
+// Exit code 0 on success regardless of per-row failures — they're recorded
+// in last_error and retried on the next run.
 //
 // Intended to be called from cron or a job runner every minute or so. The
 // per-row UPDATE means concurrent invocations don't double-send unless a
@@ -20,7 +22,7 @@ import {
 
 async function main(): Promise<void> {
   const r = await dispatchPendingNotifications(db, {
-    channels: defaultChannels,
+    channels: buildDefaultChannels(),
   });
   console.log(
     `[dispatch] attempted=${r.attempted} sent=${r.sent} failed=${r.failed} ` +
