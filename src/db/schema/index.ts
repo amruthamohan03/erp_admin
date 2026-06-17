@@ -8,3 +8,8 @@ export * from './rules';
 export * from './workflow';
 export * from './forms';
 export * from './caseTemplate';
+export * from './clients';
+export * from './status';
+export * from './documentTypes';
+export * from './licenseTypes';
+export * from './license';
