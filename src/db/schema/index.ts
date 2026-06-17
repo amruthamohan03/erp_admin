@@ -18,3 +18,4 @@ export * from './featureToggles';
 export * from './fieldValidations';
 export * from './notificationOutbox';
 export * from './approvalHierarchy';
+export * from './trackingTemplates';

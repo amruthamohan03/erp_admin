@@ -46,6 +46,7 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | `feature_toggle_master_t` | [src/db/schema/featureToggles.ts](../src/db/schema/featureToggles.ts) | [0009_add_feature_toggle_master.sql](../drizzle/0009_add_feature_toggle_master.sql) | Global on/off switches. Callers consult `isFeatureEnabled(toggleKey, fallback?)` from [src/lib/featureToggles.ts](../src/lib/featureToggles.ts); a missing row or `display='N'` returns the fallback. Per-role / per-user scoping is deliberately deferred. |
 | `field_validation_master_t` | [src/db/schema/fieldValidations.ts](../src/db/schema/fieldValidations.ts) | [0010_add_field_validation_master.sql](../drizzle/0010_add_field_validation_master.sql) | Reusable regex validations keyed by `validation_key` (e.g. `drc.phone`, `drc.tin`). `loadFieldValidation(key)` + `isValid(key, value)` in [src/lib/fieldValidations.ts](../src/lib/fieldValidations.ts) load and apply. Resolved by `loadForm` so `validation_json: { "validationKey": "drc.phone" }` inlines `pattern` + `errorMessage` before `buildFieldZodSchema` runs. |
 | `approval_hierarchy_master_t` | [src/db/schema/approvalHierarchy.ts](../src/db/schema/approvalHierarchy.ts) | [0012_add_approval_hierarchy_master.sql](../drizzle/0012_add_approval_hierarchy_master.sql) | Named multi-stage approval chains for §2 step 6 (Payment Request). `stages_json` is an ordered `[{ role_id, level, label }]` array; [src/lib/approvalHierarchy.ts](../src/lib/approvalHierarchy.ts) exposes `loadApprovalHierarchy`, `parseStages`, `nextApprovalStages`, `canApproveAtLevel`, `maxApprovalLevel`. Workflow rules consult `canApproveAtLevel` as the gate. |
+| `tracking_template_master_t` | [src/db/schema/trackingTemplates.ts](../src/db/schema/trackingTemplates.ts) | [0013_add_tracking_template_master.sql](../drizzle/0013_add_tracking_template_master.sql) | One row per tracking flavour (Import / Export). `milestones_json` is an ordered `[{ key, label, order }]` array; [src/lib/trackingTemplates.ts](../src/lib/trackingTemplates.ts) exposes `loadTrackingTemplate`, `parseMilestones`, `orderedMilestones`, `nextMilestone`, `trackingProgress`. FK to `license_type_master_t.id` so each license kind drives its own flow. Fiche de Calcul math lives separately in `tax_rule_master_t.formula`. |
 
 ## Other tables
 
@@ -53,11 +54,7 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | ----- | ----------- | --------- | ------- |
 | `notification_outbox_t` | [src/db/schema/notificationOutbox.ts](../src/db/schema/notificationOutbox.ts) | [0011_add_notification_outbox.sql](../drizzle/0011_add_notification_outbox.sql) | Transactional outbox for `notify` side effects. `case-runtime/advanceCase` writes rows here in the same transaction as the entity UPDATE — a dispatcher worker polls `status='pending'`. |
 
-## Pending — domain masters
-
-Still referenced in CLAUDE.md §2/§4.1 but not yet schema'd:
-
-- [ ] `tracking_template_master_t`
+> **Every master table the spec called out (CLAUDE.md §4.1 / §2) is now schema'd.** Future work is about wiring them up (seeding workflows for tracking / payment request / approval, building the dispatcher worker), not adding more tables.
 
 ## Conventions
 

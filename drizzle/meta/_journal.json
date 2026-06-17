@@ -92,6 +92,13 @@
       "when": 1781717339774,
       "tag": "0012_add_approval_hierarchy_master",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781717656205,
+      "tag": "0013_add_tracking_template_master",
+      "breakpoints": true
     }
   ]
 }
