@@ -17,3 +17,4 @@ export * from './fiche-de-calcul';
 export * from './form-field-grants';
 export * from './clients';
 export * from './offices';
+export * from './seals';
