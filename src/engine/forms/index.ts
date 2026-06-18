@@ -7,9 +7,10 @@ import {
   type FormFieldRow,
 } from '@/db/schema';
 import { NotFoundError } from '@/lib/errors';
-import { resolveValidationKeys } from './validation';
+import { resolveValidationKeys } from './resolveValidation';
 
 export * from './validation';
+export { resolveValidationKey, resolveValidationKeys } from './resolveValidation';
 
 // Dynamic form runtime per root CLAUDE.md §4.5.
 //
