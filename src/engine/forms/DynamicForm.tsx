@@ -8,7 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { FormFieldRow } from '@/db/schema';
-import type { FormDefinitionWithFields } from './index';
+import type {
+  FormDefinitionWithFields,
+  FormFieldWithPermission,
+} from './index';
 import { buildFormZodSchema } from './validation';
 
 // React renderer for a form_definition_master_t + form_field_master_t form,
@@ -126,8 +129,14 @@ export function DynamicForm({
     e.preventDefault();
     setErrors({});
     setSubmitError(null);
-    const validator = buildFormZodSchema(form.fields);
-    const result = validator.safeParse(values);
+    // Skip view-only fields: the user can't edit them and the server
+    // rejects writes to them. Validating their content here would just
+    // surface spurious required errors for empty disabled inputs.
+    const editable = form.fields.filter((f) => f.permission !== 'view');
+    const validator = buildFormZodSchema(editable);
+    const payload: Record<string, unknown> = {};
+    for (const f of editable) payload[f.fieldKey] = values[f.fieldKey];
+    const result = validator.safeParse(payload);
     if (!result.success) {
       const flat = result.error.flatten();
       const errs: Record<string, string> = {};
@@ -175,7 +184,7 @@ function FieldRow({
   onChange,
   error,
 }: {
-  field: FormFieldRow;
+  field: FormFieldWithPermission;
   value: unknown;
   onChange: (v: unknown) => void;
   error?: string;
@@ -189,13 +198,26 @@ function FieldRow({
       />
     );
   }
+  const isReadOnly = field.permission === 'view';
   return (
     <div className="space-y-1.5">
       <Label htmlFor={field.fieldKey}>
         {field.label}
-        {field.required && <span className="text-destructive ms-1">*</span>}
+        {field.required && !isReadOnly && (
+          <span className="text-destructive ms-1">*</span>
+        )}
+        {isReadOnly && (
+          <span className="ms-2 text-xs uppercase tracking-wide text-muted-foreground">
+            read-only
+          </span>
+        )}
       </Label>
-      <FieldInput field={field} value={value} onChange={onChange} />
+      <FieldInput
+        field={field}
+        value={value}
+        onChange={onChange}
+        disabled={isReadOnly}
+      />
       {field.helpText && !error && (
         <p className="text-xs text-muted-foreground">{field.helpText}</p>
       )}
@@ -212,10 +234,12 @@ function FieldInput({
   field,
   value,
   onChange,
+  disabled,
 }: {
   field: FormFieldRow;
   value: unknown;
   onChange: (v: unknown) => void;
+  disabled?: boolean;
 }) {
   const id = field.fieldKey;
   switch (field.fieldType) {
@@ -228,6 +252,7 @@ function FieldInput({
           type={field.fieldType === 'text' ? 'text' : field.fieldType}
           value={(value as string | undefined) ?? ''}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       );
     case 'number':
@@ -244,6 +269,7 @@ function FieldInput({
               onChange(Number.isFinite(n) ? n : raw);
             }
           }}
+          disabled={disabled}
         />
       );
     case 'date':
@@ -253,6 +279,7 @@ function FieldInput({
           type="date"
           value={(value as string | undefined) ?? ''}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       );
     case 'datetime':
@@ -262,6 +289,7 @@ function FieldInput({
           type="datetime-local"
           value={(value as string | undefined) ?? ''}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       );
     case 'textarea':
@@ -270,6 +298,7 @@ function FieldInput({
           id={id}
           value={(value as string | undefined) ?? ''}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       );
     case 'checkbox':
@@ -278,6 +307,7 @@ function FieldInput({
           id={id}
           checked={Boolean(value)}
           onCheckedChange={(v) => onChange(v)}
+          disabled={disabled}
         />
       );
     case 'select': {
@@ -288,6 +318,7 @@ function FieldInput({
           onChange={(v) => onChange(v)}
           options={options}
           placeholder={field.helpText ?? 'Select…'}
+          disabled={disabled}
         />
       );
     }

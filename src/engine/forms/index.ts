@@ -32,8 +32,19 @@ export { resolveValidationKey, resolveValidationKeys } from './resolveValidation
 // Not re-exported here because this index module is server-safe and we don't
 // want a stray 'use client' to land in server bundles.
 
+/**
+ * A form field plus its grant-resolved permission for the current actor.
+ * `permission` is optional so existing consumers (tests, integration paths
+ * that don't go through the route) keep working with plain FormFieldRow[].
+ * When present, 'view' means render the input disabled and skip from
+ * client-side validation / submission; 'edit' is the default behavior.
+ */
+export type FormFieldWithPermission = FormFieldRow & {
+  permission?: 'view' | 'edit';
+};
+
 export interface FormDefinitionWithFields extends FormDefinitionRow {
-  fields: FormFieldRow[];
+  fields: FormFieldWithPermission[];
 }
 
 export async function loadForm(formKey: string): Promise<FormDefinitionWithFields> {
