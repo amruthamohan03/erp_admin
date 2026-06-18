@@ -15,3 +15,4 @@ export * from './role-dashboard-card-mapping';
 export * from './tracking';
 export * from './fiche-de-calcul';
 export * from './form-field-grants';
+export * from './clients';
