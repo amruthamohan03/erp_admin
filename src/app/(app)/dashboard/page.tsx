@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import {
+  parseDataSource,
+  resolveCardValue,
+  distinctEndpoints,
+} from '@/lib/dashboardDataSource';
 
 interface DashboardCard {
   id: number;
@@ -18,7 +23,11 @@ interface DashboardCard {
 
 export default function DashboardPage() {
   const [cards, setCards] = useState<DashboardCard[]>([]);
-  const [values, setValues] = useState<Record<string, string | number>>({});
+  // The shape of `values[card_key]` depends on each card's data_source —
+  // resolveCardValue returns `unknown` so we keep it that way and let React
+  // stringify in the render. Older narrow `string | number` typing forced
+  // every endpoint to return a flat scalar.
+  const [values, setValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,36 +40,53 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Resolve each card's data_source (must be an /api/v1/* path that returns
-  // { ok, data }). Anything else is left as a plain card.
+  // Resolve each card's data_source. Format: '<endpoint>#<dot.json.path>'
+  // — the path is optional. Cards pointing at the same endpoint share one
+  // fetch, so a dashboard of 10 cards all referencing /api/v1/clients/stats
+  // hits the server once. Anything not under /api/v1/* is left static.
   useEffect(() => {
     if (cards.length === 0) return;
     const apiCards = cards.filter(
-      (c) => c.data_source && c.data_source.startsWith('/api/v1/'),
+      (c) =>
+        c.data_source &&
+        parseDataSource(c.data_source)?.endpoint.startsWith('/api/v1/'),
     );
     if (apiCards.length === 0) return;
 
     let cancelled = false;
-    Promise.all(
-      apiCards.map(async (c) => {
-        try {
-          const res = await fetch(c.data_source as string);
-          const json = await res.json();
-          if (!json?.ok) return [c.card_key, '—'] as const;
-          const d = json.data;
-          const v =
-            typeof d === 'number'
-              ? d
-              : d?.value ?? d?.total ?? d?.count ?? (Array.isArray(d) ? d.length : null);
-          return [c.card_key, v ?? '—'] as const;
-        } catch {
-          return [c.card_key, '—'] as const;
-        }
-      }),
-    ).then((entries) => {
+    (async () => {
+      const endpoints = distinctEndpoints(apiCards);
+      const dataMap = new Map<string, unknown>();
+      await Promise.all(
+        endpoints.map(async (ep) => {
+          try {
+            const res = await fetch(ep);
+            const json = await res.json();
+            if (json?.ok) dataMap.set(ep, json.data);
+          } catch {
+            // Leave dataMap entry absent — the card falls back to '—'.
+          }
+        }),
+      );
       if (cancelled) return;
+
+      const entries: Array<[string, unknown]> = [];
+      for (const c of apiCards) {
+        const parsed = parseDataSource(c.data_source);
+        if (!parsed) {
+          entries.push([c.card_key, '—']);
+          continue;
+        }
+        const data = dataMap.get(parsed.endpoint);
+        if (data === undefined) {
+          entries.push([c.card_key, '—']);
+          continue;
+        }
+        const v = resolveCardValue(data, parsed.path);
+        entries.push([c.card_key, v ?? '—']);
+      }
       setValues(Object.fromEntries(entries));
-    });
+    })();
 
     return () => {
       cancelled = true;
@@ -99,7 +125,7 @@ export default function DashboardPage() {
                     {c.card_title}
                   </div>
                   <div className="text-2xl font-bold text-slate-900 truncate">
-                    {values[c.card_key] ?? (c.card_subtitle || '—')}
+                    {formatCardValue(values[c.card_key]) ?? (c.card_subtitle || '—')}
                   </div>
                   {c.card_subtitle && values[c.card_key] !== undefined && (
                     <div className="text-xs text-slate-500 truncate">
@@ -126,6 +152,22 @@ export default function DashboardPage() {
       )}
     </>
   );
+}
+
+// resolveCardValue returns `unknown`; React's render slot wants a primitive.
+// Strings + numbers pass through; anything else (objects, arrays from
+// malformed responses) gets JSON-stringified so the UI shows *something*
+// instead of throwing. null/undefined surface as null so the caller's `??`
+// fallback fires.
+function formatCardValue(v: unknown): string | number | null {
+  if (v == null) return null;
+  if (typeof v === 'string' || typeof v === 'number') return v;
+  if (typeof v === 'boolean') return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
 }
 
 function colorClass(color: string | null | undefined): string {
