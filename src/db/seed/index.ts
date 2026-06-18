@@ -31,6 +31,9 @@ import { seedTrackingCaseTemplate } from './trackingCaseTemplate';
 import { seedTrackingMenu } from './trackingMenu';
 import { seedTaxRules } from './taxRules';
 import { seedFicheDeCalculMenu } from './ficheDeCalculMenu';
+import { seedReportForms } from './reportForms';
+import { seedReportDefinitions } from './reportDefinitions';
+import { seedReportsMenu } from './reportsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -101,6 +104,11 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedPaymentRequestWorkflow(db); // depends on approvals
   await seedPaymentRequestCaseTemplate(db);
 
+  // --- Reports (§2 step 7) --------------------------------------------
+  // Parameter forms must seed before definitions (formId FK).
+  await seedReportForms(db);
+  await seedReportDefinitions(db);
+
   // Sidebar entries + permission grants. Last so the navigation lights up
   // only after every route it points at is real.
   await seedLicensesMenu(db);
@@ -109,6 +117,7 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedInvoicesMenu(db);
   await seedCreditNotesMenu(db);
   await seedPaymentRequestsMenu(db);
+  await seedReportsMenu(db);
 }
 
 export {
@@ -144,4 +153,7 @@ export {
   seedTrackingMenu,
   seedTaxRules,
   seedFicheDeCalculMenu,
+  seedReportForms,
+  seedReportDefinitions,
+  seedReportsMenu,
 };
