@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 // renders the entity fields + state + available transitions, and POSTs
 // to the transition route when a button is clicked.
 
-interface LoadedCase {
+export interface LoadedCase {
   caseId: number;
   templateKey: string;
   state: string;
@@ -37,6 +37,16 @@ export interface CaseDetailPageProps {
    * id / created_by / updated_by.
    */
   hiddenCols?: ReadonlyArray<string>;
+  /**
+   * Optional panel rendered below the entity card. Receives the loaded
+   * case + a `reload()` function so module-specific controls (e.g. the
+   * tracking milestone advancer) can refresh the page state after their
+   * own mutations. Returns React content; nothing renders if omitted.
+   */
+  extraPanel?: (
+    data: LoadedCase,
+    reload: () => Promise<void>,
+  ) => React.ReactNode;
 }
 
 function defaultFormatValue(v: unknown): string {
@@ -54,6 +64,7 @@ export function CaseDetailPage({
   backHref,
   newHref,
   hiddenCols = [],
+  extraPanel,
 }: CaseDetailPageProps) {
   const [data, setData] = React.useState<LoadedCase | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -164,33 +175,36 @@ export function CaseDetailPage({
 
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 space-y-4">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-500">
-                State
+          <div className="lg:col-span-2 space-y-6">
+            <div className="card p-6 space-y-4">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  State
+                </div>
+                <div className="mt-1 text-lg font-medium">{data.state}</div>
               </div>
-              <div className="mt-1 text-lg font-medium">{data.state}</div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
-                Fields
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+                  Fields
+                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  {Object.entries(data.entity)
+                    .filter(([k]) => !hidden.has(k))
+                    .map(([k, v]) => (
+                      <React.Fragment key={k}>
+                        <dt className="text-slate-500">{k}</dt>
+                        <dd className="text-slate-900">
+                          {defaultFormatValue(v)}
+                        </dd>
+                      </React.Fragment>
+                    ))}
+                </dl>
               </div>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                {Object.entries(data.entity)
-                  .filter(([k]) => !hidden.has(k))
-                  .map(([k, v]) => (
-                    <React.Fragment key={k}>
-                      <dt className="text-slate-500">{k}</dt>
-                      <dd className="text-slate-900">
-                        {defaultFormatValue(v)}
-                      </dd>
-                    </React.Fragment>
-                  ))}
-              </dl>
             </div>
+            {extraPanel?.(data, load)}
           </div>
 
-          <div className="card p-6">
+          <div className="card p-6 h-fit">
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-3">
               Available transitions
             </div>
