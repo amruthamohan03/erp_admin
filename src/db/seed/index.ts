@@ -29,6 +29,8 @@ import { seedTrackingForm } from './trackingForm';
 import { seedTrackingWorkflow } from './trackingWorkflow';
 import { seedTrackingCaseTemplate } from './trackingCaseTemplate';
 import { seedTrackingMenu } from './trackingMenu';
+import { seedTaxRules } from './taxRules';
+import { seedFicheDeCalculMenu } from './ficheDeCalculMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -70,6 +72,12 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedTrackingWorkflow(db);
   await seedTrackingCaseTemplate(db); // depends on trackingForm + trackingWorkflow
 
+  // --- Fiche de Calcul (§2 step 3 / §4.1) -----------------------------
+  // Sample DRC tax rules. The compute endpoint composes them via
+  // loadTaxRule + applyRule — no new transactional table; rules are read
+  // every call so admins can edit them without restarting the app.
+  await seedTaxRules(db);
+
   // --- Invoice module (§2 step 4) -------------------------------------
   await seedInvoiceStatuses(db);
   await seedInvoiceForm(db); // depends on fieldValidations (iso.currency_code)
@@ -97,6 +105,7 @@ export async function seedMasters(db: Database): Promise<void> {
   // only after every route it points at is real.
   await seedLicensesMenu(db);
   await seedTrackingMenu(db);
+  await seedFicheDeCalculMenu(db);
   await seedInvoicesMenu(db);
   await seedCreditNotesMenu(db);
   await seedPaymentRequestsMenu(db);
@@ -133,4 +142,6 @@ export {
   seedTrackingWorkflow,
   seedTrackingCaseTemplate,
   seedTrackingMenu,
+  seedTaxRules,
+  seedFicheDeCalculMenu,
 };

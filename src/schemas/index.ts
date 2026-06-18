@@ -13,3 +13,4 @@ export * from './dashboard-cards';
 export * from './role-menu-mapping';
 export * from './role-dashboard-card-mapping';
 export * from './tracking';
+export * from './fiche-de-calcul';
