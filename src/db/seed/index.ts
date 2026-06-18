@@ -19,6 +19,11 @@ import { seedPaymentRequestForm } from './paymentRequestForm';
 import { seedPaymentRequestWorkflow } from './paymentRequestWorkflow';
 import { seedPaymentRequestCaseTemplate } from './paymentRequestCaseTemplate';
 import { seedPaymentRequestsMenu } from './paymentRequestsMenu';
+import { seedCreditNoteStatuses } from './creditNoteStatuses';
+import { seedCreditNoteForm } from './creditNoteForm';
+import { seedCreditNoteWorkflow } from './creditNoteWorkflow';
+import { seedCreditNoteCaseTemplate } from './creditNoteCaseTemplate';
+import { seedCreditNotesMenu } from './creditNotesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -56,6 +61,14 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedInvoiceWorkflow(db);
   await seedInvoiceCaseTemplate(db);
 
+  // --- Credit Note module (§2 step 5) ---------------------------------
+  // credit_note_t.invoice_id is a NOT NULL FK to invoice_t — the schema-level
+  // dependency. Seed order also follows §2 (after invoice, before payment).
+  await seedCreditNoteStatuses(db);
+  await seedCreditNoteForm(db); // depends on fieldValidations (iso.currency_code)
+  await seedCreditNoteWorkflow(db);
+  await seedCreditNoteCaseTemplate(db);
+
   // --- Payment Request module (§2 step 6) -----------------------------
   // Approvals must seed before the workflow (transitions reference the
   // hierarchy by key from action_json).
@@ -69,6 +82,7 @@ export async function seedMasters(db: Database): Promise<void> {
   // only after every route it points at is real.
   await seedLicensesMenu(db);
   await seedInvoicesMenu(db);
+  await seedCreditNotesMenu(db);
   await seedPaymentRequestsMenu(db);
 }
 
@@ -93,4 +107,9 @@ export {
   seedPaymentRequestWorkflow,
   seedPaymentRequestCaseTemplate,
   seedPaymentRequestsMenu,
+  seedCreditNoteStatuses,
+  seedCreditNoteForm,
+  seedCreditNoteWorkflow,
+  seedCreditNoteCaseTemplate,
+  seedCreditNotesMenu,
 };

@@ -21,3 +21,4 @@ export * from './approvalHierarchy';
 export * from './trackingTemplates';
 export * from './invoice';
 export * from './paymentRequest';
+export * from './creditNote';
