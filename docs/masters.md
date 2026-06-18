@@ -31,6 +31,7 @@ These back the rule engine, workflow engine, dynamic forms, and case-runtime. Sc
 | ----- | ----------- | ------- |
 | `role_menu_mapping_t` | [src/db/schema/roleMenuMapping.ts](../src/db/schema/roleMenuMapping.ts) | Role × menu × `can_*` flags. **Also the permission backend** — `checkPermission` joins on `menu_master_t.url`. |
 | `role_dashboard_card_mapping_t` | [src/db/schema/roleDashboardCardMapping.ts](../src/db/schema/roleDashboardCardMapping.ts) | Role × dashboard card × `is_visible` + `card_order`. |
+| `form_field_role_t` | [src/db/schema/formFieldRoleGrants.ts](../src/db/schema/formFieldRoleGrants.ts) | Per-field, per-role permission override on `form_field_master_t`. `permission` ∈ {view, edit, hidden} (CHECK constraint). Absence of a row = default `edit`. [src/lib/formFieldGrants.ts](../src/lib/formFieldGrants.ts) exposes `fetchFieldGrants` + the pure `effectivePermission` / `canViewField` / `canEditField` / `writableFieldIds` / `visibleFieldIds` helpers; consumers strip view/hidden fields from input before Zod validation so writes can't smuggle past the grant. Adapted from main's `master_page_accordion_field_role_t` minus the accordion-clamp layer (forms here go straight from definition → fields). |
 
 ## Domain masters (§2 consignment flow)
 

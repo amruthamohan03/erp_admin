@@ -25,3 +25,4 @@ export * from './creditNote';
 export * from './tracking';
 export * from './reportDefinitions';
 export * from './auditLog';
+export * from './formFieldRoleGrants';
