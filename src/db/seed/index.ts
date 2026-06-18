@@ -36,6 +36,7 @@ import { seedReportDefinitions } from './reportDefinitions';
 import { seedReportsMenu } from './reportsMenu';
 import { seedFieldGrantsMappingMenu } from './fieldGrantsMappingMenu';
 import { seedClientsMenu } from './clientsMenu';
+import { seedOfficesMenu } from './officesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -122,6 +123,7 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedReportsMenu(db);
   await seedFieldGrantsMappingMenu(db);
   await seedClientsMenu(db);
+  await seedOfficesMenu(db);
 }
 
 export {
@@ -162,4 +164,5 @@ export {
   seedReportsMenu,
   seedFieldGrantsMappingMenu,
   seedClientsMenu,
+  seedOfficesMenu,
 };
