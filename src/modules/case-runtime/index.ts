@@ -10,6 +10,7 @@ import {
 import type { WorkflowTransitionMasterRow } from '@/db/schema';
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
 import { enqueueNotifications } from '@/lib/notifications';
+import { fetchFieldGrants, writableFieldIds } from '@/lib/formFieldGrants';
 
 // Generic case runtime per root CLAUDE.md §4.3.
 //
@@ -31,6 +32,12 @@ import { enqueueNotifications } from '@/lib/notifications';
 export interface CreateCaseInput {
   templateKey: string;
   actorUserId: number;
+  /**
+   * Required so field-level role grants can enforce write permission before
+   * Zod validation runs. Without it a hostile client could smuggle writes to
+   * view/hidden fields by posting extra keys. See [src/lib/formFieldGrants.ts].
+   */
+  actorRoleId: number;
   /** Column → value map. Validated by the caller until §4.5 forms is real. */
   values: Record<string, unknown>;
 }
@@ -199,10 +206,33 @@ export async function createCase(input: CreateCaseInput): Promise<CreateCaseResu
   const targetTable = loaded.template.targetTable;
   const initialState = loaded.workflow.initialState;
 
+  // Field-level role grants: load the actor's per-field overrides, then
+  // reject any submitted key that maps to a non-writable (view/hidden) field
+  // for this role. Done BEFORE building the Zod schema so a hostile client
+  // can't bypass grants by posting extra keys — Zod's default-strip would
+  // silently drop them without any signal.
+  const grants = await fetchFieldGrants(
+    form.fields.map((f) => f.id),
+    input.actorRoleId,
+  );
+  const writable = writableFieldIds(form.fields, grants);
+  const writableKeys = new Set(writable.map((f) => f.fieldKey));
+  const allFieldKeys = new Set(form.fields.map((f) => f.fieldKey));
+  const readOnly = Object.keys(input.values).filter(
+    (k) => allFieldKeys.has(k) && !writableKeys.has(k),
+  );
+  if (readOnly.length > 0) {
+    throw new BadRequestError(
+      `Field(s) are read-only for your role: ${readOnly.join(', ')}`,
+      { readOnlyFields: readOnly },
+    );
+  }
+
   // Validate caller-provided values against the form's Zod schema. Bad input
   // throws ZodError, which withErrorHandler maps to a 422 — same path as any
-  // hand-written Zod boundary.
-  const validator = buildFormZodSchema(form.fields);
+  // hand-written Zod boundary. Build the schema from `writable` only so
+  // omitted view-only fields aren't required at create time for this role.
+  const validator = buildFormZodSchema(writable);
   const validated = validator.parse(input.values);
 
   // Caller-provided columns + system columns (state + audit). Same order in

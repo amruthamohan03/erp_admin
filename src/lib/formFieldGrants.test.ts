@@ -5,6 +5,7 @@ import {
   canEditField,
   writableFieldIds,
   visibleFieldIds,
+  annotateVisibleFields,
   type FieldPermission,
 } from './formFieldGrants';
 
@@ -109,5 +110,45 @@ describe('visibleFieldIds', () => {
     expect(
       visibleFieldIds(fields, grants([2, 'hidden'])).map((f) => f.id),
     ).toEqual([1, 3]);
+  });
+});
+
+describe('annotateVisibleFields', () => {
+  const fields = [
+    { id: 1, name: 'a' },
+    { id: 2, name: 'b' },
+    { id: 3, name: 'c' },
+  ];
+
+  it('defaults every field to edit when grants is empty', () => {
+    const out = annotateVisibleFields(fields, new Map());
+    expect(out).toEqual([
+      { id: 1, name: 'a', permission: 'edit' },
+      { id: 2, name: 'b', permission: 'edit' },
+      { id: 3, name: 'c', permission: 'edit' },
+    ]);
+  });
+
+  it('annotates per-field grants and drops hidden in one pass', () => {
+    const out = annotateVisibleFields(
+      fields,
+      grants([1, 'view'], [2, 'hidden'], [3, 'edit']),
+    );
+    expect(out).toEqual([
+      { id: 1, name: 'a', permission: 'view' },
+      { id: 3, name: 'c', permission: 'edit' },
+    ]);
+  });
+
+  it('preserves source field order for non-hidden entries', () => {
+    const out = annotateVisibleFields(
+      [
+        { id: 5, name: 'e' },
+        { id: 1, name: 'a' },
+        { id: 7, name: 'g' },
+      ],
+      grants([1, 'view'], [7, 'hidden']),
+    );
+    expect(out.map((f) => f.id)).toEqual([5, 1]);
   });
 });

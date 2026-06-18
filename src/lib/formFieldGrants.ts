@@ -68,6 +68,28 @@ export function visibleFieldIds<T extends { id: number }>(
 }
 
 /**
+ * Effective permission excluding 'hidden' — annotated fields are guaranteed
+ * to be readable. Used as the `permission` annotation on form GET responses.
+ */
+export type VisiblePermission = Exclude<FieldPermission, 'hidden'>;
+
+/**
+ * Strip hidden fields AND annotate the survivors with their effective
+ * permission, in one pass. This is what the form GET endpoint needs — the
+ * client gets `view` / `edit` per field so it can render read-only inputs
+ * correctly without a second round trip.
+ */
+export function annotateVisibleFields<T extends { id: number }>(
+  fields: ReadonlyArray<T>,
+  grants: ReadonlyMap<number, FieldPermission>,
+): Array<T & { permission: VisiblePermission }> {
+  return visibleFieldIds(fields, grants).map((f) => ({
+    ...f,
+    permission: (grants.get(f.id) ?? DEFAULT_PERMISSION) as VisiblePermission,
+  }));
+}
+
+/**
  * Per-field grants for one role, loaded by field id. Returns an empty map
  * when no rows are seeded — every field falls back to DEFAULT_PERMISSION
  * ('edit') without any caller change.

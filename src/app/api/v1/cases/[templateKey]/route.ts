@@ -61,6 +61,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   const result = await createCase({
     templateKey,
     actorUserId: session.uid,
+    actorRoleId: session.role_id,
     values,
   });
   return ok(result, 201);

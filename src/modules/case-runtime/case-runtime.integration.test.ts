@@ -79,6 +79,7 @@ describe('case-runtime integration (license_default)', () => {
     const result = await createCase({
       templateKey: 'license_default',
       actorUserId: 1,
+      actorRoleId: 1,
       values: {
         license_no: 'IB-TEST-001',
         client_id: clientId,
@@ -106,6 +107,7 @@ describe('case-runtime integration (license_default)', () => {
     const { caseId } = await createCase({
       templateKey: 'license_default',
       actorUserId: 1,
+      actorRoleId: 1,
       values: {
         license_no: 'IB-TEST-002',
         client_id: clientId,
@@ -136,6 +138,7 @@ describe('case-runtime integration (license_default)', () => {
     const { caseId } = await createCase({
       templateKey: 'license_default',
       actorUserId: 1,
+      actorRoleId: 1,
       values: {
         license_no: 'IB-TEST-003',
         client_id: clientId,
