@@ -60,3 +60,23 @@ export const sealNumberActionSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 export type SealNumberActionInput = z.infer<typeof sealNumberActionSchema>;
+
+// Bulk lifecycle actions (mark-used / release) accept either an array of
+// seal numbers or a string that the handler splits on newlines/commas. The
+// latter exists so the UI can paste a column from Excel directly.
+export const sealNumberBulkActionSchema = z.object({
+  seal_numbers: z.union([z.array(z.string()), z.string()]),
+  /** Optional human-readable note recorded on each affected row. */
+  reference_info: z.string().max(255).optional(),
+});
+export type SealNumberBulkActionInput = z.infer<typeof sealNumberBulkActionSchema>;
+
+/**
+ * Parse a bulk-action payload into a clean string array. Handles arrays
+ * directly + splits string input on newlines/commas. Trims whitespace and
+ * drops empty entries. Used by both mark-used and release.
+ */
+export function parseSealNumberList(raw: string[] | string): string[] {
+  const parts = Array.isArray(raw) ? raw : raw.split(/[\r\n,]+/);
+  return parts.map((s) => s.trim()).filter(Boolean);
+}
