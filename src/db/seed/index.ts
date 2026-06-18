@@ -24,6 +24,11 @@ import { seedCreditNoteForm } from './creditNoteForm';
 import { seedCreditNoteWorkflow } from './creditNoteWorkflow';
 import { seedCreditNoteCaseTemplate } from './creditNoteCaseTemplate';
 import { seedCreditNotesMenu } from './creditNotesMenu';
+import { seedTrackingStatuses } from './trackingStatuses';
+import { seedTrackingForm } from './trackingForm';
+import { seedTrackingWorkflow } from './trackingWorkflow';
+import { seedTrackingCaseTemplate } from './trackingCaseTemplate';
+import { seedTrackingMenu } from './trackingMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -55,6 +60,16 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedLicenseCaseTemplate(db); // depends on licenseForm + licenseWorkflow
   await seedTrackingTemplates(db); // depends on licenseTypes
 
+  // --- Tracking module (§2 step 3) ------------------------------------
+  // Statuses + form + workflow + case_template for tracking_t. Per-milestone
+  // advancement (current_milestone_key bumps inside in_progress) lives on a
+  // separate endpoint — kept off the case-runtime so the template's
+  // milestones_json can change without rewriting workflow transitions.
+  await seedTrackingStatuses(db);
+  await seedTrackingForm(db);
+  await seedTrackingWorkflow(db);
+  await seedTrackingCaseTemplate(db); // depends on trackingForm + trackingWorkflow
+
   // --- Invoice module (§2 step 4) -------------------------------------
   await seedInvoiceStatuses(db);
   await seedInvoiceForm(db); // depends on fieldValidations (iso.currency_code)
@@ -81,6 +96,7 @@ export async function seedMasters(db: Database): Promise<void> {
   // Sidebar entries + permission grants. Last so the navigation lights up
   // only after every route it points at is real.
   await seedLicensesMenu(db);
+  await seedTrackingMenu(db);
   await seedInvoicesMenu(db);
   await seedCreditNotesMenu(db);
   await seedPaymentRequestsMenu(db);
@@ -112,4 +128,9 @@ export {
   seedCreditNoteWorkflow,
   seedCreditNoteCaseTemplate,
   seedCreditNotesMenu,
+  seedTrackingStatuses,
+  seedTrackingForm,
+  seedTrackingWorkflow,
+  seedTrackingCaseTemplate,
+  seedTrackingMenu,
 };

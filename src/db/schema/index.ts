@@ -22,3 +22,4 @@ export * from './trackingTemplates';
 export * from './invoice';
 export * from './paymentRequest';
 export * from './creditNote';
+export * from './tracking';
