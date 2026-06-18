@@ -11,7 +11,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import PaginationFooter from '@/components/ui/PaginationFooter';
@@ -137,7 +136,7 @@ export default function DashboardCardsPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -332,7 +331,7 @@ export default function DashboardCardsPage() {
           }}
         />
       )}
-    </DashboardShell>
+    </>
   );
 }
 

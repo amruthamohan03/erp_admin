@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import DashboardShell from '@/components/layout/DashboardShell';
 import { DynamicForm } from '@/engine/forms/DynamicForm';
 import type { FormDefinitionWithFields } from '@/engine/forms';
 
@@ -81,7 +80,7 @@ export function CaseNewPage({
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
@@ -113,6 +112,6 @@ export function CaseNewPage({
           />
         )}
       </div>
-    </DashboardShell>
+    </>
   );
 }

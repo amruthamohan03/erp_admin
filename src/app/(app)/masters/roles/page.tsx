@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
@@ -67,7 +66,7 @@ export default function RolesPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Roles</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
@@ -159,7 +158,7 @@ export default function RolesPage() {
           onSaved={() => { setEditing(null); load(); }}
         />
       )}
-    </DashboardShell>
+    </>
   );
 }
 

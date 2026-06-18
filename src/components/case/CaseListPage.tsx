@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { PAGE_SIZE_OPTIONS } from '@/lib/hooks/usePagedList';
 
@@ -116,7 +115,7 @@ export function CaseListPage({
   const totalColumns = 1 + columns.length + 1; // # + custom + Open →
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
@@ -242,6 +241,6 @@ export function CaseListPage({
           mounted={mounted}
         />
       </div>
-    </DashboardShell>
+    </>
   );
 }

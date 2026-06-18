@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Save, Search, ShieldCheck } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
@@ -214,7 +213,7 @@ export default function RoleToMenuPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -395,7 +394,7 @@ export default function RoleToMenuPage() {
           />
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }
 

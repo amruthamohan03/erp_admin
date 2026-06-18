@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import DashboardShell from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/button';
 
 // Generic case detail page. Loads via /api/v1/cases/{templateKey}/{caseId},
@@ -135,7 +134,7 @@ export function CaseDetailPage({
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -232,6 +231,6 @@ export function CaseDetailPage({
           </div>
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }

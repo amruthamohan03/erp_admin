@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Calculator, ChevronRight, RefreshCw } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/button';
 
 // Fiche de Calcul per §2 step 3 — duties / taxes / fees calculator. Free-
@@ -154,7 +153,7 @@ export default function FicheDeCalculPage() {
   }, [rules]);
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -336,6 +335,6 @@ export default function FicheDeCalculPage() {
           )}
         </div>
       </div>
-    </DashboardShell>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import DashboardShell from '@/components/layout/DashboardShell';
 
 interface DashboardCard {
   id: number;
@@ -69,7 +68,7 @@ export default function DashboardPage() {
   }, [cards]);
 
   return (
-    <DashboardShell>
+    <>
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Dashboard</h1>
 
       {loading && (
@@ -125,7 +124,7 @@ export default function DashboardPage() {
           })}
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }
 

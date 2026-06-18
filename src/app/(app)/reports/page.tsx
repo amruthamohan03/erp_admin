@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { ChartBar, ChevronRight } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 
 interface ReportSummary {
   id: number;
@@ -57,7 +56,7 @@ export default function ReportsIndexPage() {
   }, [reports]);
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -123,6 +122,6 @@ export default function ReportsIndexPage() {
           </section>
         ))}
       </div>
-    </DashboardShell>
+    </>
   );
 }

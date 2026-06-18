@@ -4,7 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ChartBar, Play } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/button';
 import { DynamicForm } from '@/engine/forms/DynamicForm';
 import type { FormDefinitionWithFields } from '@/engine/forms';
@@ -143,7 +142,7 @@ export default function ReportRunnerPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -249,6 +248,6 @@ export default function ReportRunnerPage() {
           </div>
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }

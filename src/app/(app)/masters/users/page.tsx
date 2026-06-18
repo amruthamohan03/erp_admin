@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import type { User, Role } from '@/types';
@@ -72,7 +71,7 @@ export default function UsersPage() {
   const startIndex = (page - 1) * pageSize;
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Users</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
@@ -166,7 +165,7 @@ export default function UsersPage() {
           onSaved={() => { setEditing(null); load(); }}
         />
       )}
-    </DashboardShell>
+    </>
   );
 }
 

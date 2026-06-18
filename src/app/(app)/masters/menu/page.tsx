@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X, Eye, EyeOff } from 'lucide-react';
-import DashboardShell from '@/components/layout/DashboardShell';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
@@ -96,7 +95,7 @@ export default function MenuPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Menu Management</h1>
@@ -281,7 +280,7 @@ export default function MenuPage() {
           }}
         />
       )}
-    </DashboardShell>
+    </>
   );
 }
 
