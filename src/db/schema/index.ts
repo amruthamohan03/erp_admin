@@ -27,3 +27,5 @@ export * from './reportDefinitions';
 export * from './auditLog';
 export * from './formFieldRoleGrants';
 export * from './offices';
+export * from './sealBatches';
+export * from './sealNumbers';
