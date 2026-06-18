@@ -54,6 +54,7 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | Table | Schema file | Migration | Purpose |
 | ----- | ----------- | --------- | ------- |
 | `notification_outbox_t` | [src/db/schema/notificationOutbox.ts](../src/db/schema/notificationOutbox.ts) | [0011_add_notification_outbox.sql](../drizzle/0011_add_notification_outbox.sql) | Transactional outbox for `notify` side effects. `case-runtime/advanceCase` writes rows here in the same transaction as the entity UPDATE — a dispatcher worker polls `status='pending'`. |
+| `audit_log_t` | [src/db/schema/auditLog.ts](../src/db/schema/auditLog.ts) | [0019_useful_slyde.sql](../drizzle/0019_useful_slyde.sql) | Append-only audit log. Every user-initiated create / update / delete / transition goes through [recordAudit](../src/lib/audit/recordAudit.ts) inside the calling transaction, so audit rolls back with the write. [redact](../src/lib/audit/redact.ts) scrubs sensitive field names (password, *_token, secret, api_key, private_key) from `before` / `after` snapshots; `diff` is a pre-computed per-field `{ from, to }` map so detail panels don't re-derive it. CHECK constraints pin `actor_type` to user/system/api and `action` to the seven supported verbs. |
 
 > **Every master table the spec called out (CLAUDE.md §4.1 / §2) is now schema'd.** Future work is about wiring them up (seeding workflows for tracking / payment request / approval, building the dispatcher worker), not adding more tables.
 
