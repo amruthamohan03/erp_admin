@@ -45,6 +45,7 @@ import { seedTransportModesMenu } from './transportModesMenu';
 import { seedGoodsTypesMenu } from './goodsTypesMenu';
 import { seedQuotationCategoriesMenu } from './quotationCategoriesMenu';
 import { seedItemsMenu } from './itemsMenu';
+import { seedQuotationsMenu } from './quotationsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -142,6 +143,7 @@ export async function seedMasters(db: Database): Promise<void> {
   // Quotations-domain masters that depend on the simple lookups above.
   await seedQuotationCategoriesMenu(db);
   await seedItemsMenu(db);
+  await seedQuotationsMenu(db);
 }
 
 export {
@@ -191,4 +193,5 @@ export {
   seedGoodsTypesMenu,
   seedQuotationCategoriesMenu,
   seedItemsMenu,
+  seedQuotationsMenu,
 };
