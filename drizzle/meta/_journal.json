@@ -169,6 +169,13 @@
       "when": 1781977434929,
       "tag": "0023_true_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781978786895,
+      "tag": "0024_clever_patch",
+      "breakpoints": true
     }
   ]
 }

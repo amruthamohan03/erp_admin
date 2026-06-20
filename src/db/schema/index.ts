@@ -36,3 +36,5 @@ export * from './unitMaster';
 export * from './currencyMaster';
 export * from './quotationCategoryMaster';
 export * from './itemMaster';
+export * from './quotations';
+export * from './quotationItems';
