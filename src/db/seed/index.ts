@@ -38,6 +38,11 @@ import { seedFieldGrantsMappingMenu } from './fieldGrantsMappingMenu';
 import { seedClientsMenu } from './clientsMenu';
 import { seedOfficesMenu } from './officesMenu';
 import { seedSealsMenu } from './sealsMenu';
+import { seedCurrenciesMenu } from './currenciesMenu';
+import { seedUnitsMenu } from './unitsMenu';
+import { seedKindsMenu } from './kindsMenu';
+import { seedTransportModesMenu } from './transportModesMenu';
+import { seedGoodsTypesMenu } from './goodsTypesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -126,6 +131,12 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedClientsMenu(db);
   await seedOfficesMenu(db);
   await seedSealsMenu(db);
+  // Quotations prereq lookup masters — sidebar order 30-34.
+  await seedCurrenciesMenu(db);
+  await seedUnitsMenu(db);
+  await seedKindsMenu(db);
+  await seedTransportModesMenu(db);
+  await seedGoodsTypesMenu(db);
 }
 
 export {
@@ -168,4 +179,9 @@ export {
   seedClientsMenu,
   seedOfficesMenu,
   seedSealsMenu,
+  seedCurrenciesMenu,
+  seedUnitsMenu,
+  seedKindsMenu,
+  seedTransportModesMenu,
+  seedGoodsTypesMenu,
 };
