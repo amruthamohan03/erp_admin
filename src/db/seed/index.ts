@@ -52,6 +52,9 @@ import { seedClearancesMenu } from './clearancesMenu';
 import { seedSubOfficesMenu } from './subOfficesMenu';
 import { seedCommoditiesMenu } from './commoditiesMenu';
 import { seedClearingStatusesMenu } from './clearingStatusesMenu';
+import { seedRegimesMenu } from './regimesMenu';
+import { seedDocumentStatusesMenu } from './documentStatusesMenu';
+import { seedTransitPointsMenu } from './transitPointsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -157,6 +160,9 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedSubOfficesMenu(db);
   await seedCommoditiesMenu(db);
   await seedClearingStatusesMenu(db);
+  await seedRegimesMenu(db);
+  await seedDocumentStatusesMenu(db);
+  await seedTransitPointsMenu(db);
 }
 
 export {
@@ -213,4 +219,7 @@ export {
   seedSubOfficesMenu,
   seedCommoditiesMenu,
   seedClearingStatusesMenu,
+  seedRegimesMenu,
+  seedDocumentStatusesMenu,
+  seedTransitPointsMenu,
 };
