@@ -26,3 +26,4 @@ export * from './currencies';
 export * from './quotation-categories';
 export * from './items';
 export * from './quotations';
+export * from './bulk-update';
