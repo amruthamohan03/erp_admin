@@ -56,6 +56,8 @@ import { seedRegimesMenu } from './regimesMenu';
 import { seedDocumentStatusesMenu } from './documentStatusesMenu';
 import { seedTransitPointsMenu } from './transitPointsMenu';
 import { seedImportsMenu } from './importsMenu';
+import { seedFeetContainersMenu } from './feetContainersMenu';
+import { seedTruckStatusesMenu } from './truckStatusesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -166,6 +168,9 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedTransitPointsMenu(db);
   // Imports module (§2 step 3 — customs imports lifecycle).
   await seedImportsMenu(db);
+  // Exports prereq masters (feet_container + truck_status).
+  await seedFeetContainersMenu(db);
+  await seedTruckStatusesMenu(db);
 }
 
 export {
@@ -226,4 +231,6 @@ export {
   seedDocumentStatusesMenu,
   seedTransitPointsMenu,
   seedImportsMenu,
+  seedFeetContainersMenu,
+  seedTruckStatusesMenu,
 };

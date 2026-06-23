@@ -47,3 +47,5 @@ export * from './transitPointMaster';
 export * from './documentStatusMaster';
 export * from './clearingStatusMaster';
 export * from './imports';
+export * from './feetContainerMaster';
+export * from './truckStatusMaster';
