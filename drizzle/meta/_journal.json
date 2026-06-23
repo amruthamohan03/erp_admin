@@ -211,6 +211,13 @@
       "when": 1782238703812,
       "tag": "0029_conscious_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782239182303,
+      "tag": "0030_wakeful_invaders",
+      "breakpoints": true
     }
   ]
 }

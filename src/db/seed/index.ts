@@ -63,6 +63,8 @@ import { seedOriginsMenu } from './originsMenu';
 import { seedProvincesMenu } from './provincesMenu';
 import { seedIndustriesMenu } from './industriesMenu';
 import { seedDoneByMenu } from './doneByMenu';
+import { seedExpenseTypesMenu } from './expenseTypesMenu';
+import { seedHscodesMenu } from './hscodesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -183,6 +185,9 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedProvincesMenu(db);
   await seedIndustriesMenu(db);
   await seedDoneByMenu(db);
+  // Finance / tariff masters (expense_type + hscode).
+  await seedExpenseTypesMenu(db);
+  await seedHscodesMenu(db);
 }
 
 export {
@@ -250,4 +255,6 @@ export {
   seedProvincesMenu,
   seedIndustriesMenu,
   seedDoneByMenu,
+  seedExpenseTypesMenu,
+  seedHscodesMenu,
 };

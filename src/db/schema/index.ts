@@ -54,3 +54,5 @@ export * from './originMaster';
 export * from './provinceMaster';
 export * from './industryMaster';
 export * from './doneByMaster';
+export * from './expenseTypeMaster';
+export * from './hscodeMaster';

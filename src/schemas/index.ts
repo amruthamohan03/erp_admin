@@ -43,3 +43,5 @@ export * from './origins';
 export * from './provinces';
 export * from './industries';
 export * from './done-by';
+export * from './expense-types';
+export * from './hscodes';
