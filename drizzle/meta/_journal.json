@@ -204,6 +204,13 @@
       "when": 1782237671459,
       "tag": "0028_colossal_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782238703812,
+      "tag": "0029_conscious_zarda",
+      "breakpoints": true
     }
   ]
 }

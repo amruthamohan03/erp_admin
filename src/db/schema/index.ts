@@ -50,3 +50,7 @@ export * from './imports';
 export * from './feetContainerMaster';
 export * from './truckStatusMaster';
 export * from './exports';
+export * from './originMaster';
+export * from './provinceMaster';
+export * from './industryMaster';
+export * from './doneByMaster';

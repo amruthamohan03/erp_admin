@@ -59,6 +59,10 @@ import { seedImportsMenu } from './importsMenu';
 import { seedFeetContainersMenu } from './feetContainersMenu';
 import { seedTruckStatusesMenu } from './truckStatusesMenu';
 import { seedExportsMenu } from './exportsMenu';
+import { seedOriginsMenu } from './originsMenu';
+import { seedProvincesMenu } from './provincesMenu';
+import { seedIndustriesMenu } from './industriesMenu';
+import { seedDoneByMenu } from './doneByMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -174,6 +178,11 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedTruckStatusesMenu(db);
   // Exports module (§2 step 3 — customs exports lifecycle).
   await seedExportsMenu(db);
+  // Client-enrichment masters (origin → province; industry; done-by).
+  await seedOriginsMenu(db);
+  await seedProvincesMenu(db);
+  await seedIndustriesMenu(db);
+  await seedDoneByMenu(db);
 }
 
 export {
@@ -237,4 +246,8 @@ export {
   seedFeetContainersMenu,
   seedTruckStatusesMenu,
   seedExportsMenu,
+  seedOriginsMenu,
+  seedProvincesMenu,
+  seedIndustriesMenu,
+  seedDoneByMenu,
 };

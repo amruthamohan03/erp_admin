@@ -39,3 +39,7 @@ export * from './imports';
 export * from './feet-containers';
 export * from './truck-statuses';
 export * from './exports';
+export * from './origins';
+export * from './provinces';
+export * from './industries';
+export * from './done-by';
