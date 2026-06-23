@@ -1,0 +1,347 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Edit2,
+  Plus,
+  Search,
+  Trash2,
+  Anchor,
+} from 'lucide-react';
+import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+
+interface ImportRow {
+  id: number;
+  mca_ref: string | null;
+  invoice: string | null;
+  supplier: string | null;
+  pre_alert_date: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  license_id: number | null;
+  license_no: string | null;
+  regime_id: number | null;
+  regime_name: string | null;
+  clearing_status_id: number | null;
+  clearing_status_name: string | null;
+  document_status_id: number | null;
+  document_status_name: string | null;
+  fob: string | null;
+  weight: string | null;
+  display: 'Y' | 'N';
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ClientOption {
+  id: number;
+  name: string;
+}
+interface RegimeOption {
+  id: number;
+  regime_name: string;
+}
+interface ClearingStatusOption {
+  id: number;
+  clearing_status: string;
+}
+
+function fmtNum(v: string | null | undefined): string {
+  if (v == null) return '—';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export default function ImportsListPage() {
+  const [items, setItems] = useState<ImportRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [clientFilter, setClientFilter] = useState('');
+  const [regimeFilter, setRegimeFilter] = useState('');
+  const [clearingFilter, setClearingFilter] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [regimes, setRegimes] = useState<RegimeOption[]>([]);
+  const [clearingStatuses, setClearingStatuses] = useState<
+    ClearingStatusOption[]
+  >([]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [c, r, cs] = await Promise.all([
+          fetch('/api/v1/clients?pageSize=200').then((res) => res.json()),
+          fetch('/api/v1/regimes?pageSize=200').then((res) => res.json()),
+          fetch('/api/v1/clearing-statuses?pageSize=200').then((res) =>
+            res.json(),
+          ),
+        ]);
+        if (cancelled) return;
+        if (c.ok) setClients(c.data);
+        if (r.ok) setRegimes(r.data);
+        if (cs.ok) setClearingStatuses(cs.data);
+      } catch {
+        if (!cancelled) setError('Network error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: search,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (clientFilter) params.set('client_id', clientFilter);
+      if (regimeFilter) params.set('regime_id', regimeFilter);
+      if (clearingFilter) params.set('clearing_status_id', clearingFilter);
+      const res = await fetch(`/api/v1/imports?${params}`);
+      const json = await res.json();
+      if (json.ok) {
+        setItems(json.data);
+        setTotal(json.meta?.total ?? 0);
+      } else {
+        setError(json.error?.message ?? 'Failed to load');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, search, clientFilter, regimeFilter, clearingFilter]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+
+  async function handleDelete(id: number) {
+    if (!confirm('Soft-delete this import?')) return;
+    const res = await fetch(`/api/v1/imports/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.ok) {
+      alert(json.error?.message || 'Failed');
+      return;
+    }
+    load();
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize;
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <Anchor className="h-6 w-6 text-primary-600" />
+          Imports
+        </h1>
+        <Link href="/imports/new" className="btn-primary">
+          <Plus className="h-4 w-4" /> New Import
+        </Link>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="card">
+        <div className="p-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              className="input pl-9"
+              placeholder="Search MCA ref, invoice, supplier, client..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <SearchableSelect
+              value={clientFilter}
+              onChange={(v) => {
+                setClientFilter(v);
+                setPage(1);
+              }}
+              options={clients.map((c) => ({
+                value: String(c.id),
+                label: c.name,
+              }))}
+              placeholder="All clients"
+              emptyLabel="All clients"
+            />
+          </div>
+          <div className="min-w-[160px]">
+            <SearchableSelect
+              value={regimeFilter}
+              onChange={(v) => {
+                setRegimeFilter(v);
+                setPage(1);
+              }}
+              options={regimes.map((r) => ({
+                value: String(r.id),
+                label: r.regime_name,
+              }))}
+              placeholder="All regimes"
+              emptyLabel="All regimes"
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <SearchableSelect
+              value={clearingFilter}
+              onChange={(v) => {
+                setClearingFilter(v);
+                setPage(1);
+              }}
+              options={clearingStatuses.map((c) => ({
+                value: String(c.id),
+                label: c.clearing_status,
+              }))}
+              placeholder="All clearing statuses"
+              emptyLabel="All clearing statuses"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th className="w-12">#</th>
+                <th>MCA Ref</th>
+                <th>Invoice</th>
+                <th>Client</th>
+                <th>License</th>
+                <th>Regime</th>
+                <th>Pre-alert</th>
+                <th className="text-right">FOB</th>
+                <th className="text-right">Weight</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={11} className="text-center text-slate-500 py-8">
+                    Loading...
+                  </td>
+                </tr>
+              )}
+              {!loading && items.length === 0 && (
+                <tr>
+                  <td colSpan={11} className="text-center text-slate-500 py-8">
+                    No imports found.{' '}
+                    <Link
+                      href="/imports/new"
+                      className="text-primary-600 hover:underline"
+                    >
+                      Create one.
+                    </Link>
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                items.map((it, idx) => (
+                  <tr key={it.id} className="hover:bg-slate-50">
+                    <td className="text-slate-500 font-medium">
+                      {startIndex + idx + 1}
+                    </td>
+                    <td>
+                      <Link
+                        href={`/imports/${it.id}`}
+                        className="text-primary-600 hover:underline font-medium"
+                      >
+                        {it.mca_ref || `#${it.id}`}
+                      </Link>
+                    </td>
+                    <td>{it.invoice || '—'}</td>
+                    <td>{it.client_name || '—'}</td>
+                    <td>
+                      {it.license_no ? (
+                        <code className="text-xs text-slate-600">
+                          {it.license_no}
+                        </code>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{it.regime_name || '—'}</td>
+                    <td>{it.pre_alert_date || '—'}</td>
+                    <td className="text-right font-mono">{fmtNum(it.fob)}</td>
+                    <td className="text-right font-mono">
+                      {fmtNum(it.weight)}
+                    </td>
+                    <td>
+                      {it.clearing_status_name ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
+                          {it.clearing_status_name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="text-right whitespace-nowrap">
+                      <Link
+                        href={`/imports/${it.id}`}
+                        className="text-slate-500 hover:text-primary-600 p-1 inline-block"
+                        title="Edit"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(it.id)}
+                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        title="Soft delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        <PaginationFooter
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={(n) => {
+            setPageSize(n);
+            setPage(1);
+          }}
+          totalRows={total}
+          totalPages={totalPages}
+          startIndex={startIndex}
+          mounted={mounted}
+        />
+      </div>
+    </>
+  );
+}

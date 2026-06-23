@@ -55,6 +55,7 @@ import { seedClearingStatusesMenu } from './clearingStatusesMenu';
 import { seedRegimesMenu } from './regimesMenu';
 import { seedDocumentStatusesMenu } from './documentStatusesMenu';
 import { seedTransitPointsMenu } from './transitPointsMenu';
+import { seedImportsMenu } from './importsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -163,6 +164,8 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedRegimesMenu(db);
   await seedDocumentStatusesMenu(db);
   await seedTransitPointsMenu(db);
+  // Imports module (§2 step 3 — customs imports lifecycle).
+  await seedImportsMenu(db);
 }
 
 export {
@@ -222,4 +225,5 @@ export {
   seedRegimesMenu,
   seedDocumentStatusesMenu,
   seedTransitPointsMenu,
+  seedImportsMenu,
 };
