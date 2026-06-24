@@ -53,3 +53,4 @@ export * from './group-companies';
 export * from './referers';
 export * from './payment-types';
 export * from './payment-subtypes';
+export * from './invoice-banks';

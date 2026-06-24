@@ -64,3 +64,4 @@ export * from './groupCompanyMaster';
 export * from './refererMaster';
 export * from './paymentTypeMaster';
 export * from './paymentSubtypeMaster';
+export * from './invoiceBankMaster';

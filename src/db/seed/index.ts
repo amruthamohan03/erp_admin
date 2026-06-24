@@ -73,6 +73,7 @@ import { seedGroupCompaniesMenu } from './groupCompaniesMenu';
 import { seedReferersMenu } from './referersMenu';
 import { seedPaymentTypesMenu } from './paymentTypesMenu';
 import { seedPaymentSubtypesMenu } from './paymentSubtypesMenu';
+import { seedInvoiceBanksMenu } from './invoiceBanksMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -206,6 +207,8 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedReferersMenu(db);
   await seedPaymentTypesMenu(db);
   await seedPaymentSubtypesMenu(db);
+  // Company's own bank accounts to print on outgoing invoices.
+  await seedInvoiceBanksMenu(db);
 }
 
 export {
@@ -283,4 +286,5 @@ export {
   seedReferersMenu,
   seedPaymentTypesMenu,
   seedPaymentSubtypesMenu,
+  seedInvoiceBanksMenu,
 };
