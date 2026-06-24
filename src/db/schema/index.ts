@@ -56,3 +56,5 @@ export * from './industryMaster';
 export * from './doneByMaster';
 export * from './expenseTypeMaster';
 export * from './hscodeMaster';
+export * from './banklistMaster';
+export * from './bankExchangeRate';

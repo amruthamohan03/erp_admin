@@ -65,6 +65,8 @@ import { seedIndustriesMenu } from './industriesMenu';
 import { seedDoneByMenu } from './doneByMenu';
 import { seedExpenseTypesMenu } from './expenseTypesMenu';
 import { seedHscodesMenu } from './hscodesMenu';
+import { seedBanksMenu } from './banksMenu';
+import { seedBankExchangeRatesMenu } from './bankExchangeRatesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -188,6 +190,9 @@ export async function seedMasters(db: Database): Promise<void> {
   // Finance / tariff masters (expense_type + hscode).
   await seedExpenseTypesMenu(db);
   await seedHscodesMenu(db);
+  // Bank cluster — registry + daily exchange-rate entries.
+  await seedBanksMenu(db);
+  await seedBankExchangeRatesMenu(db);
 }
 
 export {
@@ -257,4 +262,6 @@ export {
   seedDoneByMenu,
   seedExpenseTypesMenu,
   seedHscodesMenu,
+  seedBanksMenu,
+  seedBankExchangeRatesMenu,
 };
