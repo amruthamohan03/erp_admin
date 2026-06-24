@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { Download, Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface ClientRow {
@@ -81,9 +81,20 @@ export default function ClientsPage() {
           <Users className="h-6 w-6 text-primary-600" />
           Clients
         </h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Client
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/v1/clients/export?${new URLSearchParams({
+              q: search,
+            }).toString()}`}
+            className="btn-secondary"
+            title="Download current view as XLSX"
+          >
+            <Download className="h-4 w-4" /> Export
+          </a>
+          <button onClick={() => setShowCreate(true)} className="btn-primary">
+            <Plus className="h-4 w-4" /> New Client
+          </button>
+        </div>
       </div>
 
       <div className="card">

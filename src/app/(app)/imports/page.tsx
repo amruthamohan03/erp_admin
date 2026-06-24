@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Weight,
   FileText,
+  Download,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
@@ -175,9 +176,25 @@ export default function ImportsListPage() {
           <Anchor className="h-6 w-6 text-primary-600" />
           Imports
         </h1>
-        <Link href="/imports/new" className="btn-primary">
-          <Plus className="h-4 w-4" /> New Import
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/v1/imports/export?${new URLSearchParams({
+              q: search,
+              ...(clientFilter ? { client_id: clientFilter } : {}),
+              ...(regimeFilter ? { regime_id: regimeFilter } : {}),
+              ...(clearingFilter
+                ? { clearing_status_id: clearingFilter }
+                : {}),
+            }).toString()}`}
+            className="btn-secondary"
+            title="Download current view as XLSX"
+          >
+            <Download className="h-4 w-4" /> Export
+          </a>
+          <Link href="/imports/new" className="btn-primary">
+            <Plus className="h-4 w-4" /> New Import
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
