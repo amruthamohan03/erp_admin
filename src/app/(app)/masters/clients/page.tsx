@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface ClientRow {
   id: number;
@@ -246,6 +248,16 @@ function ClientFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Live uniqueness on client_code only. On edit the code is immutable
+  // (the input is disabled and PUT omits the field), so skip the check
+  // entirely — it would always collide with itself.
+  const checkValue = isEdit ? '' : form.client_code;
+  const { status: codeStatus, message: codeMessage } = useUniqueCheck({
+    resource: 'client-codes',
+    value: checkValue,
+    excludeId: client?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -329,9 +341,17 @@ function ClientFormModal({
                 required
                 placeholder="CLI-001"
               />
-              {isEdit && (
-                <p className="text-xs text-slate-500 mt-1">Immutable.</p>
-              )}
+              <div className="flex items-center justify-between mt-1">
+                {isEdit ? (
+                  <p className="text-xs text-slate-500">Immutable.</p>
+                ) : (
+                  <span />
+                )}
+                <UniquenessIndicator
+                  status={codeStatus}
+                  message={codeMessage}
+                />
+              </div>
             </div>
             <div>
               <label className="label">Name *</label>
@@ -400,7 +420,7 @@ function ClientFormModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || codeStatus === 'taken'}
               className="btn-primary"
             >
               {saving ? 'Saving...' : 'Save'}

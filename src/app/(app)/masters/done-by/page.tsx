@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Check,
   Edit2,
-  Loader2,
   Plus,
   Search,
   Trash2,
@@ -12,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
@@ -280,26 +279,7 @@ function FormModal({
               <p className="text-xs text-slate-500">
                 Must be unique — picker shows one row per attribution.
               </p>
-              {status !== 'idle' && (
-                <span
-                  className={`inline-flex items-center gap-1 text-xs ${
-                    status === 'available'
-                      ? 'text-emerald-700'
-                      : status === 'taken'
-                        ? 'text-red-700'
-                        : status === 'checking'
-                          ? 'text-slate-500'
-                          : 'text-amber-700'
-                  }`}
-                >
-                  {status === 'checking' && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                  {status === 'available' && <Check className="h-3 w-3" />}
-                  {status === 'taken' && <X className="h-3 w-3" />}
-                  {message}
-                </span>
-              )}
+              <UniquenessIndicator status={status} message={message} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

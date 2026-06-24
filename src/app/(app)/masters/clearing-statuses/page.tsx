@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface ClearingStatusRow {
   id: number;
@@ -208,6 +210,16 @@ function ClearingStatusFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Skip the check while value is unchanged in edit mode — it would
+  // always collide with itself otherwise. Aliased to avoid shadowing
+  // the `status` prop (the row being edited).
+  const checkValue = isEdit && name === status?.clearing_status ? '' : name;
+  const { status: uniqueStatus, message: uniqueMessage } = useUniqueCheck({
+    resource: 'clearing-statuses',
+    value: checkValue,
+    excludeId: status?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -263,12 +275,22 @@ function ClearingStatusFormModal({
               required
               placeholder="Released"
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator
+                status={uniqueStatus}
+                message={uniqueMessage}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || uniqueStatus === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

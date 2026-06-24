@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface SubOfficeRow {
   id: number;
@@ -206,6 +208,15 @@ function SubOfficeFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Skip the check while value is unchanged in edit mode — it would
+  // always collide with itself otherwise.
+  const checkValue = isEdit && name === subOffice?.sub_office_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'sub-offices',
+    value: checkValue,
+    excludeId: subOffice?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -261,12 +272,19 @@ function SubOfficeFormModal({
               required
               placeholder="DGDA Kinshasa Port"
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
