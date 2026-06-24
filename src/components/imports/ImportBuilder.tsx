@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Anchor, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  Anchor,
+  Save,
+  X,
+  AlertTriangle,
+  Loader2,
+  Download,
+} from 'lucide-react';
 import {
   Area,
   Bool,
@@ -562,6 +569,15 @@ export default function ImportBuilder({ id }: { id?: number }) {
           {id ? `Import #${id}` : 'New Import'}
         </h1>
         <div className="flex items-center gap-2">
+          {id && (
+            <a
+              href={`/api/v1/imports/${id}/export`}
+              className="btn-secondary"
+              title="Download this import as XLSX"
+            >
+              <Download className="h-4 w-4" /> Download
+            </a>
+          )}
           <button
             type="button"
             className="btn-secondary"

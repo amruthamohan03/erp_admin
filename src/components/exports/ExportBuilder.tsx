@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Ship, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  Ship,
+  Save,
+  X,
+  AlertTriangle,
+  Loader2,
+  Download,
+} from 'lucide-react';
 import {
   Area,
   BuilderSection,
@@ -503,6 +510,15 @@ export default function ExportBuilder({ id }: { id?: number }) {
           {id ? `Export #${id}` : 'New Export'}
         </h1>
         <div className="flex items-center gap-2">
+          {id && (
+            <a
+              href={`/api/v1/exports/${id}/export`}
+              className="btn-secondary"
+              title="Download this export as XLSX"
+            >
+              <Download className="h-4 w-4" /> Download
+            </a>
+          )}
           <button
             type="button"
             className="btn-secondary"
