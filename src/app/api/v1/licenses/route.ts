@@ -15,9 +15,15 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 const querySchema = z.object({
   q: z.string().optional(),
   client_id: z.coerce.number().int().positive().optional(),
+  // Workflow state from the case-runtime license template. No enum
+  // check here — the set is workflow-config-driven so anything the
+  // template defines is valid; unknown values just return 0 rows.
+  state: z.string().max(50).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(20),
 });
+
+export { querySchema as licenseListQuerySchema };
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -27,6 +33,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const q = querySchema.parse({
     q: searchParams.get('q') ?? undefined,
     client_id: searchParams.get('client_id') ?? undefined,
+    state: searchParams.get('state') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -42,6 +49,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     if (orClause) conds.push(orClause);
   }
   if (q.client_id) conds.push(eq(licenseT.clientId, q.client_id));
+  if (q.state) conds.push(eq(licenseT.state, q.state));
   const where = and(...conds);
 
   const [countRow] = await db

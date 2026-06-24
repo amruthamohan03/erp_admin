@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { PAGE_SIZE_OPTIONS } from '@/lib/hooks/usePagedList';
 
@@ -43,6 +43,13 @@ export interface CaseListPageProps {
   columns: ColumnDef[];
   /** Label for the empty-state link, e.g. "Issue one". */
   emptyVerb?: string;
+  /**
+   * Base URL for the per-template XLSX export endpoint, e.g.
+   * `/api/v1/licenses/export`. When set, an "Export" button appears
+   * next to the New button and links to `${exportHref}?state=<state>`
+   * so the download honours the current filter.
+   */
+  exportHref?: string;
 }
 
 function defaultCellValue(row: Row, key: string): React.ReactNode {
@@ -62,6 +69,7 @@ export function CaseListPage({
   states,
   columns,
   emptyVerb = 'Issue one',
+  exportHref,
 }: CaseListPageProps) {
   const [items, setItems] = React.useState<Row[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -121,9 +129,20 @@ export function CaseListPage({
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
           <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
         </div>
-        <Link href={newHref} className="btn-primary">
-          <Plus className="h-4 w-4" /> {newLabel}
-        </Link>
+        <div className="flex items-center gap-2">
+          {exportHref && (
+            <a
+              href={`${exportHref}${state ? `?state=${encodeURIComponent(state)}` : ''}`}
+              className="btn-secondary"
+              title="Download current view as XLSX"
+            >
+              <Download className="h-4 w-4" /> Export
+            </a>
+          )}
+          <Link href={newHref} className="btn-primary">
+            <Plus className="h-4 w-4" /> {newLabel}
+          </Link>
+        </div>
       </div>
 
       {error && (

@@ -64,6 +64,7 @@ export default function LicensesListPage() {
       getDetailHref={(row) => `/licenses/${row.id}`}
       states={STATES}
       columns={COLUMNS}
+      exportHref="/api/v1/licenses/export"
     />
   );
 }
