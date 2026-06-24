@@ -8,9 +8,14 @@ import {
   Search,
   Trash2,
   Ship,
+  Calendar,
+  TrendingUp,
+  Weight,
+  FileText,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import StatCard from '@/components/ui/StatCard';
 
 interface ExportRow {
   id: number;
@@ -55,6 +60,17 @@ interface TruckStatusOption {
   truck_status: string;
 }
 
+interface Stats {
+  total_count: number;
+  total_fob: number;
+  total_weight: number;
+  this_month_count: number;
+}
+
+function fmtCount(n: number): string {
+  return n.toLocaleString();
+}
+
 function fmtNum(v: string | null | undefined): string {
   if (v == null) return '—';
   const n = Number(v);
@@ -84,6 +100,7 @@ export default function ExportsListPage() {
     ClearingStatusOption[]
   >([]);
   const [truckStatuses, setTruckStatuses] = useState<TruckStatusOption[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -95,7 +112,7 @@ export default function ExportsListPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [c, r, cs, ts] = await Promise.all([
+        const [c, r, cs, ts, s] = await Promise.all([
           fetch('/api/v1/clients?pageSize=200').then((res) => res.json()),
           fetch('/api/v1/regimes?pageSize=200').then((res) => res.json()),
           fetch('/api/v1/clearing-statuses?pageSize=200').then((res) =>
@@ -104,12 +121,14 @@ export default function ExportsListPage() {
           fetch('/api/v1/truck-statuses?pageSize=200').then((res) =>
             res.json(),
           ),
+          fetch('/api/v1/exports/stats').then((res) => res.json()),
         ]);
         if (cancelled) return;
         if (c.ok) setClients(c.data);
         if (r.ok) setRegimes(r.data);
         if (cs.ok) setClearingStatuses(cs.data);
         if (ts.ok) setTruckStatuses(ts.data);
+        if (s.ok) setStats(s.data);
       } catch {
         if (!cancelled) setError('Network error');
       }
@@ -173,6 +192,29 @@ export default function ExportsListPage() {
         <Link href="/exports/new" className="btn-primary">
           <Plus className="h-4 w-4" /> New Export
         </Link>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          icon={<FileText className="h-5 w-5" />}
+          label="Total exports"
+          value={stats ? fmtCount(stats.total_count) : '—'}
+        />
+        <StatCard
+          icon={<Calendar className="h-5 w-5" />}
+          label="Loaded this month"
+          value={stats ? fmtCount(stats.this_month_count) : '—'}
+        />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Total FOB"
+          value={stats ? fmtNum(String(stats.total_fob)) : '—'}
+        />
+        <StatCard
+          icon={<Weight className="h-5 w-5" />}
+          label="Total Weight"
+          value={stats ? fmtNum(String(stats.total_weight)) : '—'}
+        />
       </div>
 
       {error && (

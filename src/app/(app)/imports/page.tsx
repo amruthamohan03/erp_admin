@@ -8,9 +8,14 @@ import {
   Search,
   Trash2,
   Anchor,
+  Calendar,
+  TrendingUp,
+  Weight,
+  FileText,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import StatCard from '@/components/ui/StatCard';
 
 interface ImportRow {
   id: number;
@@ -48,6 +53,17 @@ interface ClearingStatusOption {
   clearing_status: string;
 }
 
+interface Stats {
+  total_count: number;
+  total_fob: number;
+  total_weight: number;
+  this_month_count: number;
+}
+
+function fmtCount(n: number): string {
+  return n.toLocaleString();
+}
+
 function fmtNum(v: string | null | undefined): string {
   if (v == null) return '—';
   const n = Number(v);
@@ -75,6 +91,7 @@ export default function ImportsListPage() {
   const [clearingStatuses, setClearingStatuses] = useState<
     ClearingStatusOption[]
   >([]);
+  const [stats, setStats] = useState<Stats | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -86,17 +103,19 @@ export default function ImportsListPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [c, r, cs] = await Promise.all([
+        const [c, r, cs, s] = await Promise.all([
           fetch('/api/v1/clients?pageSize=200').then((res) => res.json()),
           fetch('/api/v1/regimes?pageSize=200').then((res) => res.json()),
           fetch('/api/v1/clearing-statuses?pageSize=200').then((res) =>
             res.json(),
           ),
+          fetch('/api/v1/imports/stats').then((res) => res.json()),
         ]);
         if (cancelled) return;
         if (c.ok) setClients(c.data);
         if (r.ok) setRegimes(r.data);
         if (cs.ok) setClearingStatuses(cs.data);
+        if (s.ok) setStats(s.data);
       } catch {
         if (!cancelled) setError('Network error');
       }
@@ -159,6 +178,29 @@ export default function ImportsListPage() {
         <Link href="/imports/new" className="btn-primary">
           <Plus className="h-4 w-4" /> New Import
         </Link>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          icon={<FileText className="h-5 w-5" />}
+          label="Total imports"
+          value={stats ? fmtCount(stats.total_count) : '—'}
+        />
+        <StatCard
+          icon={<Calendar className="h-5 w-5" />}
+          label="This month"
+          value={stats ? fmtCount(stats.this_month_count) : '—'}
+        />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Total FOB"
+          value={stats ? fmtNum(String(stats.total_fob)) : '—'}
+        />
+        <StatCard
+          icon={<Weight className="h-5 w-5" />}
+          label="Total Weight"
+          value={stats ? fmtNum(String(stats.total_weight)) : '—'}
+        />
       </div>
 
       {error && (

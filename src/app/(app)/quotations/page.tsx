@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import StatCard from '@/components/ui/StatCard';
 
 interface QuotationRow {
   id: number;
@@ -366,26 +367,3 @@ export default function QuotationsListPage() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className="h-10 w-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs uppercase tracking-wide text-slate-500">
-          {label}
-        </div>
-        <div className="text-xl font-bold text-slate-900 truncate">{value}</div>
-      </div>
-    </div>
-  );
-}
