@@ -66,3 +66,4 @@ export * from './paymentTypeMaster';
 export * from './paymentSubtypeMaster';
 export * from './invoiceBankMaster';
 export * from './departmentMaster';
+export * from './files';

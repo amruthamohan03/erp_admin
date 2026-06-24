@@ -55,3 +55,4 @@ export * from './payment-types';
 export * from './payment-subtypes';
 export * from './invoice-banks';
 export * from './departments';
+export * from './files';
