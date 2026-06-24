@@ -29,6 +29,7 @@ import {
   phaseMaster,
   refererMaster,
   paymentTypeMaster,
+  paymentSubtypeMaster,
   partialMaster,
   subOfficeMaster,
   itemMaster,
@@ -59,6 +60,14 @@ interface ResourceConfig {
   nameColumn: PgColumn;
   idColumn: PgColumn;
   displayColumn?: PgColumn;
+  /**
+   * Optional scoping column — when set, the request must supply
+   * `?scope_id=N` and uniqueness is checked within rows where this
+   * column equals that value. Used for nested masters like
+   * `payment-subtypes` where the name only has to be unique within
+   * a single parent `payment_type_id`.
+   */
+  scopeColumn?: PgColumn;
 }
 
 const RESOURCES: Record<string, ResourceConfig> = {
@@ -267,6 +276,16 @@ const RESOURCES: Record<string, ResourceConfig> = {
     idColumn: paymentTypeMaster.id,
     displayColumn: paymentTypeMaster.display,
   },
+  'payment-subtypes': {
+    // Scoped: subtype name only needs to be unique within the
+    // parent payment_type_id (e.g. "SWIFT" can exist under both
+    // "Bank transfer" and a hypothetical "International wire").
+    table: paymentSubtypeMaster,
+    nameColumn: paymentSubtypeMaster.paymentSubtype,
+    idColumn: paymentSubtypeMaster.id,
+    displayColumn: paymentSubtypeMaster.display,
+    scopeColumn: paymentSubtypeMaster.paymentTypeId,
+  },
   departments: {
     table: departmentMaster,
     nameColumn: departmentMaster.departmentName,
@@ -303,6 +322,14 @@ export const GET = withErrorHandler(
     }
     const excludeIdRaw = searchParams.get('exclude_id');
     const excludeId = excludeIdRaw ? parseInt(excludeIdRaw, 10) : null;
+    const scopeIdRaw = searchParams.get('scope_id');
+    const scopeId = scopeIdRaw ? parseInt(scopeIdRaw, 10) : null;
+
+    if (config.scopeColumn && !(scopeId && Number.isFinite(scopeId))) {
+      throw new BadRequestError(
+        `scope_id is required for resource: ${resource}`,
+      );
+    }
 
     // Case-insensitive exact match — operators care about visual
     // duplicates, not Postgres collation rules.
@@ -311,6 +338,9 @@ export const GET = withErrorHandler(
     ];
     if (config.displayColumn) {
       conds.push(eq(config.displayColumn, 'Y'));
+    }
+    if (config.scopeColumn && scopeId) {
+      conds.push(eq(config.scopeColumn, scopeId));
     }
     if (excludeId && Number.isFinite(excludeId)) {
       conds.push(ne(config.idColumn, excludeId));

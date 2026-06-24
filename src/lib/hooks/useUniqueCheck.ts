@@ -20,6 +20,13 @@ export interface UseUniqueCheckArgs {
   value: string;
   /** When editing, the id of the row being edited — so it doesn't collide with itself. */
   excludeId?: number | null;
+  /**
+   * For scoped resources (e.g. `payment-subtypes` under a parent
+   * `payment_type_id`), the FK value the uniqueness is scoped under.
+   * When the resource requires scoping and this is missing/null,
+   * the check stays in `idle` rather than firing an invalid request.
+   */
+  scopeId?: number | null;
   /** Minimum trimmed length before a check fires (default 1). */
   minLength?: number;
   /** Debounce in ms (default 350). */
@@ -35,6 +42,7 @@ export function useUniqueCheck({
   resource,
   value,
   excludeId,
+  scopeId,
   minLength = 1,
   debounceMs = 350,
 }: UseUniqueCheckArgs): UseUniqueCheckResult {
@@ -62,6 +70,7 @@ export function useUniqueCheck({
       try {
         const params = new URLSearchParams({ name: trimmed });
         if (excludeId != null) params.set('exclude_id', String(excludeId));
+        if (scopeId != null) params.set('scope_id', String(scopeId));
         const res = await fetch(
           `/api/v1/uniqueness/${resource}?${params.toString()}`,
           { signal: controller.signal },
@@ -89,7 +98,7 @@ export function useUniqueCheck({
     return () => {
       clearTimeout(handle);
     };
-  }, [resource, value, excludeId, minLength, debounceMs]);
+  }, [resource, value, excludeId, scopeId, minLength, debounceMs]);
 
   return { status, message };
 }

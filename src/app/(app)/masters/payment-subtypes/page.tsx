@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
   id: number;
@@ -262,6 +264,24 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Scoped uniqueness — subtype name only has to be unique within
+  // the selected payment_type. If no parent type is picked yet the
+  // hook stays idle (the endpoint requires scope_id for this
+  // resource). Skip the check on unchanged-edit since the row can't
+  // collide with itself.
+  const scopeId = typeId ? parseInt(typeId, 10) : null;
+  const unchangedEdit =
+    isEdit &&
+    name === row?.payment_subtype &&
+    scopeId === (row?.payment_type_id ?? null);
+  const checkValue = unchangedEdit ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'payment-subtypes',
+    value: checkValue,
+    scopeId,
+    excludeId: row?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -324,6 +344,9 @@ function FormModal({
               placeholder="SWIFT"
               maxLength={100}
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div>
             <label className="label">Payment Type</label>
@@ -342,7 +365,11 @@ function FormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
