@@ -18,6 +18,7 @@ export default function LicenseDetailPage() {
       }
       backHref="/licenses"
       newHref="/licenses/new"
+      exportHrefTemplate="/api/v1/licenses/{id}/export"
     />
   );
 }

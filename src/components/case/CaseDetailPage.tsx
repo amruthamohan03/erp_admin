@@ -46,6 +46,13 @@ export interface CaseDetailPageProps {
     data: LoadedCase,
     reload: () => Promise<void>,
   ) => React.ReactNode;
+  /**
+   * Optional template for the per-id XLSX download URL. When set, a
+   * "Download" link appears next to Back/New and resolves the `{id}`
+   * placeholder against the current caseId, e.g.
+   * `/api/v1/licenses/{id}/export`.
+   */
+  exportHrefTemplate?: string;
 }
 
 function defaultFormatValue(v: unknown): string {
@@ -64,6 +71,7 @@ export function CaseDetailPage({
   newHref,
   hiddenCols = [],
   extraPanel,
+  exportHrefTemplate,
 }: CaseDetailPageProps) {
   const [data, setData] = React.useState<LoadedCase | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -150,6 +158,15 @@ export function CaseDetailPage({
           >
             ← Back
           </Link>
+          {exportHrefTemplate && caseId && (
+            <a
+              href={exportHrefTemplate.replace('{id}', caseId)}
+              className="text-sm text-slate-600 hover:underline"
+              title="Download as XLSX"
+            >
+              ↓ Download
+            </a>
+          )}
           <Link
             href={newHref}
             className="text-sm text-primary-600 hover:underline"
