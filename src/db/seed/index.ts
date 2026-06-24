@@ -74,6 +74,7 @@ import { seedReferersMenu } from './referersMenu';
 import { seedPaymentTypesMenu } from './paymentTypesMenu';
 import { seedPaymentSubtypesMenu } from './paymentSubtypesMenu';
 import { seedInvoiceBanksMenu } from './invoiceBanksMenu';
+import { seedDepartmentsMenu } from './departmentsMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -209,6 +210,8 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedPaymentSubtypesMenu(db);
   // Company's own bank accounts to print on outgoing invoices.
   await seedInvoiceBanksMenu(db);
+  // Internal department catalogue.
+  await seedDepartmentsMenu(db);
 }
 
 export {
@@ -287,4 +290,5 @@ export {
   seedPaymentTypesMenu,
   seedPaymentSubtypesMenu,
   seedInvoiceBanksMenu,
+  seedDepartmentsMenu,
 };
