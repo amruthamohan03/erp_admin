@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CreditCard, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
   id: number;
@@ -202,6 +204,13 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && name === row?.payment_type_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'payment-types',
+    value: checkValue,
+    excludeId: row?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -261,12 +270,15 @@ function FormModal({
               placeholder="Bank transfer"
               maxLength={250}
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

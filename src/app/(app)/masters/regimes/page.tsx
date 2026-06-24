@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Gavel, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface RegimeRow {
   id: number;
@@ -213,6 +215,13 @@ function RegimeFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && name === regime?.regime_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'regimes',
+    value: checkValue,
+    excludeId: regime?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -266,6 +275,9 @@ function RegimeFormModal({
               required
               placeholder="Import Definitive"
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div>
             <label className="label">Type Code *</label>
@@ -286,7 +298,7 @@ function RegimeFormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

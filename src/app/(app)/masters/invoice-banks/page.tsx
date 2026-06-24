@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
   id: number;
@@ -237,6 +239,13 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && bank === row?.invoice_bank_name ? '' : bank;
+  const { status, message } = useUniqueCheck({
+    resource: 'invoice-banks',
+    value: checkValue,
+    excludeId: row?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -302,6 +311,9 @@ function FormModal({
               placeholder="Rawbank"
               maxLength={255}
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div>
             <label className="label">Account Name *</label>
@@ -349,7 +361,7 @@ function FormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

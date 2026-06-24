@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, FileBadge, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface DocumentStatusRow {
   id: number;
@@ -255,6 +257,13 @@ function DocumentStatusFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && name === status?.document_status ? '' : name;
+  const { status: uniqueStatus, message: uniqueMessage } = useUniqueCheck({
+    resource: 'document-statuses',
+    value: checkValue,
+    excludeId: status?.id ?? null,
+  });
+
   function toggleType(letter: string, on: boolean) {
     setTypes((prev) => {
       const next = new Set(prev);
@@ -332,6 +341,9 @@ function DocumentStatusFormModal({
               required
               placeholder="CRF Received"
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
+            </div>
           </div>
           <div>
             <label className="label">Direction *</label>
@@ -363,7 +375,7 @@ function DocumentStatusFormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || uniqueStatus === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

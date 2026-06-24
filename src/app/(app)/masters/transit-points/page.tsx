@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface TransitPointRow {
   id: number;
@@ -284,6 +286,13 @@ function TransitPointFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && name === point?.transit_point_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'transit-points',
+    value: checkValue,
+    excludeId: point?.id ?? null,
+  });
+
   function toggleFlag(key: Capability, on: boolean) {
     setFlags((prev) => ({ ...prev, [key]: on }));
   }
@@ -347,6 +356,9 @@ function TransitPointFormModal({
               required
               placeholder="Port of Matadi"
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div>
             <label className="label">Capabilities</label>
@@ -376,7 +388,7 @@ function TransitPointFormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
 interface Row {
@@ -265,6 +267,13 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && name === row?.expense_type_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'expense-types',
+    value: checkValue,
+    excludeId: row?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -327,6 +336,9 @@ function FormModal({
               placeholder="Customs duty"
               maxLength={300}
             />
+            <div className="mt-1 text-right">
+              <UniquenessIndicator status={status} message={message} />
+            </div>
           </div>
           <div>
             <label className="label">Applies to</label>
@@ -360,7 +372,7 @@ function FormModal({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
