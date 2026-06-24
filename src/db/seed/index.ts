@@ -75,6 +75,7 @@ import { seedPaymentTypesMenu } from './paymentTypesMenu';
 import { seedPaymentSubtypesMenu } from './paymentSubtypesMenu';
 import { seedInvoiceBanksMenu } from './invoiceBanksMenu';
 import { seedDepartmentsMenu } from './departmentsMenu';
+import { seedClientsDashboardMenu } from './clientsDashboardMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -212,6 +213,8 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedInvoiceBanksMenu(db);
   // Internal department catalogue.
   await seedDepartmentsMenu(db);
+  // Top-level dashboards.
+  await seedClientsDashboardMenu(db);
 }
 
 export {
@@ -291,4 +294,5 @@ export {
   seedPaymentSubtypesMenu,
   seedInvoiceBanksMenu,
   seedDepartmentsMenu,
+  seedClientsDashboardMenu,
 };
