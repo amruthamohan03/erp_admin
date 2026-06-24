@@ -39,6 +39,8 @@ const EMPTY: Form = {
   invoice: null,
   po_ref: null,
   bp_no: null,
+  hscode_id: null,
+  incoterm_id: null,
   // Weight & Financial
   weight: null,
   fob: null,
@@ -130,6 +132,8 @@ const SECTIONS: BuilderSection[] = [
       'invoice',
       'po_ref',
       'bp_no',
+      'hscode_id',
+      'incoterm_id',
     ],
   },
   {
@@ -248,6 +252,8 @@ interface AllOptions {
   documentStatuses: MasterOption[];
   truckStatuses: MasterOption[];
   clearingStatuses: MasterOption[];
+  hscodes: MasterOption[];
+  incoterms: MasterOption[];
 }
 
 const EMPTY_OPTIONS: AllOptions = {
@@ -264,6 +270,8 @@ const EMPTY_OPTIONS: AllOptions = {
   documentStatuses: [],
   truckStatuses: [],
   clearingStatuses: [],
+  hscodes: [],
+  incoterms: [],
 };
 
 export default function ExportBuilder({ id }: { id?: number }) {
@@ -295,6 +303,8 @@ export default function ExportBuilder({ id }: { id?: number }) {
           documentStatuses,
           truckStatuses,
           clearingStatuses,
+          hscodes,
+          incoterms,
         ] = await Promise.all([
           fetchMasterOptions<{ id: number; name: string }>(
             '/api/v1/clients',
@@ -357,6 +367,18 @@ export default function ExportBuilder({ id }: { id?: number }) {
             '/api/v1/clearing-statuses',
             (r) => ({ value: String(r.id), label: r.clearing_status }),
           ),
+          fetchMasterOptions<{ id: number; hscode_number: string }>(
+            '/api/v1/hscodes',
+            (r) => ({ value: String(r.id), label: r.hscode_number }),
+          ),
+          fetchMasterOptions<{
+            id: number;
+            incoterm_short_name: string;
+            incoterm_full_name: string;
+          }>('/api/v1/incoterms', (r) => ({
+            value: String(r.id),
+            label: `${r.incoterm_short_name} — ${r.incoterm_full_name}`,
+          })),
         ]);
         if (cancelled) return;
         setOpts({
@@ -373,6 +395,8 @@ export default function ExportBuilder({ id }: { id?: number }) {
           documentStatuses,
           truckStatuses,
           clearingStatuses,
+          hscodes,
+          incoterms,
         });
       } catch {
         if (!cancelled) setError('Failed to load picker data');
@@ -553,6 +577,8 @@ function renderSection(
           <Text label="Invoice" k="invoice" form={form} set={set} maxLength={100} />
           <Text label="PO ref" k="po_ref" form={form} set={set} maxLength={100} />
           <Text label="BP no" k="bp_no" form={form} set={set} maxLength={100} />
+          <Picker label="HS code" k="hscode_id" form={form} set={set} options={opts.hscodes} />
+          <Picker label="Incoterm" k="incoterm_id" form={form} set={set} options={opts.incoterms} />
         </Grid>
       );
     case 'financial':

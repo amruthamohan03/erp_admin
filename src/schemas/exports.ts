@@ -48,6 +48,8 @@ export const exportBodySchema = z.object({
   invoice: shortText(100),
   po_ref: shortText(100),
   bp_no: shortText(100),
+  hscode_id: intIdNullable,
+  incoterm_id: intIdNullable,
 
   // ── Weight & Financial ──
   weight: decimalString,

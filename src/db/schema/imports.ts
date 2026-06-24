@@ -27,6 +27,8 @@ import { commodityMaster } from './commodityMaster';
 import { transitPointMaster } from './transitPointMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
+import { hscodeMaster } from './hscodeMaster';
+import { incotermMaster } from './incotermMaster';
 
 // Import-tracking transactional entity (§2 step 3 — customs imports
 // lifecycle). One row per consignment moving through customs clearance,
@@ -100,6 +102,12 @@ export const importT = pgTable(
     preAlertDate: date('pre_alert_date'),
     invoice: varchar('invoice', { length: 100 }),
     commodityId: integer('commodity_id').references(() => commodityMaster.id, {
+      onDelete: 'set null',
+    }),
+    hscodeId: integer('hscode_id').references(() => hscodeMaster.id, {
+      onDelete: 'set null',
+    }),
+    incotermId: integer('incoterm_id').references(() => incotermMaster.id, {
       onDelete: 'set null',
     }),
     poRef: varchar('po_ref', { length: 100 }),
@@ -305,6 +313,14 @@ export const importRelations = relations(importT, ({ one }) => ({
   commodity: one(commodityMaster, {
     fields: [importT.commodityId],
     references: [commodityMaster.id],
+  }),
+  hscode: one(hscodeMaster, {
+    fields: [importT.hscodeId],
+    references: [hscodeMaster.id],
+  }),
+  incoterm: one(incotermMaster, {
+    fields: [importT.incotermId],
+    references: [incotermMaster.id],
   }),
   documentStatus: one(documentStatusMaster, {
     fields: [importT.documentStatusId],

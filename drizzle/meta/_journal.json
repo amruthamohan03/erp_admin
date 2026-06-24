@@ -239,6 +239,13 @@
       "when": 1782321132648,
       "tag": "0033_old_tony_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782321468279,
+      "tag": "0034_fat_human_torch",
+      "breakpoints": true
     }
   ]
 }

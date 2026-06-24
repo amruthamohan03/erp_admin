@@ -23,6 +23,8 @@ export function bodyToInsert(body: ImportBody): Record<string, unknown> {
     preAlertDate: body.pre_alert_date,
     invoice: body.invoice,
     commodityId: body.commodity_id,
+    hscodeId: body.hscode_id,
+    incotermId: body.incoterm_id,
     poRef: body.po_ref,
     fret: body.fret,
     fretCurrencyId: body.fret_currency_id,

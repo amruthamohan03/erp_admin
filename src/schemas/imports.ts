@@ -58,6 +58,8 @@ export const importBodySchema = z.object({
   pre_alert_date: dateOnly,
   invoice: shortText(100),
   commodity_id: intIdNullable,
+  hscode_id: intIdNullable,
+  incoterm_id: intIdNullable,
   po_ref: shortText(100),
 
   // ── Financial ──

@@ -16,6 +16,8 @@ import {
   transitPointMaster,
   documentStatusMaster,
   clearingStatusMaster,
+  hscodeMaster,
+  incotermMaster,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
@@ -78,6 +80,10 @@ export const GET = withErrorHandler(
         invoice: importT.invoice,
         commodity_id: importT.commodityId,
         commodity_name: commodityMaster.commodityName,
+        hscode_id: importT.hscodeId,
+        hscode_number: hscodeMaster.hscodeNumber,
+        incoterm_id: importT.incotermId,
+        incoterm_short_name: incotermMaster.incotermShortName,
         po_ref: importT.poRef,
         // Financial
         fret: importT.fret,
@@ -192,6 +198,8 @@ export const GET = withErrorHandler(
         eq(subOfficeMaster.id, importT.declarationOfficeId),
       )
       .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodityId))
+      .leftJoin(hscodeMaster, eq(hscodeMaster.id, importT.hscodeId))
+      .leftJoin(incotermMaster, eq(incotermMaster.id, importT.incotermId))
       .leftJoin(
         transitPointMaster,
         eq(transitPointMaster.id, importT.entryPointId),

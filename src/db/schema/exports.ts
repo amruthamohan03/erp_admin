@@ -25,6 +25,8 @@ import { feetContainerMaster } from './feetContainerMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
 import { truckStatusMaster } from './truckStatusMaster';
+import { hscodeMaster } from './hscodeMaster';
+import { incotermMaster } from './incotermMaster';
 
 // Export-tracking transactional entity (§2 step 3 — customs exports
 // lifecycle). One row per outbound consignment, from documentation
@@ -89,6 +91,12 @@ export const exportT = pgTable(
     invoice: varchar('invoice', { length: 100 }),
     poRef: varchar('po_ref', { length: 100 }),
     bpNo: varchar('bp_no', { length: 100 }),
+    hscodeId: integer('hscode_id').references(() => hscodeMaster.id, {
+      onDelete: 'set null',
+    }),
+    incotermId: integer('incoterm_id').references(() => incotermMaster.id, {
+      onDelete: 'set null',
+    }),
 
     // ── Weight & Financial ──
     weight: numeric('weight', { precision: 10, scale: 3 }),
@@ -263,6 +271,14 @@ export const exportRelations = relations(exportT, ({ one }) => ({
   clearingStatus: one(clearingStatusMaster, {
     fields: [exportT.clearingStatusId],
     references: [clearingStatusMaster.id],
+  }),
+  hscode: one(hscodeMaster, {
+    fields: [exportT.hscodeId],
+    references: [hscodeMaster.id],
+  }),
+  incoterm: one(incotermMaster, {
+    fields: [exportT.incotermId],
+    references: [incotermMaster.id],
   }),
 }));
 

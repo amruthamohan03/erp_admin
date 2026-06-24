@@ -43,6 +43,8 @@ const EMPTY: Form = {
   pre_alert_date: null,
   invoice: null,
   commodity_id: null,
+  hscode_id: null,
+  incoterm_id: null,
   po_ref: null,
   // Financial
   fret: null,
@@ -150,6 +152,8 @@ const SECTIONS: BuilderSection[] = [
       'pre_alert_date',
       'invoice',
       'commodity_id',
+      'hscode_id',
+      'incoterm_id',
       'po_ref',
     ],
   },
@@ -293,6 +297,8 @@ interface AllOptions {
   transitPoints: MasterOption[];
   documentStatuses: MasterOption[];
   clearingStatuses: MasterOption[];
+  hscodes: MasterOption[];
+  incoterms: MasterOption[];
 }
 
 const EMPTY_OPTIONS: AllOptions = {
@@ -310,6 +316,8 @@ const EMPTY_OPTIONS: AllOptions = {
   transitPoints: [],
   documentStatuses: [],
   clearingStatuses: [],
+  hscodes: [],
+  incoterms: [],
 };
 
 export default function ImportBuilder({ id }: { id?: number }) {
@@ -344,6 +352,8 @@ export default function ImportBuilder({ id }: { id?: number }) {
           transitPoints,
           documentStatuses,
           clearingStatuses,
+          hscodes,
+          incoterms,
         ] = await Promise.all([
           fetchMasterOptions<{ id: number; name: string }>(
             '/api/v1/clients',
@@ -410,6 +420,18 @@ export default function ImportBuilder({ id }: { id?: number }) {
             '/api/v1/clearing-statuses',
             (r) => ({ value: String(r.id), label: r.clearing_status }),
           ),
+          fetchMasterOptions<{ id: number; hscode_number: string }>(
+            '/api/v1/hscodes',
+            (r) => ({ value: String(r.id), label: r.hscode_number }),
+          ),
+          fetchMasterOptions<{
+            id: number;
+            incoterm_short_name: string;
+            incoterm_full_name: string;
+          }>('/api/v1/incoterms', (r) => ({
+            value: String(r.id),
+            label: `${r.incoterm_short_name} — ${r.incoterm_full_name}`,
+          })),
         ]);
         if (cancelled) return;
         setOpts({
@@ -427,6 +449,8 @@ export default function ImportBuilder({ id }: { id?: number }) {
           transitPoints,
           documentStatuses,
           clearingStatuses,
+          hscodes,
+          incoterms,
         });
       } catch {
         if (!cancelled) setError('Failed to load picker data');
@@ -615,6 +639,8 @@ function renderSection(
           <DateField label="Pre-alert date" k="pre_alert_date" form={form} set={set} />
           <Text label="Invoice" k="invoice" form={form} set={set} maxLength={100} />
           <Picker label="Commodity" k="commodity_id" form={form} set={set} options={opts.commodities} />
+          <Picker label="HS code" k="hscode_id" form={form} set={set} options={opts.hscodes} />
+          <Picker label="Incoterm" k="incoterm_id" form={form} set={set} options={opts.incoterms} />
           <Text label="PO ref" k="po_ref" form={form} set={set} maxLength={100} />
         </Grid>
       );

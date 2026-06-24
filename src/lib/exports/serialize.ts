@@ -19,6 +19,8 @@ export function bodyToInsert(body: ExportBody): Record<string, unknown> {
     invoice: body.invoice,
     poRef: body.po_ref,
     bpNo: body.bp_no,
+    hscodeId: body.hscode_id,
+    incotermId: body.incoterm_id,
     weight: body.weight,
     fob: body.fob,
     numberOfBags: body.number_of_bags,
