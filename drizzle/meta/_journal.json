@@ -225,6 +225,13 @@
       "when": 1782319501964,
       "tag": "0031_clean_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782320506012,
+      "tag": "0032_red_centennial",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,12 @@ import { seedExpenseTypesMenu } from './expenseTypesMenu';
 import { seedHscodesMenu } from './hscodesMenu';
 import { seedBanksMenu } from './banksMenu';
 import { seedBankExchangeRatesMenu } from './bankExchangeRatesMenu';
+import { seedPhasesMenu } from './phasesMenu';
+import { seedIncotermsMenu } from './incotermsMenu';
+import { seedGroupCompaniesMenu } from './groupCompaniesMenu';
+import { seedReferersMenu } from './referersMenu';
+import { seedPaymentTypesMenu } from './paymentTypesMenu';
+import { seedPaymentSubtypesMenu } from './paymentSubtypesMenu';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -193,6 +199,13 @@ export async function seedMasters(db: Database): Promise<void> {
   // Bank cluster — registry + daily exchange-rate entries.
   await seedBanksMenu(db);
   await seedBankExchangeRatesMenu(db);
+  // Remaining operational / financial masters.
+  await seedPhasesMenu(db);
+  await seedIncotermsMenu(db);
+  await seedGroupCompaniesMenu(db);
+  await seedReferersMenu(db);
+  await seedPaymentTypesMenu(db);
+  await seedPaymentSubtypesMenu(db);
 }
 
 export {
@@ -264,4 +277,10 @@ export {
   seedHscodesMenu,
   seedBanksMenu,
   seedBankExchangeRatesMenu,
+  seedPhasesMenu,
+  seedIncotermsMenu,
+  seedGroupCompaniesMenu,
+  seedReferersMenu,
+  seedPaymentTypesMenu,
+  seedPaymentSubtypesMenu,
 };
