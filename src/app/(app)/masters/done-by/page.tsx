@@ -1,8 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plus, Search, Trash2, UserCheck, X } from 'lucide-react';
+import {
+  Check,
+  Edit2,
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+  X,
+} from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
   id: number;
@@ -200,6 +210,15 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Skip the check while value is unchanged in edit mode — it would
+  // always collide with itself otherwise.
+  const checkValue = isEdit && name === row?.done_by_name ? '' : name;
+  const { status, message } = useUniqueCheck({
+    resource: 'done-by',
+    value: checkValue,
+    excludeId: row?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -257,15 +276,41 @@ function FormModal({
               placeholder="MCA Internal"
               maxLength={50}
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Must be unique — picker shows one row per attribution.
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-slate-500">
+                Must be unique — picker shows one row per attribution.
+              </p>
+              {status !== 'idle' && (
+                <span
+                  className={`inline-flex items-center gap-1 text-xs ${
+                    status === 'available'
+                      ? 'text-emerald-700'
+                      : status === 'taken'
+                        ? 'text-red-700'
+                        : status === 'checking'
+                          ? 'text-slate-500'
+                          : 'text-amber-700'
+                  }`}
+                >
+                  {status === 'checking' && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
+                  {status === 'available' && <Check className="h-3 w-3" />}
+                  {status === 'taken' && <X className="h-3 w-3" />}
+                  {message}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
