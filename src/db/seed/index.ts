@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/db';
+import { seedBootstrapRole } from './bootstrapRole';
 import { seedFieldValidations } from './fieldValidations';
 import { seedLicenseTypes } from './licenseTypes';
 import { seedLicenseStatuses } from './licenseStatuses';
@@ -95,6 +96,10 @@ import { seedClientsDashboardMenu } from './clientsDashboardMenu';
 // re-running against a populated DB just refreshes the rows.
 
 export async function seedMasters(db: Database): Promise<void> {
+  // Bootstrap Super Admin role (id = 1). Must run first: the admin user and
+  // every *Menu permission grant below reference role_id = 1 via FK.
+  await seedBootstrapRole(db);
+
   // Independent foundational masters.
   await seedFieldValidations(db);
   await seedLicenseTypes(db);
@@ -218,6 +223,7 @@ export async function seedMasters(db: Database): Promise<void> {
 }
 
 export {
+  seedBootstrapRole,
   seedFieldValidations,
   seedLicenseTypes,
   seedLicenseStatuses,
