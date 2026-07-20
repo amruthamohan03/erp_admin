@@ -47,3 +47,42 @@ export function gradient(color: string | null | undefined): string {
       return 'from-primary-500 to-blue-600';
   }
 }
+
+// Flat-mode tile — matches main's original /dashboard styling. One
+// short semantic color name maps to a solid Tailwind bg class for
+// the icon square; the tile itself stays white with a light-blue
+// wash so many tiles read as a coherent grid instead of a rainbow.
+export function flatIconBg(color: string | null | undefined): string {
+  switch ((color ?? '').toLowerCase()) {
+    case 'emerald':
+    case 'success':
+    case 'green':
+      return 'bg-emerald-500';
+    case 'amber':
+    case 'warning':
+    case 'yellow':
+    case 'orange':
+      return 'bg-amber-500';
+    case 'rose':
+    case 'danger':
+    case 'red':
+      return 'bg-rose-500';
+    case 'sky':
+    case 'info':
+    case 'cyan':
+      return 'bg-sky-500';
+    case 'violet':
+    case 'purple':
+    case 'fuchsia':
+    case 'pink':
+      return 'bg-violet-500';
+    case 'teal':
+    case 'lime':
+      return 'bg-teal-500';
+    case 'slate':
+      return 'bg-slate-500';
+    case 'primary':
+    default:
+      return 'bg-blue-500';
+  }
+}

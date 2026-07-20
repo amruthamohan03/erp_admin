@@ -8,7 +8,7 @@ import {
   distinctEndpoints,
 } from '@/lib/dashboardDataSource';
 import CardIcon from '@/components/ui/CardIcon';
-import { gradient } from '@/components/ui/cardGradient';
+import { gradient, flatIconBg } from '@/components/ui/cardGradient';
 
 // Shared card-grid renderer used by every dashboard page. Fetches
 // /api/v1/dashboard-cards/me, filters to the given category, then
@@ -33,11 +33,19 @@ export interface DashboardCard {
 interface DashboardCardsGridProps {
   /**
    * Category filter — matches `card_category` on
-   * dashboard_card_master_t. Pass 'general' for /dashboard,
-   * 'client_dashboard' for /clients/dashboard, etc. Cards with a
-   * missing category are hidden unless `category` is 'general'.
+   * dashboard_card_master_t. Pass 'general' for cross-module
+   * KPIs, 'client_dashboard' for /clients/dashboard, etc. Cards
+   * with a missing category are hidden unless `category` is
+   * 'general'. Omit entirely to show every card the role can
+   * see — main's original /dashboard behavior.
    */
-  category: string;
+  category?: string;
+  /**
+   * Tile styling. 'gradient' (default) matches the colorful
+   * per-module dashboards; 'flat' matches main's original
+   * /dashboard — solid-color icon square on a light-blue tile.
+   */
+  variant?: 'gradient' | 'flat';
   /**
    * Message shown when no cards for this category are visible to
    * the current role. Defaults to a generic hint pointing at the
@@ -48,6 +56,7 @@ interface DashboardCardsGridProps {
 
 export default function DashboardCardsGrid({
   category,
+  variant = 'gradient',
   emptyMessage,
 }: DashboardCardsGridProps) {
   const [cards, setCards] = useState<DashboardCard[]>([]);
@@ -61,11 +70,14 @@ export default function DashboardCardsGrid({
       .then((j) => {
         if (cancelled) return;
         if (j.ok) {
-          const filtered = (j.data as DashboardCard[]).filter((c) =>
-            category === 'general'
-              ? !c.card_category || c.card_category === 'general'
-              : c.card_category === category,
-          );
+          const all = j.data as DashboardCard[];
+          const filtered = !category
+            ? all
+            : all.filter((c) =>
+                category === 'general'
+                  ? !c.card_category || c.card_category === 'general'
+                  : c.card_category === category,
+              );
           setCards(filtered);
         }
       })
@@ -160,33 +172,60 @@ export default function DashboardCardsGrid({
     );
   }
 
+  const gridCols =
+    variant === 'flat'
+      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className={`grid ${gridCols} gap-4`}>
       {cards.map((c) => {
-        const body = (
-          <div
-            className={`rounded-xl p-5 h-full flex flex-col justify-between text-white shadow-sm bg-gradient-to-br ${gradient(c.card_color)}`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs uppercase tracking-wide text-white/80 truncate">
-                  {c.card_title}
-                </div>
-                <div className="text-3xl font-bold mt-1 truncate">
-                  {formatCardValue(values[c.card_key]) ?? '—'}
-                </div>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+        const body =
+          variant === 'flat' ? (
+            <div className="rounded-xl bg-sky-50/60 border border-slate-200 p-5 h-full flex items-center gap-4 shadow-sm hover:bg-sky-50 transition-colors">
+              <div
+                className={`h-12 w-12 rounded-lg ${flatIconBg(c.card_color)} flex items-center justify-center text-white shrink-0`}
+              >
                 <CardIcon name={c.card_icon} className="h-5 w-5" />
               </div>
-            </div>
-            {c.card_subtitle && (
-              <div className="text-xs text-white/80 mt-3 truncate">
-                {c.card_subtitle}
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-slate-500 truncate">
+                  {c.card_title}
+                </div>
+                <div className="text-2xl font-bold text-slate-900 truncate">
+                  {formatCardValue(values[c.card_key]) ?? '—'}
+                </div>
+                {c.card_subtitle && (
+                  <div className="text-xs text-slate-400 truncate">
+                    {c.card_subtitle}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
+            </div>
+          ) : (
+            <div
+              className={`rounded-xl p-5 h-full flex flex-col justify-between text-white shadow-sm bg-gradient-to-br ${gradient(c.card_color)}`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs uppercase tracking-wide text-white/80 truncate">
+                    {c.card_title}
+                  </div>
+                  <div className="text-3xl font-bold mt-1 truncate">
+                    {formatCardValue(values[c.card_key]) ?? '—'}
+                  </div>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <CardIcon name={c.card_icon} className="h-5 w-5" />
+                </div>
+              </div>
+              {c.card_subtitle && (
+                <div className="text-xs text-white/80 mt-3 truncate">
+                  {c.card_subtitle}
+                </div>
+              )}
+            </div>
+          );
         return c.card_url ? (
           <Link
             key={c.id}
