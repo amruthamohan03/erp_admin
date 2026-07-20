@@ -268,6 +268,7 @@ const CHILDREN: ChildSpec[] = [
   // ── Sydonia (original menu_id=61) ───────────────────────────────
   { parent: 'Sydonia', name: 'Import Sydonia', order: 41, url: '/imports' },
   { parent: 'Sydonia', name: 'Export Sydonia', order: 42, url: '/exports' },
+  { parent: 'Sydonia', name: 'Bulk Create Exports', order: 205, url: '/exports/bulk-new' },
 
   // ── Fiche De Calcul (original menu_id=65) ───────────────────────
   { parent: 'Fiche De Calcul', name: 'Fiche De Calcul', order: 44, url: '/fiche-de-calcul' },
