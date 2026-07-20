@@ -33,6 +33,7 @@ import { seedDashboardCards } from './dashboardCards';
 import { seedSampleClients } from './sampleClients';
 import { seedSampleImports } from './sampleImports';
 import { seedSampleExports } from './sampleExports';
+import { seedSampleLicenses } from './sampleLicenses';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -141,6 +142,12 @@ export async function seedMasters(db: Database): Promise<void> {
   // Idempotent via mca_ref.
   await seedSampleImports(db);
   await seedSampleExports(db);
+
+  // Ten sample licenses across the workflow states (issued /
+  // approved / pending / cancelled) so /licenses/dashboard's status
+  // breakdown shows real values. Direct inserts bypass case-runtime;
+  // the workflow gates transitions, not creation-with-state.
+  await seedSampleLicenses(db);
 }
 
 export {
@@ -178,4 +185,5 @@ export {
   seedSampleClients,
   seedSampleImports,
   seedSampleExports,
+  seedSampleLicenses,
 };
