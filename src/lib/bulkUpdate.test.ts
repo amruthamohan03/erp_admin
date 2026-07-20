@@ -4,10 +4,11 @@ import {
   validatePatch,
   predicateSchema,
   BULK_UPDATE_TARGETS,
+  applyPerRowEdits,
   type Predicate,
   type BulkUpdateColumn,
 } from './bulkUpdate';
-import { BadRequestError } from '@/lib/errors';
+import { BadRequestError, ForbiddenError } from '@/lib/errors';
 
 // Pure-logic tests for the predicate translator + patch validator.
 // applyBulkUpdate + previewBulkUpdate are DB-bound and stay integration
@@ -206,5 +207,69 @@ describe('BULK_UPDATE_TARGETS whitelist (security invariants)', () => {
     for (const [entity, target] of Object.entries(BULK_UPDATE_TARGETS)) {
       expect(target.table, `${entity}`).toMatch(/_t$/);
     }
+  });
+
+  it('import target is registered with the expected editable columns', () => {
+    const t = BULK_UPDATE_TARGETS.import;
+    expect(t).toBeDefined();
+    const editableNames = t.editableColumns.map((c) => c.name);
+    // Sanity — the fields that a per-row bulk editor needs to
+    // stamp on partial import rows.
+    expect(editableNames).toContain('declaration_reference');
+    expect(editableNames).toContain('customs_manifest_number');
+    expect(editableNames).toContain('dgda_in_date');
+    // Financial columns must NOT be in the whitelist — those flow
+    // from source documents and shouldn't be bulk-edited.
+    expect(editableNames).not.toContain('weight');
+    expect(editableNames).not.toContain('fob');
+  });
+});
+
+// applyPerRowEdits validation runs BEFORE any transaction opens.
+// These tests exercise the validation branches without needing a
+// live DB — a failure here means a bad request would reach the
+// database as if it were valid.
+
+describe('applyPerRowEdits — validation', () => {
+  it('throws ForbiddenError on unknown entity', async () => {
+    await expect(
+      applyPerRowEdits({
+        entity: 'notarealthing',
+        edits: [{ id: 1, patch: { notes: 'x' } }],
+        actorUserId: 1,
+      }),
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it('throws BadRequestError on empty edits array', async () => {
+    await expect(
+      applyPerRowEdits({
+        entity: 'import',
+        edits: [],
+        actorUserId: 1,
+      }),
+    ).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError on invalid row id', async () => {
+    await expect(
+      applyPerRowEdits({
+        entity: 'import',
+        edits: [{ id: 0, patch: { declaration_reference: 'x' } }],
+        actorUserId: 1,
+      }),
+    ).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when a patch targets a non-whitelisted column', async () => {
+    // `weight` is intentionally NOT in the import editable set —
+    // this must fail before any UPDATE runs.
+    await expect(
+      applyPerRowEdits({
+        entity: 'import',
+        edits: [{ id: 1, patch: { weight: 100 } }],
+        actorUserId: 1,
+      }),
+    ).rejects.toThrow(BadRequestError);
   });
 });

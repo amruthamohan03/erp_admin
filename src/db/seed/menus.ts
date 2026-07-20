@@ -382,6 +382,7 @@ const EXTRA_TOP_LEVEL: Array<{
   icon: string;
 }> = [
   { name: 'Bulk Update', order: 95, url: '/bulk-update', icon: 'ti ti-edit' },
+  { name: 'Bulk Edit', order: 94, url: '/bulk-edit', icon: 'ti ti-list-check' },
   { name: 'Reports', order: 96, url: '/reports', icon: 'ti ti-report' },
   { name: 'Settings', order: 97, url: '/settings', icon: 'ti ti-settings' },
 ];

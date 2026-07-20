@@ -120,6 +120,35 @@ export const BULK_UPDATE_TARGETS: Record<string, BulkUpdateTarget> = {
       { name: 'kind_id', label: 'Kind', type: 'number' },
     ],
   },
+  // Imports carry many operator-fillable customs fields; per-row
+  // bulk edit is how staff clear a batch of "missing declaration
+  // reference" imports without opening each detail page. Editable
+  // set intentionally excludes financial columns (weight/fob) —
+  // those flow from source documents and shouldn't be edited in
+  // bulk without going through the entity's audited create path.
+  import: {
+    table: 'imports_t',
+    label: 'Imports',
+    editableColumns: [
+      { name: 'declaration_reference', label: 'Declaration reference', type: 'text' },
+      { name: 'customs_manifest_number', label: 'Customs manifest #', type: 'text' },
+      { name: 'dgda_in_date', label: 'DGDA in date', type: 'date' },
+      { name: 'dgda_out_date', label: 'DGDA out date', type: 'date' },
+      { name: 'quittance_reference', label: 'Quittance reference', type: 'text' },
+      { name: 'archive_reference', label: 'Archive reference', type: 'text' },
+      { name: 'remarks', label: 'Remarks', type: 'text' },
+    ],
+    filterColumns: [
+      { name: 'client_id', label: 'Client', type: 'number' },
+      { name: 'license_id', label: 'License', type: 'number' },
+      { name: 'regime_id', label: 'Regime', type: 'number' },
+      { name: 'clearing_status_id', label: 'Clearing status', type: 'number' },
+      { name: 'declaration_reference', label: 'Declaration reference', type: 'text' },
+      { name: 'customs_manifest_number', label: 'Customs manifest #', type: 'text' },
+      { name: 'dgda_in_date', label: 'DGDA in date', type: 'date' },
+      { name: 'display', label: 'Display', type: 'text' },
+    ],
+  },
 };
 
 // --- Predicate DSL ----------------------------------------------------
@@ -366,6 +395,185 @@ export async function applyBulkUpdate(
       entity: args.entity,
       table: target.table,
       matched_count: matched,
+      updated_count: updated,
+    };
+  });
+}
+
+// --- Per-row bulk edit ----------------------------------------------
+//
+// Distinct from applyBulkUpdate: instead of "same patch across many
+// rows matched by a filter", this is "different patch per row, keyed
+// by row id". The filter still narrows the row set the operator
+// sees; each row's edits go to that row only.
+//
+// The public helper is the same shape — validated whitelist + one
+// transaction + one audit row per bulk-edit operation. Per-row
+// patches are still checked against editableColumns; if any row's
+// patch tries an unknown column, the whole batch rolls back.
+
+export interface PerRowEdit {
+  id: number;
+  patch: Record<string, unknown>;
+}
+
+export interface PerRowEditArgs {
+  entity: string;
+  edits: PerRowEdit[];
+  actorUserId: number;
+}
+
+export interface PerRowEditResult {
+  entity: string;
+  table: string;
+  requested_count: number;
+  updated_count: number;
+}
+
+/**
+ * Fetch rows matching a predicate for the per-row bulk-edit UI.
+ * Returns id + every editable column value (so the UI can pre-fill
+ * inputs) plus a small set of context columns for display.
+ *
+ * Paginated: 25 rows per page by default. The whole match set can
+ * be loaded a page at a time; the UI keeps pending edits across
+ * page boundaries so the operator can jump around.
+ */
+export async function loadBulkEditRows(args: {
+  entity: string;
+  predicate: Predicate;
+  page: number;
+  pageSize: number;
+  displayColumns?: string[];
+}): Promise<{
+  entity: string;
+  table: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  editable_columns: BulkUpdateColumn[];
+  display_columns: string[];
+  rows: Array<Record<string, unknown>>;
+}> {
+  const target = getTarget(args.entity);
+  const where = buildWhereSql(args.predicate, target.filterColumns);
+  const displayCols = args.displayColumns ?? [];
+  const editableCols = target.editableColumns.map((c) => c.name);
+
+  // SELECT list: id + display cols + editable cols (deduped).
+  const uniqCols = Array.from(
+    new Set<string>(['id', ...displayCols, ...editableCols]),
+  );
+  const selectSql = sql.join(
+    uniqCols.map((c) => sql.identifier(c)),
+    sql`, `,
+  );
+
+  const offset = Math.max(0, (args.page - 1) * args.pageSize);
+
+  const countResult = await db.execute(sql`
+    SELECT count(*)::int AS n
+    FROM ${sql.identifier(target.table)}
+    WHERE ${where}
+  `);
+  const total = Number(
+    ((countResult.rows ?? [])[0] as { n?: number } | undefined)?.n ?? 0,
+  );
+
+  const rowsResult = await db.execute(sql`
+    SELECT ${selectSql}
+    FROM ${sql.identifier(target.table)}
+    WHERE ${where}
+    ORDER BY id DESC
+    LIMIT ${args.pageSize} OFFSET ${offset}
+  `);
+
+  return {
+    entity: args.entity,
+    table: target.table,
+    total,
+    page: args.page,
+    pageSize: args.pageSize,
+    editable_columns: target.editableColumns,
+    display_columns: displayCols,
+    rows: (rowsResult.rows ?? []) as Array<Record<string, unknown>>,
+  };
+}
+
+/**
+ * Apply a list of per-row edits in a single transaction. Every
+ * patch is validated against the entity's editableColumns
+ * whitelist before any SQL runs; unknown columns fail the whole
+ * batch. Rows whose patch is empty are silently skipped so a UI
+ * can submit its full state without pre-filtering.
+ */
+export async function applyPerRowEdits(
+  args: PerRowEditArgs,
+): Promise<PerRowEditResult> {
+  const target = getTarget(args.entity);
+
+  if (args.edits.length === 0) {
+    throw new BadRequestError('edits must be a non-empty array');
+  }
+
+  // Validate every patch first — no writes if any patch fails.
+  const validated: Array<{ id: number; patch: Map<string, unknown> }> = [];
+  for (const e of args.edits) {
+    if (!Number.isInteger(e.id) || e.id <= 0) {
+      throw new BadRequestError(`Invalid id: ${e.id}`);
+    }
+    if (!e.patch || Object.keys(e.patch).length === 0) continue;
+    validated.push({
+      id: e.id,
+      patch: validatePatch(e.patch, target.editableColumns),
+    });
+  }
+
+  if (validated.length === 0) {
+    return {
+      entity: args.entity,
+      table: target.table,
+      requested_count: args.edits.length,
+      updated_count: 0,
+    };
+  }
+
+  return await db.transaction(async (tx) => {
+    let updated = 0;
+
+    for (const { id, patch } of validated) {
+      const setClauses = Array.from(patch.entries()).map(
+        ([col, value]) => sql`${sql.identifier(col)} = ${value}`,
+      );
+      setClauses.push(sql`${sql.identifier('updated_by')} = ${args.actorUserId}`);
+      setClauses.push(sql`${sql.identifier('updated_at')} = now()`);
+      const setSql = sql.join(setClauses, sql`, `);
+
+      const result = await tx.execute(sql`
+        UPDATE ${sql.identifier(target.table)}
+        SET ${setSql}
+        WHERE id = ${id}
+      `);
+      updated += (result as { rowCount?: number }).rowCount ?? 0;
+    }
+
+    await recordAudit(tx, {
+      actorId: args.actorUserId,
+      action: 'update',
+      entityType: args.entity,
+      entityId: 'bulk',
+      metadata: {
+        op: 'bulk-edit-per-row',
+        edits: args.edits,
+        requested_count: args.edits.length,
+        updated_count: updated,
+      },
+    });
+
+    return {
+      entity: args.entity,
+      table: target.table,
+      requested_count: args.edits.length,
       updated_count: updated,
     };
   });
