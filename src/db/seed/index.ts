@@ -31,6 +31,8 @@ import { seedReportDefinitions } from './reportDefinitions';
 import { seedMenus } from './menus';
 import { seedDashboardCards } from './dashboardCards';
 import { seedSampleClients } from './sampleClients';
+import { seedSampleImports } from './sampleImports';
+import { seedSampleExports } from './sampleExports';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -130,6 +132,15 @@ export async function seedMasters(db: Database): Promise<void> {
   // Ten realistic DRC clients so /clients/dashboard has something to
   // show out of the box. Idempotent via client_code.
   await seedSampleClients(db);
+
+  // --- Sample consignments --------------------------------------------
+  // 22 imports + 15 exports spread across the seeded clients so the
+  // module dashboards + clients/dashboard top-activity table show
+  // real numbers on first run. Mining clients (Glencore, Kamoa, TFM,
+  // Kibali) carry most of the volume, matching DRC trade shape.
+  // Idempotent via mca_ref.
+  await seedSampleImports(db);
+  await seedSampleExports(db);
 }
 
 export {
@@ -165,4 +176,6 @@ export {
   seedMenus,
   seedDashboardCards,
   seedSampleClients,
+  seedSampleImports,
+  seedSampleExports,
 };
