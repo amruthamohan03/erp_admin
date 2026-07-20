@@ -173,7 +173,8 @@ const CHILDREN: ChildSpec[] = [
 
   // ── Import License (original menu_id=110) ───────────────────────
   { parent: 'Import License', name: 'Create Import License', order: 1, url: '/licenses/new' },
-  { parent: 'Import License', name: 'License Dashboard', order: 2, url: '/licenses' },
+  { parent: 'Import License', name: 'License Dashboard', order: 2, url: '/licenses/dashboard' },
+  { parent: 'Import License', name: 'Licenses (list)', order: 3, url: '/licenses' },
   {
     parent: 'Import License',
     name: 'Bivac',
@@ -229,15 +230,13 @@ const CHILDREN: ChildSpec[] = [
     parent: 'Tracking Management',
     name: 'Import Dashboard',
     order: 53,
-    url: '#',
-    note: 'TODO(port): import tracking dashboard not on branch.',
+    url: '/imports/dashboard',
   },
   {
     parent: 'Tracking Management',
     name: 'Export Dashboard',
     order: 106,
-    url: '#',
-    note: 'TODO(port): export tracking dashboard not on branch.',
+    url: '/exports/dashboard',
   },
   {
     parent: 'Tracking Management',
@@ -273,6 +272,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Fiche De Calcul', name: 'Fiche De Calcul', order: 44, url: '/fiche-de-calcul' },
 
   // ── Quotation Management (original menu_id=67) ──────────────────
+  { parent: 'Quotation Management', name: 'Quotation Dashboard', order: 44, url: '/quotations/dashboard' },
   { parent: 'Quotation Management', name: 'Invoice Quotation', order: 45, url: '/quotations' },
 
   // ── Invoice Management (original menu_id=68) ────────────────────
