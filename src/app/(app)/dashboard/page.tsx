@@ -7,6 +7,7 @@ import {
   resolveCardValue,
   distinctEndpoints,
 } from '@/lib/dashboardDataSource';
+import CardIcon from '@/components/ui/CardIcon';
 
 interface DashboardCard {
   id: number;
@@ -23,10 +24,6 @@ interface DashboardCard {
 
 export default function DashboardPage() {
   const [cards, setCards] = useState<DashboardCard[]>([]);
-  // The shape of `values[card_key]` depends on each card's data_source —
-  // resolveCardValue returns `unknown` so we keep it that way and let React
-  // stringify in the render. Older narrow `string | number` typing forced
-  // every endpoint to return a flat scalar.
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
 
@@ -41,9 +38,9 @@ export default function DashboardPage() {
   }, []);
 
   // Resolve each card's data_source. Format: '<endpoint>#<dot.json.path>'
-  // — the path is optional. Cards pointing at the same endpoint share one
-  // fetch, so a dashboard of 10 cards all referencing /api/v1/clients/stats
-  // hits the server once. Anything not under /api/v1/* is left static.
+  // — the path is optional. Cards pointing at the same endpoint share
+  // one fetch so a dashboard of 10 cards all referencing
+  // /api/v1/clients/dashboard hits the server once.
   useEffect(() => {
     if (cards.length === 0) return;
     const apiCards = cards.filter(
@@ -64,7 +61,7 @@ export default function DashboardPage() {
             const json = await res.json();
             if (json?.ok) dataMap.set(ep, json.data);
           } catch {
-            // Leave dataMap entry absent — the card falls back to '—'.
+            /* leave dataMap entry absent — card falls back to '—' */
           }
         }),
       );
@@ -93,6 +90,13 @@ export default function DashboardPage() {
     };
   }, [cards]);
 
+  // Only show cards in the 'general' category on /dashboard.
+  // Module-specific cards (import_dashboard, export_dashboard, etc.)
+  // render on their respective dashboards.
+  const generalCards = cards.filter(
+    (c) => !c.card_category || c.card_category === 'general',
+  );
+
   return (
     <>
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Dashboard</h1>
@@ -104,35 +108,49 @@ export default function DashboardPage() {
       {!loading && cards.length === 0 && (
         <div className="card p-6 text-sm text-slate-600">
           No dashboard cards have been assigned to your role yet. Configure
-          them in <Link className="text-primary-600 underline" href="/masters/dashboard-cards">Dashboard Cards</Link>{' '}
+          them in{' '}
+          <Link
+            className="text-primary-600 underline"
+            href="/masters/dashboard-cards"
+          >
+            Dashboard Cards
+          </Link>{' '}
           and map them in{' '}
-          <Link className="text-primary-600 underline" href="/mapping/roletodashboardcard">Role &rarr; Dashboard Cards</Link>.
+          <Link
+            className="text-primary-600 underline"
+            href="/mapping/roletodashboardcard"
+          >
+            Role → Dashboard Cards
+          </Link>
+          .
         </div>
       )}
 
-      {!loading && cards.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cards.map((c) => {
+      {!loading && generalCards.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {generalCards.map((c) => {
             const body = (
-              <div className="card p-6 flex items-center gap-4 h-full">
-                <div
-                  className={`h-12 w-12 rounded-lg ${colorClass(c.card_color)} flex items-center justify-center text-white text-xl`}
-                >
-                  <i className={`bi ${c.card_icon ?? 'bi-card-text'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm text-slate-500 truncate">
-                    {c.card_title}
-                  </div>
-                  <div className="text-2xl font-bold text-slate-900 truncate">
-                    {formatCardValue(values[c.card_key]) ?? (c.card_subtitle || '—')}
-                  </div>
-                  {c.card_subtitle && values[c.card_key] !== undefined && (
-                    <div className="text-xs text-slate-500 truncate">
-                      {c.card_subtitle}
+              <div
+                className={`rounded-xl p-5 h-full flex flex-col justify-between text-white shadow-sm bg-gradient-to-br ${gradient(c.card_color)}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs uppercase tracking-wide text-white/80 truncate">
+                      {c.card_title}
                     </div>
-                  )}
+                    <div className="text-3xl font-bold mt-1 truncate">
+                      {formatCardValue(values[c.card_key]) ?? '—'}
+                    </div>
+                  </div>
+                  <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                    <CardIcon name={c.card_icon} className="h-5 w-5" />
+                  </div>
                 </div>
+                {c.card_subtitle && (
+                  <div className="text-xs text-white/80 mt-3 truncate">
+                    {c.card_subtitle}
+                  </div>
+                )}
               </div>
             );
 
@@ -140,7 +158,7 @@ export default function DashboardPage() {
               <Link
                 key={c.id}
                 href={c.card_url}
-                className="block hover:opacity-90 transition-opacity"
+                className="block hover:scale-[1.02] transition-transform"
               >
                 {body}
               </Link>
@@ -154,14 +172,13 @@ export default function DashboardPage() {
   );
 }
 
-// resolveCardValue returns `unknown`; React's render slot wants a primitive.
-// Strings + numbers pass through; anything else (objects, arrays from
-// malformed responses) gets JSON-stringified so the UI shows *something*
-// instead of throwing. null/undefined surface as null so the caller's `??`
-// fallback fires.
 function formatCardValue(v: unknown): string | number | null {
   if (v == null) return null;
-  if (typeof v === 'string' || typeof v === 'number') return v;
+  if (typeof v === 'number') {
+    // Whole numbers as-is; fractional stripped to 2 decimals.
+    return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2);
+  }
+  if (typeof v === 'string') return v;
   if (typeof v === 'boolean') return String(v);
   try {
     return JSON.stringify(v);
@@ -170,25 +187,47 @@ function formatCardValue(v: unknown): string | number | null {
   }
 }
 
-function colorClass(color: string | null | undefined): string {
+/**
+ * Semantic color name → Tailwind gradient class pair. Matches the
+ * short names used in dashboard_card_master_t.card_color.
+ */
+function gradient(color: string | null | undefined): string {
   switch ((color ?? '').toLowerCase()) {
+    case 'violet':
+      return 'from-violet-500 to-purple-600';
+    case 'emerald':
     case 'success':
-      return 'bg-emerald-500';
-    case 'warning':
-      return 'bg-amber-500';
-    case 'danger':
-      return 'bg-red-500';
+      return 'from-emerald-500 to-green-600';
+    case 'sky':
     case 'info':
-      return 'bg-sky-500';
-    case 'purple':
-      return 'bg-purple-500';
+      return 'from-sky-500 to-blue-600';
+    case 'amber':
+    case 'warning':
+      return 'from-amber-500 to-orange-500';
+    case 'rose':
+    case 'danger':
+      return 'from-rose-500 to-red-600';
     case 'teal':
-      return 'bg-teal-500';
+      return 'from-teal-500 to-cyan-600';
+    case 'fuchsia':
     case 'pink':
-      return 'bg-pink-500';
+      return 'from-fuchsia-500 to-pink-600';
+    case 'lime':
+      return 'from-lime-500 to-green-500';
+    case 'slate':
+      return 'from-slate-500 to-slate-700';
+    case 'cyan':
+      return 'from-cyan-500 to-sky-600';
+    case 'yellow':
+      return 'from-yellow-500 to-amber-500';
+    case 'red':
+      return 'from-red-500 to-rose-600';
+    case 'orange':
+      return 'from-orange-500 to-amber-600';
+    case 'purple':
+      return 'from-purple-500 to-fuchsia-600';
     case 'primary':
     default:
-      return 'bg-blue-500';
+      return 'from-primary-500 to-blue-600';
   }
 }
-

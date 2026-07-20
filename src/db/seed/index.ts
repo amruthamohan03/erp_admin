@@ -29,6 +29,8 @@ import { seedTaxRules } from './taxRules';
 import { seedReportForms } from './reportForms';
 import { seedReportDefinitions } from './reportDefinitions';
 import { seedMenus } from './menus';
+import { seedDashboardCards } from './dashboardCards';
+import { seedSampleClients } from './sampleClients';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -116,6 +118,18 @@ export async function seedMasters(db: Database): Promise<void> {
   // rewritten to this branch's routes. Run last so the navigation
   // lights up only after every dependency is in place.
   await seedMenus(db);
+
+  // --- Dashboards: coloured stat cards + role visibility --------------
+  // Cards for /dashboard, /clients/dashboard, and the module-specific
+  // dashboards (import/export/license/quotation). data_source URLs
+  // point at the /api/v1/*/stats endpoints; the dashboard page fetches
+  // each once and resolves per-card values via the #json.path suffix.
+  await seedDashboardCards(db);
+
+  // --- Sample client data ---------------------------------------------
+  // Ten realistic DRC clients so /clients/dashboard has something to
+  // show out of the box. Idempotent via client_code.
+  await seedSampleClients(db);
 }
 
 export {
@@ -149,4 +163,6 @@ export {
   seedReportForms,
   seedReportDefinitions,
   seedMenus,
+  seedDashboardCards,
+  seedSampleClients,
 };
