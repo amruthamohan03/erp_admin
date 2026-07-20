@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { inArray } from 'drizzle-orm';
 import {
   clientMaster,
   groupCompanyMaster,
@@ -8,6 +9,7 @@ import {
   refererMaster,
   officeMaster,
   phaseMaster,
+  filesT,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import {
@@ -64,14 +66,18 @@ export const GET = withErrorHandler(
         address: clientMaster.address,
         id_nat_number: clientMaster.idNatNumber,
         id_nat_file: clientMaster.idNatFile,
+        id_nat_file_id: clientMaster.idNatFileId,
         rccm_number: clientMaster.rccmNumber,
         rccm_file: clientMaster.rccmFile,
+        rccm_file_id: clientMaster.rccmFileId,
         import_export_number: clientMaster.importExportNumber,
         import_export_validity: clientMaster.importExportValidity,
         import_export_file: clientMaster.importExportFile,
+        import_export_file_id: clientMaster.importExportFileId,
         attestation_number: clientMaster.attestationNumber,
         attestation_validity: clientMaster.attestationValidity,
         attestation_file: clientMaster.attestationFile,
+        attestation_file_id: clientMaster.attestationFileId,
         nif_number: clientMaster.nifNumber,
         tax_id: clientMaster.taxId,
         payment_contact_email: clientMaster.paymentContactEmail,
@@ -102,7 +108,49 @@ export const GET = withErrorHandler(
       .limit(1);
 
     if (!row) throw new NotFoundError();
-    return ok(row);
+
+    // Resolve attached-file metadata for the four regulatory
+    // *_file_id columns. Single follow-up query with IN () — fewer
+    // rows than four extra LEFT JOINs would return columns.
+    const fileIds = [
+      row.id_nat_file_id,
+      row.rccm_file_id,
+      row.import_export_file_id,
+      row.attestation_file_id,
+    ].filter((v): v is number => v != null);
+
+    let filesById = new Map<
+      number,
+      { id: number; original_name: string; mime: string | null; size: number | null }
+    >();
+    if (fileIds.length > 0) {
+      const fileRows = await db
+        .select({
+          id: filesT.id,
+          original_name: filesT.originalName,
+          mime: filesT.mime,
+          size: filesT.size,
+        })
+        .from(filesT)
+        .where(inArray(filesT.id, fileIds));
+      filesById = new Map(fileRows.map((f) => [f.id, f]));
+    }
+
+    return ok({
+      ...row,
+      id_nat_file_info: row.id_nat_file_id
+        ? filesById.get(row.id_nat_file_id) ?? null
+        : null,
+      rccm_file_info: row.rccm_file_id
+        ? filesById.get(row.rccm_file_id) ?? null
+        : null,
+      import_export_file_info: row.import_export_file_id
+        ? filesById.get(row.import_export_file_id) ?? null
+        : null,
+      attestation_file_info: row.attestation_file_id
+        ? filesById.get(row.attestation_file_id) ?? null
+        : null,
+    });
   },
 );
 

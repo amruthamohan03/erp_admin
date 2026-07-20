@@ -15,6 +15,7 @@ import { industryMaster } from './industryMaster';
 import { refererMaster } from './refererMaster';
 import { officeMaster } from './offices';
 import { phaseMaster } from './phaseMaster';
+import { filesT } from './files';
 
 // Client master per root CLAUDE.md §2 step 1 (client onboarding).
 //
@@ -77,15 +78,34 @@ export const clientMaster = pgTable(
     // future migration can add a *FileId column FK-ing files_t once
     // the client form wires the file-upload primitive.
     idNatNumber: varchar('id_nat_number', { length: 50 }),
+    // Legacy varchar `id_nat_file` kept for back-compat with existing
+    // rows that stored an S3 key / shared drive path. New uploads go
+    // through the FK column below (files_t). A future migration will
+    // drop the varchar once every consumer switches to reading
+    // *_file_id.
     idNatFile: varchar('id_nat_file', { length: 255 }),
+    idNatFileId: integer('id_nat_file_id').references(() => filesT.id, {
+      onDelete: 'set null',
+    }),
     rccmNumber: varchar('rccm_number', { length: 50 }),
     rccmFile: varchar('rccm_file', { length: 255 }),
+    rccmFileId: integer('rccm_file_id').references(() => filesT.id, {
+      onDelete: 'set null',
+    }),
     importExportNumber: varchar('import_export_number', { length: 50 }),
     importExportValidity: date('import_export_validity'),
     importExportFile: varchar('import_export_file', { length: 255 }),
+    importExportFileId: integer('import_export_file_id').references(
+      () => filesT.id,
+      { onDelete: 'set null' },
+    ),
     attestationNumber: varchar('attestation_number', { length: 50 }),
     attestationValidity: date('attestation_validity'),
     attestationFile: varchar('attestation_file', { length: 255 }),
+    attestationFileId: integer('attestation_file_id').references(
+      () => filesT.id,
+      { onDelete: 'set null' },
+    ),
     nifNumber: varchar('nif_number', { length: 50 }),
     // ── Existing tax ID stays for backward compat ──────────────────
     taxId: varchar('tax_id', { length: 50 }),

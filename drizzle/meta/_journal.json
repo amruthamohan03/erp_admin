@@ -267,6 +267,13 @@
       "when": 1784568637203,
       "tag": "0037_zippy_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784569796285,
+      "tag": "0038_nifty_ink",
+      "breakpoints": true
     }
   ]
 }

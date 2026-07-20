@@ -19,6 +19,9 @@ import {
 } from '@/components/ui/SectionedBuilder';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import FileUpload, {
+  type FileUploadValue,
+} from '@/components/ui/FileUpload';
 
 // Sectioned-accordion form for client_master_t. Same shape as
 // ImportBuilder / ExportBuilder but tuned for the client onboarding
@@ -51,17 +54,22 @@ const EMPTY: Form = {
   phone: null,
   phone_secondary: null,
   address: null,
-  // Regulatory
+  // Regulatory — *_file_id are the FK to files_t, *_file legacy
+  // varchar (kept nullable for back-compat until fully deprecated).
   id_nat_number: null,
   id_nat_file: null,
+  id_nat_file_id: null,
   rccm_number: null,
   rccm_file: null,
+  rccm_file_id: null,
   import_export_number: null,
   import_export_validity: null,
   import_export_file: null,
+  import_export_file_id: null,
   attestation_number: null,
   attestation_validity: null,
   attestation_file: null,
+  attestation_file_id: null,
   nif_number: null,
   tax_id: null,
   // Payment
@@ -105,15 +113,15 @@ const SECTIONS: BuilderSection[] = [
     title: 'Regulatory (DRC Customs)',
     fields: [
       'id_nat_number',
-      'id_nat_file',
+      'id_nat_file_id',
       'rccm_number',
-      'rccm_file',
+      'rccm_file_id',
       'import_export_number',
       'import_export_validity',
-      'import_export_file',
+      'import_export_file_id',
       'attestation_number',
       'attestation_validity',
-      'attestation_file',
+      'attestation_file_id',
       'nif_number',
       'tax_id',
     ],
@@ -167,6 +175,18 @@ export default function ClientBuilder({ id }: { id?: number }) {
   const [loading, setLoading] = useState<boolean>(!!id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Loaded metadata for the four regulatory file attachments. On
+  // mount in edit mode we hydrate these from the GET /[id] response
+  // (which includes `*_file_info` fields); FileUpload emits full
+  // FileUploadValue objects on upload which we store here.
+  const [files, setFiles] = useState<
+    Record<string, FileUploadValue | null>
+  >({
+    id_nat: null,
+    rccm: null,
+    import_export: null,
+    attestation: null,
+  });
 
   const isEdit = !!id;
 
@@ -231,7 +251,12 @@ export default function ClientBuilder({ id }: { id?: number }) {
           setError(json.error?.message ?? 'Failed to load client');
           return;
         }
-        const row = json.data as RowShape;
+        const row = json.data as RowShape & {
+          id_nat_file_info?: FileUploadValue | null;
+          rccm_file_info?: FileUploadValue | null;
+          import_export_file_info?: FileUploadValue | null;
+          attestation_file_info?: FileUploadValue | null;
+        };
         setClientCode(row.client_code);
         setExistingCode(row.client_code);
         const hydrated: Form = { ...EMPTY };
@@ -240,6 +265,12 @@ export default function ClientBuilder({ id }: { id?: number }) {
           if (v !== undefined) hydrated[key] = v as FormValue;
         }
         setForm(hydrated);
+        setFiles({
+          id_nat: row.id_nat_file_info ?? null,
+          rccm: row.rccm_file_info ?? null,
+          import_export: row.import_export_file_info ?? null,
+          attestation: row.attestation_file_info ?? null,
+        });
       } catch {
         if (!cancelled) setError('Network error');
       } finally {
@@ -416,7 +447,14 @@ export default function ClientBuilder({ id }: { id?: number }) {
               filled={filled}
               total={total}
             >
-              {renderSection(sec.key, form, set, opts)}
+              {renderSection(sec.key, form, set, opts, {
+                files,
+                onFileChange: (fieldKey, formKey, value) => {
+                  setFiles((prev) => ({ ...prev, [fieldKey]: value }));
+                  set(formKey)(value ? value.id : null);
+                },
+                entityId: id ? String(id) : null,
+              })}
             </SectionAccordion>
           );
         })}
@@ -425,11 +463,22 @@ export default function ClientBuilder({ id }: { id?: number }) {
   );
 }
 
+interface FileWiring {
+  files: Record<string, FileUploadValue | null>;
+  onFileChange: (
+    fieldKey: string,
+    formKey: string,
+    value: FileUploadValue | null,
+  ) => void;
+  entityId: string | null;
+}
+
 function renderSection(
   key: string,
   form: Form,
   set: (k: string) => (v: FormValue) => void,
   opts: AllOptions,
+  fileWiring: FileWiring,
 ): React.ReactNode {
   switch (key) {
     case 'company':
@@ -466,15 +515,55 @@ function renderSection(
       return (
         <Grid>
           <Text label="ID Nat number" k="id_nat_number" form={form} set={set} maxLength={50} />
-          <Text label="ID Nat file" k="id_nat_file" form={form} set={set} maxLength={255} span={2} />
+          <div className="lg:col-span-2">
+            <FileUpload
+              label="ID Nat file"
+              value={fileWiring.files.id_nat}
+              onChange={(v) =>
+                fileWiring.onFileChange('id_nat', 'id_nat_file_id', v)
+              }
+              entityType="client"
+              entityId={fileWiring.entityId}
+            />
+          </div>
           <Text label="RCCM number" k="rccm_number" form={form} set={set} maxLength={50} />
-          <Text label="RCCM file" k="rccm_file" form={form} set={set} maxLength={255} span={2} />
+          <div className="lg:col-span-2">
+            <FileUpload
+              label="RCCM file"
+              value={fileWiring.files.rccm}
+              onChange={(v) =>
+                fileWiring.onFileChange('rccm', 'rccm_file_id', v)
+              }
+              entityType="client"
+              entityId={fileWiring.entityId}
+            />
+          </div>
           <Text label="Import/Export number" k="import_export_number" form={form} set={set} maxLength={50} />
           <DateField label="Import/Export validity" k="import_export_validity" form={form} set={set} />
-          <Text label="Import/Export file" k="import_export_file" form={form} set={set} maxLength={255} />
+          <FileUpload
+            label="Import/Export file"
+            value={fileWiring.files.import_export}
+            onChange={(v) =>
+              fileWiring.onFileChange(
+                'import_export',
+                'import_export_file_id',
+                v,
+              )
+            }
+            entityType="client"
+            entityId={fileWiring.entityId}
+          />
           <Text label="Attestation number" k="attestation_number" form={form} set={set} maxLength={50} />
           <DateField label="Attestation validity" k="attestation_validity" form={form} set={set} />
-          <Text label="Attestation file" k="attestation_file" form={form} set={set} maxLength={255} />
+          <FileUpload
+            label="Attestation file"
+            value={fileWiring.files.attestation}
+            onChange={(v) =>
+              fileWiring.onFileChange('attestation', 'attestation_file_id', v)
+            }
+            entityType="client"
+            entityId={fileWiring.entityId}
+          />
           <Text label="NIF number" k="nif_number" form={form} set={set} maxLength={50} />
           <Text label="Tax ID" k="tax_id" form={form} set={set} maxLength={50} />
         </Grid>
