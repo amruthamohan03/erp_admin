@@ -153,6 +153,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Commodities', order: 201, url: '/masters/commodities' },
   { parent: 'Masters', name: 'Done By', order: 202, url: '/masters/done-by' },
   { parent: 'Masters', name: 'Group Companies', order: 203, url: '/masters/group-companies' },
+  { parent: 'Masters', name: 'Form Definitions', order: 204, url: '/masters/forms' },
 
   // ── Client Management (original menu_id=2) ──────────────────────
   { parent: 'Client Management', name: 'Clients', order: 1, url: '/masters/clients' },
