@@ -34,6 +34,7 @@ import { seedSampleClients } from './sampleClients';
 import { seedSampleImports } from './sampleImports';
 import { seedSampleExports } from './sampleExports';
 import { seedSampleLicenses } from './sampleLicenses';
+import { seedSampleQuotations } from './sampleQuotations';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
@@ -148,6 +149,13 @@ export async function seedMasters(db: Database): Promise<void> {
   // breakdown shows real values. Direct inserts bypass case-runtime;
   // the workflow gates transitions, not creation-with-state.
   await seedSampleLicenses(db);
+
+  // Ten sample quotations (header rows only, no line items) so
+  // /quotations/dashboard shows real totals. Mix of USD-only exports
+  // and USD+CDF import-definitive quotations. Line-item seeding
+  // would need to go through buildQuotation() — deferred; real
+  // quotations get created via /quotations/new anyway.
+  await seedSampleQuotations(db);
 }
 
 export {
@@ -186,4 +194,5 @@ export {
   seedSampleImports,
   seedSampleExports,
   seedSampleLicenses,
+  seedSampleQuotations,
 };
