@@ -69,6 +69,58 @@ const rows: SeedRow[] = [
     displayOrder: 40,
     formula: { '*': [{ var: 'entity.amount' }, 0.05] },
   },
+  // ── Per-row export charges consumed by bulk-create ────────────────
+  // Each rule computes ONE amount column on exports_t from a context
+  // of { weight, fob, type_of_goods_id, feet_container_id }. Rates
+  // are placeholders — real DRC OGEFREM/CEEC/CGEA/OCC/LMC rates
+  // vary by commodity + tier + shipment mode. Edit the row from
+  // /masters/tax-rules to override; the loader picks the most-
+  // recently-effective row per key.
+  {
+    ruleKey: 'drc.export_charge.ceec_amount',
+    name: 'CEEC — export inspection fee',
+    description: 'Per-MT rate — $2/MT of shipped weight (placeholder).',
+    jurisdiction: 'DRC',
+    scope: 'export_charge',
+    displayOrder: 60,
+    formula: { '*': [{ var: 'weight' }, 2] },
+  },
+  {
+    ruleKey: 'drc.export_charge.cgea_amount',
+    name: 'CGEA — export management fee',
+    description: '0.4 % of FOB (placeholder).',
+    jurisdiction: 'DRC',
+    scope: 'export_charge',
+    displayOrder: 61,
+    formula: { '*': [{ var: 'fob' }, 0.004] },
+  },
+  {
+    ruleKey: 'drc.export_charge.occ_amount',
+    name: 'OCC — control agency fee',
+    description: '0.5 % of FOB (placeholder).',
+    jurisdiction: 'DRC',
+    scope: 'export_charge',
+    displayOrder: 62,
+    formula: { '*': [{ var: 'fob' }, 0.005] },
+  },
+  {
+    ruleKey: 'drc.export_charge.lmc_amount',
+    name: 'LMC — logistics chamber fee',
+    description: '$1.50 per MT (placeholder).',
+    jurisdiction: 'DRC',
+    scope: 'export_charge',
+    displayOrder: 63,
+    formula: { '*': [{ var: 'weight' }, 1.5] },
+  },
+  {
+    ruleKey: 'drc.export_charge.ogefrem_amount',
+    name: 'OGEFREM — shippers council fee',
+    description: '0.59 % of FOB (placeholder).',
+    jurisdiction: 'DRC',
+    scope: 'export_charge',
+    displayOrder: 64,
+    formula: { '*': [{ var: 'fob' }, 0.0059] },
+  },
 ];
 
 export async function seedTaxRules(db: Database | Transaction): Promise<void> {

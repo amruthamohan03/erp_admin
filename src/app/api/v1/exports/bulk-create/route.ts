@@ -15,6 +15,10 @@ import {
 } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { exportsBulkCreateSchema } from '@/schemas/exports-bulk';
+import {
+  loadExportChargeRules,
+  computeExportCharges,
+} from '@/lib/exports/charges';
 
 // POST /api/v1/exports/bulk-create
 //
@@ -108,6 +112,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const prefix = common.mca_ref_prefix.trim();
   if (!prefix) throw new BadRequestError('mca_ref_prefix required');
 
+  // Pre-load all charge rules once, before the transaction opens —
+  // reads outside the tx keep the transactional lock window as
+  // short as possible.
+  const chargeRules = await loadExportChargeRules();
+
   const createdIds = await db.transaction(async (tx) => {
     const ids: number[] = [];
 
@@ -129,6 +138,13 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             `resolve the existing row.`,
         );
       }
+
+      const charges = computeExportCharges(chargeRules, {
+        weight: Number(r.weight ?? 0),
+        fob: Number(r.fob ?? 0),
+        type_of_goods_id: common.type_of_goods_id ?? null,
+        feet_container_id: r.feet_container_id ?? null,
+      });
 
       const values = {
         clientId: common.client_id,
@@ -159,6 +175,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         feetContainerId: r.feet_container_id ?? null,
         dgdaSealNo: norm(r.dgda_seal_no),
         numberOfSeals: r.number_of_seals ?? null,
+        ceecAmount: charges.ceec_amount,
+        cgeaAmount: charges.cgea_amount,
+        occAmount: charges.occ_amount,
+        lmcAmount: charges.lmc_amount,
+        ogefremAmount: charges.ogefrem_amount,
         createdBy: session.uid,
         updatedBy: session.uid,
       };
