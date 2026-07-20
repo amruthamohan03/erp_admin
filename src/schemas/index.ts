@@ -17,6 +17,7 @@ export * from './fiche-de-calcul';
 export * from './form-field-grants';
 export * from './forms';
 export * from './exports-bulk';
+export * from './application-settings';
 export * from './clients';
 export * from './offices';
 export * from './seals';

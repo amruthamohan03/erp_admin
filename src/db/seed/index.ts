@@ -30,6 +30,7 @@ import { seedReportForms } from './reportForms';
 import { seedReportDefinitions } from './reportDefinitions';
 import { seedMenus } from './menus';
 import { seedDashboardCards } from './dashboardCards';
+import { seedApplicationSettings } from './applicationSettings';
 import { seedSampleClients } from './sampleClients';
 import { seedSampleImports } from './sampleImports';
 import { seedSampleExports } from './sampleExports';
@@ -116,6 +117,12 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedReportForms(db);
   await seedReportDefinitions(db);
 
+  // --- Application branding singleton ---------------------------------
+  // One row on application_settings_master_t (id=1) that the Topbar +
+  // theme provider read on mount. ON CONFLICT DO NOTHING so re-seeding
+  // never clobbers operator-edited branding.
+  await seedApplicationSettings(db);
+
   // --- Sidebar + role grants ------------------------------------------
   // Single authoritative seed that reconstructs the parent-child menu
   // hierarchy from the original DB dump (erp_admin_org.sql) with URLs
@@ -190,6 +197,7 @@ export {
   seedReportDefinitions,
   seedMenus,
   seedDashboardCards,
+  seedApplicationSettings,
   seedSampleClients,
   seedSampleImports,
   seedSampleExports,

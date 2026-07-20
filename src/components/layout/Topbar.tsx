@@ -24,13 +24,30 @@ interface Me {
   profile_image: string | null;
 }
 
+interface AppBranding {
+  project_name: string;
+  tagline: string | null;
+}
+
 export default function Topbar() {
   const [me, setMe] = useState<Me | null>(null);
+  const [branding, setBranding] = useState<AppBranding | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/auth/me')
       .then((r) => r.json())
       .then((j) => j.ok && setMe(j.data))
+      .catch(() => {});
+    fetch('/api/v1/application-settings')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) {
+          setBranding({
+            project_name: j.data.project_name,
+            tagline: j.data.tagline ?? null,
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -48,7 +65,16 @@ export default function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-      <div className="text-sm text-muted-foreground">Welcome back</div>
+      <div className="flex items-baseline gap-2 min-w-0">
+        <span className="text-sm font-semibold text-foreground truncate">
+          {branding?.project_name ?? 'ERP Admin'}
+        </span>
+        {branding?.tagline && (
+          <span className="hidden md:inline text-xs text-muted-foreground truncate">
+            {branding.tagline}
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center gap-1">
         <LanguageSwitcher />

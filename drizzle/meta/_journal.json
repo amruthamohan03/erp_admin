@@ -281,6 +281,13 @@
       "when": 1784571286125,
       "tag": "0039_careful_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784574119376,
+      "tag": "0040_curved_exiles",
+      "breakpoints": true
     }
   ]
 }
