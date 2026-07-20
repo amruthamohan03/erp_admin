@@ -260,6 +260,13 @@
       "when": 1782327396177,
       "tag": "0036_slimy_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784568637203,
+      "tag": "0037_zippy_elektra",
+      "breakpoints": true
     }
   ]
 }

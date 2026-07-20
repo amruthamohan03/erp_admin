@@ -5,10 +5,14 @@ import { clientMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, ConflictError } from '@/lib/errors';
 import { clientCreateSchema, clientListQuerySchema } from '@/schemas';
+import { createBodyToInsert } from '@/lib/clients/serialize';
+import type { ClientMasterInsert } from '@/db/schema';
 
 // GET /api/v1/clients?q=&page=&pageSize=
-// Paginated list of active clients. Search hits client_code/name/
-// legal_name/email/tax_id. Returns { items, meta: { total, page, pageSize } }.
+// Paginated list of active clients. Search hits
+// client_code/name/legal_name/email/tax_id. Returns the summary column
+// set (list-view fields only); the /[id] endpoint returns the full
+// row including regulatory numbers + FKs.
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -47,6 +51,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       client_code: clientMaster.clientCode,
       name: clientMaster.name,
       legal_name: clientMaster.legalName,
+      client_type: clientMaster.clientType,
       email: clientMaster.email,
       phone: clientMaster.phone,
       address: clientMaster.address,
@@ -68,6 +73,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
 // POST /api/v1/clients
 // Create a client. client_code is unique — duplicate returns 409.
+// Accepts the full extended field set (contact + regulatory +
+// payment blocks). Only client_code + name are required; everything
+// else is nullable so a partial onboarding still lands a row.
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -79,13 +87,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const [row] = await db
       .insert(clientMaster)
       .values({
-        clientCode: data.client_code,
-        name: data.name,
-        legalName: data.legal_name ?? null,
-        email: data.email ?? null,
-        phone: data.phone ?? null,
-        address: data.address ?? null,
-        taxId: data.tax_id ?? null,
+        ...(createBodyToInsert(data) as ClientMasterInsert),
         createdBy: session.uid,
         updatedBy: session.uid,
       })
@@ -93,11 +95,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         id: clientMaster.id,
         client_code: clientMaster.clientCode,
         name: clientMaster.name,
-        legal_name: clientMaster.legalName,
-        email: clientMaster.email,
-        phone: clientMaster.phone,
-        address: clientMaster.address,
-        tax_id: clientMaster.taxId,
         display: clientMaster.display,
         created_at: clientMaster.createdAt,
       });

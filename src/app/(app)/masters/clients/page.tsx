@@ -1,16 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Edit2, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import Link from 'next/link';
+import { Download, Edit2, Plus, Search, Trash2, Users } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
-import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
-import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface ClientRow {
   id: number;
   client_code: string;
   name: string;
   legal_name: string | null;
+  client_type: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -27,8 +27,6 @@ export default function ClientsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [editing, setEditing] = useState<ClientRow | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -61,7 +59,11 @@ export default function ClientsPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this client? Existing licenses/invoices stay intact.')) {
+    if (
+      !confirm(
+        'Disable this client? Existing licenses/invoices stay intact.',
+      )
+    ) {
       return;
     }
     const res = await fetch(`/api/v1/clients/${id}`, { method: 'DELETE' });
@@ -93,9 +95,9 @@ export default function ClientsPage() {
           >
             <Download className="h-4 w-4" /> Export
           </a>
-          <button onClick={() => setShowCreate(true)} className="btn-primary">
+          <Link href="/masters/clients/new" className="btn-primary">
             <Plus className="h-4 w-4" /> New Client
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -122,6 +124,7 @@ export default function ClientsPage() {
                 <th className="w-16">#</th>
                 <th>Client Code</th>
                 <th>Name</th>
+                <th>Type</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Tax ID</th>
@@ -131,15 +134,21 @@ export default function ClientsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="text-center text-slate-500 py-8">
+                  <td colSpan={8} className="text-center text-slate-500 py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-slate-500 py-8">
-                    No clients found
+                  <td colSpan={8} className="text-center text-slate-500 py-8">
+                    No clients found.{' '}
+                    <Link
+                      href="/masters/clients/new"
+                      className="text-primary-600 hover:underline"
+                    >
+                      Create one.
+                    </Link>
                   </td>
                 </tr>
               )}
@@ -150,29 +159,46 @@ export default function ClientsPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td>
-                      <code className="text-xs text-slate-600">
+                      <Link
+                        href={`/masters/clients/${c.id}`}
+                        className="font-mono text-xs text-primary-600 hover:underline"
+                      >
                         {c.client_code}
-                      </code>
+                      </Link>
                     </td>
                     <td>
-                      <div className="font-medium">{c.name}</div>
+                      <Link
+                        href={`/masters/clients/${c.id}`}
+                        className="font-medium text-slate-900 hover:text-primary-600"
+                      >
+                        {c.name}
+                      </Link>
                       {c.legal_name && c.legal_name !== c.name && (
                         <div className="text-xs text-slate-500">
                           {c.legal_name}
                         </div>
                       )}
                     </td>
+                    <td>
+                      {c.client_type ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
+                          {c.client_type}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
                     <td>{c.email || '—'}</td>
                     <td>{c.phone || '—'}</td>
                     <td>{c.tax_id || '—'}</td>
                     <td className="text-right whitespace-nowrap">
-                      <button
-                        onClick={() => setEditing(c)}
-                        className="text-slate-500 hover:text-primary-600 p-1"
+                      <Link
+                        href={`/masters/clients/${c.id}`}
+                        className="text-slate-500 hover:text-primary-600 p-1 inline-block"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </Link>
                       <button
                         onClick={() => handleDelete(c.id)}
                         className="text-slate-500 hover:text-red-600 p-1 ml-1"
@@ -201,233 +227,6 @@ export default function ClientsPage() {
           mounted={mounted}
         />
       </div>
-
-      {showCreate && (
-        <ClientFormModal
-          onClose={() => setShowCreate(false)}
-          onSaved={() => {
-            setShowCreate(false);
-            load();
-          }}
-        />
-      )}
-
-      {editing && (
-        <ClientFormModal
-          client={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            load();
-          }}
-        />
-      )}
     </>
-  );
-}
-
-function ClientFormModal({
-  client,
-  onClose,
-  onSaved,
-}: {
-  client?: ClientRow;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const isEdit = !!client;
-  const [form, setForm] = useState({
-    client_code: client?.client_code || '',
-    name: client?.name || '',
-    legal_name: client?.legal_name || '',
-    email: client?.email || '',
-    phone: client?.phone || '',
-    address: client?.address || '',
-    tax_id: client?.tax_id || '',
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Live uniqueness on client_code only. On edit the code is immutable
-  // (the input is disabled and PUT omits the field), so skip the check
-  // entirely — it would always collide with itself.
-  const checkValue = isEdit ? '' : form.client_code;
-  const { status: codeStatus, message: codeMessage } = useUniqueCheck({
-    resource: 'client-codes',
-    value: checkValue,
-    excludeId: client?.id ?? null,
-  });
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    const url = isEdit ? `/api/v1/clients/${client!.id}` : '/api/v1/clients';
-    const method = isEdit ? 'PUT' : 'POST';
-
-    // PUT omits client_code (immutable) — the server's update schema
-    // doesn't accept it either. POST sends everything; null out empty
-    // strings so the optional schema validates correctly.
-    const empty = (v: string) => (v.trim() === '' ? null : v);
-    const payload: Record<string, unknown> = isEdit
-      ? {
-          name: form.name,
-          legal_name: empty(form.legal_name),
-          email: empty(form.email),
-          phone: empty(form.phone),
-          address: empty(form.address),
-          tax_id: empty(form.tax_id),
-        }
-      : {
-          client_code: form.client_code,
-          name: form.name,
-          legal_name: empty(form.legal_name),
-          email: empty(form.email),
-          phone: empty(form.phone),
-          address: empty(form.address),
-          tax_id: empty(form.tax_id),
-        };
-
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
-        return;
-      }
-      onSaved();
-    } catch {
-      setError('Network error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
-          <h2 className="font-semibold">
-            {isEdit ? 'Edit Client' : 'Create Client'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-slate-900"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={submit} className="p-4 space-y-3">
-          {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
-              {error}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Client Code *</label>
-              <input
-                className="input"
-                value={form.client_code}
-                disabled={isEdit}
-                onChange={(e) =>
-                  setForm({ ...form, client_code: e.target.value })
-                }
-                required
-                placeholder="CLI-001"
-              />
-              <div className="flex items-center justify-between mt-1">
-                {isEdit ? (
-                  <p className="text-xs text-slate-500">Immutable.</p>
-                ) : (
-                  <span />
-                )}
-                <UniquenessIndicator
-                  status={codeStatus}
-                  message={codeMessage}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="label">Name *</label>
-              <input
-                className="input"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label">Legal Name</label>
-            <input
-              className="input"
-              value={form.legal_name}
-              onChange={(e) =>
-                setForm({ ...form, legal_name: e.target.value })
-              }
-              placeholder="Optional — leave blank if same as name"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">Phone</label>
-              <input
-                className="input"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label">Tax ID</label>
-            <input
-              className="input"
-              value={form.tax_id}
-              onChange={(e) => setForm({ ...form, tax_id: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="label">Address</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || codeStatus === 'taken'}
-              className="btn-primary"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }

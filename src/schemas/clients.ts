@@ -1,33 +1,72 @@
 import { z } from 'zod';
 
-// Boundary schemas for the /api/v1/clients endpoints. `client_code` is the
-// only required identifier — name/legal_name/email/phone/address/tax_id are
-// optional in the DB and stay optional here so a partial onboarding still
-// produces a usable client row.
+// Boundary schemas for the /api/v1/clients endpoints. Only
+// client_code + name are required — every other field is nullable
+// so an operator can save a barebones record and fill regulatory
+// numbers / contact secondary lines later.
 
 const optionalString = (max: number) =>
   z.string().max(max).optional().nullable();
 
-export const clientCreateSchema = z.object({
-  client_code: z.string().min(1).max(50),
+const optionalEmail = (max: number) =>
+  z
+    .union([z.literal(''), z.string().email().max(max)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' ? null : v));
+
+const optionalIntId = z.coerce.number().int().positive().nullable().optional();
+
+const optionalDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Must be YYYY-MM-DD')
+  .nullable()
+  .optional();
+
+// Shared field set for create + update; wrapped as `.partial()` on
+// the update path so PATCH-style updates can omit fields.
+const clientFieldsBase = z.object({
   name: z.string().min(1).max(255),
   legal_name: optionalString(255),
-  email: z.string().email().max(100).optional().nullable(),
+  client_type: optionalString(20),
+  group_company_id: optionalIntId,
+  industry_type_id: optionalIntId,
+  referred_by_id: optionalIntId,
+  office_location_id: optionalIntId,
+  phase_id: optionalIntId,
+  phase_start_date: optionalDate,
+  phase_end_date: optionalDate,
+  contact_person: optionalString(100),
+  email: optionalEmail(100),
+  email_secondary: optionalEmail(100),
   phone: optionalString(30),
+  phone_secondary: optionalString(30),
   address: z.string().optional().nullable(),
+  id_nat_number: optionalString(50),
+  id_nat_file: optionalString(255),
+  rccm_number: optionalString(50),
+  rccm_file: optionalString(255),
+  import_export_number: optionalString(50),
+  import_export_validity: optionalDate,
+  import_export_file: optionalString(255),
+  attestation_number: optionalString(50),
+  attestation_validity: optionalDate,
+  attestation_file: optionalString(255),
+  nif_number: optionalString(50),
   tax_id: optionalString(50),
+  payment_contact_email: optionalEmail(100),
+  payment_contact_phone: optionalString(30),
+});
+
+export const clientCreateSchema = clientFieldsBase.extend({
+  client_code: z.string().min(1).max(50),
 });
 export type ClientCreateInput = z.infer<typeof clientCreateSchema>;
 
-// client_code stays immutable post-creation (it appears on customs paperwork
-// — renumbering it would break audit trails). Every other field can change.
-export const clientUpdateSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  legal_name: optionalString(255),
-  email: z.string().email().max(100).optional().nullable(),
-  phone: optionalString(30),
-  address: z.string().optional().nullable(),
-  tax_id: optionalString(50),
+// client_code stays immutable post-creation (it appears on customs
+// paperwork — renumbering would break audit trails). Every other
+// field can change; display toggles soft-delete.
+export const clientUpdateSchema = clientFieldsBase.partial().extend({
   display: z.enum(['Y', 'N']).optional(),
 });
 export type ClientUpdateInput = z.infer<typeof clientUpdateSchema>;
