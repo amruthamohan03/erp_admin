@@ -7,97 +7,53 @@ import { seedLicenseRules } from './licenseRules';
 import { seedLicenseForm } from './licenseForm';
 import { seedLicenseWorkflow } from './licenseWorkflow';
 import { seedLicenseCaseTemplate } from './licenseCaseTemplate';
-import { seedLicensesMenu } from './licensesMenu';
 import { seedInvoiceStatuses } from './invoiceStatuses';
 import { seedInvoiceForm } from './invoiceForm';
 import { seedInvoiceWorkflow } from './invoiceWorkflow';
 import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
-import { seedInvoicesMenu } from './invoicesMenu';
 import { seedTrackingTemplates } from './trackingTemplates';
 import { seedPaymentRequestApprovals } from './paymentRequestApprovals';
 import { seedPaymentRequestStatuses } from './paymentRequestStatuses';
 import { seedPaymentRequestForm } from './paymentRequestForm';
 import { seedPaymentRequestWorkflow } from './paymentRequestWorkflow';
 import { seedPaymentRequestCaseTemplate } from './paymentRequestCaseTemplate';
-import { seedPaymentRequestsMenu } from './paymentRequestsMenu';
 import { seedCreditNoteStatuses } from './creditNoteStatuses';
 import { seedCreditNoteForm } from './creditNoteForm';
 import { seedCreditNoteWorkflow } from './creditNoteWorkflow';
 import { seedCreditNoteCaseTemplate } from './creditNoteCaseTemplate';
-import { seedCreditNotesMenu } from './creditNotesMenu';
 import { seedTrackingStatuses } from './trackingStatuses';
 import { seedTrackingForm } from './trackingForm';
 import { seedTrackingWorkflow } from './trackingWorkflow';
 import { seedTrackingCaseTemplate } from './trackingCaseTemplate';
-import { seedTrackingMenu } from './trackingMenu';
 import { seedTaxRules } from './taxRules';
-import { seedFicheDeCalculMenu } from './ficheDeCalculMenu';
 import { seedReportForms } from './reportForms';
 import { seedReportDefinitions } from './reportDefinitions';
-import { seedReportsMenu } from './reportsMenu';
-import { seedFieldGrantsMappingMenu } from './fieldGrantsMappingMenu';
-import { seedClientsMenu } from './clientsMenu';
-import { seedOfficesMenu } from './officesMenu';
-import { seedSealsMenu } from './sealsMenu';
-import { seedCurrenciesMenu } from './currenciesMenu';
-import { seedUnitsMenu } from './unitsMenu';
-import { seedKindsMenu } from './kindsMenu';
-import { seedTransportModesMenu } from './transportModesMenu';
-import { seedGoodsTypesMenu } from './goodsTypesMenu';
-import { seedQuotationCategoriesMenu } from './quotationCategoriesMenu';
-import { seedItemsMenu } from './itemsMenu';
-import { seedQuotationsMenu } from './quotationsMenu';
-import { seedBulkUpdateMenu } from './bulkUpdateMenu';
-import { seedPartialsMenu } from './partialsMenu';
-import { seedClearancesMenu } from './clearancesMenu';
-import { seedSubOfficesMenu } from './subOfficesMenu';
-import { seedCommoditiesMenu } from './commoditiesMenu';
-import { seedClearingStatusesMenu } from './clearingStatusesMenu';
-import { seedRegimesMenu } from './regimesMenu';
-import { seedDocumentStatusesMenu } from './documentStatusesMenu';
-import { seedTransitPointsMenu } from './transitPointsMenu';
-import { seedImportsMenu } from './importsMenu';
-import { seedFeetContainersMenu } from './feetContainersMenu';
-import { seedTruckStatusesMenu } from './truckStatusesMenu';
-import { seedExportsMenu } from './exportsMenu';
-import { seedOriginsMenu } from './originsMenu';
-import { seedProvincesMenu } from './provincesMenu';
-import { seedIndustriesMenu } from './industriesMenu';
-import { seedDoneByMenu } from './doneByMenu';
-import { seedExpenseTypesMenu } from './expenseTypesMenu';
-import { seedHscodesMenu } from './hscodesMenu';
-import { seedBanksMenu } from './banksMenu';
-import { seedBankExchangeRatesMenu } from './bankExchangeRatesMenu';
-import { seedPhasesMenu } from './phasesMenu';
-import { seedIncotermsMenu } from './incotermsMenu';
-import { seedGroupCompaniesMenu } from './groupCompaniesMenu';
-import { seedReferersMenu } from './referersMenu';
-import { seedPaymentTypesMenu } from './paymentTypesMenu';
-import { seedPaymentSubtypesMenu } from './paymentSubtypesMenu';
-import { seedInvoiceBanksMenu } from './invoiceBanksMenu';
-import { seedDepartmentsMenu } from './departmentsMenu';
-import { seedClientsDashboardMenu } from './clientsDashboardMenu';
+import { seedMenus } from './menus';
 
 // Master seed orchestrator per CLAUDE.md §9.
 //
-// Every new master table that holds slow-changing reference data adds:
-//   1. its own ./<table>.ts file that exports a seedXxx(db) function and
-//      uses .onConflictDoUpdate() on the table's natural key, and
-//   2. a call from seedMasters() below in the right order.
+// Every new master table that holds slow-changing reference data adds
+// its own ./<table>.ts file that exports a seedXxx(db) function using
+// .onConflictDoUpdate() on the table's natural key, and a call from
+// seedMasters() below in the right order.
+//
+// Sidebar / permission grants live in ONE authoritative file — see
+// ./menus.ts. Adding a new sidebar entry means one edit to the SPEC
+// array there, choosing which parent group it belongs under.
 //
 // Ordering rules:
 //   * Pure masters (no FK to other seeds) can run in any order.
 //   * Seeds that depend on other seeds' rows (looked up by natural key)
 //     must come after their dependency. Each domain module follows the
 //     same shape: statuses + rules + hierarchy → form → workflow →
-//     case_template → menu.
+//     case_template.
 //
 // Seeds are idempotent (onConflictDoUpdate on the natural key) so
 // re-running against a populated DB just refreshes the rows.
 
 export async function seedMasters(db: Database): Promise<void> {
-  // Bootstrap Super Admin role (id = 1). Must run first: the admin user and
-  // every *Menu permission grant below reference role_id = 1 via FK.
+  // Bootstrap Super Admin role (id = 1). Must run first: the admin
+  // user and every role_menu_mapping row below reference role_id = 1.
   await seedBootstrapRole(db);
 
   // Independent foundational masters.
@@ -113,42 +69,40 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedTrackingTemplates(db); // depends on licenseTypes
 
   // --- Tracking module (§2 step 3) ------------------------------------
-  // Statuses + form + workflow + case_template for tracking_t. Per-milestone
-  // advancement (current_milestone_key bumps inside in_progress) lives on a
-  // separate endpoint — kept off the case-runtime so the template's
-  // milestones_json can change without rewriting workflow transitions.
+  // Statuses + form + workflow + case_template for tracking_t. Per-
+  // milestone advancement lives on a separate endpoint (kept off the
+  // case-runtime so milestones_json can change without rewriting
+  // workflow transitions).
   await seedTrackingStatuses(db);
   await seedTrackingForm(db);
   await seedTrackingWorkflow(db);
-  await seedTrackingCaseTemplate(db); // depends on trackingForm + trackingWorkflow
+  await seedTrackingCaseTemplate(db);
 
   // --- Fiche de Calcul (§2 step 3 / §4.1) -----------------------------
   // Sample DRC tax rules. The compute endpoint composes them via
-  // loadTaxRule + applyRule — no new transactional table; rules are read
-  // every call so admins can edit them without restarting the app.
+  // loadTaxRule + applyRule — no new transactional table; rules are
+  // read every call so admins can edit them without restarting.
   await seedTaxRules(db);
 
   // --- Invoice module (§2 step 4) -------------------------------------
   await seedInvoiceStatuses(db);
-  await seedInvoiceForm(db); // depends on fieldValidations (iso.currency_code)
+  await seedInvoiceForm(db); // depends on fieldValidations
   await seedInvoiceWorkflow(db);
   await seedInvoiceCaseTemplate(db);
 
   // --- Credit Note module (§2 step 5) ---------------------------------
-  // credit_note_t.invoice_id is a NOT NULL FK to invoice_t — the schema-level
-  // dependency. Seed order also follows §2 (after invoice, before payment).
   await seedCreditNoteStatuses(db);
-  await seedCreditNoteForm(db); // depends on fieldValidations (iso.currency_code)
+  await seedCreditNoteForm(db);
   await seedCreditNoteWorkflow(db);
   await seedCreditNoteCaseTemplate(db);
 
   // --- Payment Request module (§2 step 6) -----------------------------
-  // Approvals must seed before the workflow (transitions reference the
-  // hierarchy by key from action_json).
+  // Approvals must seed before the workflow (transitions reference
+  // the hierarchy by key from action_json).
   await seedPaymentRequestApprovals(db);
   await seedPaymentRequestStatuses(db);
-  await seedPaymentRequestForm(db); // depends on fieldValidations
-  await seedPaymentRequestWorkflow(db); // depends on approvals
+  await seedPaymentRequestForm(db);
+  await seedPaymentRequestWorkflow(db);
   await seedPaymentRequestCaseTemplate(db);
 
   // --- Reports (§2 step 7) --------------------------------------------
@@ -156,70 +110,12 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedReportForms(db);
   await seedReportDefinitions(db);
 
-  // Sidebar entries + permission grants. Last so the navigation lights up
-  // only after every route it points at is real.
-  await seedLicensesMenu(db);
-  await seedTrackingMenu(db);
-  await seedFicheDeCalculMenu(db);
-  await seedInvoicesMenu(db);
-  await seedCreditNotesMenu(db);
-  await seedPaymentRequestsMenu(db);
-  await seedReportsMenu(db);
-  await seedFieldGrantsMappingMenu(db);
-  await seedClientsMenu(db);
-  await seedOfficesMenu(db);
-  await seedSealsMenu(db);
-  // Quotations prereq lookup masters — sidebar order 30-34.
-  await seedCurrenciesMenu(db);
-  await seedUnitsMenu(db);
-  await seedKindsMenu(db);
-  await seedTransportModesMenu(db);
-  await seedGoodsTypesMenu(db);
-  // Quotations-domain masters that depend on the simple lookups above.
-  await seedQuotationCategoriesMenu(db);
-  await seedItemsMenu(db);
-  await seedQuotationsMenu(db);
-  await seedBulkUpdateMenu(db);
-  // Customs-domain prereq masters (Imports / Exports port unblockers).
-  await seedPartialsMenu(db);
-  await seedClearancesMenu(db);
-  await seedSubOfficesMenu(db);
-  await seedCommoditiesMenu(db);
-  await seedClearingStatusesMenu(db);
-  await seedRegimesMenu(db);
-  await seedDocumentStatusesMenu(db);
-  await seedTransitPointsMenu(db);
-  // Imports module (§2 step 3 — customs imports lifecycle).
-  await seedImportsMenu(db);
-  // Exports prereq masters (feet_container + truck_status).
-  await seedFeetContainersMenu(db);
-  await seedTruckStatusesMenu(db);
-  // Exports module (§2 step 3 — customs exports lifecycle).
-  await seedExportsMenu(db);
-  // Client-enrichment masters (origin → province; industry; done-by).
-  await seedOriginsMenu(db);
-  await seedProvincesMenu(db);
-  await seedIndustriesMenu(db);
-  await seedDoneByMenu(db);
-  // Finance / tariff masters (expense_type + hscode).
-  await seedExpenseTypesMenu(db);
-  await seedHscodesMenu(db);
-  // Bank cluster — registry + daily exchange-rate entries.
-  await seedBanksMenu(db);
-  await seedBankExchangeRatesMenu(db);
-  // Remaining operational / financial masters.
-  await seedPhasesMenu(db);
-  await seedIncotermsMenu(db);
-  await seedGroupCompaniesMenu(db);
-  await seedReferersMenu(db);
-  await seedPaymentTypesMenu(db);
-  await seedPaymentSubtypesMenu(db);
-  // Company's own bank accounts to print on outgoing invoices.
-  await seedInvoiceBanksMenu(db);
-  // Internal department catalogue.
-  await seedDepartmentsMenu(db);
-  // Top-level dashboards.
-  await seedClientsDashboardMenu(db);
+  // --- Sidebar + role grants ------------------------------------------
+  // Single authoritative seed that reconstructs the parent-child menu
+  // hierarchy from the original DB dump (erp_admin_org.sql) with URLs
+  // rewritten to this branch's routes. Run last so the navigation
+  // lights up only after every dependency is in place.
+  await seedMenus(db);
 }
 
 export {
@@ -231,74 +127,26 @@ export {
   seedLicenseForm,
   seedLicenseWorkflow,
   seedLicenseCaseTemplate,
-  seedLicensesMenu,
   seedInvoiceStatuses,
   seedInvoiceForm,
   seedInvoiceWorkflow,
   seedInvoiceCaseTemplate,
-  seedInvoicesMenu,
   seedTrackingTemplates,
   seedPaymentRequestApprovals,
   seedPaymentRequestStatuses,
   seedPaymentRequestForm,
   seedPaymentRequestWorkflow,
   seedPaymentRequestCaseTemplate,
-  seedPaymentRequestsMenu,
   seedCreditNoteStatuses,
   seedCreditNoteForm,
   seedCreditNoteWorkflow,
   seedCreditNoteCaseTemplate,
-  seedCreditNotesMenu,
   seedTrackingStatuses,
   seedTrackingForm,
   seedTrackingWorkflow,
   seedTrackingCaseTemplate,
-  seedTrackingMenu,
   seedTaxRules,
-  seedFicheDeCalculMenu,
   seedReportForms,
   seedReportDefinitions,
-  seedReportsMenu,
-  seedFieldGrantsMappingMenu,
-  seedClientsMenu,
-  seedOfficesMenu,
-  seedSealsMenu,
-  seedCurrenciesMenu,
-  seedUnitsMenu,
-  seedKindsMenu,
-  seedTransportModesMenu,
-  seedGoodsTypesMenu,
-  seedQuotationCategoriesMenu,
-  seedItemsMenu,
-  seedQuotationsMenu,
-  seedBulkUpdateMenu,
-  seedPartialsMenu,
-  seedClearancesMenu,
-  seedSubOfficesMenu,
-  seedCommoditiesMenu,
-  seedClearingStatusesMenu,
-  seedRegimesMenu,
-  seedDocumentStatusesMenu,
-  seedTransitPointsMenu,
-  seedImportsMenu,
-  seedFeetContainersMenu,
-  seedTruckStatusesMenu,
-  seedExportsMenu,
-  seedOriginsMenu,
-  seedProvincesMenu,
-  seedIndustriesMenu,
-  seedDoneByMenu,
-  seedExpenseTypesMenu,
-  seedHscodesMenu,
-  seedBanksMenu,
-  seedBankExchangeRatesMenu,
-  seedPhasesMenu,
-  seedIncotermsMenu,
-  seedGroupCompaniesMenu,
-  seedReferersMenu,
-  seedPaymentTypesMenu,
-  seedPaymentSubtypesMenu,
-  seedInvoiceBanksMenu,
-  seedDepartmentsMenu,
-  seedClientsDashboardMenu,
+  seedMenus,
 };
