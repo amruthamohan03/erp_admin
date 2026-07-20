@@ -1,0 +1,2 @@
+ALTER TABLE "imports_t" ADD COLUMN "inspection_reports_file_id" integer;--> statement-breakpoint
+ALTER TABLE "imports_t" ADD CONSTRAINT "imports_t_inspection_reports_file_id_files_t_id_fk" FOREIGN KEY ("inspection_reports_file_id") REFERENCES "public"."files_t"("id") ON DELETE set null ON UPDATE no action;

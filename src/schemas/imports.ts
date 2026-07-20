@@ -86,6 +86,7 @@ export const importBodySchema = z.object({
   clearing_based_on: shortText(50),
   ad_date: dateOnly,
   inspection_reports: shortText(100),
+  inspection_reports_file_id: intIdNullable,
   archive_reference: shortText(100),
   audited_date: dateOnly,
   archived_date: dateOnly,

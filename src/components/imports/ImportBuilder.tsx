@@ -26,6 +26,9 @@ import {
   Text,
   useSectionCompletion,
 } from '@/components/ui/SectionedBuilder';
+import FileUpload, {
+  type FileUploadValue,
+} from '@/components/ui/FileUpload';
 
 // Sectioned-accordion builder for `imports_t`. 92 fields across 9
 // logical sections. Layout (sections, fields, picker types) lives in
@@ -76,6 +79,7 @@ const EMPTY: Form = {
   clearing_based_on: null,
   ad_date: null,
   inspection_reports: null,
+  inspection_reports_file_id: null,
   archive_reference: null,
   audited_date: null,
   archived_date: null,
@@ -195,6 +199,7 @@ const SECTIONS: BuilderSection[] = [
       'clearing_based_on',
       'ad_date',
       'inspection_reports',
+      'inspection_reports_file_id',
       'archive_reference',
       'audited_date',
       'archived_date',
@@ -337,6 +342,12 @@ export default function ImportBuilder({ id }: { id?: number }) {
   const [loading, setLoading] = useState<boolean>(!!id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Attached inspection-report file (bytes live in files_t; the form
+  // stores only the id). FileUpload emits full metadata on upload so
+  // the widget can render the filename/link without a follow-up fetch.
+  const [inspectionReportsFile, setInspectionReportsFile] =
+    useState<FileUploadValue | null>(null);
 
   // Load all master picker lists once. 14 masters under ~2k rows
   // total — one round of parallel fetches stays under ~200ms.
@@ -490,6 +501,11 @@ export default function ImportBuilder({ id }: { id?: number }) {
           if (v !== undefined) hydrated[key] = v as FormValue;
         }
         setForm(hydrated);
+        const fi = json.data.inspection_reports_file_info as
+          | FileUploadValue
+          | null
+          | undefined;
+        setInspectionReportsFile(fi ?? null);
       } catch {
         if (!cancelled) setError('Network error');
       } finally {
@@ -620,7 +636,17 @@ export default function ImportBuilder({ id }: { id?: number }) {
               filled={filled}
               total={total}
             >
-              {renderSection(sec.key, form, set, opts)}
+              {renderSection(sec.key, form, set, opts, {
+                inspectionReportsFile,
+                onInspectionReportsFileChange: (v) => {
+                  setInspectionReportsFile(v);
+                  setForm((f) => ({
+                    ...f,
+                    inspection_reports_file_id: v ? v.id : null,
+                  }));
+                },
+                entityId: id ? String(id) : null,
+              })}
             </SectionAccordion>
           );
         })}
@@ -629,11 +655,18 @@ export default function ImportBuilder({ id }: { id?: number }) {
   );
 }
 
+interface FileWiring {
+  inspectionReportsFile: FileUploadValue | null;
+  onInspectionReportsFileChange: (v: FileUploadValue | null) => void;
+  entityId: string | null;
+}
+
 function renderSection(
   key: string,
   form: Form,
   set: (k: string) => (v: FormValue) => void,
   opts: AllOptions,
+  fileWiring: FileWiring,
 ): React.ReactNode {
   switch (key) {
     case 'basic':
@@ -689,6 +722,16 @@ function renderSection(
           <Text label="Clearing based on" k="clearing_based_on" form={form} set={set} maxLength={50} />
           <DateField label="AD date" k="ad_date" form={form} set={set} />
           <Text label="Inspection reports" k="inspection_reports" form={form} set={set} maxLength={100} />
+          <div className="lg:col-span-2">
+            <FileUpload
+              label="Inspection report file"
+              value={fileWiring.inspectionReportsFile}
+              onChange={fileWiring.onInspectionReportsFileChange}
+              entityType="import"
+              entityId={fileWiring.entityId}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            />
+          </div>
           <Text label="Archive reference" k="archive_reference" form={form} set={set} maxLength={100} />
           <DateField label="Audited date" k="audited_date" form={form} set={set} />
           <DateField label="Archived date" k="archived_date" form={form} set={set} />

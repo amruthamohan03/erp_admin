@@ -47,6 +47,7 @@ export function bodyToInsert(body: ImportBody): Record<string, unknown> {
     clearingBasedOn: body.clearing_based_on,
     adDate: body.ad_date,
     inspectionReports: body.inspection_reports,
+    inspectionReportsFileId: body.inspection_reports_file_id,
     archiveReference: body.archive_reference,
     auditedDate: body.audited_date,
     archivedDate: body.archived_date,

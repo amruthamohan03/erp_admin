@@ -29,6 +29,7 @@ import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
 import { hscodeMaster } from './hscodeMaster';
 import { incotermMaster } from './incotermMaster';
+import { filesT } from './files';
 
 // Import-tracking transactional entity (§2 step 3 — customs imports
 // lifecycle). One row per consignment moving through customs clearance,
@@ -150,7 +151,16 @@ export const importT = pgTable(
     crfReceivedDate: date('crf_received_date'),
     clearingBasedOn: varchar('clearing_based_on', { length: 50 }),
     adDate: date('ad_date'),
+    // Legacy varchar `inspection_reports` kept for back-compat with
+    // rows that stored a filename / shared drive path. New uploads
+    // go through the FK column below (files_t). Future cleanup
+    // migration can drop the varchar once every consumer switches
+    // to reading inspection_reports_file_id.
     inspectionReports: varchar('inspection_reports', { length: 100 }),
+    inspectionReportsFileId: integer('inspection_reports_file_id').references(
+      () => filesT.id,
+      { onDelete: 'set null' },
+    ),
     archiveReference: varchar('archive_reference', { length: 100 }),
     auditedDate: date('audited_date'),
     archivedDate: date('archived_date'),

@@ -18,6 +18,7 @@ import {
   clearingStatusMaster,
   hscodeMaster,
   incotermMaster,
+  filesT,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
@@ -108,6 +109,10 @@ export const GET = withErrorHandler(
         clearing_based_on: importT.clearingBasedOn,
         ad_date: importT.adDate,
         inspection_reports: importT.inspectionReports,
+        inspection_reports_file_id: importT.inspectionReportsFileId,
+        inspection_reports_file_original_name: filesT.originalName,
+        inspection_reports_file_mime: filesT.mime,
+        inspection_reports_file_size: filesT.size,
         archive_reference: importT.archiveReference,
         audited_date: importT.auditedDate,
         archived_date: importT.archivedDate,
@@ -212,6 +217,7 @@ export const GET = withErrorHandler(
         clearingStatusMaster,
         eq(clearingStatusMaster.id, importT.clearingStatusId),
       )
+      .leftJoin(filesT, eq(filesT.id, importT.inspectionReportsFileId))
       .where(eq(importT.id, id))
       .limit(1);
 
@@ -235,13 +241,28 @@ export const GET = withErrorHandler(
       tpById = new Map(rows.map((r) => [r.id, r.name]));
     }
 
+    const {
+      inspection_reports_file_original_name,
+      inspection_reports_file_mime,
+      inspection_reports_file_size,
+      ...rest
+    } = header;
+
     return ok({
-      ...header,
+      ...rest,
       border_warehouse_name: header.border_warehouse_id
         ? (tpById.get(header.border_warehouse_id) ?? null)
         : null,
       bonded_warehouse_name: header.bonded_warehouse_id
         ? (tpById.get(header.bonded_warehouse_id) ?? null)
+        : null,
+      inspection_reports_file_info: header.inspection_reports_file_id
+        ? {
+            id: header.inspection_reports_file_id,
+            original_name: inspection_reports_file_original_name,
+            mime: inspection_reports_file_mime,
+            size: inspection_reports_file_size,
+          }
         : null,
     });
   },
