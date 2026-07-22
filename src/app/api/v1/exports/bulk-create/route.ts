@@ -50,7 +50,8 @@ const norm = (v: string | null | undefined): string | null =>
 interface LicenseFacts {
   id: number;
   amount: string | null;
-  clientId: number;
+  // Nullable in main's licenses model (client is set per-accordion).
+  clientId: number | null;
   used: number;
 }
 
@@ -60,7 +61,8 @@ async function loadLicenseFacts(
   const [lic] = await db
     .select({
       id: licenseT.id,
-      amount: licenseT.amount,
+      // main's licenses model: fob_declared is the declared FOB ceiling.
+      amount: licenseT.fobDeclared,
       clientId: licenseT.clientId,
     })
     .from(licenseT)
@@ -150,12 +152,12 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         clientId: common.client_id,
         licenseId: common.license_id,
         mcaRef,
-        kindId: common.kind_id ?? null,
-        transportModeId: common.transport_mode_id ?? null,
-        typeOfGoodsId: common.type_of_goods_id ?? null,
-        regimeId: common.regime_id ?? null,
-        typesOfClearanceId: common.types_of_clearance_id ?? null,
-        currencyId: common.currency_id ?? null,
+        kind: common.kind_id ?? null,
+        transportMode: common.transport_mode_id ?? null,
+        typeOfGoods: common.type_of_goods_id ?? null,
+        regime: common.regime_id ?? null,
+        typesOfClearance: common.types_of_clearance_id ?? null,
+        currency: common.currency_id ?? null,
         buyer: norm(common.buyer),
         bpNo: norm(common.bp_no),
         loadingDate: r.loading_date ?? null,
@@ -172,7 +174,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         destination: norm(r.destination),
         siteOfLoadingId: r.site_of_loading_id ?? null,
         exitPointId: r.exit_point_id ?? null,
-        feetContainerId: r.feet_container_id ?? null,
+        feetContainer: r.feet_container_id ?? null,
         dgdaSealNo: norm(r.dgda_seal_no),
         numberOfSeals: r.number_of_seals ?? null,
         ceecAmount: charges.ceec_amount,

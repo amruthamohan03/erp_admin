@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
@@ -28,13 +28,13 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       display: sealNumber.display,
       seal_batch_id: sealNumber.sealBatchId,
       office_location_id: sealBatch.officeLocationId,
-      location_name: officeMaster.locationName,
+      location_name: mainOfficeMaster.mainLocationName,
       created_at: sealNumber.createdAt,
       updated_at: sealNumber.updatedAt,
     })
     .from(sealNumber)
     .leftJoin(sealBatch, eq(sealBatch.id, sealNumber.sealBatchId))
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(eq(sealNumber.id, id))
     .limit(1);
 
@@ -59,6 +59,7 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const data = sealNumberUpdateSchema.parse(await req.json());
 
   const patch: Record<string, unknown> = {};
+  if (data.seal_number !== undefined) patch.sealNumber = data.seal_number;
   if (data.status !== undefined) patch.status = data.status;
   if (data.notes !== undefined) patch.notes = data.notes;
   if (data.display !== undefined) patch.display = data.display;

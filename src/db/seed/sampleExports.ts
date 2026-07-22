@@ -46,7 +46,7 @@ export async function seedSampleExports(
   db: Database | Transaction,
 ): Promise<void> {
   const clientRows = await db
-    .select({ id: clientMaster.id, code: clientMaster.clientCode })
+    .select({ id: clientMaster.id, code: clientMaster.shortName })
     .from(clientMaster);
   const codeToId = new Map(clientRows.map((r) => [r.code, r.id]));
 

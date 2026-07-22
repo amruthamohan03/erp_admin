@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Edit2,
-  FileBarChart,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -26,20 +19,18 @@ interface Row {
   updated_at: string | null;
 }
 
-const RATES = [
-  { key: 'hscode_ddi', label: 'DDI', hint: 'Import duty' },
-  { key: 'hscode_ica', label: 'ICA', hint: 'Sales tax' },
-  { key: 'hscode_dci', label: 'DCI', hint: 'Excise' },
-  { key: 'hscode_dcl', label: 'DCL', hint: 'Export duty' },
-  { key: 'hscode_tpi', label: 'TPI', hint: 'Industry promo' },
+const RATE_FIELDS = [
+  { key: 'hscode_ddi', label: 'DDI' },
+  { key: 'hscode_ica', label: 'ICA' },
+  { key: 'hscode_dci', label: 'DCI' },
+  { key: 'hscode_dcl', label: 'DCL' },
+  { key: 'hscode_tpi', label: 'TPI' },
 ] as const;
-type RateKey = (typeof RATES)[number]['key'];
+type RateKey = (typeof RATE_FIELDS)[number]['key'];
 
-function fmtRate(v: string | null): string {
-  if (v == null) return '—';
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '—';
-  return `${n.toFixed(2)}%`;
+function fmt(n: string | null): string {
+  if (n === null || n === undefined) return '0.00';
+  return n;
 }
 
 export default function HscodesPage() {
@@ -99,10 +90,7 @@ export default function HscodesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <FileBarChart className="h-6 w-6 text-primary-600" />
-          HS Codes
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">HS Codes</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New HS Code
         </button>
@@ -130,13 +118,9 @@ export default function HscodesPage() {
               <tr>
                 <th className="w-16">#</th>
                 <th>HS Code</th>
-                {RATES.map((r) => (
-                  <th
-                    key={r.key}
-                    className="text-right whitespace-nowrap"
-                    title={r.hint}
-                  >
-                    {r.label}
+                {RATE_FIELDS.map((f) => (
+                  <th key={f.key} className="text-right">
+                    {f.label} (%)
                   </th>
                 ))}
                 <th className="text-right">Actions</th>
@@ -146,7 +130,7 @@ export default function HscodesPage() {
               {loading && (
                 <tr>
                   <td
-                    colSpan={3 + RATES.length}
+                    colSpan={3 + RATE_FIELDS.length}
                     className="text-center text-slate-500 py-8"
                   >
                     Loading...
@@ -156,7 +140,7 @@ export default function HscodesPage() {
               {!loading && items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={3 + RATES.length}
+                    colSpan={3 + RATE_FIELDS.length}
                     className="text-center text-slate-500 py-8"
                   >
                     No HS codes found
@@ -164,32 +148,30 @@ export default function HscodesPage() {
                 </tr>
               )}
               {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
+                items.map((i, idx) => (
+                  <tr key={i.id} className="hover:bg-slate-50">
                     <td className="text-slate-500 font-medium">
                       {startIndex + idx + 1}
                     </td>
-                    <td className="font-mono font-medium">
-                      {r.hscode_number}
-                    </td>
-                    {RATES.map((rate) => (
+                    <td className="font-mono">{i.hscode_number}</td>
+                    {RATE_FIELDS.map((f) => (
                       <td
-                        key={rate.key}
-                        className="text-right font-mono text-sm"
+                        key={f.key}
+                        className="text-right font-mono text-xs"
                       >
-                        {fmtRate(r[rate.key as RateKey])}
+                        {fmt(i[f.key as RateKey])}
                       </td>
                     ))}
                     <td className="text-right whitespace-nowrap">
                       <button
-                        onClick={() => setEditing(r)}
+                        onClick={() => setEditing(i)}
                         className="text-slate-500 hover:text-primary-600 p-1"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(r.id)}
+                        onClick={() => handleDelete(i.id)}
                         className="text-slate-500 hover:text-red-600 p-1 ml-1"
                         title="Disable"
                       >
@@ -271,6 +253,10 @@ function FormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -326,51 +312,37 @@ function FormModal({
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               required
-              placeholder="0101.21.00"
               maxLength={100}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
-          <div>
-            <label className="label">Tax rates (%)</label>
-            <div className="grid grid-cols-5 gap-2 mt-1">
-              {RATES.map((rate) => (
-                <div key={rate.key}>
-                  <label
-                    className="block text-xs font-medium text-slate-600 mb-1"
-                    title={rate.hint}
-                  >
-                    {rate.label}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="999.99"
-                    className="input font-mono text-sm"
-                    value={rates[rate.key]}
-                    onChange={(e) =>
-                      setRates((prev) => ({
-                        ...prev,
-                        [rate.key]: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              DDI = import duty, ICA = sales tax, DCI = excise, DCL =
-              export duty, TPI = industry promotion.
-            </p>
+          <div className="grid grid-cols-5 gap-2">
+            {RATE_FIELDS.map((f) => (
+              <div key={f.key}>
+                <label className="label">{f.label} (%)</label>
+                <input
+                  className="input text-right"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="999.99"
+                  value={rates[f.key]}
+                  onChange={(e) =>
+                    setRates((prev) => ({ ...prev, [f.key]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

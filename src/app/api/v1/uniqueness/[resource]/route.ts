@@ -32,6 +32,8 @@ import {
   paymentSubtypeMaster,
   partialMaster,
   subOfficeMaster,
+  mainOfficeMaster,
+  officeLocationMaster,
   itemMaster,
   quotationCategoryMaster,
   invoiceBankMaster,
@@ -139,6 +141,18 @@ const RESOURCES: Record<string, ResourceConfig> = {
     nameColumn: subOfficeMaster.subOfficeName,
     idColumn: subOfficeMaster.id,
     displayColumn: subOfficeMaster.display,
+  },
+  'main-offices': {
+    table: mainOfficeMaster,
+    nameColumn: mainOfficeMaster.mainLocationName,
+    idColumn: mainOfficeMaster.id,
+    displayColumn: mainOfficeMaster.display,
+  },
+  'office-locations': {
+    table: officeLocationMaster,
+    nameColumn: officeLocationMaster.locationName,
+    idColumn: officeLocationMaster.id,
+    displayColumn: officeLocationMaster.display,
   },
   commodities: {
     table: commodityMaster,
@@ -293,10 +307,18 @@ const RESOURCES: Record<string, ResourceConfig> = {
     displayColumn: departmentMaster.display,
   },
 
-  // Clients (client_code has a unique constraint).
+  // Clients — main-parity checks both short_name (the code) and
+  // company_name for uniqueness. `client-codes` stays as the resource
+  // key for the short_name/code check so existing callers keep working.
   'client-codes': {
     table: clientMaster,
-    nameColumn: clientMaster.clientCode,
+    nameColumn: clientMaster.shortName,
+    idColumn: clientMaster.id,
+    displayColumn: clientMaster.display,
+  },
+  'client-companies': {
+    table: clientMaster,
+    nameColumn: clientMaster.companyName,
     idColumn: clientMaster.id,
     displayColumn: clientMaster.display,
   },

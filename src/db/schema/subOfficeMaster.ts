@@ -7,7 +7,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { usersT } from './users';
 
-// Customs declaration office (sub-office under the main office_master_t).
+// Customs declaration office (sub-office under the main_office_master_t).
 // imports_t / exports_t carry a declaration_office_id FK — the actual
 // customs office where the declaration is filed.
 

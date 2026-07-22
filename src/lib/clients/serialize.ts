@@ -11,14 +11,14 @@ export function createBodyToInsert(
   body: ClientCreateInput,
 ): Record<string, unknown> {
   return {
-    clientCode: body.client_code,
-    name: body.name,
-    legalName: body.legal_name ?? null,
+    companyName: body.company_name,
+    shortName: body.short_name,
     clientType: body.client_type ?? null,
     groupCompanyId: body.group_company_id ?? null,
     industryTypeId: body.industry_type_id ?? null,
     referredById: body.referred_by_id ?? null,
     officeLocationId: body.office_location_id ?? null,
+    address: body.address ?? null,
     phaseId: body.phase_id ?? null,
     phaseStartDate: body.phase_start_date ?? null,
     phaseEndDate: body.phase_end_date ?? null,
@@ -27,7 +27,6 @@ export function createBodyToInsert(
     emailSecondary: body.email_secondary ?? null,
     phone: body.phone ?? null,
     phoneSecondary: body.phone_secondary ?? null,
-    address: body.address ?? null,
     idNatNumber: body.id_nat_number ?? null,
     idNatFile: body.id_nat_file ?? null,
     idNatFileId: body.id_nat_file_id ?? null,
@@ -43,9 +42,22 @@ export function createBodyToInsert(
     attestationFile: body.attestation_file ?? null,
     attestationFileId: body.attestation_file_id ?? null,
     nifNumber: body.nif_number ?? null,
-    taxId: body.tax_id ?? null,
     paymentContactEmail: body.payment_contact_email ?? null,
     paymentContactPhone: body.payment_contact_phone ?? null,
+    paymentTerm: body.payment_term ?? null,
+    creditTerm: body.credit_term ?? null,
+    liquidationPaidBy: body.liquidation_paid_by ?? null,
+    licenseClearedBy: body.license_cleared_by ?? null,
+    licenseSubmitToBank: body.license_submit_to_bank ?? null,
+    contractStartDate: body.contract_start_date ?? null,
+    contractValidity: body.contract_validity ?? null,
+    approvalCode: body.approval_code ?? null,
+    invoiceTemplate: body.invoice_template ?? undefined,
+    verifiedById: body.verified_by_id ?? null,
+    verifiedByDate: body.verified_by_date ?? null,
+    approvedById: body.approved_by_id ?? null,
+    approvedByDate: body.approved_by_date ?? null,
+    remarks: body.remarks ?? null,
   };
 }
 
@@ -55,40 +67,82 @@ export function updateBodyToPatch(
   body: ClientUpdateInput,
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
-  if (body.name !== undefined) patch.name = body.name;
-  if (body.legal_name !== undefined) patch.legalName = body.legal_name;
+  if (body.company_name !== undefined) patch.companyName = body.company_name;
   if (body.client_type !== undefined) patch.clientType = body.client_type;
-  if (body.group_company_id !== undefined) patch.groupCompanyId = body.group_company_id;
-  if (body.industry_type_id !== undefined) patch.industryTypeId = body.industry_type_id;
-  if (body.referred_by_id !== undefined) patch.referredById = body.referred_by_id;
-  if (body.office_location_id !== undefined) patch.officeLocationId = body.office_location_id;
-  if (body.phase_id !== undefined) patch.phaseId = body.phase_id;
-  if (body.phase_start_date !== undefined) patch.phaseStartDate = body.phase_start_date;
-  if (body.phase_end_date !== undefined) patch.phaseEndDate = body.phase_end_date;
-  if (body.contact_person !== undefined) patch.contactPerson = body.contact_person;
-  if (body.email !== undefined) patch.email = body.email;
-  if (body.email_secondary !== undefined) patch.emailSecondary = body.email_secondary;
-  if (body.phone !== undefined) patch.phone = body.phone;
-  if (body.phone_secondary !== undefined) patch.phoneSecondary = body.phone_secondary;
+  if (body.group_company_id !== undefined)
+    patch.groupCompanyId = body.group_company_id;
+  if (body.industry_type_id !== undefined)
+    patch.industryTypeId = body.industry_type_id;
+  if (body.referred_by_id !== undefined)
+    patch.referredById = body.referred_by_id;
+  if (body.office_location_id !== undefined)
+    patch.officeLocationId = body.office_location_id;
   if (body.address !== undefined) patch.address = body.address;
+  if (body.phase_id !== undefined) patch.phaseId = body.phase_id;
+  if (body.phase_start_date !== undefined)
+    patch.phaseStartDate = body.phase_start_date;
+  if (body.phase_end_date !== undefined)
+    patch.phaseEndDate = body.phase_end_date;
+  if (body.contact_person !== undefined)
+    patch.contactPerson = body.contact_person;
+  if (body.email !== undefined) patch.email = body.email;
+  if (body.email_secondary !== undefined)
+    patch.emailSecondary = body.email_secondary;
+  if (body.phone !== undefined) patch.phone = body.phone;
+  if (body.phone_secondary !== undefined)
+    patch.phoneSecondary = body.phone_secondary;
   if (body.id_nat_number !== undefined) patch.idNatNumber = body.id_nat_number;
   if (body.id_nat_file !== undefined) patch.idNatFile = body.id_nat_file;
-  if (body.id_nat_file_id !== undefined) patch.idNatFileId = body.id_nat_file_id;
+  if (body.id_nat_file_id !== undefined)
+    patch.idNatFileId = body.id_nat_file_id;
   if (body.rccm_number !== undefined) patch.rccmNumber = body.rccm_number;
   if (body.rccm_file !== undefined) patch.rccmFile = body.rccm_file;
   if (body.rccm_file_id !== undefined) patch.rccmFileId = body.rccm_file_id;
-  if (body.import_export_number !== undefined) patch.importExportNumber = body.import_export_number;
-  if (body.import_export_validity !== undefined) patch.importExportValidity = body.import_export_validity;
-  if (body.import_export_file !== undefined) patch.importExportFile = body.import_export_file;
-  if (body.import_export_file_id !== undefined) patch.importExportFileId = body.import_export_file_id;
-  if (body.attestation_number !== undefined) patch.attestationNumber = body.attestation_number;
-  if (body.attestation_validity !== undefined) patch.attestationValidity = body.attestation_validity;
-  if (body.attestation_file !== undefined) patch.attestationFile = body.attestation_file;
-  if (body.attestation_file_id !== undefined) patch.attestationFileId = body.attestation_file_id;
+  if (body.import_export_number !== undefined)
+    patch.importExportNumber = body.import_export_number;
+  if (body.import_export_validity !== undefined)
+    patch.importExportValidity = body.import_export_validity;
+  if (body.import_export_file !== undefined)
+    patch.importExportFile = body.import_export_file;
+  if (body.import_export_file_id !== undefined)
+    patch.importExportFileId = body.import_export_file_id;
+  if (body.attestation_number !== undefined)
+    patch.attestationNumber = body.attestation_number;
+  if (body.attestation_validity !== undefined)
+    patch.attestationValidity = body.attestation_validity;
+  if (body.attestation_file !== undefined)
+    patch.attestationFile = body.attestation_file;
+  if (body.attestation_file_id !== undefined)
+    patch.attestationFileId = body.attestation_file_id;
   if (body.nif_number !== undefined) patch.nifNumber = body.nif_number;
-  if (body.tax_id !== undefined) patch.taxId = body.tax_id;
-  if (body.payment_contact_email !== undefined) patch.paymentContactEmail = body.payment_contact_email;
-  if (body.payment_contact_phone !== undefined) patch.paymentContactPhone = body.payment_contact_phone;
+  if (body.payment_contact_email !== undefined)
+    patch.paymentContactEmail = body.payment_contact_email;
+  if (body.payment_contact_phone !== undefined)
+    patch.paymentContactPhone = body.payment_contact_phone;
+  if (body.payment_term !== undefined) patch.paymentTerm = body.payment_term;
+  if (body.credit_term !== undefined) patch.creditTerm = body.credit_term;
+  if (body.liquidation_paid_by !== undefined)
+    patch.liquidationPaidBy = body.liquidation_paid_by;
+  if (body.license_cleared_by !== undefined)
+    patch.licenseClearedBy = body.license_cleared_by;
+  if (body.license_submit_to_bank !== undefined)
+    patch.licenseSubmitToBank = body.license_submit_to_bank;
+  if (body.contract_start_date !== undefined)
+    patch.contractStartDate = body.contract_start_date;
+  if (body.contract_validity !== undefined)
+    patch.contractValidity = body.contract_validity;
+  if (body.approval_code !== undefined) patch.approvalCode = body.approval_code;
+  if (body.invoice_template !== undefined)
+    patch.invoiceTemplate = body.invoice_template;
+  if (body.verified_by_id !== undefined)
+    patch.verifiedById = body.verified_by_id;
+  if (body.verified_by_date !== undefined)
+    patch.verifiedByDate = body.verified_by_date;
+  if (body.approved_by_id !== undefined)
+    patch.approvedById = body.approved_by_id;
+  if (body.approved_by_date !== undefined)
+    patch.approvedByDate = body.approved_by_date;
+  if (body.remarks !== undefined) patch.remarks = body.remarks;
   if (body.display !== undefined) patch.display = body.display;
   return patch;
 }

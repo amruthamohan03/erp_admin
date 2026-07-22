@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
@@ -24,7 +24,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
     .select({
       id: sealBatch.id,
       office_location_id: sealBatch.officeLocationId,
-      location_name: officeMaster.locationName,
+      location_name: mainOfficeMaster.mainLocationName,
       sub_office_code: sealBatch.subOfficeCode,
       purchase_date: sealBatch.purchaseDate,
       total_amount: sealBatch.totalAmount,
@@ -34,7 +34,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       updated_at: sealBatch.updatedAt,
     })
     .from(sealBatch)
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(eq(sealBatch.id, id))
     .limit(1);
 

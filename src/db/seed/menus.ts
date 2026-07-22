@@ -137,7 +137,8 @@ const CHILDREN: ChildSpec[] = [
   },
   { parent: 'Masters', name: 'Seal', order: 34, url: '/masters/seals' },
   { parent: 'Masters', name: 'Sub Office', order: 35, url: '/masters/sub-offices' },
-  { parent: 'Masters', name: 'Main Office', order: 36, url: '/masters/offices' },
+  { parent: 'Masters', name: 'Main Office', order: 36, url: '/masters/main-offices' },
+  { parent: 'Masters', name: 'Office Location', order: 37, url: '/masters/office-locations' },
   {
     parent: 'Masters',
     name: 'Language Translation',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
@@ -25,7 +25,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
   const [batch] = await db
     .select({
       id: sealBatch.id,
-      location: officeMaster.locationName,
+      location: mainOfficeMaster.mainLocationName,
       sub_office_code: sealBatch.subOfficeCode,
       purchase_date: sealBatch.purchaseDate,
       total_amount: sealBatch.totalAmount,
@@ -33,7 +33,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       display: sealBatch.display,
     })
     .from(sealBatch)
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(eq(sealBatch.id, id))
     .limit(1);
   if (!batch) throw new NotFoundError('Seal batch not found');

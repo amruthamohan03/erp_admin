@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, count, desc, eq, ilike } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { regimeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
@@ -12,21 +12,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = regimeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    type: searchParams.get('type') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(regimeMaster.display, 'Y'),
-        or(
-          ilike(regimeMaster.regimeName, like),
-          ilike(regimeMaster.type, like),
-        ),
-      )
-    : eq(regimeMaster.display, 'Y');
+  const conditions = [eq(regimeMaster.display, 'Y')];
+  if (like) conditions.push(ilike(regimeMaster.regimeName, like));
+  if (q.type) conditions.push(eq(regimeMaster.type, q.type));
+  const where = and(...conditions);
 
   const [countRow] = await db
     .select({ total: count() })

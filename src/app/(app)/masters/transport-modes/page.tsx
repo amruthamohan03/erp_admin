@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plane, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface TransportModeRow {
@@ -70,12 +70,9 @@ export default function TransportModesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Plane className="h-6 w-6 text-primary-600" />
-          Transport Modes
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Transport Modes</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Mode
+          <Plus className="h-4 w-4" /> New Transport Mode
         </button>
       </div>
 
@@ -85,7 +82,7 @@ export default function TransportModesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or letter..."
+              placeholder="Search mode name, letter..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -100,8 +97,8 @@ export default function TransportModesPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Mode</th>
-                <th>Letter</th>
+                <th>Mode Name</th>
+                <th className="w-24">Letter</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -128,11 +125,11 @@ export default function TransportModesPage() {
                     </td>
                     <td className="font-medium">{t.transport_mode_name}</td>
                     <td>
-                      <code className="text-xs text-slate-600">
+                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                         {t.transport_letter}
-                      </code>
+                      </span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(t)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -260,26 +257,22 @@ function TransportModeFormModal({
           <div>
             <label className="label">Mode Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Sea Freight"
+              maxLength={100}
             />
           </div>
           <div>
-            <label className="label">Letter Code *</label>
+            <label className="label">Transport Letter *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={letter}
-              onChange={(e) => setLetter(e.target.value)}
+              onChange={(e) => setLetter(e.target.value.toUpperCase())}
               required
               maxLength={5}
-              placeholder="S"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Single-letter code on customs paperwork (S/A/R).
-            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

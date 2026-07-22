@@ -42,7 +42,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       quotation_ref: quotations.quotationRef,
       quotation_date: quotations.quotationDate,
       client_id: quotations.clientId,
-      client_name: clientMaster.name,
+      client_name: clientMaster.companyName,
       kind_id: quotations.kindId,
       kind_name: kindMaster.kindName,
       transport_mode_id: quotations.transportModeId,

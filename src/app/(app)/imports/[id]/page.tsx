@@ -1,14 +1,14 @@
 'use client';
 
 import { use } from 'react';
-import ImportBuilder from '@/components/imports/ImportBuilder';
+import TransactionalPage from '@/components/transactional/TransactionalPage';
 
+// §4.12 page shim — master_page slug 'import'. `[id]` is the imports_t row id.
 export default function ImportEditPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const numId = parseInt(id, 10);
-  return <ImportBuilder id={Number.isFinite(numId) ? numId : undefined} />;
+  return <TransactionalPage slug="import" entityId={id} />;
 }

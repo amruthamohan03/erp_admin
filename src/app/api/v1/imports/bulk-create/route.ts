@@ -32,7 +32,8 @@ const norm = (v: string | null | undefined): string | null =>
 interface LicenseFacts {
   id: number;
   amount: string | null;
-  clientId: number;
+  // Nullable in main's licenses model (client is set per-accordion).
+  clientId: number | null;
   used: number;
 }
 
@@ -42,7 +43,8 @@ async function loadLicenseFacts(
   const [lic] = await db
     .select({
       id: licenseT.id,
-      amount: licenseT.amount,
+      // main's licenses model: fob_declared is the declared FOB ceiling.
+      amount: licenseT.fobDeclared,
       clientId: licenseT.clientId,
     })
     .from(licenseT)
@@ -124,12 +126,12 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         clientId: common.client_id,
         licenseId: common.license_id,
         mcaRef,
-        kindId: common.kind_id ?? null,
-        transportModeId: common.transport_mode_id ?? null,
-        typeOfGoodsId: common.type_of_goods_id ?? null,
-        regimeId: common.regime_id ?? null,
-        typesOfClearanceId: common.types_of_clearance_id ?? null,
-        currencyId: common.currency_id ?? null,
+        kind: common.kind_id ?? null,
+        transportMode: common.transport_mode_id ?? null,
+        typeOfGoods: common.type_of_goods_id ?? null,
+        regime: common.regime_id ?? null,
+        typesOfClearance: common.types_of_clearance_id ?? null,
+        currency: common.currency_id ?? null,
         declarationOfficeId: common.declaration_office_id ?? null,
         supplier: norm(r.supplier),
         preAlertDate: r.pre_alert_date ?? null,
@@ -144,9 +146,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         trailer1: norm(r.trailer_1),
         trailer2: norm(r.trailer_2),
         entryPointId: r.entry_point_id ?? null,
-        commodityId: r.commodity_id ?? null,
-        hscodeId: r.hscode_id ?? null,
-        incotermId: r.incoterm_id ?? null,
+        commodity: r.commodity_id ?? null,
+        // TODO(parity): hscode_id / incoterm_id dropped — no such column on
+        // main's imports_t. Bulk payload may still carry them (ignored).
         createdBy: session.uid,
         updatedBy: session.uid,
       };

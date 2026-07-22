@@ -44,6 +44,7 @@ export const sealNumbersAddSchema = z.object({
 export type SealNumbersAddInput = z.infer<typeof sealNumbersAddSchema>;
 
 export const sealNumberUpdateSchema = z.object({
+  seal_number: z.string().min(1).max(100).optional(),
   status: sealStatusEnum.optional(),
   notes: z.string().optional().nullable(),
   display: z.enum(['Y', 'N']).optional(),

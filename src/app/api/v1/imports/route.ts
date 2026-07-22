@@ -51,6 +51,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     clearing_status_id: searchParams.get('clearing_status_id') ?? undefined,
     document_status_id: searchParams.get('document_status_id') ?? undefined,
     regime_id: searchParams.get('regime_id') ?? undefined,
+    type_of_goods_id: searchParams.get('type_of_goods_id') ?? undefined,
+    entry_point_id: searchParams.get('entry_point_id') ?? undefined,
+    transport_mode_id: searchParams.get('transport_mode_id') ?? undefined,
     pre_alert_from: searchParams.get('pre_alert_from') ?? undefined,
     pre_alert_to: searchParams.get('pre_alert_to') ?? undefined,
     page: searchParams.get('page') ?? undefined,
@@ -65,19 +68,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(importT.mcaRef, like),
       ilike(importT.invoice, like),
       ilike(importT.supplier, like),
-      ilike(clientMaster.name, like),
+      ilike(clientMaster.companyName, like),
     );
     if (orClause) conds.push(orClause);
   }
   if (q.client_id) conds.push(eq(importT.clientId, q.client_id));
   if (q.license_id) conds.push(eq(importT.licenseId, q.license_id));
   if (q.clearing_status_id) {
-    conds.push(eq(importT.clearingStatusId, q.clearing_status_id));
+    conds.push(eq(importT.clearingStatus, q.clearing_status_id));
   }
   if (q.document_status_id) {
-    conds.push(eq(importT.documentStatusId, q.document_status_id));
+    conds.push(eq(importT.documentStatus, q.document_status_id));
   }
-  if (q.regime_id) conds.push(eq(importT.regimeId, q.regime_id));
+  if (q.regime_id) conds.push(eq(importT.regime, q.regime_id));
+  if (q.type_of_goods_id) {
+    conds.push(eq(importT.typeOfGoods, q.type_of_goods_id));
+  }
+  if (q.entry_point_id) {
+    conds.push(eq(importT.entryPointId, q.entry_point_id));
+  }
+  if (q.transport_mode_id) {
+    conds.push(eq(importT.transportMode, q.transport_mode_id));
+  }
   if (q.pre_alert_from) {
     conds.push(gte(importT.preAlertDate, q.pre_alert_from));
   }
@@ -100,14 +112,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       supplier: importT.supplier,
       pre_alert_date: importT.preAlertDate,
       client_id: importT.clientId,
-      client_name: clientMaster.name,
+      client_name: clientMaster.companyName,
       license_id: importT.licenseId,
-      license_no: licenseT.licenseNo,
-      regime_id: importT.regimeId,
+      license_no: licenseT.licenseNumber,
+      // main's list reads `license_number`; emit it alongside the
+      // existing `license_no` so both list variants stay satisfied.
+      license_number: licenseT.licenseNumber,
+      regime_id: importT.regime,
       regime_name: regimeMaster.regimeName,
-      clearing_status_id: importT.clearingStatusId,
+      clearing_status_id: importT.clearingStatus,
       clearing_status_name: clearingStatusMaster.clearingStatus,
-      document_status_id: importT.documentStatusId,
+      document_status_id: importT.documentStatus,
       document_status_name: documentStatusMaster.documentStatus,
       fob: importT.fob,
       weight: importT.weight,
@@ -118,14 +133,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .from(importT)
     .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
     .leftJoin(licenseT, eq(licenseT.id, importT.licenseId))
-    .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regimeId))
+    .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regime))
     .leftJoin(
       clearingStatusMaster,
-      eq(clearingStatusMaster.id, importT.clearingStatusId),
+      eq(clearingStatusMaster.id, importT.clearingStatus),
     )
     .leftJoin(
       documentStatusMaster,
-      eq(documentStatusMaster.id, importT.documentStatusId),
+      eq(documentStatusMaster.id, importT.documentStatus),
     )
     .where(where)
     .orderBy(desc(importT.id))

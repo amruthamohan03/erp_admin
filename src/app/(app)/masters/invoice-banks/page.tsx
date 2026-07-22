@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Edit2,
-  Landmark,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -66,7 +59,7 @@ export default function InvoiceBanksPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this invoice bank entry?')) return;
+    if (!confirm('Disable this invoice bank?')) return;
     const res = await fetch(`/api/v1/invoice-banks/${id}`, {
       method: 'DELETE',
     });
@@ -84,10 +77,7 @@ export default function InvoiceBanksPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Landmark className="h-6 w-6 text-primary-600" />
-          Invoice Banks
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Invoice Banks</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Invoice Bank
         </button>
@@ -99,7 +89,7 @@ export default function InvoiceBanksPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search bank, account name or number..."
+              placeholder="Search bank, account, SWIFT..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -113,10 +103,10 @@ export default function InvoiceBanksPage() {
           <table className="table-base">
             <thead>
               <tr>
-                <th className="w-12">#</th>
+                <th className="w-16">#</th>
                 <th>Bank</th>
                 <th>Account Name</th>
-                <th>Account #</th>
+                <th>Account Number</th>
                 <th>SWIFT</th>
                 <th className="text-right">Actions</th>
               </tr>
@@ -144,19 +134,13 @@ export default function InvoiceBanksPage() {
                     </td>
                     <td className="font-medium">{r.invoice_bank_name}</td>
                     <td>{r.invoice_bank_account_name}</td>
-                    <td className="font-mono text-sm">
+                    <td className="font-mono text-xs">
                       {r.invoice_bank_account_number}
                     </td>
-                    <td>
-                      {r.invoice_bank_swift ? (
-                        <code className="text-xs text-slate-600">
-                          {r.invoice_bank_swift}
-                        </code>
-                      ) : (
-                        '—'
-                      )}
+                    <td className="font-mono text-xs">
+                      {r.invoice_bank_swift || '—'}
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(r)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -283,7 +267,7 @@ function FormModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card w-full max-w-md">
+      <div className="card w-full max-w-lg">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Invoice Bank' : 'Create Invoice Bank'}
@@ -304,11 +288,10 @@ function FormModal({
           <div>
             <label className="label">Bank Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={bank}
-              onChange={(e) => setBank(e.target.value)}
+              onChange={(e) => setBank(e.target.value.toUpperCase())}
               required
-              placeholder="Rawbank"
               maxLength={255}
             />
             <div className="mt-1 text-right">
@@ -318,11 +301,10 @@ function FormModal({
           <div>
             <label className="label">Account Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
+              onChange={(e) => setAccountName(e.target.value.toUpperCase())}
               required
-              placeholder="Aspire Logistics SARL"
               maxLength={255}
             />
           </div>
@@ -333,28 +315,24 @@ function FormModal({
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
               required
-              placeholder="00000000000000"
               maxLength={50}
             />
           </div>
           <div>
             <label className="label">SWIFT</label>
             <input
-              className="input font-mono"
+              className="input font-mono uppercase"
               value={swift}
-              onChange={(e) => setSwift(e.target.value)}
-              placeholder="RAWBCDKI"
+              onChange={(e) => setSwift(e.target.value.toUpperCase())}
               maxLength={20}
             />
           </div>
           <div>
             <label className="label">Address</label>
             <textarea
-              className="input min-h-[60px]"
-              rows={2}
+              className="input min-h-[64px]"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="3989, Boulevard du 30 Juin, Gombe, Kinshasa"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">

@@ -7,7 +7,7 @@ import {
   groupCompanyMaster,
   industryMaster,
   refererMaster,
-  officeMaster,
+  officeLocationMaster,
   phaseMaster,
   filesT,
 } from '@/db/schema';
@@ -42,9 +42,8 @@ export const GET = withErrorHandler(
     const [row] = await db
       .select({
         id: clientMaster.id,
-        client_code: clientMaster.clientCode,
-        name: clientMaster.name,
-        legal_name: clientMaster.legalName,
+        company_name: clientMaster.companyName,
+        short_name: clientMaster.shortName,
         client_type: clientMaster.clientType,
         group_company_id: clientMaster.groupCompanyId,
         group_company_name: groupCompanyMaster.groupCompanyName,
@@ -53,7 +52,7 @@ export const GET = withErrorHandler(
         referred_by_id: clientMaster.referredById,
         referred_by_name: refererMaster.refererName,
         office_location_id: clientMaster.officeLocationId,
-        office_location_name: officeMaster.locationName,
+        office_location_name: officeLocationMaster.locationName,
         phase_id: clientMaster.phaseId,
         phase_name: phaseMaster.phaseName,
         phase_start_date: clientMaster.phaseStartDate,
@@ -79,9 +78,22 @@ export const GET = withErrorHandler(
         attestation_file: clientMaster.attestationFile,
         attestation_file_id: clientMaster.attestationFileId,
         nif_number: clientMaster.nifNumber,
-        tax_id: clientMaster.taxId,
         payment_contact_email: clientMaster.paymentContactEmail,
         payment_contact_phone: clientMaster.paymentContactPhone,
+        payment_term: clientMaster.paymentTerm,
+        credit_term: clientMaster.creditTerm,
+        liquidation_paid_by: clientMaster.liquidationPaidBy,
+        license_cleared_by: clientMaster.licenseClearedBy,
+        license_submit_to_bank: clientMaster.licenseSubmitToBank,
+        contract_start_date: clientMaster.contractStartDate,
+        contract_validity: clientMaster.contractValidity,
+        approval_code: clientMaster.approvalCode,
+        invoice_template: clientMaster.invoiceTemplate,
+        verified_by_id: clientMaster.verifiedById,
+        verified_by_date: clientMaster.verifiedByDate,
+        approved_by_id: clientMaster.approvedById,
+        approved_by_date: clientMaster.approvedByDate,
+        remarks: clientMaster.remarks,
         display: clientMaster.display,
         created_at: clientMaster.createdAt,
         updated_at: clientMaster.updatedAt,
@@ -100,8 +112,8 @@ export const GET = withErrorHandler(
         eq(refererMaster.id, clientMaster.referredById),
       )
       .leftJoin(
-        officeMaster,
-        eq(officeMaster.id, clientMaster.officeLocationId),
+        officeLocationMaster,
+        eq(officeLocationMaster.id, clientMaster.officeLocationId),
       )
       .leftJoin(phaseMaster, eq(phaseMaster.id, clientMaster.phaseId))
       .where(eq(clientMaster.id, id))

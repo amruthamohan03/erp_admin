@@ -41,9 +41,9 @@ export const GET = withErrorHandler(
         invoice: importT.invoice,
         supplier: importT.supplier,
         pre_alert_date: importT.preAlertDate,
-        client_code: clientMaster.clientCode,
-        client_name: clientMaster.name,
-        license_no: licenseT.licenseNo,
+        client_code: clientMaster.shortName,
+        client_name: clientMaster.companyName,
+        license_no: licenseT.licenseNumber,
         regime: regimeMaster.regimeName,
         transport_mode: transportModeMaster.transportModeName,
         commodity: commodityMaster.commodityName,
@@ -60,20 +60,20 @@ export const GET = withErrorHandler(
       .from(importT)
       .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
       .leftJoin(licenseT, eq(licenseT.id, importT.licenseId))
-      .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regimeId))
+      .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regime))
       .leftJoin(
         transportModeMaster,
-        eq(transportModeMaster.id, importT.transportModeId),
+        eq(transportModeMaster.id, importT.transportMode),
       )
-      .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodityId))
-      .leftJoin(currencyMaster, eq(currencyMaster.id, importT.currencyId))
+      .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodity))
+      .leftJoin(currencyMaster, eq(currencyMaster.id, importT.currency))
       .leftJoin(
         clearingStatusMaster,
-        eq(clearingStatusMaster.id, importT.clearingStatusId),
+        eq(clearingStatusMaster.id, importT.clearingStatus),
       )
       .leftJoin(
         documentStatusMaster,
-        eq(documentStatusMaster.id, importT.documentStatusId),
+        eq(documentStatusMaster.id, importT.documentStatus),
       )
       .where(eq(importT.id, id))
       .orderBy(desc(importT.id))

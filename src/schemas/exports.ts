@@ -48,8 +48,6 @@ export const exportBodySchema = z.object({
   invoice: shortText(100),
   po_ref: shortText(100),
   bp_no: shortText(100),
-  hscode_id: intIdNullable,
-  incoterm_id: intIdNullable,
 
   // ── Weight & Financial ──
   weight: decimalString,
@@ -139,6 +137,7 @@ export const exportListQuerySchema = z.object({
   clearing_status_id: z.coerce.number().int().positive().optional(),
   document_status_id: z.coerce.number().int().positive().optional(),
   regime_id: z.coerce.number().int().positive().optional(),
+  transport_mode_id: z.coerce.number().int().positive().optional(),
   truck_status_id: z.coerce.number().int().positive().optional(),
   loading_from: z
     .string()

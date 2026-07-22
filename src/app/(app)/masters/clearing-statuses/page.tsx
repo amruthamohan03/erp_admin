@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -73,16 +73,7 @@ export default function ClearingStatusesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary-600" />
-            Clearing Statuses
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Operational pipeline statuses for customs clearance — runs
-            alongside the workflow <code>state</code>.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Clearing Statuses</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Status
         </button>
@@ -222,6 +213,10 @@ function ClearingStatusFormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (uniqueStatus === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -269,18 +264,13 @@ function ClearingStatusFormModal({
           <div>
             <label className="label">Clearing Status *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Released"
+              maxLength={100}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator
-                status={uniqueStatus}
-                message={uniqueMessage}
-              />
-            </div>
+            <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

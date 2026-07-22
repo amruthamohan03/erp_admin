@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plus, Ruler, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface UnitRow {
@@ -70,10 +70,7 @@ export default function UnitsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Ruler className="h-6 w-6 text-primary-600" />
-          Units of Measure
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Units</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Unit
         </button>
@@ -85,7 +82,7 @@ export default function UnitsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or code..."
+              placeholder="Search unit name, code..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -100,8 +97,8 @@ export default function UnitsPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Unit</th>
-                <th>Code</th>
+                <th>Unit Name</th>
+                <th className="w-32">Code</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -129,14 +126,14 @@ export default function UnitsPage() {
                     <td className="font-medium">{u.unit_name}</td>
                     <td>
                       {u.unit_code ? (
-                        <code className="text-xs text-slate-600">
+                        <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                           {u.unit_code}
-                        </code>
+                        </span>
                       ) : (
-                        '—'
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(u)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -264,21 +261,18 @@ function UnitFormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Kilogram"
+              maxLength={100}
             />
           </div>
           <div>
-            <label className="label">Short Code</label>
+            <label className="label">Unit Code</label>
             <input
-              className="input"
+              className="input uppercase"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
               maxLength={20}
-              placeholder="kg"
+              placeholder="Optional"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Shown beside quantities in compact table cells.
-            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

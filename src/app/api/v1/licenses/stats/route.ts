@@ -29,19 +29,23 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
+  // TODO(parity): buckets below were mapped from the old workflow `state`
+  // (draft/submitted/approved/issued/cancelled) to main's `status` enum
+  // (ACTIVE/INACTIVE/ANNULATED/MODIFIED/PROROGATED). The dashboard card
+  // labels should be reworked to the new status set in a follow-up.
   const result = await db.execute(sql`
     SELECT
       (SELECT count(*)::int FROM license_t WHERE display = 'Y') AS total_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND state = 'issued') AS issued_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND state = 'approved') AS approved_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND state IN ('draft', 'submitted')) AS pending_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND state = 'cancelled') AS cancelled_count,
+      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'ACTIVE') AS issued_count,
+      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'MODIFIED') AS approved_count,
+      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'INACTIVE') AS pending_count,
+      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'ANNULATED') AS cancelled_count,
       (
         SELECT count(*)::int FROM license_t
         WHERE display = 'Y'
-          AND state = 'issued'
-          AND expiry_date IS NOT NULL
-          AND expiry_date BETWEEN current_date AND current_date + interval '30 days'
+          AND status = 'ACTIVE'
+          AND license_expiry_date IS NOT NULL
+          AND license_expiry_date BETWEEN current_date AND current_date + interval '30 days'
       ) AS expiring_soon_count
   `);
   const t = (result.rows ?? [])[0] as unknown as TotalsRow | undefined;

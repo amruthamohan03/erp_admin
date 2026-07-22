@@ -41,6 +41,37 @@ interface ActivityRow {
   last_activity_at: string | null;
 }
 
+interface TypeRow {
+  client_type: string | null;
+  n: number;
+}
+
+interface LocationRow {
+  location_name: string | null;
+  n: number;
+}
+
+interface PaymentRow {
+  payment_term: string | null;
+  n: number;
+}
+
+// Bucket the raw client_type letters ('I' / 'E' / 'L' combinations)
+// into the friendly labels main's dashboard chart uses. Kept in TS
+// (not SQL) so the mapping matches main's route byte-for-byte.
+function labelForClientType(raw: string | null): string {
+  const t = (raw ?? '').toUpperCase();
+  if (!t) return 'Unspecified';
+  if (t === 'I') return 'Import';
+  if (t === 'E') return 'Export';
+  if (t === 'L') return 'Local';
+  if (t === 'IE' || t === 'EI') return 'Import+Export';
+  if (t === 'IEL' || t === 'IL' || t === 'EL' || t === 'LI' || t === 'LE') {
+    return 'All';
+  }
+  return 'Other';
+}
+
 export const GET = withErrorHandler(async (_req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
@@ -136,6 +167,59 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
   `);
   const activity = (activityResult.rows ?? []) as unknown as ActivityRow[];
 
+  // Chart distributions — added so the restructure Client Dashboard
+  // page can render main's chart row (client type / location /
+  // payment term) alongside the monthly registration trend. The
+  // required columns (client_type, office_location_id, payment_term)
+  // now exist on client_master_t after it was reshaped to mirror
+  // main's clients_t.
+  const typeResult = await db.execute(sql`
+    SELECT client_type, count(*)::int AS n
+    FROM client_master_t
+    WHERE display = 'Y'
+    GROUP BY client_type
+  `);
+  const typeRows = (typeResult.rows ?? []) as unknown as TypeRow[];
+  const typeBuckets = new Map<string, number>();
+  for (const r of typeRows) {
+    const label = labelForClientType(r.client_type);
+    typeBuckets.set(label, (typeBuckets.get(label) ?? 0) + r.n);
+  }
+  const client_type_distribution = Array.from(typeBuckets.entries()).map(
+    ([label, value]) => ({ label, value }),
+  );
+
+  const locationResult = await db.execute(sql`
+    SELECT o.location_name AS location_name, count(*)::int AS n
+    FROM client_master_t c
+    LEFT JOIN office_location_master_t o ON o.id = c.office_location_id
+    WHERE c.display = 'Y'
+    GROUP BY o.location_name
+  `);
+  const locationRows = (locationResult.rows ?? []) as unknown as LocationRow[];
+  const location_distribution = locationRows
+    .map((r) => ({ label: r.location_name ?? 'Not Specified', value: r.n }))
+    .sort((a, b) => b.value - a.value);
+
+  const paymentResult = await db.execute(sql`
+    SELECT payment_term, count(*)::int AS n
+    FROM client_master_t
+    WHERE display = 'Y' AND payment_term IS NOT NULL AND payment_term <> ''
+    GROUP BY payment_term
+  `);
+  const paymentRows = (paymentResult.rows ?? []) as unknown as PaymentRow[];
+  const payment_term_distribution = paymentRows.map((r) => ({
+    label: r.payment_term ?? 'Unspecified',
+    value: r.n,
+  }));
+
+  // Reuse the gap-filled monthly rows above, re-keyed to the
+  // { month, value } shape main's trend chart consumes.
+  const monthly_registration_trend = monthly.map((m) => ({
+    month: m.month,
+    value: m.n,
+  }));
+
   return ok({
     aggregates: {
       total_count: agg?.total_count ?? 0,
@@ -148,5 +232,9 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
     },
     monthly,
     top_activity: activity,
+    client_type_distribution,
+    location_distribution,
+    payment_term_distribution,
+    monthly_registration_trend,
   });
 });

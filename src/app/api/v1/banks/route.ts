@@ -68,7 +68,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       bankName: data.bank_name,
       bankCode: data.bank_code,
-      forExchange: data.for_exchange ?? false,
+      forExchange: data.for_exchange ?? 'N',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

@@ -26,11 +26,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ? and(
         eq(clientMaster.display, 'Y'),
         or(
-          ilike(clientMaster.clientCode, like),
-          ilike(clientMaster.name, like),
-          ilike(clientMaster.legalName, like),
+          ilike(clientMaster.companyName, like),
+          ilike(clientMaster.shortName, like),
           ilike(clientMaster.email, like),
-          ilike(clientMaster.taxId, like),
+          ilike(clientMaster.contactPerson, like),
+          ilike(clientMaster.phone, like),
         ),
       )
     : eq(clientMaster.display, 'Y');
@@ -38,13 +38,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const rows = await db
     .select({
       id: clientMaster.id,
-      client_code: clientMaster.clientCode,
-      name: clientMaster.name,
-      legal_name: clientMaster.legalName,
+      short_name: clientMaster.shortName,
+      company_name: clientMaster.companyName,
+      client_type: clientMaster.clientType,
+      contact_person: clientMaster.contactPerson,
       email: clientMaster.email,
       phone: clientMaster.phone,
       address: clientMaster.address,
-      tax_id: clientMaster.taxId,
       created_at: clientMaster.createdAt,
     })
     .from(clientMaster)
@@ -56,13 +56,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       name: 'Clients',
       columns: [
         { key: 'id', header: 'ID', width: 6 },
-        { key: 'client_code', header: 'Code', width: 14 },
-        { key: 'name', header: 'Name', width: 28 },
-        { key: 'legal_name', header: 'Legal Name', width: 32 },
+        { key: 'short_name', header: 'Code', width: 14 },
+        { key: 'company_name', header: 'Company Name', width: 32 },
+        { key: 'client_type', header: 'Type', width: 10 },
+        { key: 'contact_person', header: 'Contact Person', width: 24 },
         { key: 'email', header: 'Email', width: 28 },
         { key: 'phone', header: 'Phone', width: 16 },
         { key: 'address', header: 'Address', width: 40 },
-        { key: 'tax_id', header: 'Tax ID', width: 16 },
         { key: 'created_at', header: 'Created', width: 18 },
       ],
       rows,

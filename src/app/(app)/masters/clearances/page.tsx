@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ClipboardCheck, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -55,7 +55,7 @@ export default function ClearancesPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this clearance type?')) return;
+    if (!confirm('Disable this clearance?')) return;
     const res = await fetch(`/api/v1/clearances/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
@@ -71,10 +71,7 @@ export default function ClearancesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <ClipboardCheck className="h-6 w-6 text-primary-600" />
-          Clearance Types
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Clearances</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Clearance
         </button>
@@ -213,6 +210,10 @@ function ClearanceFormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -260,15 +261,13 @@ function ClearanceFormModal({
           <div>
             <label className="label">Clearance Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Definitive"
+              maxLength={255}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

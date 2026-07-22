@@ -1,14 +1,15 @@
 'use client';
 
 import { use } from 'react';
-import ClientBuilder from '@/components/clients/ClientBuilder';
+import TransactionalPage from '@/components/transactional/TransactionalPage';
 
+// §4.12 page shim — renders the metadata runtime against master_page slug
+// 'clients'. `[id]` is the client_master_t row id.
 export default function ClientEditPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const numId = parseInt(id, 10);
-  return <ClientBuilder id={Number.isFinite(numId) ? numId : undefined} />;
+  return <TransactionalPage slug="clients" entityId={id} />;
 }

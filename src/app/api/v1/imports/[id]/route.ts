@@ -16,9 +16,6 @@ import {
   transitPointMaster,
   documentStatusMaster,
   clearingStatusMaster,
-  hscodeMaster,
-  incotermMaster,
-  filesT,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
@@ -56,52 +53,48 @@ export const GET = withErrorHandler(
         id: importT.id,
         // Basic
         client_id: importT.clientId,
-        client_name: clientMaster.name,
+        client_name: clientMaster.companyName,
         license_id: importT.licenseId,
-        license_no: licenseT.licenseNo,
+        license_no: licenseT.licenseNumber,
         partial_id: importT.partialId,
         partial_name: partialMaster.partialName,
-        kind_id: importT.kindId,
+        kind_id: importT.kind,
         kind_name: kindMaster.kindName,
-        type_of_goods_id: importT.typeOfGoodsId,
+        type_of_goods_id: importT.typeOfGoods,
         type_of_goods_name: typeOfGoodsMaster.goodsType,
-        transport_mode_id: importT.transportModeId,
+        transport_mode_id: importT.transportMode,
         transport_mode_name: transportModeMaster.transportModeName,
         mca_ref: importT.mcaRef,
-        currency_id: importT.currencyId,
+        currency_id: importT.currency,
         license_invoice_number: importT.licenseInvoiceNumber,
         supplier: importT.supplier,
-        regime_id: importT.regimeId,
+        regime_id: importT.regime,
         regime_name: regimeMaster.regimeName,
-        types_of_clearance_id: importT.typesOfClearanceId,
+        types_of_clearance_id: importT.typesOfClearance,
         types_of_clearance_name: clearanceMaster.clearanceName,
         declaration_office_id: importT.declarationOfficeId,
         declaration_office_name: subOfficeMaster.subOfficeName,
         pre_alert_date: importT.preAlertDate,
         invoice: importT.invoice,
-        commodity_id: importT.commodityId,
+        commodity_id: importT.commodity,
         commodity_name: commodityMaster.commodityName,
-        hscode_id: importT.hscodeId,
-        hscode_number: hscodeMaster.hscodeNumber,
-        incoterm_id: importT.incotermId,
-        incoterm_short_name: incotermMaster.incotermShortName,
         po_ref: importT.poRef,
         // Financial
         fret: importT.fret,
-        fret_currency_id: importT.fretCurrencyId,
+        fret_currency_id: importT.fretCurrency,
         other_charges: importT.otherCharges,
-        other_charges_currency_id: importT.otherChargesCurrencyId,
+        other_charges_currency_id: importT.otherChargesCurrency,
         weight: importT.weight,
         rem_weight: importT.remWeight,
         m3: importT.m3,
         cession_date: importT.cessionDate,
         fob: importT.fob,
         r_fob: importT.rFob,
-        r_fob_currency_id: importT.rFobCurrencyId,
-        fob_currency_id: importT.fobCurrencyId,
+        r_fob_currency_id: importT.rFobCurrency,
+        fob_currency_id: importT.fobCurrency,
         insurance_date: importT.insuranceDate,
         insurance_amount: importT.insuranceAmount,
-        insurance_amount_currency_id: importT.insuranceAmountCurrencyId,
+        insurance_amount_currency_id: importT.insuranceAmountCurrency,
         insurance_reference: importT.insuranceReference,
         // CRF
         crf_reference: importT.crfReference,
@@ -109,10 +102,6 @@ export const GET = withErrorHandler(
         clearing_based_on: importT.clearingBasedOn,
         ad_date: importT.adDate,
         inspection_reports: importT.inspectionReports,
-        inspection_reports_file_id: importT.inspectionReportsFileId,
-        inspection_reports_file_original_name: filesT.originalName,
-        inspection_reports_file_mime: filesT.mime,
-        inspection_reports_file_size: filesT.size,
         archive_reference: importT.archiveReference,
         audited_date: importT.auditedDate,
         archived_date: importT.archivedDate,
@@ -136,7 +125,7 @@ export const GET = withErrorHandler(
         customs_manifest_date: importT.customsManifestDate,
         customs_clearance_code: importT.customsClearanceCode,
         dgda_out_date: importT.dgdaOutDate,
-        document_status_id: importT.documentStatusId,
+        document_status_id: importT.documentStatus,
         document_status_name: documentStatusMaster.documentStatus,
         declaration_validity: importT.declarationValidity,
         t1_number: importT.t1Number,
@@ -171,7 +160,7 @@ export const GET = withErrorHandler(
         bonded_warehouse_id: importT.bondedWarehouseId,
         truck_status: importT.truckStatus,
         // Status & remarks
-        clearing_status_id: importT.clearingStatusId,
+        clearing_status_id: importT.clearingStatus,
         clearing_status_name: clearingStatusMaster.clearingStatus,
         inv_export_disabled: importT.invExportDisabled,
         inv_export_disabled_remark: importT.invExportDisabledRemark,
@@ -184,40 +173,37 @@ export const GET = withErrorHandler(
       .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
       .leftJoin(licenseT, eq(licenseT.id, importT.licenseId))
       .leftJoin(partialMaster, eq(partialMaster.id, importT.partialId))
-      .leftJoin(kindMaster, eq(kindMaster.id, importT.kindId))
+      .leftJoin(kindMaster, eq(kindMaster.id, importT.kind))
       .leftJoin(
         typeOfGoodsMaster,
-        eq(typeOfGoodsMaster.id, importT.typeOfGoodsId),
+        eq(typeOfGoodsMaster.id, importT.typeOfGoods),
       )
       .leftJoin(
         transportModeMaster,
-        eq(transportModeMaster.id, importT.transportModeId),
+        eq(transportModeMaster.id, importT.transportMode),
       )
-      .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regimeId))
+      .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regime))
       .leftJoin(
         clearanceMaster,
-        eq(clearanceMaster.id, importT.typesOfClearanceId),
+        eq(clearanceMaster.id, importT.typesOfClearance),
       )
       .leftJoin(
         subOfficeMaster,
         eq(subOfficeMaster.id, importT.declarationOfficeId),
       )
-      .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodityId))
-      .leftJoin(hscodeMaster, eq(hscodeMaster.id, importT.hscodeId))
-      .leftJoin(incotermMaster, eq(incotermMaster.id, importT.incotermId))
+      .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodity))
       .leftJoin(
         transitPointMaster,
         eq(transitPointMaster.id, importT.entryPointId),
       )
       .leftJoin(
         documentStatusMaster,
-        eq(documentStatusMaster.id, importT.documentStatusId),
+        eq(documentStatusMaster.id, importT.documentStatus),
       )
       .leftJoin(
         clearingStatusMaster,
-        eq(clearingStatusMaster.id, importT.clearingStatusId),
+        eq(clearingStatusMaster.id, importT.clearingStatus),
       )
-      .leftJoin(filesT, eq(filesT.id, importT.inspectionReportsFileId))
       .where(eq(importT.id, id))
       .limit(1);
 
@@ -241,28 +227,13 @@ export const GET = withErrorHandler(
       tpById = new Map(rows.map((r) => [r.id, r.name]));
     }
 
-    const {
-      inspection_reports_file_original_name,
-      inspection_reports_file_mime,
-      inspection_reports_file_size,
-      ...rest
-    } = header;
-
     return ok({
-      ...rest,
+      ...header,
       border_warehouse_name: header.border_warehouse_id
         ? (tpById.get(header.border_warehouse_id) ?? null)
         : null,
       bonded_warehouse_name: header.bonded_warehouse_id
         ? (tpById.get(header.bonded_warehouse_id) ?? null)
-        : null,
-      inspection_reports_file_info: header.inspection_reports_file_id
-        ? {
-            id: header.inspection_reports_file_id,
-            original_name: inspection_reports_file_original_name,
-            mime: inspection_reports_file_mime,
-            size: inspection_reports_file_size,
-          }
         : null,
     });
   },

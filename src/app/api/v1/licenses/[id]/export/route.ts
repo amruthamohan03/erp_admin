@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { licenseT, clientMaster, licenseTypeMaster } from '@/db/schema';
+import { licenseT, clientMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
@@ -26,25 +26,20 @@ export const GET = withErrorHandler(
     const rows = await db
       .select({
         id: licenseT.id,
-        license_no: licenseT.licenseNo,
-        state: licenseT.state,
-        client_code: clientMaster.clientCode,
-        client_name: clientMaster.name,
-        license_type: licenseTypeMaster.name,
-        amount: licenseT.amount,
-        currency: licenseT.currency,
-        issue_date: licenseT.issueDate,
-        expiry_date: licenseT.expiryDate,
-        approved_at: licenseT.approvedAt,
-        notes: licenseT.notes,
+        license_number: licenseT.licenseNumber,
+        status: licenseT.status,
+        client_code: clientMaster.shortName,
+        client_name: clientMaster.companyName,
+        supplier: licenseT.supplier,
+        invoice_number: licenseT.invoiceNumber,
+        fob_declared: licenseT.fobDeclared,
+        applied_date: licenseT.licenseAppliedDate,
+        validation_date: licenseT.licenseValidationDate,
+        expiry_date: licenseT.licenseExpiryDate,
         created_at: licenseT.createdAt,
       })
       .from(licenseT)
       .leftJoin(clientMaster, eq(clientMaster.id, licenseT.clientId))
-      .leftJoin(
-        licenseTypeMaster,
-        eq(licenseTypeMaster.id, licenseT.licenseTypeId),
-      )
       .where(eq(licenseT.id, id))
       .orderBy(desc(licenseT.id))
       .limit(1);
@@ -56,17 +51,16 @@ export const GET = withErrorHandler(
         name: 'License',
         columns: [
           { key: 'id', header: 'ID', width: 6 },
-          { key: 'license_no', header: 'License #', width: 18 },
-          { key: 'state', header: 'State', width: 14 },
+          { key: 'license_number', header: 'License #', width: 18 },
+          { key: 'status', header: 'Status', width: 14 },
           { key: 'client_code', header: 'Client Code', width: 14 },
           { key: 'client_name', header: 'Client', width: 28 },
-          { key: 'license_type', header: 'Type', width: 18 },
-          { key: 'amount', header: 'Amount', width: 14 },
-          { key: 'currency', header: 'CCY', width: 8 },
-          { key: 'issue_date', header: 'Issued', width: 12 },
+          { key: 'supplier', header: 'Supplier', width: 24 },
+          { key: 'invoice_number', header: 'Invoice #', width: 16 },
+          { key: 'fob_declared', header: 'FOB Declared', width: 14 },
+          { key: 'applied_date', header: 'Applied', width: 12 },
+          { key: 'validation_date', header: 'Validated', width: 12 },
           { key: 'expiry_date', header: 'Expires', width: 12 },
-          { key: 'approved_at', header: 'Approved At', width: 18 },
-          { key: 'notes', header: 'Notes', width: 40 },
           { key: 'created_at', header: 'Created', width: 18 },
         ],
         rows,

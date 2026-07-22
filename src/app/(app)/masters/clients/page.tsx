@@ -7,18 +7,23 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface ClientRow {
   id: number;
-  client_code: string;
-  name: string;
-  legal_name: string | null;
+  company_name: string;
+  short_name: string;
   client_type: string | null;
+  contact_person: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
-  tax_id: string | null;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
 }
+
+const TYPE_BADGE = {
+  I: { label: 'Import', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  E: { label: 'Export', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  L: { label: 'Local', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+} as const;
 
 export default function ClientsPage() {
   const [items, setItems] = useState<ClientRow[]>([]);
@@ -107,7 +112,7 @@ export default function ClientsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search code, name, email, tax ID..."
+              placeholder="Search company, code, contact, email, phone..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -122,12 +127,12 @@ export default function ClientsPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Client Code</th>
-                <th>Name</th>
+                <th>Company Name</th>
+                <th>Code</th>
                 <th>Type</th>
+                <th>Contact Person</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Tax ID</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -161,36 +166,39 @@ export default function ClientsPage() {
                     <td>
                       <Link
                         href={`/masters/clients/${c.id}`}
-                        className="font-mono text-xs text-primary-600 hover:underline"
+                        className="font-medium text-slate-900 hover:text-primary-600"
                       >
-                        {c.client_code}
+                        {c.company_name}
                       </Link>
                     </td>
                     <td>
                       <Link
                         href={`/masters/clients/${c.id}`}
-                        className="font-medium text-slate-900 hover:text-primary-600"
+                        className="font-mono text-xs text-primary-600 hover:underline"
                       >
-                        {c.name}
+                        {c.short_name}
                       </Link>
-                      {c.legal_name && c.legal_name !== c.name && (
-                        <div className="text-xs text-slate-500">
-                          {c.legal_name}
-                        </div>
-                      )}
                     </td>
                     <td>
-                      {c.client_type ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
-                          {c.client_type}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {(c.client_type ?? '').split('').map((ch) => {
+                          const meta =
+                            TYPE_BADGE[ch as keyof typeof TYPE_BADGE];
+                          if (!meta) return null;
+                          return (
+                            <span
+                              key={ch}
+                              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium border ${meta.cls}`}
+                            >
+                              {meta.label}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </td>
+                    <td>{c.contact_person || '—'}</td>
                     <td>{c.email || '—'}</td>
                     <td>{c.phone || '—'}</td>
-                    <td>{c.tax_id || '—'}</td>
                     <td className="text-right whitespace-nowrap">
                       <Link
                         href={`/masters/clients/${c.id}`}

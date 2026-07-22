@@ -1,15 +1,35 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Gavel, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
+type RegimeType = 'I' | 'E' | 'IE';
+
+const TYPE_OPTIONS: { value: RegimeType; label: string }[] = [
+  { value: 'I', label: 'Import' },
+  { value: 'E', label: 'Export' },
+  { value: 'IE', label: 'Both (Import/Export)' },
+];
+
+const TYPE_LABEL: Record<RegimeType, string> = {
+  I: 'Import',
+  E: 'Export',
+  IE: 'Both',
+};
+
+const TYPE_BADGE_STYLE: Record<RegimeType, string> = {
+  I: 'bg-blue-100 text-blue-700',
+  E: 'bg-emerald-100 text-emerald-700',
+  IE: 'bg-violet-100 text-violet-700',
+};
+
 interface RegimeRow {
   id: number;
   regime_name: string;
-  type: string;
+  type: RegimeType;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -21,6 +41,7 @@ export default function RegimesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'' | RegimeType>('');
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<RegimeRow | null>(null);
@@ -39,6 +60,7 @@ export default function RegimesPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
+      if (typeFilter) params.set('type', typeFilter);
       const res = await fetch(`/api/v1/regimes?${params}`);
       const json = await res.json();
       if (json.ok) {
@@ -48,7 +70,7 @@ export default function RegimesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, typeFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -72,29 +94,19 @@ export default function RegimesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Gavel className="h-6 w-6 text-primary-600" />
-            Customs Regimes
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Legal classification a consignment moves under. <code>type</code>
-            is the 2-char code that pairs with the human name on customs
-            declarations.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Regimes</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Regime
         </button>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
+        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or type..."
+              placeholder="Search regime name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -102,6 +114,21 @@ export default function RegimesPage() {
               }}
             />
           </div>
+          <select
+            className="input max-w-[200px]"
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value as '' | RegimeType);
+              setPage(1);
+            }}
+          >
+            <option value="">All Types</option>
+            {TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="overflow-x-auto">
@@ -109,8 +136,8 @@ export default function RegimesPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Regime Name</th>
-                <th>Type</th>
+                <th>Regime</th>
+                <th className="w-32">Type</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -137,9 +164,13 @@ export default function RegimesPage() {
                     </td>
                     <td className="font-medium">{r.regime_name}</td>
                     <td>
-                      <code className="text-xs text-slate-600">{r.type}</code>
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${TYPE_BADGE_STYLE[r.type]}`}
+                      >
+                        {TYPE_LABEL[r.type]}
+                      </span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(r)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -211,7 +242,7 @@ function RegimeFormModal({
 }) {
   const isEdit = !!regime;
   const [name, setName] = useState(regime?.regime_name || '');
-  const [type, setType] = useState(regime?.type || '');
+  const [type, setType] = useState<RegimeType>(regime?.type || 'I');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -224,6 +255,10 @@ function RegimeFormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -269,36 +304,38 @@ function RegimeFormModal({
           <div>
             <label className="label">Regime Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Import Definitive"
+              maxLength={200}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Type Code *</label>
-            <input
+            <label className="label">Type *</label>
+            <select
               className="input"
               value={type}
-              onChange={(e) => setType(e.target.value.toUpperCase())}
+              onChange={(e) => setType(e.target.value as RegimeType)}
               required
-              maxLength={2}
-              minLength={2}
-              placeholder="ID"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Exactly 2 characters. Customs paperwork code.
-            </p>
+            >
+              {TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import {
   BadRequestError,
@@ -15,7 +15,7 @@ import {
 } from '@/schemas/seals';
 
 // GET /api/v1/seals/{id}/numbers
-// List every individual seal under a batch. Joins through office_master_t
+// List every individual seal under a batch. Joins through main_office_master_t
 // so the table can show "where was this seal issued" without an extra hop.
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,13 +36,13 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       seal_number: sealNumber.sealNumber,
       status: sealNumber.status,
       notes: sealNumber.notes,
-      location: officeMaster.locationName,
+      location: mainOfficeMaster.mainLocationName,
       created_at: sealNumber.createdAt,
       updated_at: sealNumber.updatedAt,
     })
     .from(sealNumber)
     .leftJoin(sealBatch, eq(sealBatch.id, sealNumber.sealBatchId))
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(
       and(
         eq(sealNumber.sealBatchId, batchId),

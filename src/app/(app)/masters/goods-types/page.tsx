@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Boxes, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface GoodsTypeRow {
   id: number;
@@ -54,7 +56,7 @@ export default function GoodsTypesPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this goods type?')) return;
+    if (!confirm('Disable this type of goods?')) return;
     const res = await fetch(`/api/v1/goods-types/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
@@ -70,16 +72,7 @@ export default function GoodsTypesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Boxes className="h-6 w-6 text-primary-600" />
-            Goods Types
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Broad commodity classification — distinct from HS code, used for
-            filtering and reporting.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Type of Goods</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Type
         </button>
@@ -91,7 +84,7 @@ export default function GoodsTypesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search type or short name..."
+              placeholder="Search type, short name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -106,8 +99,8 @@ export default function GoodsTypesPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Goods Type</th>
-                <th>Short Name</th>
+                <th>Type</th>
+                <th className="w-32">Short Name</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -122,7 +115,7 @@ export default function GoodsTypesPage() {
               {!loading && items.length === 0 && (
                 <tr>
                   <td colSpan={4} className="text-center text-slate-500 py-8">
-                    No goods types found
+                    No types found
                   </td>
                 </tr>
               )}
@@ -134,11 +127,11 @@ export default function GoodsTypesPage() {
                     </td>
                     <td className="font-medium">{g.goods_type}</td>
                     <td>
-                      <code className="text-xs text-slate-600">
+                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                         {g.goods_short_name}
-                      </code>
+                      </span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(g)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -214,8 +207,19 @@ function GoodsTypeFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const checkValue = isEdit && type === goodsType?.goods_type ? '' : type;
+  const { status, message } = useUniqueCheck({
+    resource: 'goods-types',
+    value: checkValue,
+    excludeId: goodsType?.id ?? null,
+  });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -251,7 +255,7 @@ function GoodsTypeFormModal({
       <div className="card w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">
-            {isEdit ? 'Edit Goods Type' : 'Create Goods Type'}
+            {isEdit ? 'Edit Type of Goods' : 'Create Type of Goods'}
           </h2>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
             <X className="h-5 w-5" />
@@ -264,31 +268,35 @@ function GoodsTypeFormModal({
             </div>
           )}
           <div>
-            <label className="label">Goods Type *</label>
+            <label className="label">Type *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => setType(e.target.value.toUpperCase())}
               required
-              placeholder="General Merchandise"
+              maxLength={100}
             />
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
             <label className="label">Short Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
+              onChange={(e) => setShortName(e.target.value.toUpperCase())}
               required
               maxLength={20}
-              placeholder="GenMerch"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

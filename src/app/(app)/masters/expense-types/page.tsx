@@ -1,18 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Edit2,
-  Plus,
-  Receipt,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
-import SearchableSelect from '@/components/ui/SearchableSelect';
+import Toggle from '@/components/ui/Toggle';
 
 interface Row {
   id: number;
@@ -27,14 +20,25 @@ interface Row {
   updated_at: string | null;
 }
 
-const FLAGS = [
-  { key: 'is_import', label: 'Import' },
-  { key: 'is_export', label: 'Export' },
-  { key: 'is_local', label: 'Local' },
-  { key: 'is_advance', label: 'Advance' },
-  { key: 'is_other', label: 'Other' },
-] as const;
-type FlagKey = (typeof FLAGS)[number]['key'];
+type CategoryKey =
+  | 'is_import'
+  | 'is_export'
+  | 'is_local'
+  | 'is_advance'
+  | 'is_other';
+
+const CATEGORIES: {
+  key: CategoryKey;
+  label: string;
+  short: string;
+  badgeClass: string;
+}[] = [
+  { key: 'is_import', label: 'Import', short: 'IMP', badgeClass: 'bg-blue-100 text-blue-700' },
+  { key: 'is_export', label: 'Export', short: 'EXP', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { key: 'is_local', label: 'Local', short: 'LOC', badgeClass: 'bg-amber-100 text-amber-700' },
+  { key: 'is_advance', label: 'Advance', short: 'ADV', badgeClass: 'bg-violet-100 text-violet-700' },
+  { key: 'is_other', label: 'Other', short: 'OTH', badgeClass: 'bg-slate-200 text-slate-700' },
+];
 
 export default function ExpenseTypesPage() {
   const [items, setItems] = useState<Row[]>([]);
@@ -97,22 +101,19 @@ export default function ExpenseTypesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Receipt className="h-6 w-6 text-primary-600" />
-          Expense Types
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Expense Types</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Expense Type
         </button>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-          <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search expense type..."
+              placeholder="Search expense type name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -120,18 +121,21 @@ export default function ExpenseTypesPage() {
               }}
             />
           </div>
-          <div className="min-w-[180px]">
-            <SearchableSelect
-              value={flagFilter}
-              onChange={(v) => {
-                setFlagFilter(v);
-                setPage(1);
-              }}
-              options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
-              placeholder="All contexts"
-              emptyLabel="All contexts"
-            />
-          </div>
+          <select
+            className="input max-w-[200px]"
+            value={flagFilter}
+            onChange={(e) => {
+              setFlagFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All Categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="overflow-x-auto">
@@ -140,31 +144,21 @@ export default function ExpenseTypesPage() {
               <tr>
                 <th className="w-16">#</th>
                 <th>Expense Type</th>
-                {FLAGS.map((f) => (
-                  <th key={f.key} className="text-center">
-                    {f.label}
-                  </th>
-                ))}
+                <th className="w-64">Categories</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td
-                    colSpan={3 + FLAGS.length}
-                    className="text-center text-slate-500 py-8"
-                  >
+                  <td colSpan={4} className="text-center text-slate-500 py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={3 + FLAGS.length}
-                    className="text-center text-slate-500 py-8"
-                  >
+                  <td colSpan={4} className="text-center text-slate-500 py-8">
                     No expense types found
                   </td>
                 </tr>
@@ -176,15 +170,21 @@ export default function ExpenseTypesPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-medium">{r.expense_type_name}</td>
-                    {FLAGS.map((f) => (
-                      <td key={f.key} className="text-center">
-                        {r[f.key as FlagKey] ? (
-                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                        ) : (
-                          <span className="inline-block w-2 h-2 rounded-full bg-slate-200" />
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {CATEGORIES.filter((c) => r[c.key]).map((c) => (
+                          <span
+                            key={c.key}
+                            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${c.badgeClass}`}
+                          >
+                            {c.short}
+                          </span>
+                        ))}
+                        {CATEGORIES.every((c) => !r[c.key]) && (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
-                      </td>
-                    ))}
+                      </div>
+                    </td>
                     <td className="text-right whitespace-nowrap">
                       <button
                         onClick={() => setEditing(r)}
@@ -257,7 +257,7 @@ function FormModal({
 }) {
   const isEdit = !!row;
   const [name, setName] = useState(row?.expense_type_name || '');
-  const [flags, setFlags] = useState<Record<FlagKey, boolean>>({
+  const [flags, setFlags] = useState<Record<CategoryKey, boolean>>({
     is_import: row?.is_import ?? false,
     is_export: row?.is_export ?? false,
     is_local: row?.is_local ?? false,
@@ -276,6 +276,10 @@ function FormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -320,59 +324,47 @@ function FormModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={submit} className="p-4 space-y-3">
+        <form onSubmit={submit} className="p-4 space-y-4">
           {error && (
             <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
               {error}
             </div>
           )}
           <div>
-            <label className="label">Expense Type *</label>
+            <label className="label">Expense Type Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Customs duty"
               maxLength={300}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Applies to</label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {FLAGS.map((f) => (
-                <label
-                  key={f.key}
-                  className="inline-flex items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300"
-                    checked={flags[f.key]}
-                    onChange={(e) =>
-                      setFlags((prev) => ({
-                        ...prev,
-                        [f.key]: e.target.checked,
-                      }))
-                    }
-                  />
-                  <span className="text-slate-700">{f.label}</span>
-                </label>
+            <label className="label">Categories</label>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              {CATEGORIES.map((c) => (
+                <Toggle
+                  key={c.key}
+                  checked={flags[c.key]}
+                  onChange={(v) =>
+                    setFlags((prev) => ({ ...prev, [c.key]: v }))
+                  }
+                  label={c.label}
+                />
               ))}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Pickers in invoice / payment-request forms filter by these
-              flags. Leave all off for a hidden / draft entry.
-            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

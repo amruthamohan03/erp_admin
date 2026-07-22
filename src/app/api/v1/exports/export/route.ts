@@ -55,21 +55,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(exportT.mcaRef, like),
       ilike(exportT.invoice, like),
       ilike(exportT.buyer, like),
-      ilike(clientMaster.name, like),
+      ilike(clientMaster.companyName, like),
     );
     if (orClause) conds.push(orClause);
   }
   if (q.client_id) conds.push(eq(exportT.clientId, q.client_id));
   if (q.license_id) conds.push(eq(exportT.licenseId, q.license_id));
   if (q.clearing_status_id) {
-    conds.push(eq(exportT.clearingStatusId, q.clearing_status_id));
+    conds.push(eq(exportT.clearingStatus, q.clearing_status_id));
   }
   if (q.document_status_id) {
-    conds.push(eq(exportT.documentStatusId, q.document_status_id));
+    conds.push(eq(exportT.documentStatus, q.document_status_id));
   }
-  if (q.regime_id) conds.push(eq(exportT.regimeId, q.regime_id));
+  if (q.regime_id) conds.push(eq(exportT.regime, q.regime_id));
   if (q.truck_status_id) {
-    conds.push(eq(exportT.truckStatusId, q.truck_status_id));
+    conds.push(eq(exportT.truckStatus, q.truck_status_id));
   }
   if (q.loading_from) conds.push(gte(exportT.loadingDate, q.loading_from));
   if (q.loading_to) conds.push(lte(exportT.loadingDate, q.loading_to));
@@ -82,9 +82,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       invoice: exportT.invoice,
       buyer: exportT.buyer,
       loading_date: exportT.loadingDate,
-      client_code: clientMaster.clientCode,
-      client_name: clientMaster.name,
-      license_no: licenseT.licenseNo,
+      client_code: clientMaster.shortName,
+      client_name: clientMaster.companyName,
+      license_no: licenseT.licenseNumber,
       regime: regimeMaster.regimeName,
       transport_mode: transportModeMaster.transportModeName,
       currency: currencyMaster.currencyShortName,
@@ -101,23 +101,23 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .from(exportT)
     .leftJoin(clientMaster, eq(clientMaster.id, exportT.clientId))
     .leftJoin(licenseT, eq(licenseT.id, exportT.licenseId))
-    .leftJoin(regimeMaster, eq(regimeMaster.id, exportT.regimeId))
+    .leftJoin(regimeMaster, eq(regimeMaster.id, exportT.regime))
     .leftJoin(
       transportModeMaster,
-      eq(transportModeMaster.id, exportT.transportModeId),
+      eq(transportModeMaster.id, exportT.transportMode),
     )
-    .leftJoin(currencyMaster, eq(currencyMaster.id, exportT.currencyId))
+    .leftJoin(currencyMaster, eq(currencyMaster.id, exportT.currency))
     .leftJoin(
       clearingStatusMaster,
-      eq(clearingStatusMaster.id, exportT.clearingStatusId),
+      eq(clearingStatusMaster.id, exportT.clearingStatus),
     )
     .leftJoin(
       documentStatusMaster,
-      eq(documentStatusMaster.id, exportT.documentStatusId),
+      eq(documentStatusMaster.id, exportT.documentStatus),
     )
     .leftJoin(
       truckStatusMaster,
-      eq(truckStatusMaster.id, exportT.truckStatusId),
+      eq(truckStatusMaster.id, exportT.truckStatus),
     )
     .where(where)
     .orderBy(desc(exportT.id));

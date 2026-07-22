@@ -31,7 +31,7 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       .select({
         id: importT.id,
         ref: importT.mcaRef,
-        client_name: clientMaster.name,
+        client_name: clientMaster.companyName,
         date: importT.createdAt,
         amount: importT.fob,
       })
@@ -44,7 +44,7 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       .select({
         id: exportT.id,
         ref: exportT.mcaRef,
-        client_name: clientMaster.name,
+        client_name: clientMaster.companyName,
         date: exportT.createdAt,
         amount: exportT.fob,
       })
@@ -57,7 +57,7 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       .select({
         id: quotations.id,
         ref: quotations.quotationRef,
-        client_name: clientMaster.name,
+        client_name: clientMaster.companyName,
         date: quotations.createdAt,
         amount: quotations.totalAmount,
       })
@@ -69,11 +69,11 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
     db
       .select({
         id: licenseT.id,
-        ref: licenseT.licenseNo,
-        client_name: clientMaster.name,
+        ref: licenseT.licenseNumber,
+        client_name: clientMaster.companyName,
         date: licenseT.createdAt,
-        amount: licenseT.amount,
-        state: licenseT.state,
+        amount: licenseT.fobDeclared,
+        state: licenseT.status,
       })
       .from(licenseT)
       .leftJoin(clientMaster, eq(clientMaster.id, licenseT.clientId))

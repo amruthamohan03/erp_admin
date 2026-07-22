@@ -56,7 +56,7 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
   const locsResult = await db.execute(sql`
     SELECT
       o.id,
-      o.location_name,
+      o.main_location_name AS location_name,
       COALESCE((
         SELECT SUM(b.total_seal) FROM seal_batch_t b
         WHERE b.office_location_id = o.id AND b.display = 'Y'
@@ -68,9 +68,9 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
           AND b.display = 'Y'
           AND sn.display = 'Y'
       ) AS added_count
-    FROM office_master_t o
+    FROM main_office_master_t o
     WHERE o.display = 'Y'
-    ORDER BY o.location_name ASC
+    ORDER BY o.main_location_name ASC
   `);
   const location_counts = (locsResult.rows ?? []) as unknown as LocationRow[];
 

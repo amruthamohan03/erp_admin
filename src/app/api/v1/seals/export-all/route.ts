@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
 
@@ -37,7 +37,7 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
   const batches = await db
     .select({
       id: sealBatch.id,
-      location: officeMaster.locationName,
+      location: mainOfficeMaster.mainLocationName,
       sub_office_code: sealBatch.subOfficeCode,
       purchase_date: sealBatch.purchaseDate,
       total_amount: sealBatch.totalAmount,
@@ -48,29 +48,29 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       damaged: counts('Damaged'),
     })
     .from(sealBatch)
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(eq(sealBatch.display, 'Y'))
-    .orderBy(asc(officeMaster.locationName), desc(sealBatch.purchaseDate));
+    .orderBy(asc(mainOfficeMaster.mainLocationName), desc(sealBatch.purchaseDate));
 
   const numbers = await db
     .select({
       id: sealNumber.id,
       seal_number: sealNumber.sealNumber,
       status: sealNumber.status,
-      location: officeMaster.locationName,
+      location: mainOfficeMaster.mainLocationName,
       purchase_date: sealBatch.purchaseDate,
       notes: sealNumber.notes,
     })
     .from(sealNumber)
     .innerJoin(sealBatch, eq(sealBatch.id, sealNumber.sealBatchId))
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(
       and(
         eq(sealNumber.display, 'Y'),
         eq(sealBatch.display, 'Y'),
       ),
     )
-    .orderBy(asc(officeMaster.locationName), asc(sealNumber.id));
+    .orderBy(asc(mainOfficeMaster.mainLocationName), asc(sealNumber.id));
 
   const totalSeal = batches.reduce((acc, b) => acc + (b.total_seal ?? 0), 0);
   const added = batches.reduce((acc, b) => acc + b.added, 0);

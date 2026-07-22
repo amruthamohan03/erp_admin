@@ -37,10 +37,11 @@ export const GET = withErrorHandler(
     const [lic] = await db
       .select({
         id: licenseT.id,
-        license_no: licenseT.licenseNo,
-        amount: licenseT.amount,
+        license_no: licenseT.licenseNumber,
+        // FOB ceiling — main's licenses model tracks the declared FOB here.
+        amount: licenseT.fobDeclared,
         client_id: licenseT.clientId,
-        state: licenseT.state,
+        state: licenseT.status,
       })
       .from(licenseT)
       .where(eq(licenseT.id, licenseId))

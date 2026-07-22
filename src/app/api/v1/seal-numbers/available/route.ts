@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { sealBatch, sealNumber, officeMaster } from '@/db/schema';
+import { sealBatch, sealNumber, mainOfficeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 
 // GET /api/v1/seal-numbers/available?location_id=&limit=
@@ -36,11 +36,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       status: sealNumber.status,
       seal_batch_id: sealNumber.sealBatchId,
       office_location_id: sealBatch.officeLocationId,
-      location_name: officeMaster.locationName,
+      location_name: mainOfficeMaster.mainLocationName,
     })
     .from(sealNumber)
     .innerJoin(sealBatch, eq(sealBatch.id, sealNumber.sealBatchId))
-    .leftJoin(officeMaster, eq(officeMaster.id, sealBatch.officeLocationId))
+    .leftJoin(mainOfficeMaster, eq(mainOfficeMaster.id, sealBatch.officeLocationId))
     .where(and(...conditions))
     .orderBy(asc(sealNumber.id))
     .limit(limit);

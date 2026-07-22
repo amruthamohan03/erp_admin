@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, FileCode2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -72,10 +72,7 @@ export default function IncotermsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <FileCode2 className="h-6 w-6 text-primary-600" />
-          Incoterms
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Incoterms</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Incoterm
         </button>
@@ -87,7 +84,7 @@ export default function IncotermsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search short or full name..."
+              placeholder="Search code or description..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -102,8 +99,8 @@ export default function IncotermsPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Code</th>
-                <th>Full Name</th>
+                <th className="w-24">Code</th>
+                <th>Description</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -125,16 +122,16 @@ export default function IncotermsPage() {
               {!loading &&
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-slate-500 font-medium align-top">
                       {startIndex + idx + 1}
                     </td>
-                    <td>
-                      <code className="font-semibold text-slate-700">
-                        {r.incoterm_short_name}
-                      </code>
+                    <td className="font-mono font-medium align-top">
+                      {r.incoterm_short_name}
                     </td>
-                    <td>{r.incoterm_full_name}</td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-sm text-slate-700">
+                      {r.incoterm_full_name}
+                    </td>
+                    <td className="text-right align-top">
                       <button
                         onClick={() => setEditing(r)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -219,6 +216,10 @@ function FormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -251,7 +252,7 @@ function FormModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card w-full max-w-md">
+      <div className="card w-full max-w-lg">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Incoterm' : 'Create Incoterm'}
@@ -270,27 +271,23 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Short Name *</label>
+            <label className="label">Code *</label>
             <input
-              className="input font-mono"
+              className="input uppercase font-mono"
               value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
+              onChange={(e) => setShortName(e.target.value.toUpperCase())}
               required
-              placeholder="FOB"
               maxLength={10}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Full Name *</label>
-            <input
-              className="input"
+            <label className="label">Description *</label>
+            <textarea
+              className="input min-h-[120px]"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              placeholder="Free On Board"
               maxLength={250}
             />
           </div>

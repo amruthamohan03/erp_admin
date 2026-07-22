@@ -78,7 +78,7 @@ export default function SubOfficesPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             Customs declaration desks under the regional office. Distinct
-            from <code>office_master_t</code> (the regional office itself).
+            from <code>main_office_master_t</code> (the regional office itself).
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn-primary">

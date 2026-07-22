@@ -1,17 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Anchor,
-  Edit2,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import Toggle from '@/components/ui/Toggle';
 
 interface TransitPointRow {
   id: number;
@@ -27,7 +21,7 @@ interface TransitPointRow {
   updated_at: string | null;
 }
 
-type Capability =
+type FlagKey =
   | 'entry_point'
   | 'exit_point'
   | 'loading'
@@ -35,18 +29,18 @@ type Capability =
   | 'warehouse'
   | 'location';
 
-const CAPABILITIES: Array<{ key: Capability; label: string; short: string }> = [
-  { key: 'entry_point', label: 'Entry Point', short: 'Entry' },
-  { key: 'exit_point', label: 'Exit Point', short: 'Exit' },
-  { key: 'loading', label: 'Loading', short: 'Load' },
-  { key: 'destination', label: 'Destination', short: 'Dest' },
-  { key: 'warehouse', label: 'Warehouse', short: 'WH' },
-  { key: 'location', label: 'Generic Location', short: 'Loc' },
-];
-
-const CAPABILITY_FILTER_OPTIONS = [
-  { value: '', label: 'All capabilities' },
-  ...CAPABILITIES.map((c) => ({ value: c.key, label: `Has ${c.label}` })),
+const FLAGS: {
+  key: FlagKey;
+  label: string;
+  short: string;
+  badgeClass: string;
+}[] = [
+  { key: 'entry_point', label: 'Entry Point', short: 'ENT', badgeClass: 'bg-blue-100 text-blue-700' },
+  { key: 'exit_point', label: 'Exit Point', short: 'EXT', badgeClass: 'bg-cyan-100 text-cyan-700' },
+  { key: 'loading', label: 'Loading', short: 'LOAD', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { key: 'destination', label: 'Destination', short: 'DEST', badgeClass: 'bg-amber-100 text-amber-700' },
+  { key: 'warehouse', label: 'Warehouse', short: 'WH', badgeClass: 'bg-violet-100 text-violet-700' },
+  { key: 'location', label: 'Location', short: 'LOC', badgeClass: 'bg-rose-100 text-rose-700' },
 ];
 
 export default function TransitPointsPage() {
@@ -110,29 +104,19 @@ export default function TransitPointsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Anchor className="h-6 w-6 text-primary-600" />
-            Transit Points
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Every customs touchpoint along a route — ports, border
-            crossings, warehouses. Capability flags say which roles the
-            point can play; imports / exports pickers filter by capability.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Transit Points</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Transit Point
         </button>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-          <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search transit point..."
+              placeholder="Search transit point name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -148,9 +132,10 @@ export default function TransitPointsPage() {
               setPage(1);
             }}
           >
-            {CAPABILITY_FILTER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            <option value="">All Flags</option>
+            {FLAGS.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
               </option>
             ))}
           </select>
@@ -160,27 +145,23 @@ export default function TransitPointsPage() {
           <table className="table-base">
             <thead>
               <tr>
-                <th className="w-12">#</th>
+                <th className="w-16">#</th>
                 <th>Transit Point</th>
-                {CAPABILITIES.map((c) => (
-                  <th key={c.key} className="text-center text-xs">
-                    {c.short}
-                  </th>
-                ))}
+                <th>Flags</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={CAPABILITIES.length + 3} className="text-center text-slate-500 py-8">
+                  <td colSpan={4} className="text-center text-slate-500 py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={CAPABILITIES.length + 3} className="text-center text-slate-500 py-8">
+                  <td colSpan={4} className="text-center text-slate-500 py-8">
                     No transit points found
                   </td>
                 </tr>
@@ -192,15 +173,21 @@ export default function TransitPointsPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-medium">{t.transit_point_name}</td>
-                    {CAPABILITIES.map((c) => (
-                      <td key={c.key} className="text-center">
-                        {t[c.key] ? (
-                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                        ) : (
-                          <span className="inline-block w-2 h-2 rounded-full bg-slate-200" />
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {FLAGS.filter((f) => t[f.key]).map((f) => (
+                          <span
+                            key={f.key}
+                            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${f.badgeClass}`}
+                          >
+                            {f.short}
+                          </span>
+                        ))}
+                        {FLAGS.every((f) => !t[f.key]) && (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
-                      </td>
-                    ))}
+                      </div>
+                    </td>
                     <td className="text-right whitespace-nowrap">
                       <button
                         onClick={() => setEditing(t)}
@@ -275,7 +262,7 @@ function TransitPointFormModal({
   const [name, setName] = useState(point?.transit_point_name || '');
   // Defaults match the schema (entry/exit/loading/destination = true;
   // warehouse/location = false) so a fresh create matches the DB shape.
-  const [flags, setFlags] = useState<Record<Capability, boolean>>(() => ({
+  const [flags, setFlags] = useState<Record<FlagKey, boolean>>(() => ({
     entry_point: point?.entry_point ?? true,
     exit_point: point?.exit_point ?? true,
     loading: point?.loading ?? true,
@@ -293,12 +280,12 @@ function TransitPointFormModal({
     excludeId: point?.id ?? null,
   });
 
-  function toggleFlag(key: Capability, on: boolean) {
-    setFlags((prev) => ({ ...prev, [key]: on }));
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -337,11 +324,14 @@ function TransitPointFormModal({
           <h2 className="font-semibold">
             {isEdit ? 'Edit Transit Point' : 'Create Transit Point'}
           </h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-900"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={submit} className="p-4 space-y-3">
+        <form onSubmit={submit} className="p-4 space-y-4">
           {error && (
             <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
               {error}
@@ -350,45 +340,38 @@ function TransitPointFormModal({
           <div>
             <label className="label">Transit Point Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="Port of Matadi"
+              maxLength={255}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Capabilities</label>
-            <div className="grid grid-cols-2 gap-2">
-              {CAPABILITIES.map((c) => (
-                <label
-                  key={c.key}
-                  className="flex items-center gap-2 px-3 py-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    checked={flags[c.key]}
-                    onChange={(e) => toggleFlag(c.key, e.target.checked)}
-                  />
-                  {c.label}
-                </label>
+            <label className="label">Flags</label>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              {FLAGS.map((f) => (
+                <Toggle
+                  key={f.key}
+                  checked={flags[f.key]}
+                  onChange={(v) =>
+                    setFlags((prev) => ({ ...prev, [f.key]: v }))
+                  }
+                  label={f.label}
+                />
               ))}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              imports / exports pickers filter to points with the matching
-              capability — e.g. only points with <code>entry_point</code>
-              are offered when filling in <code>entry_point_id</code>.
-            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

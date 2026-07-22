@@ -10,7 +10,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { officeMaster } from './offices';
+import { mainOfficeMaster } from './mainOfficeMaster';
 import { usersT } from './users';
 
 // Seal purchase batch — one row per bulk seal purchase at an office.
@@ -29,7 +29,7 @@ export const sealBatch = pgTable(
   {
     id: serial('id').primaryKey(),
     officeLocationId: integer('office_location_id').references(
-      () => officeMaster.id,
+      () => mainOfficeMaster.id,
       { onDelete: 'restrict' },
     ),
     purchaseDate: date('purchase_date'),
@@ -63,9 +63,9 @@ export const sealBatch = pgTable(
 );
 
 export const sealBatchRelations = relations(sealBatch, ({ one }) => ({
-  office: one(officeMaster, {
+  office: one(mainOfficeMaster, {
     fields: [sealBatch.officeLocationId],
-    references: [officeMaster.id],
+    references: [mainOfficeMaster.id],
   }),
 }));
 

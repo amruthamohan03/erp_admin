@@ -1,14 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Building2,
-  Edit2,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import Toggle from '@/components/ui/Toggle';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -17,7 +11,7 @@ interface Row {
   id: number;
   bank_name: string;
   bank_code: string;
-  for_exchange: boolean;
+  for_exchange: 'Y' | 'N';
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -29,7 +23,6 @@ export default function BanksPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [exchangeOnly, setExchangeOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -48,7 +41,6 @@ export default function BanksPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      if (exchangeOnly) params.set('for_exchange', 'true');
       const res = await fetch(`/api/v1/banks?${params}`);
       const json = await res.json();
       if (json.ok) {
@@ -58,7 +50,7 @@ export default function BanksPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, exchangeOnly]);
+  }, [page, pageSize, search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -82,22 +74,19 @@ export default function BanksPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-primary-600" />
-          Banks
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Banks</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Bank
         </button>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-          <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="p-4 border-b border-slate-200">
+          <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or code..."
+              placeholder="Search bank name, code..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -105,18 +94,6 @@ export default function BanksPage() {
               }}
             />
           </div>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300"
-              checked={exchangeOnly}
-              onChange={(e) => {
-                setExchangeOnly(e.target.checked);
-                setPage(1);
-              }}
-            />
-            <span className="text-slate-700">Exchange-rate sources only</span>
-          </label>
         </div>
 
         <div className="overflow-x-auto">
@@ -125,8 +102,8 @@ export default function BanksPage() {
               <tr>
                 <th className="w-16">#</th>
                 <th>Bank Name</th>
-                <th>Code</th>
-                <th className="text-center">For Exchange</th>
+                <th>Bank Code</th>
+                <th>For Exchange</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -146,34 +123,26 @@ export default function BanksPage() {
                 </tr>
               )}
               {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
+                items.map((b, idx) => (
+                  <tr key={b.id} className="hover:bg-slate-50">
                     <td className="text-slate-500 font-medium">
                       {startIndex + idx + 1}
                     </td>
-                    <td className="font-medium">{r.bank_name}</td>
+                    <td className="font-medium">{b.bank_name}</td>
+                    <td>{b.bank_code}</td>
                     <td>
-                      <code className="text-xs text-slate-600">
-                        {r.bank_code}
-                      </code>
+                      <Flag on={b.for_exchange === 'Y'} />
                     </td>
-                    <td className="text-center">
-                      {r.for_exchange ? (
-                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                      ) : (
-                        <span className="inline-block w-2 h-2 rounded-full bg-slate-200" />
-                      )}
-                    </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
-                        onClick={() => setEditing(r)}
+                        onClick={() => setEditing(b)}
                         className="text-slate-500 hover:text-primary-600 p-1"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(r.id)}
+                        onClick={() => handleDelete(b.id)}
                         className="text-slate-500 hover:text-red-600 p-1 ml-1"
                         title="Disable"
                       >
@@ -202,7 +171,7 @@ export default function BanksPage() {
       </div>
 
       {showCreate && (
-        <FormModal
+        <BankFormModal
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             setShowCreate(false);
@@ -212,8 +181,8 @@ export default function BanksPage() {
       )}
 
       {editing && (
-        <FormModal
-          row={editing}
+        <BankFormModal
+          bank={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -225,46 +194,65 @@ export default function BanksPage() {
   );
 }
 
-function FormModal({
-  row,
+function Flag({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`inline-block rounded px-2 py-0.5 text-xs ${on ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+    >
+      {on ? 'Yes' : 'No'}
+    </span>
+  );
+}
+
+function BankFormModal({
+  bank,
   onClose,
   onSaved,
 }: {
-  row?: Row;
+  bank?: Row;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const isEdit = !!row;
-  const [name, setName] = useState(row?.bank_name || '');
-  const [code, setCode] = useState(row?.bank_code || '');
-  const [forExchange, setForExchange] = useState(row?.for_exchange ?? false);
+  const isEdit = !!bank;
+  const [form, setForm] = useState({
+    bank_name: bank?.bank_name || '',
+    bank_code: bank?.bank_code || 'N/A',
+    for_exchange: bank?.for_exchange === 'Y',
+  });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const checkValue = isEdit && code === row?.bank_code ? '' : code;
+  const checkValue =
+    isEdit && form.bank_name === bank?.bank_name ? '' : form.bank_name;
   const { status, message } = useUniqueCheck({
-    resource: 'bank-codes',
+    resource: 'banks',
     value: checkValue,
-    excludeId: row?.id ?? null,
+    excludeId: bank?.id ?? null,
   });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
-    const url = isEdit ? `/api/v1/banks/${row!.id}` : '/api/v1/banks';
+    const url = isEdit ? `/api/v1/banks/${bank!.id}` : '/api/v1/banks';
     const method = isEdit ? 'PUT' : 'POST';
+
+    const payload = {
+      bank_name: form.bank_name,
+      bank_code: form.bank_code,
+      for_exchange: form.for_exchange ? 'Y' : 'N',
+    };
 
     try {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bank_name: name,
-          bank_code: code,
-          for_exchange: forExchange,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -286,10 +274,7 @@ function FormModal({
           <h2 className="font-semibold">
             {isEdit ? 'Edit Bank' : 'Create Bank'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-slate-900"
-          >
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -303,52 +288,38 @@ function FormModal({
             <label className="label">Bank Name *</label>
             <input
               className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.bank_name}
+              onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
               required
-              placeholder="Banque Centrale du Congo"
-              maxLength={200}
             />
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
             <label className="label">Bank Code *</label>
             <input
-              className="input font-mono"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              className="input"
+              value={form.bank_code}
+              onChange={(e) => setForm({ ...form, bank_code: e.target.value })}
               required
-              placeholder="BCC"
               maxLength={20}
             />
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-slate-500">
-                Must be unique across active banks.
-              </p>
-              <UniquenessIndicator status={status} message={message} />
-            </div>
           </div>
           <div>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300"
-                checked={forExchange}
-                onChange={(e) => setForExchange(e.target.checked)}
-              />
-              <span className="text-slate-700">
-                For exchange-rate sourcing
-              </span>
-            </label>
-            <p className="text-xs text-slate-500 mt-1">
-              Check if this bank is a source for daily rate entries in
-              `bank_exchange_rate_t`.
-            </p>
+            <Toggle
+              checked={form.for_exchange}
+              onChange={(v) => setForm({ ...form, for_exchange: v })}
+              label="For Exchange"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

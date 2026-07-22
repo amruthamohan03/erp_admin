@@ -43,7 +43,9 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       activeCount(gte(clientMaster.createdAt, today as unknown as Date)),
       activeCount(isNotNull(clientMaster.email)),
       activeCount(isNotNull(clientMaster.phone)),
-      activeCount(isNotNull(clientMaster.taxId)),
+      // taxId was dropped in the main-parity restructure; nifNumber is the
+      // closest profile-completeness proxy for the with_tax_id KPI.
+      activeCount(isNotNull(clientMaster.nifNumber)),
     ]);
 
   return ok({

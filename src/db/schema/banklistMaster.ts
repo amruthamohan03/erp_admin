@@ -4,7 +4,6 @@ import {
   varchar,
   integer,
   timestamp,
-  boolean,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { usersT } from './users';
@@ -15,9 +14,7 @@ import { usersT } from './users';
 //
 // `for_exchange` flags banks that are sources for the daily exchange
 // rate read into `bank_exchange_rate_t` — distinct from "banks the
-// client transacts through". Adapted from main's Y/N flag to a proper
-// boolean per the branch convention (matches transit_point /
-// expense_type flag patterns).
+// client transacts through". Stored as a 'Y'/'N' char to match main.
 //
 // bank_code is unique among non-soft-deleted rows — same partial-
 // unique-by-display-Y treatment as imports.mca_ref.
@@ -28,7 +25,7 @@ export const banklistMaster = pgTable(
     id: serial('id').primaryKey(),
     bankName: varchar('bank_name', { length: 200 }).notNull(),
     bankCode: varchar('bank_code', { length: 20 }).notNull(),
-    forExchange: boolean('for_exchange').notNull().default(false),
+    forExchange: varchar('for_exchange', { length: 1 }).notNull().default('N'),
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id, {
       onDelete: 'set null',

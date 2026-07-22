@@ -1,18 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, RotateCcw, Save, Settings as SettingsIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  RotateCcw,
+  Save,
+  Settings as SettingsIcon,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 
-// /settings/application — app-wide branding admin. Ports main's
-// screen onto this branch. The singleton row on
-// application_settings_master_t drives project name, colors,
-// logo, favicon, footer text; the Topbar reads project_name on
-// every mount.
-//
-// Reset defaults just repopulates the form state from DEFAULTS;
-// nothing is persisted until the operator hits Save.
-
-interface Settings {
+interface SettingsForm {
   project_name: string;
   app_title: string;
   tagline: string;
@@ -25,7 +22,7 @@ interface Settings {
   footer_text: string;
 }
 
-const DEFAULTS: Settings = {
+const DEFAULTS: SettingsForm = {
   project_name: 'ERP Admin',
   app_title: 'ERP Admin',
   tagline: 'Management Console',
@@ -39,67 +36,69 @@ const DEFAULTS: Settings = {
 };
 
 export default function ApplicationSettingsPage() {
-  const [form, setForm] = useState<Settings>(DEFAULTS);
+  const [form, setForm] = useState<SettingsForm>(DEFAULTS);
+  // Inputs render disabled until the initial fetch settles. SSR and the
+  // first client render both start `true`, so the `disabled` attribute
+  // agrees — no hydration mismatch — and the fetch's `finally` clears it.
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/v1/application-settings');
-        const json = await res.json();
-        if (json.ok) {
+    fetch('/api/v1/application-settings')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) {
           setForm({
-            project_name: json.data.project_name ?? '',
-            app_title: json.data.app_title ?? '',
-            tagline: json.data.tagline ?? '',
-            logo_url: json.data.logo_url ?? '',
-            favicon_url: json.data.favicon_url ?? '',
-            primary_color: json.data.primary_color ?? DEFAULTS.primary_color,
-            accent_color: json.data.accent_color ?? DEFAULTS.accent_color,
-            sidebar_bg: json.data.sidebar_bg ?? DEFAULTS.sidebar_bg,
-            sidebar_fg: json.data.sidebar_fg ?? DEFAULTS.sidebar_fg,
-            footer_text: json.data.footer_text ?? '',
+            project_name: j.data.project_name ?? '',
+            app_title: j.data.app_title ?? '',
+            tagline: j.data.tagline ?? '',
+            logo_url: j.data.logo_url ?? '',
+            favicon_url: j.data.favicon_url ?? '',
+            primary_color: j.data.primary_color ?? DEFAULTS.primary_color,
+            accent_color: j.data.accent_color ?? DEFAULTS.accent_color,
+            sidebar_bg: j.data.sidebar_bg ?? DEFAULTS.sidebar_bg,
+            sidebar_fg: j.data.sidebar_fg ?? DEFAULTS.sidebar_fg,
+            footer_text: j.data.footer_text ?? '',
           });
         }
-      } catch {
-        setError('Failed to load settings');
-      } finally {
-        setLoading(false);
-      }
-    })();
+      })
+      .catch(() => setError('Failed to load settings'))
+      .finally(() => setLoading(false));
   }, []);
 
-  async function save(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
     setError(null);
     setNotice(null);
-    setSaving(true);
+
+    const payload = {
+      project_name: form.project_name.trim(),
+      app_title: form.app_title.trim(),
+      tagline: form.tagline.trim() || null,
+      logo_url: form.logo_url.trim() || null,
+      favicon_url: form.favicon_url.trim() || null,
+      primary_color: form.primary_color,
+      accent_color: form.accent_color,
+      sidebar_bg: form.sidebar_bg,
+      sidebar_fg: form.sidebar_fg,
+      footer_text: form.footer_text.trim() || null,
+    };
+
     try {
       const res = await fetch('/api/v1/application-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_name: form.project_name.trim(),
-          app_title: form.app_title.trim(),
-          tagline: form.tagline.trim() || null,
-          logo_url: form.logo_url.trim() || null,
-          favicon_url: form.favicon_url.trim() || null,
-          primary_color: form.primary_color,
-          accent_color: form.accent_color,
-          sidebar_bg: form.sidebar_bg,
-          sidebar_fg: form.sidebar_fg,
-          footer_text: form.footer_text.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
         setError(json.error?.message || 'Save failed');
         return;
       }
-      setNotice('Saved. Reload the page to see the new branding.');
+      setNotice('Saved — refresh the page to see the new branding.');
     } catch {
       setError('Network error');
     } finally {
@@ -107,30 +106,38 @@ export default function ApplicationSettingsPage() {
     }
   }
 
-  function set<K extends keyof Settings>(k: K, v: Settings[K]) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-slate-500 py-20 justify-center">
-        <Loader2 className="h-5 w-5 animate-spin" /> Loading settings…
-      </div>
-    );
+  function resetDefaults() {
+    setForm(DEFAULTS);
+    setNotice(null);
   }
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <SettingsIcon className="h-6 w-6 text-primary-600" />
-          Application Settings
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <SettingsIcon className="h-6 w-6 text-primary-600" />
+            Application Settings
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Branding and color palette shown across the app. Stored as a
+            single row in <code>application_settings_t</code>.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={resetDefaults}
+            className="btn-secondary"
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" /> Reset defaults
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 flex items-start gap-2">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
           {error}
         </div>
       )}
@@ -140,127 +147,190 @@ export default function ApplicationSettingsPage() {
         </div>
       )}
 
-      <form onSubmit={save} className="space-y-6">
-        <section className="card p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">
-            Identity
-          </h2>
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
+        {/* Branding */}
+        <section className="card p-6 lg:col-span-2 space-y-4">
+          <h2 className="font-semibold text-slate-900">Branding</h2>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="label">Project name *</label>
+              <label className="label">Project Name *</label>
               <input
                 className="input"
                 value={form.project_name}
-                onChange={(e) => set('project_name', e.target.value)}
+                onChange={(e) =>
+                  setForm({ ...form, project_name: e.target.value })
+                }
+                disabled={loading}
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-                Shown in the topbar in place of &quot;Welcome back&quot;.
+                Shown in the sidebar header.
               </p>
             </div>
             <div>
-              <label className="label">App title *</label>
+              <label className="label">Browser Tab Title *</label>
               <input
                 className="input"
                 value={form.app_title}
-                onChange={(e) => set('app_title', e.target.value)}
+                onChange={(e) =>
+                  setForm({ ...form, app_title: e.target.value })
+                }
+                disabled={loading}
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-                Browser tab title (fallback when the page has no own title).
+                Shown in the browser tab and used in metadata.
               </p>
             </div>
-            <div className="md:col-span-2">
-              <label className="label">Tagline</label>
-              <input
-                className="input"
-                value={form.tagline}
-                onChange={(e) => set('tagline', e.target.value)}
-                placeholder="Management Console"
-              />
-            </div>
-            <div>
-              <label className="label">Logo URL</label>
-              <input
-                className="input"
-                value={form.logo_url}
-                onChange={(e) => set('logo_url', e.target.value)}
-                placeholder="/branding/logo.png"
-              />
-            </div>
-            <div>
-              <label className="label">Favicon URL</label>
-              <input
-                className="input"
-                value={form.favicon_url}
-                onChange={(e) => set('favicon_url', e.target.value)}
-                placeholder="/branding/favicon.ico"
-              />
-            </div>
           </div>
-        </section>
 
-        <section className="card p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">Colors</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <ColorField
-              label="Primary"
-              value={form.primary_color}
-              onChange={(v) => set('primary_color', v)}
-            />
-            <ColorField
-              label="Accent"
-              value={form.accent_color}
-              onChange={(v) => set('accent_color', v)}
-            />
-            <ColorField
-              label="Sidebar background"
-              value={form.sidebar_bg}
-              onChange={(v) => set('sidebar_bg', v)}
-            />
-            <ColorField
-              label="Sidebar foreground"
-              value={form.sidebar_fg}
-              onChange={(v) => set('sidebar_fg', v)}
-            />
-          </div>
-        </section>
-
-        <section className="card p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">Footer</h2>
           <div>
-            <label className="label">Footer text</label>
+            <label className="label">Tagline</label>
+            <input
+              className="input"
+              value={form.tagline}
+              onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+              disabled={loading}
+              placeholder="Management Console"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Optional subtitle under the project name.
+            </p>
+          </div>
+
+          <div>
+            <label className="label">Footer Text</label>
             <input
               className="input"
               value={form.footer_text}
-              onChange={(e) => set('footer_text', e.target.value)}
-              placeholder="© {year} My Company · All rights reserved."
+              onChange={(e) =>
+                setForm({ ...form, footer_text: e.target.value })
+              }
+              disabled={loading}
+              maxLength={300}
+              placeholder="© {year} Your Company · All rights reserved."
             />
             <p className="text-xs text-slate-500 mt-1">
-              <code>{'{year}'}</code> expands to the current year at render
-              time.
+              Shown across the bottom of every authenticated page. Use{' '}
+              <code>{'{year}'}</code> to insert the current year.
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <FileField
+              label="Logo"
+              kind="logo"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              hint="PNG, JPG, WebP or SVG. Max 1 MB."
+              value={form.logo_url}
+              onChange={(url) => setForm({ ...form, logo_url: url })}
+              disabled={loading}
+              onError={setError}
+              onNotice={setNotice}
+            />
+            <FileField
+              label="Favicon"
+              kind="favicon"
+              accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml"
+              hint="ICO, PNG or SVG. Max 256 KB."
+              value={form.favicon_url}
+              onChange={(url) => setForm({ ...form, favicon_url: url })}
+              disabled={loading}
+              onError={setError}
+              onNotice={setNotice}
+            />
           </div>
         </section>
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setForm(DEFAULTS);
-              setNotice('Defaults loaded — click Save to persist.');
+        {/* Live preview */}
+        <aside className="card p-6 space-y-3">
+          <h2 className="font-semibold text-slate-900">Preview</h2>
+          <div
+            className="rounded-md p-4 flex items-center gap-3"
+            style={{
+              background: form.sidebar_bg,
+              color: form.sidebar_fg,
             }}
           >
-            <RotateCcw className="h-4 w-4" /> Reset defaults
-          </button>
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+            {form.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={form.logo_url}
+                alt=""
+                className="h-9 w-9 rounded object-contain bg-white/10 p-1"
+              />
             )}
-            Save
+            <div className="min-w-0">
+              <div className="font-semibold truncate">{form.project_name}</div>
+              {form.tagline && (
+                <div className="text-xs opacity-70 truncate">
+                  {form.tagline}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <span
+              className="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium text-white"
+              style={{ background: form.primary_color }}
+            >
+              Primary
+            </span>
+            <span
+              className="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium text-white"
+              style={{ background: form.accent_color }}
+            >
+              Accent
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            Changes apply across the app after saving and reloading.
+          </p>
+        </aside>
+
+        {/* Palette */}
+        <section className="card p-6 lg:col-span-3 space-y-4">
+          <h2 className="font-semibold text-slate-900">Color Palette</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <ColorField
+              label="Primary"
+              hint="Buttons, links, focus rings"
+              value={form.primary_color}
+              onChange={(v) => setForm({ ...form, primary_color: v })}
+              disabled={loading}
+            />
+            <ColorField
+              label="Accent"
+              hint="Subtle highlights"
+              value={form.accent_color}
+              onChange={(v) => setForm({ ...form, accent_color: v })}
+              disabled={loading}
+            />
+            <ColorField
+              label="Sidebar Background"
+              hint="Left nav surface"
+              value={form.sidebar_bg}
+              onChange={(v) => setForm({ ...form, sidebar_bg: v })}
+              disabled={loading}
+            />
+            <ColorField
+              label="Sidebar Text"
+              hint="Default sidebar text color"
+              value={form.sidebar_fg}
+              onChange={(v) => setForm({ ...form, sidebar_fg: v })}
+              disabled={loading}
+            />
+          </div>
+        </section>
+
+        <div className="lg:col-span-3 flex justify-end">
+          <button type="submit" className="btn-primary" disabled={saving || loading}>
+            <Save className="h-4 w-4" />
+            {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
       </form>
@@ -270,12 +340,16 @@ export default function ApplicationSettingsPage() {
 
 function ColorField({
   label,
+  hint,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
+  hint?: string;
   value: string;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -283,18 +357,158 @@ function ColorField({
       <div className="flex items-center gap-2">
         <input
           type="color"
+          className="h-10 w-12 rounded border border-slate-300 bg-white p-1"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-14 rounded border border-slate-200 cursor-pointer"
+          disabled={disabled}
         />
         <input
-          className="input font-mono text-sm"
+          className="input flex-1 font-mono text-sm uppercase"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          pattern="#[0-9a-fA-F]{6}"
+          disabled={disabled}
+          placeholder="#000000"
           maxLength={7}
         />
       </div>
+      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function FileField({
+  label,
+  kind,
+  accept,
+  hint,
+  value,
+  onChange,
+  disabled,
+  onError,
+  onNotice,
+}: {
+  label: string;
+  kind: 'logo' | 'favicon';
+  accept: string;
+  hint?: string;
+  value: string;
+  onChange: (url: string) => void;
+  disabled?: boolean;
+  onError: (msg: string | null) => void;
+  onNotice: (msg: string | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(file: File) {
+    setBusy(true);
+    onError(null);
+    onNotice(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(
+        `/api/v1/application-settings/branding?kind=${kind}`,
+        { method: 'POST', body: fd },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        onError(json.error?.message || 'Upload failed');
+        return;
+      }
+      onChange(json.data[kind === 'logo' ? 'logo_url' : 'favicon_url']);
+      onNotice(`${label} uploaded. Refresh to see it everywhere.`);
+    } catch {
+      onError('Network error');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  async function handleClear() {
+    if (!value) return;
+    if (!confirm(`Remove the current ${label.toLowerCase()}?`)) return;
+    setBusy(true);
+    onError(null);
+    onNotice(null);
+    try {
+      const res = await fetch(
+        `/api/v1/application-settings/branding?kind=${kind}`,
+        { method: 'DELETE' },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        onError(json.error?.message || 'Failed to remove file');
+        return;
+      }
+      onChange('');
+      onNotice(`${label} removed.`);
+    } catch {
+      onError('Network error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="flex items-center gap-3">
+        <div className="h-14 w-14 rounded-md border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt={label}
+              className="max-h-full max-w-full object-contain"
+            />
+          ) : (
+            <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+              None
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1 flex-1 min-w-0">
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            className="hidden"
+            disabled={disabled || busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="btn-secondary"
+              disabled={disabled || busy}
+            >
+              <Upload className="h-4 w-4" />
+              {busy ? 'Uploading…' : value ? 'Replace' : 'Browse'}
+            </button>
+            {value && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="btn-secondary text-red-600 hover:text-red-700"
+                disabled={disabled || busy}
+                title={`Remove ${label}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {value && (
+            <code className="text-xs text-slate-500 truncate">{value}</code>
+          )}
+        </div>
+      </div>
+      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
     </div>
   );
 }

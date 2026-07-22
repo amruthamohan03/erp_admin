@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plus, Search, Tags, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface KindRow {
@@ -54,7 +54,7 @@ export default function KindsPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this quotation kind?')) return;
+    if (!confirm('Disable this kind?')) return;
     const res = await fetch(`/api/v1/kinds/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
@@ -70,16 +70,7 @@ export default function KindsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Tags className="h-6 w-6 text-primary-600" />
-            Quotation Kinds
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            The kind name drives the quotation math path — e.g. <code>Import Definitive</code>
-            switches customs lines to CDF columns.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Kinds</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Kind
         </button>
@@ -91,7 +82,7 @@ export default function KindsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or short name..."
+              placeholder="Search kind name, short name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -106,7 +97,7 @@ export default function KindsPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Kind</th>
+                <th>Kind Name</th>
                 <th>Short Name</th>
                 <th className="text-right">Actions</th>
               </tr>
@@ -134,11 +125,11 @@ export default function KindsPage() {
                     </td>
                     <td className="font-medium">{k.kind_name}</td>
                     <td>
-                      <code className="text-xs text-slate-600">
+                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                         {k.kind_short_name}
-                      </code>
+                      </span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(k)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -268,22 +259,17 @@ function KindFormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Import Definitive"
+              maxLength={100}
             />
-            <p className="text-xs text-slate-500 mt-1">
-              The name drives the math path — names containing &quot;Export&quot; or
-              &quot;Definitive&quot; switch behavior.
-            </p>
           </div>
           <div>
             <label className="label">Short Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
+              onChange={(e) => setShortName(e.target.value.toUpperCase())}
               required
               maxLength={20}
-              placeholder="ID"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">

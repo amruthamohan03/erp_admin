@@ -1,11 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Map, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
-import SearchableSelect from '@/components/ui/SearchableSelect';
 
 interface Row {
   id: number;
@@ -28,7 +27,6 @@ export default function ProvincesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [originFilter, setOriginFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -40,7 +38,7 @@ export default function ProvincesPage() {
     setMounted(true);
   }, []);
 
-  // Origin picker data — used by both filter and form modal.
+  // Origin picker data — used by the form modal.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -65,7 +63,6 @@ export default function ProvincesPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      if (originFilter) params.set('origin_id', originFilter);
       const res = await fetch(`/api/v1/provinces?${params}`);
       const json = await res.json();
       if (json.ok) {
@@ -75,7 +72,7 @@ export default function ProvincesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, originFilter]);
+  }, [page, pageSize, search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -99,42 +96,24 @@ export default function ProvincesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Map className="h-6 w-6 text-primary-600" />
-          Provinces
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Provinces</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Province
         </button>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-          <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="p-4 border-b border-slate-200">
+          <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search province..."
+              placeholder="Search province, origin..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-            />
-          </div>
-          <div className="min-w-[200px]">
-            <SearchableSelect
-              value={originFilter}
-              onChange={(v) => {
-                setOriginFilter(v);
-                setPage(1);
-              }}
-              options={origins.map((o) => ({
-                value: String(o.id),
-                label: o.origin_name,
-              }))}
-              placeholder="All origins"
-              emptyLabel="All origins"
             />
           </div>
         </div>
@@ -171,8 +150,10 @@ export default function ProvincesPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-medium">{r.province_name}</td>
-                    <td className="text-slate-600">{r.origin_name || '—'}</td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-slate-700">
+                      {r.origin_name ?? `#${r.origin_id}`}
+                    </td>
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(r)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -248,8 +229,8 @@ function FormModal({
 }) {
   const isEdit = !!row;
   const [name, setName] = useState(row?.province_name || '');
-  const [originId, setOriginId] = useState<string>(
-    row?.origin_id ? String(row.origin_id) : '',
+  const [originId, setOriginId] = useState<number>(
+    row?.origin_id ?? (origins[0]?.id ?? 1),
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -263,12 +244,14 @@ function FormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
-    const url = isEdit
-      ? `/api/v1/provinces/${row!.id}`
-      : '/api/v1/provinces';
+    const url = isEdit ? `/api/v1/provinces/${row!.id}` : '/api/v1/provinces';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
@@ -277,7 +260,7 @@ function FormModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           province_name: name,
-          origin_id: originId ? parseInt(originId, 10) : null,
+          origin_id: originId,
         }),
       });
       const json = await res.json();
@@ -320,31 +303,34 @@ function FormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Haut-Katanga"
               maxLength={255}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Origin</label>
-            <SearchableSelect
+            <label className="label">Origin *</label>
+            <select
+              className="input"
               value={originId}
-              onChange={setOriginId}
-              options={origins.map((o) => ({
-                value: String(o.id),
-                label: o.origin_name,
-              }))}
-              placeholder="None"
-              emptyLabel="None"
-            />
+              onChange={(e) => setOriginId(Number(e.target.value))}
+              required
+            >
+              {origins.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.origin_name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || status === 'taken'}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

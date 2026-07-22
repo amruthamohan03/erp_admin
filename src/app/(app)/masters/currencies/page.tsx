@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Coins, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface CurrencyRow {
@@ -54,7 +54,7 @@ export default function CurrenciesPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this currency? Existing references stay intact.')) return;
+    if (!confirm('Disable this currency?')) return;
     const res = await fetch(`/api/v1/currencies/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
@@ -70,10 +70,7 @@ export default function CurrenciesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Coins className="h-6 w-6 text-primary-600" />
-          Currencies
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Currencies</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Currency
         </button>
@@ -85,7 +82,7 @@ export default function CurrenciesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or code..."
+              placeholder="Search currency name, short name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -100,8 +97,8 @@ export default function CurrenciesPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Currency</th>
-                <th>Code</th>
+                <th>Currency Name</th>
+                <th>Short Name</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -128,11 +125,11 @@ export default function CurrenciesPage() {
                     </td>
                     <td className="font-medium">{c.currency_name}</td>
                     <td>
-                      <code className="text-xs text-slate-600">
+                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                         {c.currency_short_name}
-                      </code>
+                      </span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(c)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -262,26 +259,22 @@ function CurrencyFormModal({
           <div>
             <label className="label">Currency Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
               required
-              placeholder="US Dollar"
+              maxLength={100}
             />
           </div>
           <div>
-            <label className="label">Short Code *</label>
+            <label className="label">Short Name *</label>
             <input
-              className="input"
+              className="input uppercase"
               value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
+              onChange={(e) => setShortName(e.target.value.toUpperCase())}
               required
               maxLength={10}
-              placeholder="USD"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              ISO 4217 three-letter code is conventional.
-            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Edit2,
-  Plus,
-  Search,
-  Trash2,
-  UserCheck,
-  X,
-} from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -62,7 +55,7 @@ export default function DoneByPage() {
   }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('Disable this attribution?')) return;
+    if (!confirm('Disable this entry?')) return;
     const res = await fetch(`/api/v1/done-by/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
@@ -78,12 +71,9 @@ export default function DoneByPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <UserCheck className="h-6 w-6 text-primary-600" />
-          Done By
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Done By</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Attribution
+          <Plus className="h-4 w-4" /> New Done By
         </button>
       </div>
 
@@ -93,7 +83,7 @@ export default function DoneByPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search attribution..."
+              placeholder="Search done by name..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -123,7 +113,7 @@ export default function DoneByPage() {
               {!loading && items.length === 0 && (
                 <tr>
                   <td colSpan={3} className="text-center text-slate-500 py-8">
-                    No attributions found
+                    No entries found
                   </td>
                 </tr>
               )}
@@ -220,6 +210,10 @@ function FormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === 'taken') {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -250,7 +244,7 @@ function FormModal({
       <div className="card w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">
-            {isEdit ? 'Edit Attribution' : 'Create Attribution'}
+            {isEdit ? 'Edit Done By' : 'Create Done By'}
           </h2>
           <button
             onClick={onClose}
@@ -266,21 +260,15 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Done By *</label>
+            <label className="label">Done By Name *</label>
             <input
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="MCA Internal"
               maxLength={50}
             />
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-slate-500">
-                Must be unique — picker shows one row per attribution.
-              </p>
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator status={status} message={message} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

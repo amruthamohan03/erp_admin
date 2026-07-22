@@ -1,7 +1,8 @@
 'use client';
 
-import ImportBuilder from '@/components/imports/ImportBuilder';
+import TransactionalPage from '@/components/transactional/TransactionalPage';
 
+// §4.12 page shim — master_page slug 'import'. entityId 'new' = create.
 export default function NewImportPage() {
-  return <ImportBuilder />;
+  return <TransactionalPage slug="import" entityId="new" />;
 }

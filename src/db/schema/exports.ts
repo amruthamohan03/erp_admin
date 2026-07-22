@@ -1,3 +1,18 @@
+// Export Tracking — the export-tracking stage of the consignment lifecycle (§2).
+// Mirrors the legacy `exports_t` MySQL table (ExportController::prepareExportData).
+//
+// Deviations from source (deliberate, same posture as imports.ts):
+//   * `subscriber_id` (FK to clients) is renamed `client_id`.
+//   * `id` is `serial` (int) not `bigint`.
+//   * Business NOT NULL columns (client_id, license_id, mca_ref, weight, …) are
+//     nullable here — the §4.12 runtime INSERTs a new row from a single accordion,
+//     so cross-accordion NOT NULLs can't be met on create. Presence is enforced
+//     per-field via `required` in master_page_accordion_field_t (see the page seed).
+//   * `weight` keeps 3-decimal precision (numeric 15,3) — exports are weighed in MT
+//     to the kilo; fob/amounts stay 2-decimal.
+//
+// TODO(storage): seal/file fields stay varchar; per §4.11 true uploads move to S3
+// + the files table later (same as imports).
 import {
   pgTable,
   serial,
@@ -7,10 +22,11 @@ import {
   date,
   numeric,
   timestamp,
+  type AnyPgColumn,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { sql, relations } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { usersT } from './users';
 import { clientMaster } from './clients';
 import { licenseT } from './license';
@@ -25,33 +41,6 @@ import { feetContainerMaster } from './feetContainerMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
 import { truckStatusMaster } from './truckStatusMaster';
-import { hscodeMaster } from './hscodeMaster';
-import { incotermMaster } from './incotermMaster';
-
-// Export-tracking transactional entity (§2 step 3 — customs exports
-// lifecycle). One row per outbound consignment, from documentation
-// through loading, declaration, dispatch, and arrival at the border /
-// destination. ~70 columns split into six logical sections
-// (Documentation, Weight & Financial, Transport, Seals, Charge
-// Amounts, Dates / Declaration / Logistics / Status). Adapted from
-// main-branch `exports_t`.
-//
-// Adaptations from main — same posture as imports_t:
-//   * licenseId points at this branch's case-runtime `license_t`
-//     (main's flat `licenses_t` doesn't exist here).
-//   * clientId points at `client_master_t`.
-//   * FK columns gain consistent _id suffix (kind_id, regime_id,
-//     truck_status_id, etc.) instead of bare names.
-//   * Audit FK references gain ON DELETE SET NULL (branch convention).
-//
-// `weight` keeps 3-decimal precision (numeric 15,3) — exports are
-// weighed in MT down to the kilo; everything else stays 2-decimal.
-//
-// Charge amount columns (ceec/cgea/occ/lmc/ogefrem) are stored
-// directly rather than derived via tax_rule_master_t — exports use
-// fixed-fee schedules that the operator enters per consignment. If a
-// future export charge becomes formula-driven, route it through the
-// rule engine (§4.2) rather than adding more `*_amount` columns.
 
 export const exportT = pgTable(
   'exports_t',
@@ -59,46 +48,22 @@ export const exportT = pgTable(
     id: serial('id').primaryKey(),
 
     // ── Documentation ──
-    clientId: integer('client_id').references(() => clientMaster.id, {
-      onDelete: 'restrict',
-    }),
-    licenseId: integer('license_id').references(() => licenseT.id, {
-      onDelete: 'restrict',
-    }),
-    kindId: integer('kind_id').references(() => kindMaster.id, {
-      onDelete: 'set null',
-    }),
-    typeOfGoodsId: integer('type_of_goods_id').references(
-      () => typeOfGoodsMaster.id,
-      { onDelete: 'set null' },
-    ),
-    transportModeId: integer('transport_mode_id').references(
-      () => transportModeMaster.id,
-      { onDelete: 'set null' },
-    ),
+    clientId: integer('client_id').references((): AnyPgColumn => clientMaster.id),
+    licenseId: integer('license_id').references((): AnyPgColumn => licenseT.id),
+    kind: integer('kind').references(() => kindMaster.id),
+    typeOfGoods: integer('type_of_goods').references(() => typeOfGoodsMaster.id),
+    transportMode: integer('transport_mode').references(() => transportModeMaster.id),
     mcaRef: varchar('mca_ref', { length: 100 }),
-    currencyId: integer('currency_id').references(() => currencyMaster.id, {
-      onDelete: 'set null',
-    }),
+    currency: integer('currency').references(() => currencyMaster.id),
     buyer: varchar('buyer', { length: 255 }),
-    regimeId: integer('regime_id').references(() => regimeMaster.id, {
-      onDelete: 'set null',
-    }),
-    typesOfClearanceId: integer('types_of_clearance_id').references(
-      () => clearanceMaster.id,
-      { onDelete: 'set null' },
-    ),
+    regime: integer('regime').references(() => regimeMaster.id),
+    typesOfClearance: integer('types_of_clearance').references(() => clearanceMaster.id),
     invoice: varchar('invoice', { length: 100 }),
     poRef: varchar('po_ref', { length: 100 }),
+    // Source stores bp_no as varchar(100) (may carry formatting / leading zeros).
     bpNo: varchar('bp_no', { length: 100 }),
-    hscodeId: integer('hscode_id').references(() => hscodeMaster.id, {
-      onDelete: 'set null',
-    }),
-    incotermId: integer('incoterm_id').references(() => incotermMaster.id, {
-      onDelete: 'set null',
-    }),
 
-    // ── Weight & Financial ──
+    // ── Weight / Financial ──
     weight: numeric('weight', { precision: 10, scale: 3 }),
     fob: numeric('fob', { precision: 15, scale: 2 }),
     numberOfBags: integer('number_of_bags'),
@@ -108,35 +73,26 @@ export const exportT = pgTable(
     horse: varchar('horse', { length: 50 }),
     trailer1: varchar('trailer_1', { length: 50 }),
     trailer2: varchar('trailer_2', { length: 50 }),
-    feetContainerId: integer('feet_container_id').references(
-      () => feetContainerMaster.id,
-      { onDelete: 'set null' },
-    ),
+    feetContainer: integer('feet_container').references(() => feetContainerMaster.id),
     wagonRef: varchar('wagon_ref', { length: 50 }),
     container: varchar('container', { length: 50 }),
     transporter: varchar('transporter', { length: 255 }),
-    siteOfLoadingId: integer('site_of_loading_id').references(
-      () => transitPointMaster.id,
-      { onDelete: 'set null' },
-    ),
+    siteOfLoadingId: integer('site_of_loading_id').references((): AnyPgColumn => transitPointMaster.id),
     destination: varchar('destination', { length: 255 }),
-    exitPointId: integer('exit_point_id').references(
-      () => transitPointMaster.id,
-      { onDelete: 'set null' },
-    ),
+    exitPointId: integer('exit_point_id').references((): AnyPgColumn => transitPointMaster.id),
 
     // ── Seals ──
     dgdaSealNo: varchar('dgda_seal_no', { length: 255 }),
     numberOfSeals: integer('number_of_seals'),
 
-    // ── Charge Amounts ──
+    // ── Charge amounts (config-driven derive, see export charge seed) ──
     ceecAmount: numeric('ceec_amount', { precision: 10, scale: 2 }),
     cgeaAmount: numeric('cgea_amount', { precision: 10, scale: 2 }),
     occAmount: numeric('occ_amount', { precision: 10, scale: 2 }),
     lmcAmount: numeric('lmc_amount', { precision: 10, scale: 2 }),
     ogefremAmount: numeric('ogefrem_amount', { precision: 10, scale: 2 }),
 
-    // ── Dates / Loading & Documentation ──
+    // ── Dates: loading / documentation ──
     loadingDate: date('loading_date'),
     pvDate: date('pv_date'),
     bpDate: date('bp_date'),
@@ -152,10 +108,7 @@ export const exportT = pgTable(
     cgeaDocRef: varchar('cgea_doc_ref', { length: 100 }),
     seguesRcvRef: varchar('segues_rcv_ref', { length: 100 }),
     seguesPaymentDate: date('segues_payment_date'),
-    documentStatusId: integer('document_status_id').references(
-      () => documentStatusMaster.id,
-      { onDelete: 'set null' },
-    ),
+    documentStatus: integer('document_status').references(() => documentStatusMaster.id),
     customsClearingCode: varchar('customs_clearing_code', { length: 100 }),
     dgdaInDate: date('dgda_in_date'),
     declarationReference: varchar('declaration_reference', { length: 100 }),
@@ -176,10 +129,7 @@ export const exportT = pgTable(
     borderArrivalDate: date('border_arrival_date'),
     exitDrcDate: date('exit_drc_date'),
     endOfFormalitiesDate: date('end_of_formalities_date'),
-    truckStatusId: integer('truck_status_id').references(
-      () => truckStatusMaster.id,
-      { onDelete: 'set null' },
-    ),
+    truckStatus: integer('truck_status').references(() => truckStatusMaster.id),
     lmcId: varchar('lmc_id', { length: 100 }),
     ogefremInvRef: varchar('ogefrem_inv_ref', { length: 100 }),
     loadingToDispatchDate: date('loading_to_dispatch_date'),
@@ -189,98 +139,28 @@ export const exportT = pgTable(
     archivedDate: date('archived_date'),
 
     // ── Status & Remarks ──
-    clearingStatusId: integer('clearing_status_id').references(
-      () => clearingStatusMaster.id,
-      { onDelete: 'set null' },
-    ),
+    clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
+    // JSON array of remarks (kept as text to mirror the source column type).
     remarks: text('remarks'),
 
     display: varchar('display', { length: 1 }).notNull().default('Y'),
-    createdBy: integer('created_by').references(() => usersT.id, {
-      onDelete: 'set null',
-    }),
-    updatedBy: integer('updated_by').references(() => usersT.id, {
-      onDelete: 'set null',
-    }),
-    createdAt: timestamp('created_at', { withTimezone: false })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: false })
-      .defaultNow()
-      .notNull(),
+    createdBy: integer('created_by').references((): AnyPgColumn => usersT.id),
+    updatedBy: integer('updated_by').references((): AnyPgColumn => usersT.id),
+    createdAt: timestamp('created_at', { withTimezone: false }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: false }).defaultNow().notNull(),
   },
   (t) => ({
+    // Partial unique on mca_ref (allow blank/in-progress rows; enforce real refs).
     mcaRefUq: uniqueIndex('uq_exports_t_mca_ref')
       .on(t.mcaRef)
       .where(sql`${t.mcaRef} IS NOT NULL AND ${t.mcaRef} <> ''`),
     clientIdx: index('idx_exports_t_client').on(t.clientId),
     licenseIdx: index('idx_exports_t_license').on(t.licenseId),
-    clearingStatusIdx: index('idx_exports_t_clearing_status').on(
-      t.clearingStatusId,
-    ),
+    clearingStatusIdx: index('idx_exports_t_clearing_status').on(t.clearingStatus),
     loadingDateIdx: index('idx_exports_t_loading_date').on(t.loadingDate),
     displayIdx: index('idx_exports_t_display').on(t.display),
   }),
 );
-
-export const exportRelations = relations(exportT, ({ one }) => ({
-  client: one(clientMaster, {
-    fields: [exportT.clientId],
-    references: [clientMaster.id],
-  }),
-  license: one(licenseT, {
-    fields: [exportT.licenseId],
-    references: [licenseT.id],
-  }),
-  kind: one(kindMaster, {
-    fields: [exportT.kindId],
-    references: [kindMaster.id],
-  }),
-  typeOfGoods: one(typeOfGoodsMaster, {
-    fields: [exportT.typeOfGoodsId],
-    references: [typeOfGoodsMaster.id],
-  }),
-  transportMode: one(transportModeMaster, {
-    fields: [exportT.transportModeId],
-    references: [transportModeMaster.id],
-  }),
-  currency: one(currencyMaster, {
-    fields: [exportT.currencyId],
-    references: [currencyMaster.id],
-  }),
-  regime: one(regimeMaster, {
-    fields: [exportT.regimeId],
-    references: [regimeMaster.id],
-  }),
-  clearance: one(clearanceMaster, {
-    fields: [exportT.typesOfClearanceId],
-    references: [clearanceMaster.id],
-  }),
-  feetContainer: one(feetContainerMaster, {
-    fields: [exportT.feetContainerId],
-    references: [feetContainerMaster.id],
-  }),
-  documentStatus: one(documentStatusMaster, {
-    fields: [exportT.documentStatusId],
-    references: [documentStatusMaster.id],
-  }),
-  truckStatus: one(truckStatusMaster, {
-    fields: [exportT.truckStatusId],
-    references: [truckStatusMaster.id],
-  }),
-  clearingStatus: one(clearingStatusMaster, {
-    fields: [exportT.clearingStatusId],
-    references: [clearingStatusMaster.id],
-  }),
-  hscode: one(hscodeMaster, {
-    fields: [exportT.hscodeId],
-    references: [hscodeMaster.id],
-  }),
-  incoterm: one(incotermMaster, {
-    fields: [exportT.incotermId],
-    references: [incotermMaster.id],
-  }),
-}));
 
 export type ExportRow = typeof exportT.$inferSelect;
 export type ExportInsert = typeof exportT.$inferInsert;

@@ -1,9 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import {
-  clientMaster,
-  licenseT,
-  licenseTypeMaster,
-} from '@/db/schema';
+import { clientMaster, licenseT } from '@/db/schema';
 import type { Database, Transaction } from '@/lib/db';
 
 // Sample licenses spread across the workflow states so
@@ -170,40 +166,44 @@ const SAMPLES: SampleLicense[] = [
   },
 ];
 
+// TODO(parity): main's licenses model dropped the old workflow `state`,
+// `license_type_id`, `currency`, `approved_at` and `notes` columns. The
+// sample fixtures below are remapped to the nearest new columns
+// (state → status enum, amount → fob_declared, issue/expiry → the new
+// applied/expiry dates). License-type + currency-code + notes are no longer
+// stored here.
+const STATE_TO_STATUS: Record<SampleLicense['state'], string> = {
+  issued: 'ACTIVE',
+  approved: 'MODIFIED',
+  submitted: 'INACTIVE',
+  draft: 'INACTIVE',
+  cancelled: 'ANNULATED',
+};
+
 export async function seedSampleLicenses(
   db: Database | Transaction,
 ): Promise<void> {
   const clientRows = await db
-    .select({ id: clientMaster.id, code: clientMaster.clientCode })
+    .select({ id: clientMaster.id, code: clientMaster.shortName })
     .from(clientMaster);
   const codeToClientId = new Map(clientRows.map((r) => [r.code, r.id]));
 
-  const typeRows = await db
-    .select({ id: licenseTypeMaster.id, code: licenseTypeMaster.typeCode })
-    .from(licenseTypeMaster);
-  const codeToTypeId = new Map(typeRows.map((r) => [r.code, r.id]));
-
   for (const s of SAMPLES) {
     const clientId = codeToClientId.get(s.client_code);
-    const typeId = codeToTypeId.get(s.type_code);
-    if (!clientId || !typeId) continue;
+    if (!clientId) continue;
 
     const [existing] = await db
       .select({ id: licenseT.id })
       .from(licenseT)
-      .where(eq(licenseT.licenseNo, s.license_no))
+      .where(eq(licenseT.licenseNumber, s.license_no))
       .limit(1);
 
     const values = {
       clientId,
-      licenseTypeId: typeId,
-      state: s.state,
-      amount: s.amount,
-      currency: s.currency,
-      issueDate: s.issue_date,
-      expiryDate: s.expiry_date,
-      approvedAt: s.approved_at ? new Date(s.approved_at) : null,
-      notes: s.notes,
+      status: STATE_TO_STATUS[s.state],
+      fobDeclared: s.amount,
+      licenseAppliedDate: s.issue_date,
+      licenseExpiryDate: s.expiry_date,
     };
 
     if (existing) {
@@ -213,7 +213,7 @@ export async function seedSampleLicenses(
         .where(eq(licenseT.id, existing.id));
     } else {
       await db.insert(licenseT).values({
-        licenseNo: s.license_no,
+        licenseNumber: s.license_no,
         ...values,
       });
     }

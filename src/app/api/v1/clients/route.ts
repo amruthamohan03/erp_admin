@@ -31,11 +31,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ? and(
         eq(clientMaster.display, 'Y'),
         or(
-          ilike(clientMaster.clientCode, like),
-          ilike(clientMaster.name, like),
-          ilike(clientMaster.legalName, like),
+          ilike(clientMaster.companyName, like),
+          ilike(clientMaster.shortName, like),
           ilike(clientMaster.email, like),
-          ilike(clientMaster.taxId, like),
+          ilike(clientMaster.contactPerson, like),
+          ilike(clientMaster.phone, like),
         ),
       )
     : eq(clientMaster.display, 'Y');
@@ -48,14 +48,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const items = await db
     .select({
       id: clientMaster.id,
-      client_code: clientMaster.clientCode,
-      name: clientMaster.name,
-      legal_name: clientMaster.legalName,
+      company_name: clientMaster.companyName,
+      short_name: clientMaster.shortName,
       client_type: clientMaster.clientType,
+      contact_person: clientMaster.contactPerson,
       email: clientMaster.email,
       phone: clientMaster.phone,
       address: clientMaster.address,
-      tax_id: clientMaster.taxId,
       display: clientMaster.display,
       created_at: clientMaster.createdAt,
       updated_at: clientMaster.updatedAt,
@@ -93,8 +92,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       })
       .returning({
         id: clientMaster.id,
-        client_code: clientMaster.clientCode,
-        name: clientMaster.name,
+        company_name: clientMaster.companyName,
+        short_name: clientMaster.shortName,
         display: clientMaster.display,
         created_at: clientMaster.createdAt,
       });
@@ -103,7 +102,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   } catch (err: unknown) {
     const code = (err as { code?: string }).code;
     if (code === '23505') {
-      throw new ConflictError('client_code already exists');
+      throw new ConflictError('short_name already exists');
     }
     throw new BadRequestError('Failed to create client');
   }

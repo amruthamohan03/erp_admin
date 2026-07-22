@@ -1,24 +1,14 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { CaseDetailPage } from '@/components/case/CaseDetailPage';
+import { use } from 'react';
+import TransactionalPage from '@/components/transactional/TransactionalPage';
 
-export default function LicenseDetailPage() {
-  const params = useParams<{ id: string }>();
-  return (
-    <CaseDetailPage
-      templateKey="license_default"
-      caseId={params?.id}
-      titlePrefix="License #"
-      subtitle={
-        <>
-          Template <code>license_default</code> · target table{' '}
-          <code>license_t</code>
-        </>
-      }
-      backHref="/licenses"
-      newHref="/licenses/new"
-      exportHrefTemplate="/api/v1/licenses/{id}/export"
-    />
-  );
+// §4.12 page shim — master_page slug 'license'. `[id]` is the license_t row id.
+export default function LicenseDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  return <TransactionalPage slug="license" entityId={id} />;
 }

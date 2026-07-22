@@ -58,8 +58,6 @@ export const importBodySchema = z.object({
   pre_alert_date: dateOnly,
   invoice: shortText(100),
   commodity_id: intIdNullable,
-  hscode_id: intIdNullable,
-  incoterm_id: intIdNullable,
   po_ref: shortText(100),
 
   // ── Financial ──
@@ -86,7 +84,6 @@ export const importBodySchema = z.object({
   clearing_based_on: shortText(50),
   ad_date: dateOnly,
   inspection_reports: shortText(100),
-  inspection_reports_file_id: intIdNullable,
   archive_reference: shortText(100),
   audited_date: dateOnly,
   archived_date: dateOnly,
@@ -163,6 +160,10 @@ export const importListQuerySchema = z.object({
   clearing_status_id: z.coerce.number().int().positive().optional(),
   document_status_id: z.coerce.number().int().positive().optional(),
   regime_id: z.coerce.number().int().positive().optional(),
+  // Advanced-filter-bar params (ported from main's /import list).
+  type_of_goods_id: z.coerce.number().int().positive().optional(),
+  entry_point_id: z.coerce.number().int().positive().optional(),
+  transport_mode_id: z.coerce.number().int().positive().optional(),
   pre_alert_from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/u)

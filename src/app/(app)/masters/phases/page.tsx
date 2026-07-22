@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Layers3, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -72,10 +72,7 @@ export default function PhasesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Layers3 className="h-6 w-6 text-primary-600" />
-          Phases
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Phases</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Phase
         </button>
@@ -87,7 +84,7 @@ export default function PhasesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search name or code..."
+              placeholder="Search phase name or code..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -102,7 +99,7 @@ export default function PhasesPage() {
             <thead>
               <tr>
                 <th className="w-16">#</th>
-                <th>Phase Name</th>
+                <th>Phase</th>
                 <th>Code</th>
                 <th className="text-right">Actions</th>
               </tr>
@@ -129,12 +126,8 @@ export default function PhasesPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-medium">{r.phase_name}</td>
-                    <td>
-                      <code className="text-xs text-slate-600">
-                        {r.phase_code}
-                      </code>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="font-mono text-xs">{r.phase_code}</td>
+                    <td className="text-right">
                       <button
                         onClick={() => setEditing(r)}
                         className="text-slate-500 hover:text-primary-600 p-1"
@@ -210,15 +203,27 @@ function FormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const checkValue = isEdit && name === row?.phase_name ? '' : name;
-  const { status, message } = useUniqueCheck({
+  const nameCheckValue = isEdit && name === row?.phase_name ? '' : name;
+  const uniqueName = useUniqueCheck({
     resource: 'phases',
-    value: checkValue,
+    value: nameCheckValue,
+    excludeId: row?.id ?? null,
+  });
+  const codeCheckValue = isEdit && code === row?.phase_code ? '' : code;
+  const uniqueCode = useUniqueCheck({
+    resource: 'phase-codes',
+    value: codeCheckValue,
     excludeId: row?.id ?? null,
   });
 
+  const blocked = uniqueName.status === 'taken' || uniqueCode.status === 'taken';
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (blocked) {
+      setError('Already exists');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -271,29 +276,36 @@ function FormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Customs Clearance"
               maxLength={150}
             />
-            <div className="mt-1 text-right">
-              <UniquenessIndicator status={status} message={message} />
-            </div>
+            <UniquenessIndicator
+              status={uniqueName.status}
+              message={uniqueName.message}
+            />
           </div>
           <div>
             <label className="label">Phase Code *</label>
             <input
-              className="input font-mono"
+              className="input font-mono uppercase"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
               required
-              placeholder="CUSTOMS"
               maxLength={50}
+            />
+            <UniquenessIndicator
+              status={uniqueCode.status}
+              message={uniqueCode.message}
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button type="submit" disabled={saving || status === 'taken'} className="btn-primary">
+            <button
+              type="submit"
+              disabled={saving || blocked}
+              className="btn-primary"
+            >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>

@@ -15,8 +15,6 @@ import {
   documentStatusMaster,
   clearingStatusMaster,
   truckStatusMaster,
-  hscodeMaster,
-  incotermMaster,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
@@ -47,29 +45,25 @@ export const GET = withErrorHandler(
         id: exportT.id,
         // Documentation
         client_id: exportT.clientId,
-        client_name: clientMaster.name,
+        client_name: clientMaster.companyName,
         license_id: exportT.licenseId,
-        license_no: licenseT.licenseNo,
-        kind_id: exportT.kindId,
+        license_no: licenseT.licenseNumber,
+        kind_id: exportT.kind,
         kind_name: kindMaster.kindName,
-        type_of_goods_id: exportT.typeOfGoodsId,
+        type_of_goods_id: exportT.typeOfGoods,
         type_of_goods_name: typeOfGoodsMaster.goodsType,
-        transport_mode_id: exportT.transportModeId,
+        transport_mode_id: exportT.transportMode,
         transport_mode_name: transportModeMaster.transportModeName,
         mca_ref: exportT.mcaRef,
-        currency_id: exportT.currencyId,
+        currency_id: exportT.currency,
         buyer: exportT.buyer,
-        regime_id: exportT.regimeId,
+        regime_id: exportT.regime,
         regime_name: regimeMaster.regimeName,
-        types_of_clearance_id: exportT.typesOfClearanceId,
+        types_of_clearance_id: exportT.typesOfClearance,
         types_of_clearance_name: clearanceMaster.clearanceName,
         invoice: exportT.invoice,
         po_ref: exportT.poRef,
         bp_no: exportT.bpNo,
-        hscode_id: exportT.hscodeId,
-        hscode_number: hscodeMaster.hscodeNumber,
-        incoterm_id: exportT.incotermId,
-        incoterm_short_name: incotermMaster.incotermShortName,
         // Weight / financial
         weight: exportT.weight,
         fob: exportT.fob,
@@ -79,7 +73,7 @@ export const GET = withErrorHandler(
         horse: exportT.horse,
         trailer_1: exportT.trailer1,
         trailer_2: exportT.trailer2,
-        feet_container_id: exportT.feetContainerId,
+        feet_container_id: exportT.feetContainer,
         feet_container_size: feetContainerMaster.feetContainerSize,
         wagon_ref: exportT.wagonRef,
         container: exportT.container,
@@ -112,7 +106,7 @@ export const GET = withErrorHandler(
         cgea_doc_ref: exportT.cgeaDocRef,
         segues_rcv_ref: exportT.seguesRcvRef,
         segues_payment_date: exportT.seguesPaymentDate,
-        document_status_id: exportT.documentStatusId,
+        document_status_id: exportT.documentStatus,
         document_status_name: documentStatusMaster.documentStatus,
         customs_clearing_code: exportT.customsClearingCode,
         dgda_in_date: exportT.dgdaInDate,
@@ -133,7 +127,7 @@ export const GET = withErrorHandler(
         border_arrival_date: exportT.borderArrivalDate,
         exit_drc_date: exportT.exitDrcDate,
         end_of_formalities_date: exportT.endOfFormalitiesDate,
-        truck_status_id: exportT.truckStatusId,
+        truck_status_id: exportT.truckStatus,
         truck_status_name: truckStatusMaster.truckStatus,
         lmc_id: exportT.lmcId,
         ogefrem_inv_ref: exportT.ogefremInvRef,
@@ -143,7 +137,7 @@ export const GET = withErrorHandler(
         audited_date: exportT.auditedDate,
         archived_date: exportT.archivedDate,
         // Status & remarks
-        clearing_status_id: exportT.clearingStatusId,
+        clearing_status_id: exportT.clearingStatus,
         clearing_status_name: clearingStatusMaster.clearingStatus,
         remarks: exportT.remarks,
         display: exportT.display,
@@ -153,23 +147,23 @@ export const GET = withErrorHandler(
       .from(exportT)
       .leftJoin(clientMaster, eq(clientMaster.id, exportT.clientId))
       .leftJoin(licenseT, eq(licenseT.id, exportT.licenseId))
-      .leftJoin(kindMaster, eq(kindMaster.id, exportT.kindId))
+      .leftJoin(kindMaster, eq(kindMaster.id, exportT.kind))
       .leftJoin(
         typeOfGoodsMaster,
-        eq(typeOfGoodsMaster.id, exportT.typeOfGoodsId),
+        eq(typeOfGoodsMaster.id, exportT.typeOfGoods),
       )
       .leftJoin(
         transportModeMaster,
-        eq(transportModeMaster.id, exportT.transportModeId),
+        eq(transportModeMaster.id, exportT.transportMode),
       )
-      .leftJoin(regimeMaster, eq(regimeMaster.id, exportT.regimeId))
+      .leftJoin(regimeMaster, eq(regimeMaster.id, exportT.regime))
       .leftJoin(
         clearanceMaster,
-        eq(clearanceMaster.id, exportT.typesOfClearanceId),
+        eq(clearanceMaster.id, exportT.typesOfClearance),
       )
       .leftJoin(
         feetContainerMaster,
-        eq(feetContainerMaster.id, exportT.feetContainerId),
+        eq(feetContainerMaster.id, exportT.feetContainer),
       )
       .leftJoin(
         transitPointMaster,
@@ -177,18 +171,16 @@ export const GET = withErrorHandler(
       )
       .leftJoin(
         documentStatusMaster,
-        eq(documentStatusMaster.id, exportT.documentStatusId),
+        eq(documentStatusMaster.id, exportT.documentStatus),
       )
       .leftJoin(
         truckStatusMaster,
-        eq(truckStatusMaster.id, exportT.truckStatusId),
+        eq(truckStatusMaster.id, exportT.truckStatus),
       )
       .leftJoin(
         clearingStatusMaster,
-        eq(clearingStatusMaster.id, exportT.clearingStatusId),
+        eq(clearingStatusMaster.id, exportT.clearingStatus),
       )
-      .leftJoin(hscodeMaster, eq(hscodeMaster.id, exportT.hscodeId))
-      .leftJoin(incotermMaster, eq(incotermMaster.id, exportT.incotermId))
       .where(eq(exportT.id, id))
       .limit(1);
 
