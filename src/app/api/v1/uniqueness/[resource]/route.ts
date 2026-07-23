@@ -38,6 +38,7 @@ import {
   quotationCategoryMaster,
   invoiceBankMaster,
   clientMaster,
+  masterPage,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError } from '@/lib/errors';
@@ -135,6 +136,13 @@ const RESOURCES: Record<string, ResourceConfig> = {
     nameColumn: clearanceMaster.clearanceName,
     idColumn: clearanceMaster.id,
     displayColumn: clearanceMaster.display,
+  },
+  // §4.12 page-builder — slug must be unique across all pages.
+  'master-pages': {
+    table: masterPage,
+    nameColumn: masterPage.slug,
+    idColumn: masterPage.id,
+    displayColumn: masterPage.display,
   },
   'sub-offices': {
     table: subOfficeMaster,

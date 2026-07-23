@@ -67,6 +67,13 @@ const PARENTS: ParentSpec[] = [
   { name: 'Invoice Management', order: 10, icon: 'ti ti-invoice' },
   { name: 'Seal Tracker', order: 11, icon: 'ti ti-lock' },
   { name: 'Advance Payment', order: 82, icon: 'ti ti-wallet' },
+  // Admin for the metadata-driven transaction pages (master_page_t +
+  // accordions/fields/role-grants). On main this lived as a submenu
+  // under Masters; the 2-level model here surfaces it as its own
+  // top-level group. The /masters/pages page itself is not yet ported
+  // to this branch — the links 404 until it ships (kept as real URLs,
+  // not '#', so they resolve the moment the page lands).
+  { name: 'Transactional Pages', order: 93, icon: 'ti ti-forms' },
   { name: 'DGI Reports', order: 94, icon: 'ti ti-report' },
 ];
 
@@ -360,6 +367,14 @@ const CHILDREN: ChildSpec[] = [
     url: '#',
     note: 'TODO(port): OGEFREM advance payment flow.',
   },
+
+  // ── Transactional Pages (page-builder admin, main menu_id=164) ──
+  // Mirrors main's "Transactional Pages" group. Real URLs kept so they
+  // work once /masters/pages is ported; they 404 in the meantime.
+  { parent: 'Transactional Pages', name: 'All Pages', order: 1, url: '/masters/pages' },
+  { parent: 'Transactional Pages', name: 'Accordions', order: 2, url: '/masters/pages?tab=accordions' },
+  { parent: 'Transactional Pages', name: 'Fields', order: 3, url: '/masters/pages?tab=fields' },
+  { parent: 'Transactional Pages', name: 'Role Grants', order: 4, url: '/masters/pages?tab=roles' },
 
   // ── DGI Reports (original menu_id=94) ───────────────────────────
   // Three specialised DGI reports; our /reports module covers the
