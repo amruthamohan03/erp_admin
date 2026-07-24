@@ -28,6 +28,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import RecordViewModal from '@/components/transactional/RecordViewModal';
 
 interface ImportRow {
   id: number;
@@ -55,50 +56,6 @@ interface DashboardCard {
 // (from /api/v1/imports/[id]). Curated subset — list columns plus the
 // milestone dates/refs that back the dashboard cards. Keys mirror the
 // restructure [id] GET select (e.g. `license_no`, `type_of_goods_name`).
-interface ViewImport {
-  id: number;
-  mca_ref: string | null;
-  client_name: string | null;
-  license_no: string | null;
-  kind_name: string | null;
-  type_of_goods_name: string | null;
-  transport_mode_name: string | null;
-  regime_name: string | null;
-  types_of_clearance_name: string | null;
-  commodity_name: string | null;
-  supplier: string | null;
-  po_ref: string | null;
-  invoice: string | null;
-  license_invoice_number: string | null;
-  pre_alert_date: string | null;
-  fret: string | null;
-  other_charges: string | null;
-  weight: string | null;
-  m3: string | null;
-  fob: string | null;
-  insurance_date: string | null;
-  insurance_amount: string | null;
-  insurance_reference: string | null;
-  crf_reference: string | null;
-  crf_received_date: string | null;
-  ad_date: string | null;
-  audited_date: string | null;
-  archived_date: string | null;
-  entry_point_name: string | null;
-  dgda_in_date: string | null;
-  declaration_reference: string | null;
-  customs_clearance_code: string | null;
-  dgda_out_date: string | null;
-  document_status_name: string | null;
-  liquidation_reference: string | null;
-  liquidation_date: string | null;
-  liquidation_amount: string | null;
-  quittance_reference: string | null;
-  quittance_date: string | null;
-  dispatch_deliver_date: string | null;
-  clearing_status_name: string | null;
-}
-
 const COLOR_GRADIENTS: Record<string, string> = {
   primary: 'from-indigo-500 to-purple-600',
   emerald: 'from-emerald-500 to-teal-500',
@@ -178,7 +135,9 @@ async function fetchOptions(
   labelKey: string,
 ): Promise<Option[]> {
   try {
-    const r = await fetch(`/api/v1/${source}?pageSize=1000`);
+    // pageSize=100 is the universal cap the list-query schemas accept; a larger
+    // value throws Zod validation (422) and leaves the dropdown empty.
+    const r = await fetch(`/api/v1/${source}?pageSize=100`);
     const j = await r.json();
     const list: Array<Record<string, unknown>> = Array.isArray(j?.data)
       ? j.data
@@ -225,10 +184,8 @@ export default function ImportsListPage() {
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
 
-  // View-details popup (per-row eye action).
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewData, setViewData] = useState<ViewImport | null>(null);
-  const [viewLoading, setViewLoading] = useState(false);
+  // View-details modal (per-row eye action) — null when closed, else row id.
+  const [viewId, setViewId] = useState<number | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -239,28 +196,13 @@ export default function ImportsListPage() {
   // CSV/XLSX exports: a plain navigation the server answers with an
   // attachment. export-all carries the current advanced filters + search.
   function exportOne(id: number): void {
-    window.location.href = `/api/v1/imports/${id}/export`;
+    window.location.assign(`/api/v1/imports/${id}/export`);
   }
   function exportAll(): void {
     const params = buildParams(applied);
     if (search.trim()) params.set('q', search.trim());
     const qs = params.toString();
-    window.location.href = `/api/v1/imports/export${qs ? `?${qs}` : ''}`;
-  }
-
-  async function openView(id: number): Promise<void> {
-    setViewOpen(true);
-    setViewLoading(true);
-    setViewData(null);
-    try {
-      const res = await fetch(`/api/v1/imports/${id}`);
-      const json = await res.json();
-      if (json.ok) setViewData(json.data);
-    } catch {
-      // ignore — modal shows nothing and can be closed
-    } finally {
-      setViewLoading(false);
-    }
+    window.location.assign(`/api/v1/imports/export${qs ? `?${qs}` : ''}`);
   }
 
   const load = useCallback(async () => {
@@ -320,7 +262,9 @@ export default function ImportsListPage() {
     let cancelled = false;
     (async () => {
       const [c, g, e, t] = await Promise.all([
-        fetchOptions('clients', 'name'),
+        // clients returns company_name/short_name (no `name`); label by
+        // company_name so the picker shows the client, not the raw id.
+        fetchOptions('clients', 'company_name'),
         fetchOptions('goods-types', 'goods_type'),
         fetchOptions('transit-points', 'transit_point_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),
@@ -672,7 +616,7 @@ export default function ImportsListPage() {
                       <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
                         <button
                           type="button"
-                          onClick={() => openView(r.id)}
+                          onClick={() => setViewId(r.id)}
                           title="View details"
                           className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
                         >
@@ -716,164 +660,14 @@ export default function ImportsListPage() {
         />
       </div>
 
-      {/* ---- View details popup (per-row eye action) ---- */}
-      {viewOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto"
-          onClick={() => setViewOpen(false)}
-        >
-          <div
-            className="card w-full max-w-2xl my-auto overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className={`flex items-center justify-between px-5 py-4 text-white bg-gradient-to-br ${COLOR_GRADIENTS.primary}`}
-            >
-              <h2 className="font-semibold flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Import Details
-                {viewData?.mca_ref && (
-                  <span className="ml-1 font-mono text-sm opacity-90">
-                    {viewData.mca_ref}
-                  </span>
-                )}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setViewOpen(false)}
-                className="rounded-md p-1 hover:bg-white/20 transition"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto p-5">
-              {viewLoading && (
-                <div className="py-10 text-center text-sm text-slate-500">
-                  Loading…
-                </div>
-              )}
-              {!viewLoading && !viewData && (
-                <div className="py-10 text-center text-sm text-slate-500">
-                  Import not found.
-                </div>
-              )}
-              {!viewLoading && viewData && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                  {(
-                    [
-                      ['MCA Ref', viewData.mca_ref],
-                      ['Clearing Status', viewData.clearing_status_name],
-                      ['Client', viewData.client_name],
-                      ['License Number', viewData.license_no],
-                      ['Kind', viewData.kind_name],
-                      ['Type of Goods', viewData.type_of_goods_name],
-                      ['Commodity', viewData.commodity_name],
-                      ['Transport Mode', viewData.transport_mode_name],
-                      ['Regime', viewData.regime_name],
-                      ['Type of Clearance', viewData.types_of_clearance_name],
-                      ['Supplier', viewData.supplier],
-                      ['PO Ref', viewData.po_ref],
-                      ['Invoice', viewData.invoice],
-                      ['License Invoice #', viewData.license_invoice_number],
-                      ['Pre-Alert Date', fmtDate(viewData.pre_alert_date)],
-                      [
-                        'Weight',
-                        viewData.weight ? `${fmtNum(viewData.weight)} KG` : null,
-                      ],
-                      ['M3', viewData.m3],
-                      ['FOB', viewData.fob ? fmtNum(viewData.fob) : null],
-                      ['Freight', viewData.fret ? fmtNum(viewData.fret) : null],
-                      [
-                        'Other Charges',
-                        viewData.other_charges
-                          ? fmtNum(viewData.other_charges)
-                          : null,
-                      ],
-                      ['Insurance Ref', viewData.insurance_reference],
-                      ['Insurance Date', fmtDate(viewData.insurance_date)],
-                      [
-                        'Insurance Amount',
-                        viewData.insurance_amount
-                          ? fmtNum(viewData.insurance_amount)
-                          : null,
-                      ],
-                      ['CRF Reference', viewData.crf_reference],
-                      ['CRF Received', fmtDate(viewData.crf_received_date)],
-                      ['AD Date', fmtDate(viewData.ad_date)],
-                      ['Audited Date', fmtDate(viewData.audited_date)],
-                      ['Archived Date', fmtDate(viewData.archived_date)],
-                      ['Entry Point', viewData.entry_point_name],
-                      ['DGDA In Date', fmtDate(viewData.dgda_in_date)],
-                      ['Declaration Ref', viewData.declaration_reference],
-                      [
-                        'Customs Clearance Code',
-                        viewData.customs_clearance_code,
-                      ],
-                      ['DGDA Out Date', fmtDate(viewData.dgda_out_date)],
-                      ['Document Status', viewData.document_status_name],
-                      ['Liquidation Ref', viewData.liquidation_reference],
-                      ['Liquidation Date', fmtDate(viewData.liquidation_date)],
-                      [
-                        'Liquidation Amount',
-                        viewData.liquidation_amount
-                          ? fmtNum(viewData.liquidation_amount)
-                          : null,
-                      ],
-                      ['Quittance Ref', viewData.quittance_reference],
-                      ['Quittance Date', fmtDate(viewData.quittance_date)],
-                      [
-                        'Dispatch/Deliver Date',
-                        fmtDate(viewData.dispatch_deliver_date),
-                      ],
-                    ] as Array<[string, string | null | undefined]>
-                  ).map(([label, value]) => (
-                    <div key={label} className="border-b border-slate-100 pb-2">
-                      <div className="text-[11px] uppercase tracking-wide text-primary-600 font-semibold">
-                        {label}
-                      </div>
-                      <div className="text-sm text-slate-800">
-                        {value !== null && value !== undefined && value !== '' ? (
-                          value
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              {viewData && (
-                <Link
-                  href={`/imports/${viewData.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 text-sm font-medium transition"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit
-                </Link>
-              )}
-              {viewData && (
-                <button
-                  type="button"
-                  onClick={() => exportOne(viewData.id)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
-                >
-                  <FileSpreadsheet className="h-4 w-4" /> Export
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setViewOpen(false)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-500 hover:bg-slate-600 text-white px-3 py-1.5 text-sm font-medium transition"
-              >
-                <X className="h-4 w-4" /> Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {viewId !== null && (
+        <RecordViewModal
+          slug="import"
+          entityId={viewId}
+          editHref={`/imports/${viewId}`}
+          onExport={() => exportOne(viewId)}
+          onClose={() => setViewId(null)}
+        />
       )}
     </>
   );

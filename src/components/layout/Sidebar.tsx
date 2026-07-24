@@ -71,19 +71,24 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex min-h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-6 py-5">
-        <h2 className="text-lg font-semibold">ERP Admin Panel</h2>
-        <p className="mt-0.5 text-xs opacity-70">Management Console</p>
+    <aside className="flex min-h-screen w-64 flex-col text-white shadow-xl bg-gradient-to-b from-indigo-950 via-violet-950 to-slate-950">
+      <div className="flex items-center gap-3 border-b border-white/15 px-6 py-5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30">
+          <i className="ti ti-layout-grid text-lg" />
+        </span>
+        <div className="leading-tight">
+          <h2 className="text-base font-semibold tracking-wide">ERP Admin Panel</h2>
+          <p className="mt-0.5 text-xs text-white/60">Management Console</p>
+        </div>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {loading && (
-          <div className="text-xs text-sidebar-foreground/50 px-3 py-2">Loading menu...</div>
+          <div className="text-xs text-white/50 px-3 py-2">Loading menu...</div>
         )}
 
         {!loading && menus.length === 0 && (
-          <div className="text-xs text-sidebar-foreground/50 px-3 py-2">No menus available</div>
+          <div className="text-xs text-white/50 px-3 py-2">No menus available</div>
         )}
 
         {!loading && menus.map((item) => {
@@ -102,8 +107,8 @@ export default function Sidebar() {
                 className={clsx(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                   active
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
+                    ? 'bg-white text-indigo-950 font-semibold shadow-sm'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
@@ -122,8 +127,8 @@ export default function Sidebar() {
                 className={clsx(
                   'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                   groupActive
-                    ? 'bg-sidebar-accent/30 text-sidebar-foreground'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/80 hover:bg-white/10 hover:text-white',
                 )}
               >
                 <MenuIcon icon={item.icon} fallback />
@@ -138,7 +143,7 @@ export default function Sidebar() {
               </button>
 
               {isOpen && (
-                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2">
+                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-white/15 pl-2">
                   {item.children.map((child) => {
                     const childHref = toHref(child.url);
                     const childActive = isActive(pathname, childHref);
@@ -149,8 +154,8 @@ export default function Sidebar() {
                         className={clsx(
                           'flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors',
                           childActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
+                            ? 'bg-white text-indigo-950 font-semibold shadow-sm'
+                            : 'text-white/60 hover:bg-white/10 hover:text-white',
                         )}
                       >
                         <Circle className="h-1.5 w-1.5 fill-current opacity-70" />
@@ -166,7 +171,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/50">
+      <div className="p-4 border-t border-white/15 text-xs text-white/50">
         v0.1.0
       </div>
     </aside>
@@ -188,7 +193,7 @@ function MenuIcon({
     return <i className={clsx(cls, 'text-base w-4 h-4 inline-flex items-center justify-center')} />;
   }
   if (fallback) {
-    return <span className="inline-block h-1.5 w-1.5 rounded-full bg-sidebar-foreground/40" />;
+    return <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-40" />;
   }
   return null;
 }
@@ -197,7 +202,7 @@ function Badge({ text }: { text: string | null | undefined }) {
   const t = (text || '').trim();
   if (!t) return null;
   return (
-    <span className="text-[10px] uppercase rounded bg-sidebar-accent/30 text-sidebar-accent-foreground px-1.5 py-0.5">
+    <span className="text-[10px] uppercase rounded bg-indigo-500 text-white px-1.5 py-0.5">
       {t}
     </span>
   );

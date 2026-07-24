@@ -133,7 +133,8 @@ export default function QuotationsPage() {
   useEffect(() => {
     (async () => {
       const [cl, ki, tr, go, cu, un] = await Promise.all([
-        fetchOpts('/api/v1/clients?pageSize=100', (r) => String(r.name ?? r.client_code ?? r.id)),
+        // clients returns company_name/short_name — there is no `name`/`client_code`.
+        fetchOpts('/api/v1/clients?pageSize=100', (r) => String(r.company_name ?? r.short_name ?? r.id)),
         fetchOpts('/api/v1/kinds?pageSize=100', (r) => String(r.kind_name ?? r.id)),
         fetchOpts('/api/v1/transport-modes?pageSize=100', (r) => String(r.transport_mode_name ?? r.id)),
         fetchOpts('/api/v1/goods-types?pageSize=100', (r) => String(r.goods_type ?? r.id)),

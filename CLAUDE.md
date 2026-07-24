@@ -132,6 +132,15 @@ Two shared primitives drive this. Use them; do not hand-roll the state or the fo
 
 For **editable matrices** (e.g. [src/app/mapping/roletomenu/page.tsx](src/app/mapping/roletomenu/page.tsx)) where the user toggles cells across pages and saves at the end: keep the full edited state in a single `rows` array; let pagination/search slice only the *displayed* view. The save payload always sends the entire `rows` array, regardless of what's currently filtered or paged. Column-header "select all" checkboxes should scope to the **filtered** set, not the paged set, so a user can scope a bulk toggle with the search box.
 
+### 4.10 No redundant code; stay within the project structure
+Two non-negotiable rules that apply to **every** change, not just new features:
+
+1. **No redundant code, project-wide.** Before writing anything, search for an existing helper, hook, component, query, schema, or type that already does the job (grep first — §8.3). Reuse it. If two places need almost the same logic, extract one shared implementation and call it from both — never copy-paste-and-tweak. Don't add a second way to do a thing the codebase already does one way (fetching options, the response envelope, pagination, uniqueness checks, date formatting, the derive/conditions runtime, …). If the existing helper is *close* but not quite right, extend it (add a backward-compatible option) rather than forking a parallel copy. This generalizes §4.2 (rule engine over `if/else`), §4.8 (reusable components), and §7.4 (reusable query helpers) into one rule: **duplication is a defect — remove it, don't add it.**
+
+2. **All changes stay within the existing structure.** Put new files where §5 says they go, extend the file that already owns a concern instead of creating a parallel one, and keep to the established patterns (response envelope §4.4, Zod at the boundary §4.7, Drizzle-only DB access §7, master-driven config §4.1). Do **not** invent new top-level folders, parallel utilities, alternate conventions, or one-off structures to route around what exists. If a change genuinely doesn't fit the current structure, **stop and ask** (§12) before inventing something new — a short question beats a divergent layout that the next task then has to reconcile.
+
+When a task tempts you to duplicate or to step outside the structure, that is the signal to refactor the shared thing or extend the existing home for it — the fix lands in one place, and the whole project stays consistent.
+
 ---
 
 ## 5. Directory layout

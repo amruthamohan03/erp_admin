@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/ui/BackButton';
 import { safeFetchJson } from '@/lib/safeFetch';
-import { parseDerive, isPureDerive, isAsyncDerive, computePureDerive } from '@/lib/pages/derive';
+import { parseDerive, isPureDerive, computePureDerive, deriveTriggers } from '@/lib/pages/derive';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion from './Accordion';
 
@@ -59,7 +59,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     const s = new Set<string>();
     for (const f of allFields) {
       const spec = parseDerive(f.derive);
-      if (isAsyncDerive(spec)) s.add(spec.trigger);
+      for (const t of deriveTriggers(spec)) s.add(t);
     }
     return s;
   }, [allFields]);
@@ -163,6 +163,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
               onChange={handleFieldChange}
               onSave={(visibleFieldNames) => saveAccordion(acc.slug, visibleFieldNames)}
               defaultOpen={idx === 0}
+              accentIndex={idx}
               entityType={`page:${slug}`}
               entityId={entityId}
             />

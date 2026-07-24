@@ -428,9 +428,14 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     // Some master endpoints are server-paginated ({ data: { items, total } });
-    // request a large page so the dropdown is populated, and accept either a flat
-    // `data` array or a `data.items` array.
-    const url = `/api/v1/${source}${source.includes('?') ? '&' : '?'}pageSize=1000${paramQuery ? `&${paramQuery}` : ''}`;
+    // request the largest page every list endpoint accepts so the dropdown is
+    // populated, and accept either a flat `data` array or a `data.items` array.
+    // NOTE: the list-query Zod schemas cap pageSize at 100 (a couple at 500) and
+    // *throw* on an over-cap value, which surfaces as a 422 and an empty dropdown.
+    // 100 is the universal ceiling — do not raise it here without raising the
+    // endpoint caps too. TODO(dropdown): switch to a server-side searchable
+    // select for entities that can exceed 100 rows (clients, licenses).
+    const url = `/api/v1/${source}${source.includes('?') ? '&' : '?'}pageSize=100${paramQuery ? `&${paramQuery}` : ''}`;
     fetch(url)
       .then((r) => r.json())
       .then((json) => {

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Download, Edit2, Plus, Search, Trash2, Users } from 'lucide-react';
+import { Download, Edit2, Eye, Plus, Search, Trash2, Users } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import RecordViewModal from '@/components/transactional/RecordViewModal';
 
 interface ClientRow {
   id: number;
@@ -38,6 +39,9 @@ export default function ClientsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  // Read-only details modal — null when closed, else the row id to view.
+  const [viewId, setViewId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -200,9 +204,17 @@ export default function ClientsPage() {
                     <td>{c.email || '—'}</td>
                     <td>{c.phone || '—'}</td>
                     <td className="text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setViewId(c.id)}
+                        className="text-slate-500 hover:text-primary-600 p-1"
+                        title="View details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
                       <Link
                         href={`/masters/clients/${c.id}`}
-                        className="text-slate-500 hover:text-primary-600 p-1 inline-block"
+                        className="text-slate-500 hover:text-primary-600 p-1 inline-block ml-1"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
@@ -235,6 +247,15 @@ export default function ClientsPage() {
           mounted={mounted}
         />
       </div>
+
+      {viewId !== null && (
+        <RecordViewModal
+          slug="clients"
+          entityId={viewId}
+          editHref={`/masters/clients/${viewId}`}
+          onClose={() => setViewId(null)}
+        />
+      )}
     </>
   );
 }

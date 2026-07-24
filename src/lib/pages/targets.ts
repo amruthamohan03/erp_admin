@@ -7,7 +7,7 @@ import { type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 // restructure export names: clientMaster (client_master_t), licenseT (license_t),
 // importT (imports_t), exportT (exports_t).
-import { clientMaster, licenseT, importT, exportT } from '@/db/schema';
+import { clientMaster, licenseT, importT, exportT, paymentRequest, localsT, exportInvoices, importInvoices } from '@/db/schema';
 
 interface PageTarget {
   table: PgTable;
@@ -33,6 +33,22 @@ const TARGETS: Record<string, PageTarget> = {
   export: {
     table: exportT,
     allowedColumns: new Set(Object.values(getTableColumns(exportT)).map((c) => c.name)),
+  },
+  payment: {
+    table: paymentRequest,
+    allowedColumns: new Set(Object.values(getTableColumns(paymentRequest)).map((c) => c.name)),
+  },
+  local: {
+    table: localsT,
+    allowedColumns: new Set(Object.values(getTableColumns(localsT)).map((c) => c.name)),
+  },
+  'export-invoices': {
+    table: exportInvoices,
+    allowedColumns: new Set(Object.values(getTableColumns(exportInvoices)).map((c) => c.name)),
+  },
+  'import-invoices': {
+    table: importInvoices,
+    allowedColumns: new Set(Object.values(getTableColumns(importInvoices)).map((c) => c.name)),
   },
 };
 

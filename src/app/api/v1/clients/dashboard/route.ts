@@ -99,8 +99,10 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
         WHERE display = 'Y' AND phone IS NOT NULL AND phone <> ''
       ) AS with_phone_count,
       (
+        -- "Tax ID" on the card == the DRC NIF (Numéro d'Identification
+        -- Fiscale). client_master_t stores it as nif_number, not tax_id.
         SELECT count(*)::int FROM client_master_t
-        WHERE display = 'Y' AND tax_id IS NOT NULL AND tax_id <> ''
+        WHERE display = 'Y' AND nif_number IS NOT NULL AND nif_number <> ''
       ) AS with_tax_id_count
   `);
   const agg =
@@ -150,8 +152,10 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
     )
     SELECT
       c.id AS client_id,
-      c.client_code,
-      c.name AS client_name,
+      -- client_master_t has no client_code/name columns; short_name is the
+      -- client code and company_name is the display name.
+      c.short_name AS client_code,
+      c.company_name AS client_name,
       COALESCE(imp.n, 0)::int AS import_count,
       COALESCE(exp.n, 0)::int AS export_count,
       (COALESCE(imp.fob, 0) + COALESCE(exp.fob, 0))::float AS total_fob,

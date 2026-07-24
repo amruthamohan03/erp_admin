@@ -37,22 +37,36 @@ export interface TieredDerive {
   default?: { value?: number; rate?: number };
 }
 
-export interface FromRelatedDerive {
-  kind: 'fromRelated';
-  // The field whose change triggers this fetch (e.g. 'license_id').
-  trigger: string;
+// Shared knobs for the two async derive kinds.
+interface AsyncDeriveCommon {
+  // The field(s) whose change triggers this fetch. A single name or a list — a
+  // template that recomputes from several inputs (e.g. the MCA reference from
+  // client/kind/goods/transport) lists them all.
+  trigger: string | string[];
   // A vetted source name in deriveSources.ts (e.g. 'license', 'client').
   source: string;
+  // Optional gate: only fire (and only ever overwrite the field) when this
+  // predicate holds against the current values. When it doesn't hold the field
+  // is left exactly as-is — NOT blanked — so a manual value survives (e.g. a
+  // Standard licence's hand-typed number when the MCA generator is gated off).
+  when?: Predicate;
+  // By default a derived field renders read-only (its value isn't hand-entered).
+  // Set true for a prefill/generate that the user may still override afterwards
+  // (e.g. the MCA number is generated but editable; the client default for
+  // License Cleared By can be changed per-licence).
+  editable?: boolean;
+}
+
+export interface FromRelatedDerive extends AsyncDeriveCommon {
+  kind: 'fromRelated';
   // Column on the resolved source row to copy.
   column: string;
   // Optional mapping of the raw value to a display value (e.g. {"1":"Client"}).
   valueMap?: Record<string, string>;
 }
 
-export interface TemplateDerive {
+export interface TemplateDerive extends AsyncDeriveCommon {
   kind: 'template';
-  trigger: string;
-  source: string;
   // Interpolation string over tokens the source returns, e.g.
   // "{client_short}-{kind_short}{goods_short}{transport_letter}{year}-{seq}".
   template: string;
@@ -88,6 +102,20 @@ export function isPureDerive(
 
 export function isAsyncDerive(spec: DeriveSpec | null): spec is FromRelatedDerive | TemplateDerive {
   return !!spec && (spec.kind === 'fromRelated' || spec.kind === 'template');
+}
+
+/** The trigger field names for an async derive (normalizes single → list). */
+export function deriveTriggers(spec: DeriveSpec | null): string[] {
+  if (!isAsyncDerive(spec)) return [];
+  return Array.isArray(spec.trigger) ? spec.trigger : [spec.trigger];
+}
+
+/**
+ * Whether a derived field stays user-editable. Pure derives are always
+ * authoritative (read-only); an async derive opts in with `editable: true`.
+ */
+export function isEditableDerive(spec: DeriveSpec | null): boolean {
+  return isAsyncDerive(spec) && spec.editable === true;
 }
 
 function num(v: unknown): number {

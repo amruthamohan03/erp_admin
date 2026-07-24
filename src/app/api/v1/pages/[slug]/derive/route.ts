@@ -8,7 +8,8 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { masterPage, masterPageAccordion, masterPageAccordionField } from '@/db/schema';
 import { ok, fail, requireAuth, isResponse } from '@/lib/api';
-import { parseDerive, isAsyncDerive, renderTemplate } from '@/lib/pages/derive';
+import { parseDerive, isAsyncDerive, renderTemplate, deriveTriggers } from '@/lib/pages/derive';
+import { evaluatePredicate } from '@/lib/pages/conditions';
 import { getDeriveSource } from '@/lib/pages/deriveSources';
 
 type Ctx = { params: Promise<{ slug: string }> };
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // Keep only async derives triggered by this field.
   const targets = rows
     .map((r) => ({ name: r.name, spec: parseDerive(r.derive) }))
-    .filter((t) => isAsyncDerive(t.spec) && t.spec.trigger === triggerField);
+    .filter((t) => isAsyncDerive(t.spec) && deriveTriggers(t.spec).includes(triggerField));
 
   if (targets.length === 0) return ok({ values: {} });
 
@@ -59,6 +60,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const out: Record<string, unknown> = {};
   for (const { name, spec } of targets) {
     if (!isAsyncDerive(spec)) continue; // narrows spec to fromRelated | template
+    // Gated derive: when the guard is false, leave the field untouched (do not
+    // emit it in `out`) so a manually-entered value survives — e.g. the MCA
+    // number generator is skipped, not blanked, for non-MCA kinds.
+    if (spec.when && !evaluatePredicate(spec.when, values)) continue;
     const resolved = await resolveSource(spec.source);
     if (!resolved) {
       out[name] = null; // trigger cleared / source missing → blank the field

@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import RecordViewModal from '@/components/transactional/RecordViewModal';
 
 // A row of the licenses list — mirrors the /api/v1/licenses GET select.
 interface LicenseRow {
@@ -123,7 +124,9 @@ function statKeyFor(card: DashboardCard): string {
 // `{ ok, data: [...] }` envelope.
 async function fetchOptions(source: string, labelKey: string): Promise<Option[]> {
   try {
-    const r = await fetch(`/api/v1/${source}?pageSize=1000`);
+    // pageSize=100 is the universal cap the list-query schemas accept; a larger
+    // value throws Zod validation (422) and leaves the dropdown empty.
+    const r = await fetch(`/api/v1/${source}?pageSize=100`);
     const j = await r.json();
     const list: Array<Record<string, unknown>> = Array.isArray(j?.data)
       ? j.data
@@ -169,6 +172,9 @@ export default function LicensesListPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  // Read-only details modal — null when closed, else the row id to view.
+  const [viewId, setViewId] = useState<number | null>(null);
 
   // CSV/XLSX exports: a plain navigation the server answers with an attachment.
   function exportOne(id: number): void {
@@ -552,13 +558,14 @@ export default function LicensesListPage() {
                     </td>
                     <td>
                       <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                        <Link
-                          href={`/licenses/${l.id}`}
+                        <button
+                          type="button"
+                          onClick={() => setViewId(l.id)}
                           title="View details"
                           className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                        </Link>
+                        </button>
                         <Link
                           href={`/licenses/${l.id}`}
                           title="Edit"
@@ -596,6 +603,16 @@ export default function LicensesListPage() {
           mounted={mounted}
         />
       </div>
+
+      {viewId !== null && (
+        <RecordViewModal
+          slug="license"
+          entityId={viewId}
+          editHref={`/licenses/${viewId}`}
+          onExport={() => exportOne(viewId)}
+          onClose={() => setViewId(null)}
+        />
+      )}
     </>
   );
 }

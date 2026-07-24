@@ -12,11 +12,11 @@ import { seedInvoiceForm } from './invoiceForm';
 import { seedInvoiceWorkflow } from './invoiceWorkflow';
 import { seedInvoiceCaseTemplate } from './invoiceCaseTemplate';
 import { seedTrackingTemplates } from './trackingTemplates';
-import { seedPaymentRequestApprovals } from './paymentRequestApprovals';
-import { seedPaymentRequestStatuses } from './paymentRequestStatuses';
-import { seedPaymentRequestForm } from './paymentRequestForm';
-import { seedPaymentRequestWorkflow } from './paymentRequestWorkflow';
-import { seedPaymentRequestCaseTemplate } from './paymentRequestCaseTemplate';
+// NOTE: the workflow-engine payment-request scaffold (approvals/statuses/form/
+// workflow/case-template seeds) was superseded by the transaction-pages payment
+// module — payment_request_t now carries main's stage columns and the stage→role
+// map lives in payment_stage_role_master_t (seeded by seedPaymentStageRoles).
+import { seedPaymentStageRoles } from './paymentStageRoles';
 import { seedCreditNoteStatuses } from './creditNoteStatuses';
 import { seedCreditNoteForm } from './creditNoteForm';
 import { seedCreditNoteWorkflow } from './creditNoteWorkflow';
@@ -104,13 +104,9 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedCreditNoteCaseTemplate(db);
 
   // --- Payment Request module (§2 step 6) -----------------------------
-  // Approvals must seed before the workflow (transitions reference
-  // the hierarchy by key from action_json).
-  await seedPaymentRequestApprovals(db);
-  await seedPaymentRequestStatuses(db);
-  await seedPaymentRequestForm(db);
-  await seedPaymentRequestWorkflow(db);
-  await seedPaymentRequestCaseTemplate(db);
+  // Transaction-pages build: the create/edit form is a master_page config
+  // and the approval chain is gated by the stage→role map seeded here.
+  await seedPaymentStageRoles(db);
 
   // --- Reports (§2 step 7) --------------------------------------------
   // Parameter forms must seed before definitions (formId FK).
@@ -179,11 +175,7 @@ export {
   seedInvoiceWorkflow,
   seedInvoiceCaseTemplate,
   seedTrackingTemplates,
-  seedPaymentRequestApprovals,
-  seedPaymentRequestStatuses,
-  seedPaymentRequestForm,
-  seedPaymentRequestWorkflow,
-  seedPaymentRequestCaseTemplate,
+  seedPaymentStageRoles,
   seedCreditNoteStatuses,
   seedCreditNoteForm,
   seedCreditNoteWorkflow,

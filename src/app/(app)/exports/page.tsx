@@ -19,6 +19,7 @@ import {
   Weight,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import StatCard from '@/components/ui/StatCard';
 
@@ -35,68 +36,6 @@ interface ExportRow {
   weight: string | null;
   fob: string | null;
   clearing_status_name: string | null;
-}
-
-// Read-only detail rendered in the View popup (from /api/v1/exports/{id}).
-interface ViewExport {
-  id: number;
-  mca_ref: string | null;
-  client_name: string | null;
-  license_no: string | null;
-  kind_name: string | null;
-  type_of_goods_name: string | null;
-  transport_mode_name: string | null;
-  buyer: string | null;
-  regime_name: string | null;
-  types_of_clearance_name: string | null;
-  invoice: string | null;
-  po_ref: string | null;
-  bp_no: string | null;
-  weight: string | null;
-  fob: string | null;
-  number_of_bags: number | null;
-  lot_number: string | null;
-  horse: string | null;
-  trailer_1: string | null;
-  trailer_2: string | null;
-  feet_container_size: string | null;
-  wagon_ref: string | null;
-  container: string | null;
-  transporter: string | null;
-  site_of_loading_name: string | null;
-  destination: string | null;
-  exit_point_name: string | null;
-  dgda_seal_no: string | null;
-  number_of_seals: number | null;
-  ceec_amount: string | null;
-  cgea_amount: string | null;
-  occ_amount: string | null;
-  lmc_amount: string | null;
-  ogefrem_amount: string | null;
-  loading_date: string | null;
-  ceec_in_date: string | null;
-  ceec_out_date: string | null;
-  min_div_in_date: string | null;
-  min_div_out_date: string | null;
-  document_status_name: string | null;
-  dgda_in_date: string | null;
-  declaration_reference: string | null;
-  liquidation_reference: string | null;
-  liquidation_date: string | null;
-  liquidation_amount: string | null;
-  quittance_reference: string | null;
-  quittance_date: string | null;
-  dispatch_deliver_date: string | null;
-  exit_drc_date: string | null;
-  end_of_formalities_date: string | null;
-  truck_status_name: string | null;
-  clearing_status_name: string | null;
-  lmc_id: string | null;
-  ogefrem_inv_ref: string | null;
-  lmc_date: string | null;
-  ogefrem_date: string | null;
-  audited_date: string | null;
-  archived_date: string | null;
 }
 
 interface Option {
@@ -150,7 +89,9 @@ async function fetchOptions(
   labelKey: string,
 ): Promise<Option[]> {
   try {
-    const r = await fetch(`/api/v1/${source}?pageSize=1000`);
+    // pageSize=100 is the universal cap the list-query schemas accept; a larger
+    // value throws Zod validation (422) and leaves the dropdown empty.
+    const r = await fetch(`/api/v1/${source}?pageSize=100`);
     const j = await r.json();
     const list: Record<string, unknown>[] = Array.isArray(j?.data)
       ? j.data
@@ -182,9 +123,8 @@ export default function ExportsListPage() {
   const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
 
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewData, setViewData] = useState<ViewExport | null>(null);
-  const [viewLoading, setViewLoading] = useState(false);
+  // View-details modal (per-row eye action) — null when closed, else row id.
+  const [viewId, setViewId] = useState<number | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -196,7 +136,9 @@ export default function ExportsListPage() {
     let cancelled = false;
     (async () => {
       const [c, t, s] = await Promise.all([
-        fetchOptions('clients', 'name'),
+        // clients returns company_name/short_name (no `name`); label by
+        // company_name so the picker shows the client, not the raw id.
+        fetchOptions('clients', 'company_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),
         fetch('/api/v1/exports/stats').then((res) => res.json()),
       ]);
@@ -246,21 +188,6 @@ export default function ExportsListPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
-
-  async function openView(id: number): Promise<void> {
-    setViewOpen(true);
-    setViewLoading(true);
-    setViewData(null);
-    try {
-      const res = await fetch(`/api/v1/exports/${id}`);
-      const json = await res.json();
-      if (json.ok) setViewData(json.data);
-    } catch {
-      // leave viewData null — modal shows "not found"
-    } finally {
-      setViewLoading(false);
-    }
-  }
 
   const hasActiveFilters = Object.values(applied).some(Boolean);
 
@@ -559,7 +486,7 @@ export default function ExportsListPage() {
                       <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
                         <button
                           type="button"
-                          onClick={() => openView(r.id)}
+                          onClick={() => setViewId(r.id)}
                           title="View details"
                           className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
                         >
@@ -602,186 +529,14 @@ export default function ExportsListPage() {
         />
       </div>
 
-      {/* ---- View details popup ---- */}
-      {viewOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto"
-          onClick={() => setViewOpen(false)}
-        >
-          <div
-            className="card w-full max-w-2xl my-auto overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className={`flex items-center justify-between px-5 py-4 text-white bg-gradient-to-br ${CARD_GRADIENT}`}
-            >
-              <h2 className="font-semibold flex items-center gap-2">
-                <Eye className="h-5 w-5" /> Export Details
-                {viewData?.mca_ref && (
-                  <span className="ml-1 font-mono text-sm opacity-90">
-                    {viewData.mca_ref}
-                  </span>
-                )}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setViewOpen(false)}
-                className="rounded-md p-1 hover:bg-white/20 transition"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto p-5">
-              {viewLoading && (
-                <div className="py-10 text-center text-sm text-slate-500">
-                  Loading…
-                </div>
-              )}
-              {!viewLoading && !viewData && (
-                <div className="py-10 text-center text-sm text-slate-500">
-                  Export not found.
-                </div>
-              )}
-              {!viewLoading && viewData && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                  {(
-                    [
-                      ['MCA Ref', viewData.mca_ref],
-                      ['Clearing Status', viewData.clearing_status_name],
-                      ['Client', viewData.client_name],
-                      ['License Number', viewData.license_no],
-                      ['Kind', viewData.kind_name],
-                      ['Type of Goods', viewData.type_of_goods_name],
-                      ['Transport Mode', viewData.transport_mode_name],
-                      ['Buyer', viewData.buyer],
-                      ['Regime', viewData.regime_name],
-                      ['Clearance Type', viewData.types_of_clearance_name],
-                      ['Invoice', viewData.invoice],
-                      ['PO Ref', viewData.po_ref],
-                      ['BP Number', viewData.bp_no],
-                      [
-                        'Weight',
-                        viewData.weight ? `${fmtNum(viewData.weight)} MT` : null,
-                      ],
-                      ['FOB', viewData.fob ? fmtNum(viewData.fob) : null],
-                      ['No. of Bags', viewData.number_of_bags],
-                      ['Lot Number', viewData.lot_number],
-                      ['Horse', viewData.horse],
-                      ['Trailer 1', viewData.trailer_1],
-                      ['Trailer 2', viewData.trailer_2],
-                      ['Feet Container', viewData.feet_container_size],
-                      ['Wagon Reference', viewData.wagon_ref],
-                      ['Container', viewData.container],
-                      ['Transporter', viewData.transporter],
-                      ['Site of Loading', viewData.site_of_loading_name],
-                      ['Destination', viewData.destination],
-                      ['Exit Point', viewData.exit_point_name],
-                      ['DGDA Seal No', viewData.dgda_seal_no],
-                      ['No. of Seals', viewData.number_of_seals],
-                      [
-                        'CEEC Amount',
-                        viewData.ceec_amount ? fmtNum(viewData.ceec_amount) : null,
-                      ],
-                      [
-                        'CGEA Amount',
-                        viewData.cgea_amount ? fmtNum(viewData.cgea_amount) : null,
-                      ],
-                      [
-                        'OCC Amount',
-                        viewData.occ_amount ? fmtNum(viewData.occ_amount) : null,
-                      ],
-                      [
-                        'LMC Amount',
-                        viewData.lmc_amount ? fmtNum(viewData.lmc_amount) : null,
-                      ],
-                      [
-                        'OGEFREM Amount',
-                        viewData.ogefrem_amount
-                          ? fmtNum(viewData.ogefrem_amount)
-                          : null,
-                      ],
-                      ['Loading Date', fmtDate(viewData.loading_date)],
-                      ['CEEC In', fmtDate(viewData.ceec_in_date)],
-                      ['CEEC Out', fmtDate(viewData.ceec_out_date)],
-                      ['Min Div In', fmtDate(viewData.min_div_in_date)],
-                      ['Min Div Out', fmtDate(viewData.min_div_out_date)],
-                      ['Document Status', viewData.document_status_name],
-                      ['DGDA In Date', fmtDate(viewData.dgda_in_date)],
-                      ['Declaration Ref', viewData.declaration_reference],
-                      ['Liquidation Ref', viewData.liquidation_reference],
-                      ['Liquidation Date', fmtDate(viewData.liquidation_date)],
-                      [
-                        'Liquidation Amount',
-                        viewData.liquidation_amount
-                          ? fmtNum(viewData.liquidation_amount)
-                          : null,
-                      ],
-                      ['Quittance Ref', viewData.quittance_reference],
-                      ['Quittance Date', fmtDate(viewData.quittance_date)],
-                      [
-                        'Dispatch/Deliver Date',
-                        fmtDate(viewData.dispatch_deliver_date),
-                      ],
-                      ['Exit DRC Date', fmtDate(viewData.exit_drc_date)],
-                      [
-                        'End of Formalities',
-                        fmtDate(viewData.end_of_formalities_date),
-                      ],
-                      ['Truck Status', viewData.truck_status_name],
-                      ['LMC ID', viewData.lmc_id],
-                      ['OGEFREM Inv.Ref.', viewData.ogefrem_inv_ref],
-                      ['LMC Date', fmtDate(viewData.lmc_date)],
-                      ['OGEFREM Date', fmtDate(viewData.ogefrem_date)],
-                      ['Audited Date', fmtDate(viewData.audited_date)],
-                      ['Archived Date', fmtDate(viewData.archived_date)],
-                    ] as Array<[string, string | number | null | undefined]>
-                  ).map(([label, value]) => (
-                    <div key={label} className="border-b border-slate-100 pb-2">
-                      <div className="text-[11px] uppercase tracking-wide text-primary-600 font-semibold">
-                        {label}
-                      </div>
-                      <div className="text-sm text-slate-800">
-                        {value !== null && value !== undefined && value !== '' ? (
-                          value
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              {viewData && (
-                <Link
-                  href={`/exports/${viewData.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 text-sm font-medium transition"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit
-                </Link>
-              )}
-              {viewData && (
-                <a
-                  href={`/api/v1/exports/${viewData.id}/export`}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
-                >
-                  <FileSpreadsheet className="h-4 w-4" /> Export
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={() => setViewOpen(false)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-500 hover:bg-slate-600 text-white px-3 py-1.5 text-sm font-medium transition"
-              >
-                <X className="h-4 w-4" /> Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {viewId !== null && (
+        <RecordViewModal
+          slug="export"
+          entityId={viewId}
+          editHref={`/exports/${viewId}`}
+          onExport={() => window.location.assign(`/api/v1/exports/${viewId}/export`)}
+          onClose={() => setViewId(null)}
+        />
       )}
     </>
   );

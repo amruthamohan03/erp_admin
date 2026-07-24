@@ -1,74 +1,111 @@
+// Payment Request — the independent, multi-stage approval workflow of the
+// consignment lifecycle (§2 step 6 / §4.6). Ported from main's `payment_requests`.
+//
+// Approval columns follow main's tri-state convention: NULL = pending, 1 =
+// approved, -1 = rejected, for each of the five stages (dept, finance,
+// management, under_process, paid). WHO may act on a stage lives in
+// payment_stage_role_master_t (§4.7 — no hardcoded roles), not in code.
+//
+// mca_data holds the reference/amount lines as JSONB ([{ mca_ref, amount }]).
+// file*_path columns mirror main's document paths; wiring real uploads waits on
+// the S3 `files` table (§4.11), not provisioned in this environment.
 import {
   pgTable,
   serial,
   varchar,
-  integer,
-  numeric,
-  date,
   text,
+  integer,
+  smallint,
+  numeric,
+  jsonb,
   timestamp,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { clientMaster } from './clients';
-import { invoiceT } from './invoice';
 import { usersT } from './users';
+import { departmentMaster } from './departmentMaster';
+import { mainOfficeMaster } from './mainOfficeMaster';
+import { clientMaster } from './clients';
+import { currencyMaster } from './currencyMaster';
+import { expenseTypeMaster } from './expenseTypeMaster';
 
-// Payment request entity per CLAUDE.md §2 step 6 — multi-stage approval
-// chain driven by approval_hierarchy_master_t. Transactional table (no
-// _master_t suffix).
-//
-// state holds a status_master_t.status_key value for entity_type =
-// 'payment_request'. The workflow advances state per approval level
-// (level_1_approved → level_2_approved → fully_approved → paid). The
-// case-runtime drives this via the 'payment_request_default' workflow
-// (seeded in src/db/seed/paymentRequestWorkflow.ts) whose approve_l*
-// transitions carry approval actions that gate on the seeded hierarchy.
-//
-// invoice_id is optional — payment requests can stand alone (employee
-// reimbursements, etc.) or settle a specific invoice.
+export interface McaLine {
+  mca_ref: string;
+  amount: number;
+}
 
-export const paymentRequestT = pgTable('payment_request_t', {
-  id: serial('id').primaryKey(),
-  requestNumber: varchar('request_number', { length: 100 }).notNull().unique(),
-  clientId: integer('client_id').references(() => clientMaster.id, {
-    onDelete: 'set null',
-  }),
-  invoiceId: integer('invoice_id').references(() => invoiceT.id, {
-    onDelete: 'set null',
-  }),
-  state: varchar('state', { length: 50 }).notNull(),
-  amount: numeric('amount', { precision: 18, scale: 2 }).notNull(),
-  currency: varchar('currency', { length: 3 }).notNull(),
-  purpose: varchar('purpose', { length: 255 }),
-  // Highest approval level granted so far. Starts at 0; each approve_l*
-  // transition's set_field actions bump it. The approval action on the
-  // transition checks canApproveAtLevel(stages, actor.roleId, level - 1).
-  currentApprovalLevel: integer('current_approval_level').notNull().default(0),
-  approvedAt: timestamp('approved_at', { withTimezone: false }),
-  paidAt: timestamp('paid_at', { withTimezone: false }),
-  dueDate: date('due_date'),
-  notes: text('notes'),
-  display: varchar('display', { length: 1 }).notNull().default('Y'),
-  createdBy: integer('created_by').references(() => usersT.id, {
-    onDelete: 'set null',
-  }),
-  updatedBy: integer('updated_by').references(() => usersT.id, {
-    onDelete: 'set null',
-  }),
-  createdAt: timestamp('created_at', { withTimezone: false }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).defaultNow().notNull(),
-});
+export const paymentRequest = pgTable(
+  'payment_request_t',
+  {
+    id: serial('id').primaryKey(),
+    beneficiary: varchar('beneficiary', { length: 200 }),
+    requestee: varchar('requestee', { length: 200 }).notNull(),
+    department: integer('department').references(() => departmentMaster.id),
+    locationId: integer('location_id').references(() => mainOfficeMaster.id),
+    clientId: integer('client_id').references(() => clientMaster.id),
+    // 0=Import 1=Export 2=Local 3=Other 4=Pre Payment (matches main's pay_for).
+    payFor: smallint('pay_for'),
+    currency: integer('currency').references(() => currencyMaster.id),
+    amount: numeric('amount', { precision: 15, scale: 2 }).notNull().default('0'),
+    paymentType: varchar('payment_type', { length: 10 }), // 'Bank' | 'Cash'
+    expenseType: integer('expense_type').references(() => expenseTypeMaster.id),
+    motif: text('motif'),
+    cashCollector: varchar('cash_collector', { length: 100 }),
+    mcaRef: varchar('mca_ref', { length: 255 }),
+    mcaData: jsonb('mca_data').$type<McaLine[]>().default([]),
+    chargeback: numeric('chargeback', { precision: 15, scale: 2 }),
 
-export const paymentRequestRelations = relations(paymentRequestT, ({ one }) => ({
-  client: one(clientMaster, {
-    fields: [paymentRequestT.clientId],
-    references: [clientMaster.id],
+    file1Path: varchar('file1_path', { length: 500 }),
+    file2Path: varchar('file2_path', { length: 500 }),
+    file3Path: varchar('file3_path', { length: 500 }),
+    file4Path: varchar('file4_path', { length: 500 }),
+
+    // Stage tri-state approvals (NULL pending / 1 approved / -1 rejected).
+    deptApproval: smallint('dept_approval'),
+    deptApprovedAt: timestamp('dept_approved_at', { withTimezone: false }),
+    deptApprovedBy: integer('dept_approved_by').references(() => usersT.id, { onDelete: 'set null' }),
+    deptNotes: text('dept_notes'),
+
+    financeApproval: smallint('finance_approval'),
+    financeApprovedAt: timestamp('finance_approved_at', { withTimezone: false }),
+    financeApprovedBy: integer('finance_approved_by').references(() => usersT.id, { onDelete: 'set null' }),
+    financeNotes: text('finance_notes'),
+
+    managementApproval: smallint('management_approval'),
+    managementApprovedAt: timestamp('management_approved_at', { withTimezone: false }),
+    managementApprovedBy: integer('management_approved_by').references(() => usersT.id, { onDelete: 'set null' }),
+    managementNotes: text('management_notes'),
+
+    underProcess: smallint('under_process'),
+    underProcessAt: timestamp('under_process_at', { withTimezone: false }),
+    underProcessBy: integer('under_process_by').references(() => usersT.id, { onDelete: 'set null' }),
+    underProcessNotes: text('under_process_notes'),
+
+    paidApproval: smallint('paid_approval'),
+    paidApprovedAt: timestamp('paid_approved_at', { withTimezone: false }),
+    paidApprovedBy: integer('paid_approved_by').references(() => usersT.id, { onDelete: 'set null' }),
+    paidNotes: text('paid_notes'),
+
+    display: varchar('display', { length: 1 }).notNull().default('Y'),
+    createdBy: integer('created_by').references(() => usersT.id, { onDelete: 'set null' }),
+    updatedBy: integer('updated_by').references(() => usersT.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: false }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: false }).defaultNow().notNull(),
+  },
+  (t) => ({
+    createdByIdx: index('idx_payment_request_t_created_by').on(t.createdBy),
+    locationIdx: index('idx_payment_request_t_location').on(t.locationId),
+    typeIdx: index('idx_payment_request_t_type').on(t.paymentType),
   }),
-  invoice: one(invoiceT, {
-    fields: [paymentRequestT.invoiceId],
-    references: [invoiceT.id],
-  }),
+);
+
+export const paymentRequestRelations = relations(paymentRequest, ({ one }) => ({
+  departmentRel: one(departmentMaster, { fields: [paymentRequest.department], references: [departmentMaster.id] }),
+  location: one(mainOfficeMaster, { fields: [paymentRequest.locationId], references: [mainOfficeMaster.id] }),
+  client: one(clientMaster, { fields: [paymentRequest.clientId], references: [clientMaster.id] }),
+  currencyRel: one(currencyMaster, { fields: [paymentRequest.currency], references: [currencyMaster.id] }),
+  expenseTypeRel: one(expenseTypeMaster, { fields: [paymentRequest.expenseType], references: [expenseTypeMaster.id] }),
 }));
 
-export type PaymentRequestRow = typeof paymentRequestT.$inferSelect;
-export type PaymentRequestInsert = typeof paymentRequestT.$inferInsert;
+export type PaymentRequestRow = typeof paymentRequest.$inferSelect;
+export type PaymentRequestInsert = typeof paymentRequest.$inferInsert;
