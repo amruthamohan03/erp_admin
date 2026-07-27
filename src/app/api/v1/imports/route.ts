@@ -26,6 +26,7 @@ import {
   importListQuerySchema,
 } from '@/schemas/imports';
 import { bodyToInsert } from '@/lib/imports/serialize';
+import { importFilterCondition } from '@/db/queries/importFilters';
 
 // GET /api/v1/imports?q=&client_id=&license_id=&clearing_status_id=&
 //                   document_status_id=&regime_id=&pre_alert_from=&
@@ -56,6 +57,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     transport_mode_id: searchParams.get('transport_mode_id') ?? undefined,
     pre_alert_from: searchParams.get('pre_alert_from') ?? undefined,
     pre_alert_to: searchParams.get('pre_alert_to') ?? undefined,
+    status_filters: searchParams.get('status_filters') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -95,6 +97,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
   if (q.pre_alert_to) {
     conds.push(lte(importT.preAlertDate, q.pre_alert_to));
+  }
+  // §8 dashboard cards — combinable status filters (AND), sharing the exact
+  // predicates the statistics counters use so cards and grid can't disagree.
+  if (q.status_filters?.trim()) {
+    for (const key of q.status_filters.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const cond = importFilterCondition(key);
+      if (cond) conds.push(cond);
+    }
   }
   const where = and(...conds);
 

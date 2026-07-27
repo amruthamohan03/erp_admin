@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FileText, Shield, Search, X, Check, Plus } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 
@@ -156,6 +156,20 @@ export default function FieldRenderer({
     case 'select':
       return (
         <DynamicSelect
+          field={field}
+          value={value}
+          readonly={readonly}
+          onChange={onChange}
+          requiredOverride={effectiveRequired}
+          values={values}
+        />
+      );
+
+    // §5 PARTIELLE — a licence-scoped allotment dropdown with an inline "+" to
+    // create a new allotment on the form (mirrors main's import PARTIELLE input).
+    case 'partielle-picker':
+      return (
+        <PartiellePicker
           field={field}
           value={value}
           readonly={readonly}
@@ -489,5 +503,149 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
         </option>
       ))}
     </select>
+  );
+}
+
+// §5 PARTIELLE picker — licence-scoped dropdown + inline "+" create. Options come
+// from /api/v1/partielle-options?license_id= (value = partial_name, the string
+// link stored in inspection_reports). The "+" posts a new allotment to
+// /api/v1/partielles, then reloads and selects it — no external menu needed.
+function PartiellePicker({ field, value, readonly, onChange, requiredOverride, values }: DynamicSelectProps) {
+  const licenseId =
+    values && values['license_id'] != null && values['license_id'] !== '' ? Number(values['license_id']) : null;
+
+  const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ name: '', weight: '', fob: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOptions = useCallback(async () => {
+    if (!licenseId) {
+      setOptions([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const j = await fetch(`/api/v1/partielle-options?license_id=${licenseId}`).then((r) => r.json());
+      if (j?.ok && Array.isArray(j.data)) {
+        setOptions(j.data.map((o: { id: unknown; label: unknown }) => ({ value: String(o.id), label: String(o.label) })));
+      }
+    } catch {
+      // leave empty
+    } finally {
+      setLoading(false);
+    }
+  }, [licenseId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadOptions();
+  }, [loadOptions]);
+
+  async function create() {
+    if (!licenseId || !form.name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const j = await fetch('/api/v1/partielles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partial_name: form.name.trim(),
+          license_id: licenseId,
+          partial_weight: Number(form.weight) || 0,
+          partial_fob: Number(form.fob) || 0,
+        }),
+      }).then((r) => r.json());
+      if (!j?.ok) {
+        setError(j?.error?.message ?? 'Create failed');
+        return;
+      }
+      const newName = form.name.trim();
+      await loadOptions();
+      onChange(newName);
+      setForm({ name: '', weight: '', fob: '' });
+      setShowCreate(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <select
+          id={field.name}
+          name={field.name}
+          required={requiredOverride ?? field.required}
+          disabled={readonly || loading}
+          className="input"
+          value={asString(value)}
+          onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        >
+          <option value="">{licenseId ? '— Select PARTIELLE —' : 'Select License First'}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {!readonly && (
+          <button
+            type="button"
+            title={licenseId ? 'Add a new PARTIELLE allotment' : 'Select a licence first'}
+            disabled={!licenseId}
+            onClick={() => setShowCreate((s) => !s)}
+            className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      {showCreate && (
+        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 space-y-2">
+          {error && <div className="text-xs text-red-700">{error}</div>}
+          <input
+            className="input text-xs"
+            placeholder="Allotment name (e.g. CRF123-0001)"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.001"
+              className="input text-xs"
+              placeholder="Weight (KG)"
+              value={form.weight}
+              onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))}
+            />
+            <input
+              type="number"
+              step="0.01"
+              className="input text-xs"
+              placeholder="FOB"
+              value={form.fob}
+              onChange={(e) => setForm((f) => ({ ...f, fob: e.target.value }))}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="text-xs px-2 py-1 rounded bg-slate-200 hover:bg-slate-300" onClick={() => setShowCreate(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saving || !form.name.trim()}
+              onClick={create}
+              className="text-xs px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Add'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

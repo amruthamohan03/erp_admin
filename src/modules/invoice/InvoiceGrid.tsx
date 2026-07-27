@@ -107,8 +107,8 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
     setLoading(false);
   }, [base]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (Number.isInteger(invoiceId) && invoiceId > 0) void load();
   }, [load, invoiceId]);
 

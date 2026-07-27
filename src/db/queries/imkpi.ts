@@ -41,11 +41,11 @@ export async function getHolidayRows(): Promise<Array<{ holiday_date: string; na
 }
 
 export async function getFilterOptions(): Promise<{
-  clients_list: Array<{ id: number; company_name: string }>;
+  clients_list: Array<{ id: number; short_name: string }>;
   clearance_types: Array<{ id: number; clearance_name: string }>;
 }> {
   const [cl, ct] = await Promise.all([
-    db.execute(sql`SELECT id, COALESCE(company_name,'Unknown') AS company_name FROM client_master_t WHERE display='Y' ORDER BY company_name ASC`),
+    db.execute(sql`SELECT id, COALESCE(short_name, company_name, 'Unknown') AS short_name FROM client_master_t WHERE display='Y' ORDER BY short_name ASC`),
     db.execute(sql`SELECT id, clearance_name FROM clearance_master_t WHERE display='Y' ORDER BY id ASC`),
   ]);
   return { clients_list: rows(cl), clearance_types: rows(ct) };

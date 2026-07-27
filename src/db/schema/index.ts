@@ -45,6 +45,7 @@ export * from './itemMaster';
 export * from './quotations';
 export * from './quotationItems';
 export * from './partialMaster';
+export * from './partial';
 export * from './bivacPartial';
 export * from './regimeMaster';
 export * from './clearanceMaster';

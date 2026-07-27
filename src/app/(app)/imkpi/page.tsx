@@ -25,7 +25,7 @@ interface Payload {
   bottleneck_analysis: Bottleneck[];
   client_delay_table: ClientRow[];
   drc_holidays: Holiday[];
-  clients_list: Array<{ id: number; company_name: string }>;
+  clients_list: Array<{ id: number; short_name: string }>;
   clearance_types: Array<{ id: number; clearance_name: string }>;
 }
 
@@ -150,7 +150,7 @@ export default function ImkpiPage() {
             <label className="label">Client</label>
             <select className="input" value={f.client_id} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, client_id: v })); setApplied((x) => ({ ...x, client_id: v })); }}>
               <option value="all">All Clients</option>
-              {(data?.clients_list ?? []).map((c) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+              {(data?.clients_list ?? []).map((c) => <option key={c.id} value={c.id}>{c.short_name}</option>)}
             </select>
           </div>
           <div>

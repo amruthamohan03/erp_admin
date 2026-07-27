@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
+import BulkUpdateModal from '@/modules/imports/BulkUpdateModal';
+import { isPendingFilter } from '@/lib/imports/bulkFields';
 
 interface ImportRow {
   id: number;
@@ -112,6 +114,15 @@ interface Option {
   label: string;
 }
 
+// §8 — the clickable status cards that actually filter the grid. Summary tiles
+// (this_month / total_fob / total_weight) render a number but are not filters.
+// Keys mirror the shared server predicates in src/db/queries/importFilters.ts.
+const STATUS_FILTER_KEYS = new Set<string>([
+  'completed', 'in_progress', 'in_transit', 'crf_missing', 'ad_missing',
+  'insurance_missing', 'audited_pending', 'archived_pending', 'dgda_in_pending',
+  'liquidation_pending', 'quittance_pending', 'dgda_out_pending', 'dispatch_deliver_pending',
+]);
+
 function fmtDate(d: string | null): string {
   if (!d) return '';
   const [y, m, day] = d.slice(0, 10).split('-');
@@ -179,13 +190,28 @@ export default function ImportsListPage() {
 
   const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
-  const [activeCard, setActiveCard] = useState<string>('all');
+  // §8 — status cards clicked, combined with AND. Empty ⇒ "Total" (all rows).
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
 
   // View-details modal (per-row eye action) — null when closed, else row id.
   const [viewId, setViewId] = useState<number | null>(null);
+
+  // §9 Bulk Update — enabled only when a "pending" card filter is active (the
+  // three clearing-status cards name no field to fill in).
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const pendingActive = activeFilters.filter(isPendingFilter);
+
+  const reloadStats = useCallback(() => {
+    fetch('/api/v1/imports/stats')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setStats(j.data as Record<string, number>);
+      })
+      .catch(() => {});
+  }, []);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -212,6 +238,7 @@ export default function ImportsListPage() {
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
       if (search.trim()) params.set('q', search.trim());
+      if (activeFilters.length) params.set('status_filters', activeFilters.join(','));
       const res = await fetch(`/api/v1/imports?${params.toString()}`);
       const json = await res.json();
       if (json.ok) {
@@ -223,7 +250,7 @@ export default function ImportsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [applied, page, pageSize, search]);
+  }, [applied, page, pageSize, search, activeFilters]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -263,8 +290,8 @@ export default function ImportsListPage() {
     (async () => {
       const [c, g, e, t] = await Promise.all([
         // clients returns company_name/short_name (no `name`); label by
-        // company_name so the picker shows the client, not the raw id.
-        fetchOptions('clients', 'company_name'),
+        // short_name so the filter shows the client's short code.
+        fetchOptions('clients', 'short_name'),
         fetchOptions('goods-types', 'goods_type'),
         fetchOptions('transit-points', 'transit_point_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),
@@ -291,7 +318,22 @@ export default function ImportsListPage() {
   function clearFilters() {
     setDraft(EMPTY_FILTERS);
     setApplied(EMPTY_FILTERS);
-    setActiveCard('all');
+    setActiveFilters([]);
+    setPage(1);
+  }
+
+  // Click a card: Total clears; a status card toggles into the AND set; a
+  // summary tile (fob/weight/month) is display-only and does nothing.
+  function toggleCard(key: string) {
+    if (key === 'total') {
+      setActiveFilters([]);
+    } else if (STATUS_FILTER_KEYS.has(key)) {
+      setActiveFilters((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+      );
+    } else {
+      return; // summary tile — not a filter
+    }
     setPage(1);
   }
 
@@ -323,18 +365,19 @@ export default function ImportsListPage() {
             const gradient =
               (card.card_color && COLOR_GRADIENTS[card.card_color]) ||
               COLOR_GRADIENTS.primary;
-            const active = activeCard === key;
+            const isFilter = key === 'total' || STATUS_FILTER_KEYS.has(key);
+            const active =
+              key === 'total'
+                ? activeFilters.length === 0
+                : activeFilters.includes(key);
             const value = stats[key] ?? 0;
             return (
               <button
                 key={card.id}
                 type="button"
-                onClick={() => {
-                  setActiveCard(key);
-                  setPage(1);
-                }}
-                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
-                title={`Filter: ${card.card_title}`}
+                onClick={() => toggleCard(key)}
+                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''} ${isFilter ? '' : 'cursor-default'}`}
+                title={isFilter ? `Filter: ${card.card_title}` : card.card_title}
               >
                 <div className="absolute right-2 top-2 opacity-30">
                   <Icon className="h-5 w-5" />
@@ -456,7 +499,7 @@ export default function ImportsListPage() {
             >
               <Check className="h-4 w-4" /> Apply Filters
             </button>
-            {(hasActiveFilters || activeCard !== 'all') && (
+            {(hasActiveFilters || activeFilters.length > 0) && (
               <button
                 type="button"
                 onClick={clearFilters}
@@ -482,6 +525,17 @@ export default function ImportsListPage() {
             <Plus className="h-3.5 w-3.5" /> New Import
           </span>
         </Link>
+        <Link
+          href="/imports/partielles"
+          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
+        >
+          <span className="flex items-center gap-2 text-slate-800 font-medium">
+            <Layers className="h-4 w-4 text-primary-600" /> PARTIELLE Allocation
+          </span>
+          <span className="text-xs text-primary-600 group-hover:text-primary-700">
+            Manage allotments
+          </span>
+        </Link>
       </div>
 
       {/* ---- List card ---- */}
@@ -489,12 +543,14 @@ export default function ImportsListPage() {
         <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
           <Truck className="h-4 w-4 text-slate-500" />
           <span className="font-semibold text-slate-800">Imports List</span>
-          {activeCard !== 'all' && (
-            <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">
-              {cards.find((c) => c.card_content_id === activeCard)?.card_title ??
-                activeCard}
+          {activeFilters.map((key) => (
+            <span
+              key={key}
+              className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5"
+            >
+              {cards.find((c) => c.card_content_id === key)?.card_title ?? key}
             </span>
-          )}
+          ))}
         </div>
 
         {/* Toolbar */}
@@ -515,6 +571,16 @@ export default function ImportsListPage() {
               ))}
             </select>
             <span className="text-slate-500">imports per page</span>
+            {pendingActive.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkOpen(true)}
+                title="Bulk-edit the fields for the active pending filters"
+                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-sm font-medium transition"
+              >
+                <ClipboardCheck className="h-4 w-4" /> Bulk Update ({pendingActive.length})
+              </button>
+            )}
           </div>
           <div className="relative ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -667,6 +733,23 @@ export default function ImportsListPage() {
           editHref={`/imports/${viewId}`}
           onExport={() => exportOne(viewId)}
           onClose={() => setViewId(null)}
+        />
+      )}
+
+      {bulkOpen && (
+        <BulkUpdateModal
+          statusFilters={pendingActive}
+          extra={{
+            client_id: applied.client_id ? Number(applied.client_id) : undefined,
+            pre_alert_from: applied.start_date || undefined,
+            pre_alert_to: applied.end_date || undefined,
+          }}
+          onClose={() => setBulkOpen(false)}
+          onSaved={() => {
+            setBulkOpen(false);
+            load();
+            reloadStats();
+          }}
         />
       )}
     </>

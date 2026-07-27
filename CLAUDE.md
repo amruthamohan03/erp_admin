@@ -202,6 +202,7 @@ When adding files, match this layout. If something doesn't fit, ask before inven
 - **Naming:** `snake_case` in DB, `camelCase` in TS, `PascalCase` for components and types. Master tables use a `_master_t` suffix (e.g. `status_master_t`, `role_master_t`, `menu_master_t`). Drizzle table objects use `camelCase` (`statusMaster`, not `status_master_t`) with the SQL name set explicitly: `pgTable("status_master_t", { ... })`.
 - **Comments:** explain *why*, not *what*. No noise comments (`// increment i`).
 - **Files:** one default export per file, named the same as the file.
+- **PDF / printable output:** every generated PDF or printable-HTML document (e.g. `src/db/queries/*Print.ts`, any `/print` route, any invoice/report export) MUST render **borders on all tables** — set `table { border-collapse: collapse }` plus a solid `1px solid #000` border on every `th`/`td`, wrap the document body in an outer bordered container, and enforce it in `@media print` (`table, th, td { border: 1px solid #000 !important }`) alongside `-webkit-print-color-adjust: exact; print-color-adjust: exact;` so borders and fills survive the print/PDF step. No borderless tables in any PDF.
 
 ---
 

@@ -246,7 +246,7 @@ export default function LicensesListPage() {
     let cancelled = false;
     (async () => {
       const [c, t] = await Promise.all([
-        fetchOptions('clients', 'company_name'),
+        fetchOptions('clients', 'short_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),
       ]);
       if (cancelled) return;

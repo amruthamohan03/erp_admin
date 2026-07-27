@@ -137,8 +137,8 @@ export default function ExportsListPage() {
     (async () => {
       const [c, t, s] = await Promise.all([
         // clients returns company_name/short_name (no `name`); label by
-        // company_name so the picker shows the client, not the raw id.
-        fetchOptions('clients', 'company_name'),
+        // short_name so the filter shows the client's short code.
+        fetchOptions('clients', 'short_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),
         fetch('/api/v1/exports/stats').then((res) => res.json()),
       ]);
