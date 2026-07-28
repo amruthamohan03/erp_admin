@@ -1,44 +1,40 @@
 import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { exportT } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { exportFilterPredicates } from '@/db/queries/exportFilters';
 
 // GET /api/v1/exports/stats
-// Counts + grand totals for dashboard cards / list header. Mirrors
-// imports/stats — `total_count`, sum of `fob` + `weight`, and a
-// month-to-date count.
+// One query for every dashboard counter (no per-card table scan): the summary
+// totals (total_count / this_month_count / total_fob / total_weight) plus the 17
+// status-filter counts, each keyed by its filter key so the list page reads
+// `stats[key]` directly. Status predicates come from the shared builder, so the
+// cards can never disagree with the grid.
 //
-// `loading_date` (not `created_at`) drives the month bucket because
-// exports use loading as the operational anchor — an export
-// pre-alerted in May and loaded in June belongs to June's stats.
-
-interface TotalsRow {
-  total_count: number;
-  total_fob: number;
-  total_weight: number;
-  this_month_count: number;
-}
+// `loading_date` (not `created_at`) drives the month bucket — exports use loading
+// as the operational anchor.
 
 export const GET = withErrorHandler(async (_req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
+  const preds = exportFilterPredicates();
+  const statusCounts = Object.entries(preds).map(
+    ([key, cond]) => sql`count(*) FILTER (WHERE ${cond})::int AS ${sql.identifier(key)}`,
+  );
+
   const result = await db.execute(sql`
     SELECT
-      (SELECT count(*)::int FROM exports_t WHERE display = 'Y') AS total_count,
-      COALESCE((SELECT SUM(fob) FROM exports_t WHERE display = 'Y'), 0)::float AS total_fob,
-      COALESCE((SELECT SUM(weight) FROM exports_t WHERE display = 'Y'), 0)::float AS total_weight,
-      (
-        SELECT count(*)::int FROM exports_t
-        WHERE display = 'Y' AND loading_date >= date_trunc('month', current_date)
-      ) AS this_month_count
+      count(*)::int AS total_count,
+      count(*) FILTER (WHERE loading_date >= date_trunc('month', current_date))::int AS this_month_count,
+      COALESCE(SUM(fob), 0)::float AS total_fob,
+      COALESCE(SUM(weight), 0)::float AS total_weight,
+      ${sql.join(statusCounts, sql`, `)}
+    FROM ${exportT}
+    WHERE display = 'Y'
   `);
-  const t = (result.rows ?? [])[0] as unknown as TotalsRow | undefined;
+  const row = ((result as unknown as { rows: Record<string, number>[] }).rows ?? [])[0] ?? {};
 
-  return ok({
-    total_count: t?.total_count ?? 0,
-    total_fob: t?.total_fob ?? 0,
-    total_weight: t?.total_weight ?? 0,
-    this_month_count: t?.this_month_count ?? 0,
-  });
+  return ok(row);
 });

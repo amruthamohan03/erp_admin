@@ -97,8 +97,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const sortByOrder = (a: MenuTreeNode, b: MenuTreeNode) =>
     a.menu_order - b.menu_order || a.id - b.id;
+  // Sub-menus are sorted alphabetically (A→Z); top-level groups keep their
+  // configured menu_order.
+  const sortByName = (a: MenuTreeNode, b: MenuTreeNode) =>
+    a.menu_name.localeCompare(b.menu_name, undefined, { sensitivity: 'base' }) ||
+    a.menu_order - b.menu_order ||
+    a.id - b.id;
   tree.sort(sortByOrder);
-  tree.forEach((n) => n.children.sort(sortByOrder));
+  tree.forEach((n) => n.children.sort(sortByName));
 
   return ok(tree);
 });

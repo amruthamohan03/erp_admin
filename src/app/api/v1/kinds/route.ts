@@ -21,15 +21,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(kindMaster.display, 'Y'),
-        or(
-          ilike(kindMaster.kindName, like),
-          ilike(kindMaster.kindShortName, like),
-        ),
-      )
-    : eq(kindMaster.display, 'Y');
+  // Optional group filter so import/export forms only offer their own kinds:
+  // ?group=import → IMPORT %, ?group=export → EXPORT % (by kind_name prefix).
+  const group = searchParams.get('group');
+  const conds = [eq(kindMaster.display, 'Y')];
+  if (like) conds.push(or(ilike(kindMaster.kindName, like), ilike(kindMaster.kindShortName, like))!);
+  if (group === 'import') conds.push(ilike(kindMaster.kindName, 'IMPORT%'));
+  else if (group === 'export') conds.push(ilike(kindMaster.kindName, 'EXPORT%'));
+  const where = and(...conds);
 
   const [countRow] = await db
     .select({ total: count() })

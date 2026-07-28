@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FileText, Shield, Search, X, Check, Plus } from 'lucide-react';
+import { FileText, Settings } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
+import PartielleManageModal from '@/modules/imports/PartielleManageModal';
+import SealPickerControl from '@/components/ui/SealPickerControl';
 
 interface FieldRendererProps {
   field: PageFieldDef;
@@ -328,82 +330,17 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
   );
 }
 
-// §legacy — DGDA seal picker. Read-only display + modal of Available seals (plus
-// any already on the value), checkbox multi-select; the value is the comma-joined
-// seal numbers. number_of_seals auto-counts via a `count` derive.
+// §legacy — DGDA seal picker. Thin adapter over the shared SealPickerControl
+// (§4.10) that maps FieldRenderer's value/onChange contract to it. The value is
+// the comma-joined seal numbers; number_of_seals auto-counts via a `count` derive.
 function SealPicker({ field, value, readonly, onChange }: FieldRendererProps) {
-  const [open, setOpen] = useState(false);
-  const [avail, setAvail] = useState<Array<{ id: number; seal_number: string }>>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
-  const [checked, setChecked] = useState<Set<string>>(new Set());
-  const current = asString(value);
-
-  function openModal() {
-    setChecked(new Set(current.split(',').map((s) => s.trim()).filter(Boolean)));
-    setSearch('');
-    setOpen(true);
-    setLoading(true);
-    fetch('/api/v1/seal-numbers/available?limit=1000')
-      .then((r) => r.json())
-      .then((j) => { if (j.ok) setAvail(j.data.seals.map((s: { id: number; seal_number: string }) => ({ id: s.id, seal_number: s.seal_number }))); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }
-  const options = (() => {
-    const names = new Set(avail.map((s) => s.seal_number));
-    checked.forEach((c) => names.add(c));
-    const q = search.trim().toLowerCase();
-    return [...names].filter((nm) => !q || nm.toLowerCase().includes(q)).sort();
-  })();
-  function toggle(name: string) {
-    setChecked((prev) => { const x = new Set(prev); if (x.has(name)) x.delete(name); else x.add(name); return x; });
-  }
-  function confirm() { onChange([...checked].join(', ')); setOpen(false); }
-
   return (
-    <>
-      <div className="flex items-center gap-1">
-        <input id={field.name} className="input flex-1" value={current} readOnly placeholder="No seals selected" />
-        {!readonly && (
-          <button type="button" onClick={openModal} title="Select DGDA seals"
-            className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Plus className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
-              <h2 className="font-semibold flex items-center gap-2"><Shield className="h-5 w-5" /> Select DGDA Seals</h2>
-              <button type="button" onClick={() => setOpen(false)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
-            </div>
-            <div className="p-4">
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input className="input pl-9" placeholder="Search seals..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <div className="text-xs text-slate-500 mb-2">{checked.size} selected</div>
-              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
-                {loading && <div className="py-6 text-center text-sm text-slate-500">Loading…</div>}
-                {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-slate-500">No available seals.</div>}
-                {!loading && options.map((s) => (
-                  <label key={s} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
-                    <input type="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
-                    <span className="font-mono">{s}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button type="button" onClick={() => setOpen(false)} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
-              <button type="button" onClick={confirm} className="btn-primary"><Check className="h-4 w-4" /> Confirm Selection</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <SealPickerControl
+      id={field.name}
+      value={asString(value)}
+      readonly={readonly}
+      onChange={(v) => onChange(v)}
+    />
   );
 }
 
@@ -484,7 +421,10 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     };
   }, [source, labelField, labelTemplate, paramQuery]);
 
-  const options = source ? dynamic : staticOptions.map((o) => ({ value: o.value, label: o.label }));
+  // All dropdowns render their options in ascending (A→Z, numeric-aware) order.
+  const options = (source ? dynamic : staticOptions.map((o) => ({ value: o.value, label: o.label })))
+    .slice()
+    .sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
     <select
@@ -516,10 +456,7 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
 
   const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', weight: '', fob: '' });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showManage, setShowManage] = useState(false);
 
   const loadOptions = useCallback(async () => {
     if (!licenseId) {
@@ -530,7 +467,13 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
     try {
       const j = await fetch(`/api/v1/partielle-options?license_id=${licenseId}`).then((r) => r.json());
       if (j?.ok && Array.isArray(j.data)) {
-        setOptions(j.data.map((o: { id: unknown; label: unknown }) => ({ value: String(o.id), label: String(o.label) })));
+        setOptions(
+          j.data
+            .map((o: { id: unknown; label: unknown }) => ({ value: String(o.id), label: String(o.label) }))
+            .sort((a: { label: string }, b: { label: string }) =>
+              a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }),
+            ),
+        );
       }
     } catch {
       // leave empty
@@ -543,35 +486,6 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadOptions();
   }, [loadOptions]);
-
-  async function create() {
-    if (!licenseId || !form.name.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const j = await fetch('/api/v1/partielles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partial_name: form.name.trim(),
-          license_id: licenseId,
-          partial_weight: Number(form.weight) || 0,
-          partial_fob: Number(form.fob) || 0,
-        }),
-      }).then((r) => r.json());
-      if (!j?.ok) {
-        setError(j?.error?.message ?? 'Create failed');
-        return;
-      }
-      const newName = form.name.trim();
-      await loadOptions();
-      onChange(newName);
-      setForm({ name: '', weight: '', fob: '' });
-      setShowCreate(false);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <div>
@@ -595,56 +509,21 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
         {!readonly && (
           <button
             type="button"
-            title={licenseId ? 'Add a new PARTIELLE allotment' : 'Select a licence first'}
+            title={licenseId ? 'Manage PARTIELLE allotments' : 'Select a licence first'}
             disabled={!licenseId}
-            onClick={() => setShowCreate((s) => !s)}
+            onClick={() => setShowManage(true)}
             className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40"
           >
-            <Plus className="h-4 w-4" />
+            <Settings className="h-4 w-4" />
           </button>
         )}
       </div>
-      {showCreate && (
-        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 space-y-2">
-          {error && <div className="text-xs text-red-700">{error}</div>}
-          <input
-            className="input text-xs"
-            placeholder="Allotment name (e.g. CRF123-0001)"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-          <div className="flex gap-2">
-            <input
-              type="number"
-              step="0.001"
-              className="input text-xs"
-              placeholder="Weight (KG)"
-              value={form.weight}
-              onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))}
-            />
-            <input
-              type="number"
-              step="0.01"
-              className="input text-xs"
-              placeholder="FOB"
-              value={form.fob}
-              onChange={(e) => setForm((f) => ({ ...f, fob: e.target.value }))}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" className="text-xs px-2 py-1 rounded bg-slate-200 hover:bg-slate-300" onClick={() => setShowCreate(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={saving || !form.name.trim()}
-              onClick={create}
-              className="text-xs px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Add'}
-            </button>
-          </div>
-        </div>
+      {showManage && licenseId != null && (
+        <PartielleManageModal
+          licenseId={licenseId}
+          onClose={() => setShowManage(false)}
+          onChanged={() => loadOptions()}
+        />
       )}
     </div>
   );

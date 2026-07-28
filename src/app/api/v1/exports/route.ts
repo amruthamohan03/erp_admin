@@ -27,6 +27,7 @@ import {
   exportListQuerySchema,
 } from '@/schemas/exports';
 import { bodyToInsert } from '@/lib/exports/serialize';
+import { exportFilterCondition } from '@/db/queries/exportFilters';
 
 // GET /api/v1/exports — paginated list with display joins:
 // client, license, regime, clearing-status, document-status,
@@ -81,6 +82,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
   if (q.loading_from) conds.push(gte(exportT.loadingDate, q.loading_from));
   if (q.loading_to) conds.push(lte(exportT.loadingDate, q.loading_to));
+  // Dashboard status cards → AND-combined predicates from the shared builder, so
+  // the grid always agrees with the card counts.
+  const statusFilters = searchParams.get('status_filters');
+  if (statusFilters?.trim()) {
+    for (const key of statusFilters.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const cond = exportFilterCondition(key);
+      if (cond) conds.push(cond);
+    }
+  }
   const where = and(...conds);
 
   const [countRow] = await db

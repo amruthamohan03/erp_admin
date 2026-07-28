@@ -1,9 +1,9 @@
-// GET /api/v1/export-invoices/statistics — counts for the list-page stat cards.
+// GET /api/v1/export-invoices/statistics — the 7 dashboard counters.
 import { ok, isResponse, requireAuth, withErrorHandler } from '@/lib/api';
-import { invoiceStatistics } from '@/db/queries/invoices';
+import { exportInvoiceStats } from '@/db/queries/exportInvoiceExtras';
 
 export const GET = withErrorHandler(async () => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
-  return ok(await invoiceStatistics('export'));
+  return ok(await exportInvoiceStats());
 });

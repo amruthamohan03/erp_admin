@@ -5,7 +5,7 @@
 //   • an import can't over-draw its selected allotment (the doc's core fix)
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { partialT, licenseT } from '@/db/schema';
+import { partialT, licenseT, clientMaster } from '@/db/schema';
 
 const N = (v: unknown): number => {
   const n = Number(v);
@@ -22,6 +22,7 @@ export interface PartielleRow {
   partial_fob: number;
   weight_used: number;
   fob_used: number;
+  no_of_files: number;
   remaining_weight: number;
   remaining_fob: number;
 }
@@ -32,10 +33,10 @@ export async function listForLicense(licenseId: number): Promise<PartielleRow[]>
   const rows = await db.execute(sql`
     SELECT p.id, p.partial_name, p.license_id, p.client_id,
            p.partial_weight, p.partial_fob,
-           COALESCE(u.w, 0) AS weight_used, COALESCE(u.f, 0) AS fob_used
+           COALESCE(u.w, 0) AS weight_used, COALESCE(u.f, 0) AS fob_used, COALESCE(u.c, 0) AS no_of_files
     FROM partial_t p
     LEFT JOIN (
-      SELECT inspection_reports, SUM(weight) AS w, SUM(fob) AS f
+      SELECT inspection_reports, SUM(weight) AS w, SUM(fob) AS f, COUNT(*) AS c
       FROM imports_t WHERE display = 'Y' AND inspection_reports IS NOT NULL
       GROUP BY inspection_reports
     ) u ON u.inspection_reports = p.partial_name
@@ -55,10 +56,58 @@ export async function listForLicense(licenseId: number): Promise<PartielleRow[]>
       partial_fob: pf,
       weight_used: wu,
       fob_used: fu,
+      no_of_files: N(r.no_of_files),
       remaining_weight: round3(pw - wu),
       remaining_fob: round3(pf - fu),
     };
   });
+}
+
+// Everything the PARTIELLE management modal shows for a licence: its weight/FOB
+// budget, the remaining (available) budget net of all allotments, and the
+// allotment rows with usage.
+export interface PartielleSummary {
+  license: {
+    license_number: string;
+    license_weight: number;
+    license_fob: number;
+    client_name: string;
+    ref_cod: string;
+  };
+  available: { weight: number; fob: number };
+  rows: PartielleRow[];
+}
+
+export async function partielleSummary(licenseId: number): Promise<PartielleSummary | null> {
+  const [l] = await db
+    .select({ number: licenseT.licenseNumber, weight: licenseT.weight, fob: licenseT.fobDeclared, clientId: licenseT.clientId })
+    .from(licenseT)
+    .where(eq(licenseT.id, licenseId));
+  if (!l) return null;
+
+  let clientName = '';
+  if (l.clientId != null) {
+    const [cl] = await db.select({ s: clientMaster.shortName }).from(clientMaster).where(eq(clientMaster.id, l.clientId));
+    clientName = cl?.s ?? '';
+  }
+
+  const rows = await listForLicense(licenseId);
+  const allocW = rows.reduce((s, r) => s + r.partial_weight, 0);
+  const allocF = rows.reduce((s, r) => s + r.partial_fob, 0);
+  const lw = N(l.weight);
+  const lf = N(l.fob);
+
+  return {
+    license: {
+      license_number: l.number ?? '',
+      license_weight: lw,
+      license_fob: lf,
+      client_name: clientName,
+      ref_cod: clientName,
+    },
+    available: { weight: round3(lw - allocW), fob: round3(lf - allocF) },
+    rows,
+  };
 }
 
 async function licenceBudget(

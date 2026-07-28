@@ -153,10 +153,12 @@ async function fetchOptions(
     const list: Array<Record<string, unknown>> = Array.isArray(j?.data)
       ? j.data
       : [];
-    return list.map((row) => ({
-      id: row.id as number,
-      label: String(row[labelKey] ?? row.id),
-    }));
+    return list
+      .map((row) => ({
+        id: row.id as number,
+        label: String(row[labelKey] ?? row.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
   } catch {
     return [];
   }
@@ -379,8 +381,14 @@ export default function ImportsListPage() {
                 className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''} ${isFilter ? '' : 'cursor-default'}`}
                 title={isFilter ? `Filter: ${card.card_title}` : card.card_title}
               >
-                <div className="absolute right-2 top-2 opacity-30">
-                  <Icon className="h-5 w-5" />
+                <div className="absolute right-2 top-2">
+                  {active && isFilter ? (
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-slate-900 shadow">
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <Icon className="h-5 w-5 opacity-30" />
+                  )}
                 </div>
                 <div className="text-2xl font-bold leading-none">{value}</div>
                 <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">

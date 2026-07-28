@@ -131,10 +131,12 @@ async function fetchOptions(source: string, labelKey: string): Promise<Option[]>
     const list: Array<Record<string, unknown>> = Array.isArray(j?.data)
       ? j.data
       : [];
-    return list.map((row) => ({
-      id: row.id as number,
-      label: String(row[labelKey] ?? row.id),
-    }));
+    return list
+      .map((row) => ({
+        id: row.id as number,
+        label: String(row[labelKey] ?? row.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
   } catch {
     return [];
   }

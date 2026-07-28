@@ -12,6 +12,12 @@ import {
   X,
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import SealPickerControl from '@/components/ui/SealPickerControl';
+
+// No. of Seals is derived from the comma-joined seal numbers — same rule the
+// single form applies via its `count` derive on dgda_seal_no.
+const sealCount = (s: string): number =>
+  s.split(',').map((x) => x.trim()).filter(Boolean).length;
 
 // /exports/bulk-new — grid-based multi-row export creation against
 // ONE license. Mirrors main's export/bulk-new but simplified for
@@ -83,7 +89,7 @@ export default function BulkNewExportsPage() {
   const router = useRouter();
 
   const [clients, setClients] = useState<Option[]>([]);
-  const [licenses, setLicenses] = useState<Option[]>([]);
+  const [licenses, setLicenses] = useState<Array<Option & { clientId: string }>>([]);
   const [clientId, setClientId] = useState<string>('');
   const [licenseId, setLicenseId] = useState<string>('');
   const [usage, setUsage] = useState<LicenseUsage | null>(null);
@@ -106,20 +112,21 @@ export default function BulkNewExportsPage() {
       ]);
       if (cRes.ok) {
         setClients(
-          // clients returns company_name/short_name — there is no `name` key.
-          (cRes.data as { id: number; company_name: string }[]).map((c) => ({
+          // Show the client short_name (fall back to company_name if absent).
+          (cRes.data as { id: number; company_name: string; short_name: string | null }[]).map((c) => ({
             value: String(c.id),
-            label: c.company_name,
+            label: c.short_name || c.company_name,
           })),
         );
       }
       if (lRes.ok) {
         setLicenses(
           (
-            lRes.data as { id: number; license_no?: string; client_id?: number }[]
+            lRes.data as { id: number; license_number?: string; license_no?: string; client_id?: number }[]
           ).map((l) => ({
             value: String(l.id),
-            label: l.license_no ?? `#${l.id}`,
+            label: l.license_number ?? l.license_no ?? `#${l.id}`,
+            clientId: l.client_id != null ? String(l.client_id) : '',
           })),
         );
       }
@@ -218,6 +225,7 @@ export default function BulkNewExportsPage() {
         destination: nonEmpty(r.destination),
         lot_number: nonEmpty(r.lot_number),
         dgda_seal_no: nonEmpty(r.dgda_seal_no),
+        number_of_seals: sealCount(r.dgda_seal_no) || null,
         number_of_bags:
           r.number_of_bags.trim() === '' ? null : Number(r.number_of_bags),
       })),
@@ -287,7 +295,7 @@ export default function BulkNewExportsPage() {
             <label className="label">Client *</label>
             <SearchableSelect
               value={clientId}
-              onChange={setClientId}
+              onChange={(v) => { setClientId(v); setLicenseId(''); }}
               options={clients}
               placeholder="Select client..."
               emptyLabel="—"
@@ -298,8 +306,8 @@ export default function BulkNewExportsPage() {
             <SearchableSelect
               value={licenseId}
               onChange={setLicenseId}
-              options={licenses}
-              placeholder="Select license..."
+              options={clientId ? licenses.filter((l) => l.clientId === clientId) : licenses}
+              placeholder={clientId ? 'Select license...' : 'Select client first'}
               emptyLabel="—"
             />
           </div>
@@ -385,6 +393,7 @@ export default function BulkNewExportsPage() {
                 <th>Lot #</th>
                 <th>Bags</th>
                 <th>DGDA seal</th>
+                <th>No. of Seals</th>
                 <th></th>
               </tr>
             </thead>
@@ -486,12 +495,18 @@ export default function BulkNewExportsPage() {
                     />
                   </td>
                   <td>
-                    <input
-                      className="input text-xs w-28"
+                    <SealPickerControl
+                      compact
                       value={r.dgda_seal_no}
-                      onChange={(e) =>
-                        updateRow(i, { dgda_seal_no: e.target.value })
-                      }
+                      onChange={(v) => updateRow(i, { dgda_seal_no: v })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="input text-xs w-16 bg-slate-50"
+                      value={sealCount(r.dgda_seal_no) || ''}
+                      readOnly
+                      placeholder="0"
                     />
                   </td>
                   <td>

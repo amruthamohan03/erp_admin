@@ -15,13 +15,20 @@ import {
   FileSpreadsheet,
   FileText,
   Calendar,
-  TrendingUp,
-  Weight,
+  CheckCircle2,
+  Loader,
+  Package,
+  FileCheck,
+  ClipboardCheck,
+  Archive,
+  Receipt,
+  ShieldCheck,
+  Hash,
+  type LucideIcon,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import StatCard from '@/components/ui/StatCard';
 
 // Row shape returned by /api/v1/exports (list joins). Keys mirror
 // what main's /export list renders (client_name, license_number,
@@ -48,7 +55,33 @@ interface Stats {
   total_fob: number;
   total_weight: number;
   this_month_count: number;
+  // status-filter counts keyed by ExportFilterKey (e.g. seal_pending)
+  [key: string]: number;
 }
+
+// §8 — the export tracking status cards (mirrors the legacy Export Management
+// dashboard). `total` clears all filters; the rest are AND-combined status
+// filters whose counts + grid predicates come from the shared builder.
+const STATUS_CARDS: Array<{ key: string; label: string; grad: string; Icon: LucideIcon }> = [
+  { key: 'total', label: 'Total Exports', grad: 'from-blue-500 to-blue-600', Icon: FileText },
+  { key: 'lmc_id_pending', label: 'LMC ID Pending', grad: 'from-sky-500 to-blue-600', Icon: Hash },
+  { key: 'completed', label: 'Completed', grad: 'from-emerald-500 to-green-600', Icon: CheckCircle2 },
+  { key: 'lmc_date_pending', label: 'LMC Date Pending', grad: 'from-slate-500 to-slate-600', Icon: Calendar },
+  { key: 'in_progress', label: 'In Progress', grad: 'from-amber-500 to-orange-500', Icon: Loader },
+  { key: 'ogefrem_ref_pending', label: 'OGEFREM Inv.Ref Pending', grad: 'from-amber-700 to-yellow-700', Icon: FileText },
+  { key: 'ogefrem_date_pending', label: 'OGEFREM Date Pending', grad: 'from-red-500 to-rose-600', Icon: Calendar },
+  { key: 'in_transit', label: 'In Transit', grad: 'from-slate-400 to-slate-500', Icon: Package },
+  { key: 'ceec_pending', label: 'CEEC Pending', grad: 'from-teal-500 to-teal-600', Icon: FileCheck },
+  { key: 'min_div_pending', label: 'Min Div Pending', grad: 'from-rose-500 to-red-600', Icon: FileCheck },
+  { key: 'gov_docs_pending', label: 'Gov Docs Pending', grad: 'from-pink-500 to-pink-600', Icon: FileText },
+  { key: 'audited_pending', label: 'Audited Pending', grad: 'from-violet-500 to-purple-600', Icon: ClipboardCheck },
+  { key: 'archived_pending', label: 'Archived Pending', grad: 'from-emerald-500 to-teal-600', Icon: Archive },
+  { key: 'dgda_in_pending', label: 'DGDA In Pending', grad: 'from-red-500 to-rose-600', Icon: FileText },
+  { key: 'liquidation_pending', label: 'Liquidation Pending', grad: 'from-slate-500 to-slate-700', Icon: Receipt },
+  { key: 'quittance_pending', label: 'Quittance Pending', grad: 'from-cyan-500 to-teal-600', Icon: Receipt },
+  { key: 'dispatch_pending', label: 'Dispatch Pending', grad: 'from-amber-500 to-orange-600', Icon: Truck },
+  { key: 'seal_pending', label: 'Seal Pending', grad: 'from-emerald-600 to-green-700', Icon: ShieldCheck },
+];
 
 interface FilterState {
   client_id: string;
@@ -98,10 +131,12 @@ async function fetchOptions(
       : Array.isArray(j?.data?.items)
         ? j.data.items
         : [];
-    return list.map((row) => ({
-      id: row.id as number,
-      label: String(row[labelKey] ?? row.id),
-    }));
+    return list
+      .map((row) => ({
+        id: row.id as number,
+        label: String(row[labelKey] ?? row.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
   } catch {
     return [];
   }
@@ -119,6 +154,8 @@ export default function ExportsListPage() {
   const [clientOpts, setClientOpts] = useState<Option[]>([]);
   const [transportOpts, setTransportOpts] = useState<Option[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  // §8 — status cards clicked, AND-combined. Empty ⇒ "Total" (all rows).
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
   const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
@@ -159,8 +196,20 @@ export default function ExportsListPage() {
     Object.entries(applied).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
+    if (activeFilters.length) params.set('status_filters', activeFilters.join(','));
     return params;
-  }, [search, applied]);
+  }, [search, applied, activeFilters]);
+
+  function toggleCard(key: string): void {
+    setPage(1);
+    if (key === 'total') {
+      setActiveFilters([]);
+      return;
+    }
+    setActiveFilters((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -227,28 +276,36 @@ export default function ExportsListPage() {
         </a>
       </div>
 
-      {/* ---- Stat cards ---- */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <StatCard
-          icon={<FileText className="h-5 w-5" />}
-          label="Total exports"
-          value={stats ? fmtCount(stats.total_count) : '—'}
-        />
-        <StatCard
-          icon={<Calendar className="h-5 w-5" />}
-          label="Loaded this month"
-          value={stats ? fmtCount(stats.this_month_count) : '—'}
-        />
-        <StatCard
-          icon={<TrendingUp className="h-5 w-5" />}
-          label="Total FOB"
-          value={stats ? fmtNum(String(stats.total_fob)) : '—'}
-        />
-        <StatCard
-          icon={<Weight className="h-5 w-5" />}
-          label="Total Weight"
-          value={stats ? fmtNum(String(stats.total_weight)) : '—'}
-        />
+      {/* ---- Status cards (clickable filters) ---- */}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3 mb-4">
+        {STATUS_CARDS.map((card) => {
+          const active =
+            card.key === 'total'
+              ? activeFilters.length === 0
+              : activeFilters.includes(card.key);
+          const value = stats ? (stats[card.key] ?? 0) : 0;
+          return (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => toggleCard(card.key)}
+              title={`Filter: ${card.label}`}
+              className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
+            >
+              <div className="absolute right-2 top-2">
+                {active ? (
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-slate-900 shadow">
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                ) : (
+                  <card.Icon className="h-5 w-5 opacity-30" />
+                )}
+              </div>
+              <div className="text-2xl font-bold leading-none">{stats ? fmtCount(value) : '—'}</div>
+              <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.label}</div>
+            </button>
+          );
+        })}
       </div>
 
       {/* ---- Advanced Filters ---- */}

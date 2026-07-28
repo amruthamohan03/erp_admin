@@ -23,6 +23,7 @@ import {
 } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { exportListQuerySchema } from '@/schemas/exports';
+import { exportFilterCondition } from '@/db/queries/exportFilters';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
 
 // GET /api/v1/exports/export
@@ -73,6 +74,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
   if (q.loading_from) conds.push(gte(exportT.loadingDate, q.loading_from));
   if (q.loading_to) conds.push(lte(exportT.loadingDate, q.loading_to));
+  // Respect the active dashboard status cards (same shared predicates as the grid).
+  const statusFilters = searchParams.get('status_filters');
+  if (statusFilters?.trim()) {
+    for (const key of statusFilters.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const cond = exportFilterCondition(key);
+      if (cond) conds.push(cond);
+    }
+  }
   const where = and(...conds);
 
   const rows = await db

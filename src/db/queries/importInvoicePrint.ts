@@ -40,24 +40,40 @@ export async function buildImportInvoicePrintHtml(id: number): Promise<string | 
   const invRes = await db.execute(sql`
     SELECT inv.*, c.company_name, c.short_name, c.address, c.rccm_number, c.nif_number,
            c.id_nat_number, c.import_export_number,
-           tm.transport_mode_name, tg.goods_type, l.license_number
+           tm.transport_mode_name, tg.goods_type, l.license_number,
+           su.signature_image AS sig_image, COALESCE(su.full_name, su.username) AS operator_name
     FROM import_invoices_t inv
     LEFT JOIN client_master_t c ON c.id = inv.client_id
     LEFT JOIN transport_mode_master_t tm ON tm.id = inv.transport_mode_id
     LEFT JOIN type_of_goods_master_t tg ON tg.id = inv.goods_type_id
     LEFT JOIN license_t l ON l.id = inv.license_id
+    LEFT JOIN users_t su ON su.id = inv.created_by
     WHERE inv.id = ${id} AND inv.display = 'Y' LIMIT 1`);
   const inv = (invRes as unknown as { rows: Record<string, unknown>[] }).rows[0];
   if (!inv) return null;
 
+  // Resolve the display name + category from item_master_t so legacy rows that
+  // stored the item id in item_name (and left item_id / category null) still
+  // print the real name and a proper category header. Effective item id =
+  // item_id, else a purely-numeric item_name; category = the row's category_id
+  // else the resolved item's category. Stored text still wins when a real name
+  // was typed with no master link (im.* is null → COALESCE falls through).
   const itemsRes = await db.execute(sql`
-    SELECT category_id, category_header, category_name, item_name, unit_text, unit_name,
-           quantity, taux_usd, subtotal_usd, tva_usd, total_usd, rate_cdf, vat_cdf, total_cdf
-    FROM import_invoice_items_t WHERE invoice_id = ${id} AND display = 'Y'
-    ORDER BY category_id ASC, sort_order ASC, id ASC`);
+    SELECT COALESCE(eii.category_id, im.category_id) AS category_id,
+           COALESCE(eii.category_header, eii.category_name, qc.category_header, qc.category_name, 'UNCATEGORIZED') AS category_header,
+           COALESCE(im.item_name, NULLIF(eii.item_name, '')) AS item_name,
+           eii.unit_text, eii.unit_name, eii.quantity, eii.taux_usd, eii.subtotal_usd,
+           eii.tva_usd, eii.total_usd, eii.rate_cdf, eii.vat_cdf, eii.total_cdf,
+           eii.sort_order, eii.id
+    FROM import_invoice_items_t eii
+    LEFT JOIN item_master_t im
+      ON im.id = COALESCE(eii.item_id, CASE WHEN eii.item_name ~ '^[0-9]+$' THEN eii.item_name::int END)
+    LEFT JOIN quotation_category_master_t qc ON qc.id = COALESCE(eii.category_id, im.category_id)
+    WHERE eii.invoice_id = ${id} AND eii.display = 'Y'
+    ORDER BY category_id ASC, eii.sort_order ASC, eii.id ASC`);
   const items: Item[] = (itemsRes as unknown as { rows: Record<string, unknown>[] }).rows.map((r) => ({
     category_id: num(r.category_id),
-    category_header: String(r.category_header ?? r.category_name ?? 'UNCATEGORIZED'),
+    category_header: String(r.category_header ?? 'UNCATEGORIZED'),
     item_name: String(r.item_name ?? ''),
     unit: String(r.unit_text ?? r.unit_name ?? 'Unit'),
     quantity: num(r.quantity),
@@ -122,6 +138,11 @@ export async function buildImportInvoicePrintHtml(id: number): Promise<string | 
   const statusBadge =
     validated === 2 ? 'DGI VERIFIED' : validated === 1 ? 'VALIDATED' : 'NOT VALIDATED';
   const watermark = validated === 0 ? '<div class="wm">NOT VALID</div>' : '';
+  // Operator signature — only on a validated invoice, and only if the creator has one.
+  const signatureHtml =
+    validated >= 1 && inv.sig_image
+      ? `<div style="text-align:right;margin-top:12px;"><img src="${esc(inv.sig_image)}" style="max-height:60px;max-width:190px;" alt="Signature"><div style="font-size:10px;margin-top:2px;">Opérateur: ${esc(inv.operator_name)}</div></div>`
+      : '';
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(inv.invoice_ref)}</title>
 <style>
@@ -180,6 +201,7 @@ ${categoriesHtml || '<p style="text-align:center;color:#888;margin:20px;">No ite
   <tr><td class="lbl bo">Grand Total</td><td class="r bo">$ ${money(grand)}</td></tr>
   <tr><td class="lbl">Equivalent CDF</td><td class="r">${money(equivCdf)} FC</td></tr>
 </table>
+${signatureHtml}
 <div style="margin-top:8px;font-size:10px;"><b>Mode de paiement:</b> ${esc(inv.payment_method)} &nbsp;·&nbsp; <b>Taux:</b> 1 USD = ${money(rateInv)} CDF</div>
 <div class="foot">Thank you for your business!</div>
 </div>

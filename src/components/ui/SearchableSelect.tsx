@@ -44,9 +44,13 @@ export default function SearchableSelect({
   );
 
   const filtered = useMemo(() => {
+    // All dropdowns render their options in ascending (A→Z, numeric-aware) order.
+    const sorted = options
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
     const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(q));
+    if (!q) return sorted;
+    return sorted.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
 
   // Close on outside click

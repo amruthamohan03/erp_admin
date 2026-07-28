@@ -75,7 +75,7 @@ export default function BulkNewImportsPage() {
   const router = useRouter();
 
   const [clients, setClients] = useState<Option[]>([]);
-  const [licenses, setLicenses] = useState<Option[]>([]);
+  const [licenses, setLicenses] = useState<Array<Option & { clientId: string }>>([]);
   const [clientId, setClientId] = useState<string>('');
   const [licenseId, setLicenseId] = useState<string>('');
   const [usage, setUsage] = useState<LicenseUsage | null>(null);
@@ -106,10 +106,11 @@ export default function BulkNewImportsPage() {
       if (lRes.ok) {
         setLicenses(
           (
-            lRes.data as { id: number; license_no?: string }[]
+            lRes.data as { id: number; license_number?: string; license_no?: string; client_id?: number }[]
           ).map((l) => ({
             value: String(l.id),
-            label: l.license_no ?? `#${l.id}`,
+            label: l.license_number ?? l.license_no ?? `#${l.id}`,
+            clientId: l.client_id != null ? String(l.client_id) : '',
           })),
         );
       }
@@ -268,7 +269,7 @@ export default function BulkNewImportsPage() {
             <label className="label">Client *</label>
             <SearchableSelect
               value={clientId}
-              onChange={setClientId}
+              onChange={(v) => { setClientId(v); setLicenseId(''); }}
               options={clients}
               placeholder="Select client..."
               emptyLabel="—"
@@ -279,8 +280,8 @@ export default function BulkNewImportsPage() {
             <SearchableSelect
               value={licenseId}
               onChange={setLicenseId}
-              options={licenses}
-              placeholder="Select license..."
+              options={clientId ? licenses.filter((l) => l.clientId === clientId) : licenses}
+              placeholder={clientId ? 'Select license...' : 'Select client first'}
               emptyLabel="—"
             />
           </div>

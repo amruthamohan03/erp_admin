@@ -107,7 +107,9 @@ export default function RecordViewModal({
         const existing = sourceRows.get(src);
         if (existing) return existing;
         // pageSize=100 is the universal cap the list-query schemas accept.
-        const p = fetch(`/api/v1/${src}?pageSize=100`)
+        // `src` may already carry a query string (e.g. 'kinds?group=import') — join
+        // with & in that case so we don't emit a malformed double '?'.
+        const p = fetch(`/api/v1/${src}${src.includes('?') ? '&' : '?'}pageSize=100`)
           .then((r) => r.json())
           .then((j) => {
             if (!j?.ok) return [];
