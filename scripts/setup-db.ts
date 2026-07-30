@@ -31,14 +31,6 @@ const val = (f: string): string | undefined => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-// Menu items whose pages were removed in the Stage-5 cleanup.
-const REMOVED_ROUTES = [
-  '/reports', '/tracking', '/credit-notes', '/invoices', '/payment-requests',
-  '/fiche-de-calcul', '/masters/forms', '/masters/partials', '/masters/payment-types',
-  '/masters/payment-subtypes', '/mapping/fieldgrants', '/exports/dashboard',
-  '/imports/dashboard', '/licenses/dashboard', '/quotations/dashboard',
-];
-
 async function main(): Promise<void> {
   const PGHOST = process.env.PGHOST ?? 'localhost';
   const PGPORT = process.env.PGPORT ?? '5432';
@@ -112,7 +104,8 @@ async function main(): Promise<void> {
   await db.delete(roleMenuMapping);
   await db.delete(menuMaster);
   await seedMenus(db);
-  await db.execute(sql`DELETE FROM menu_master_t WHERE url IN (${sql.join(REMOVED_ROUTES.map((u) => sql`${u}`), sql`, `)})`);
+  // Orphan sweep: parent groups the seed no longer emits but an older run left
+  // behind. The Stage-5 route removals are handled in seedMenus itself now.
   await db.execute(sql`DELETE FROM menu_master_t p WHERE p.menu_id IS NULL AND p.url='#' AND NOT EXISTS (SELECT 1 FROM menu_master_t c WHERE c.menu_id=p.id)`);
   console.log('  ✓ sidebar reseeded');
 

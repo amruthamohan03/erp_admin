@@ -13,6 +13,12 @@
 // It is idempotent: rows already present (matched by hash) are left alone, so
 // it is safe to run on a partially- or fully-migrated database too.
 //
+// Pass `--through <tag>` to stop at a migration instead of stamping the whole
+// journal — everything after it stays pending for `db:migrate` to apply. That
+// is how a dump-restored database picks up the guarded backfill migrations:
+//   npm run db:baseline -- --through 0043_relax_banklist_bank_code_unique
+//   npm run db:migrate     # applies 0044 onwards for real
+//
 // Hash algorithm mirrors drizzle-orm's readMigrationFiles():
 //   sha256( fs.readFileSync(<tag>.sql).toString() ).digest('hex')
 // Computing it here, on your machine, keeps it correct regardless of whether
@@ -65,8 +71,18 @@ function readMigrations() {
   });
 }
 
+function applyThrough(migrations) {
+  const i = process.argv.indexOf('--through');
+  if (i === -1) return migrations;
+  const tag = process.argv[i + 1];
+  const at = migrations.findIndex((m) => m.tag === tag);
+  if (at === -1) throw new Error(`--through: no migration tagged "${tag}" in the journal`);
+  console.log(`[baseline] stopping after ${tag} — ${migrations.length - at - 1} left pending`);
+  return migrations.slice(0, at + 1);
+}
+
 async function main() {
-  const migrations = readMigrations();
+  const migrations = applyThrough(readMigrations());
   console.log(`[baseline] read ${migrations.length} migrations from ${MIGRATIONS_FOLDER}/`);
 
   const client = new Client({
