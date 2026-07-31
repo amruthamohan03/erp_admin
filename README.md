@@ -91,7 +91,8 @@ npm run db:seed
 | `npm run test:integration` | DB-backed integration tests via Testcontainers (or `TEST_DATABASE_URL`) |
 | `npm run test:all`      | Unit + integration                                                    |
 | `npm run db:generate`   | Generate a Drizzle migration after editing `src/db/schema/*`           |
-| `npm run db:migrate`    | Apply pending migrations                                              |
+| `npm run db:migrate`    | Apply pending migrations (reports the failing statement when one errors) |
+| `npm run db:baseline`   | Stamp existing migrations as applied on a dump-restored database — `-- --through <tag>` to stop early |
 | `npm run db:studio`     | Open Drizzle Studio                                                   |
 | `npm run db:introspect` | Reverse-engineer schema from an existing DB                           |
 | `npm run db:seed`       | Seed master tables (license + invoice modules, field validations, …)  |

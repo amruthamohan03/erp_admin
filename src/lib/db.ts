@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '@/db/schema';
+import { resolveDbCredentials } from '@/lib/dbCredentials';
 
 declare global {
   var _pgPool: Pool | undefined;
@@ -10,11 +11,11 @@ declare global {
 export const pool =
   global._pgPool ??
   new Pool({
-    host: process.env.PGHOST,
-    port: process.env.PGPORT ? parseInt(process.env.PGPORT, 10) : 5432,
-    user: process.env.PGUSER,
-    password: process.env.PGPASSWORD,
-    database: process.env.PGDATABASE,
+    // Shared with drizzle.config.ts and scripts/db-migrate.ts so the app, the
+    // migrator and the CLI can never disagree about which database is the
+    // target (PG* first, then DATABASE_URL). Not `required` here: importing
+    // this module must not throw during a build with no database configured.
+    ...resolveDbCredentials(),
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
