@@ -83,15 +83,74 @@ Foundational domain tables — every consignment, license, invoice, and payment 
 | `invoice_bank_master_t` | [src/db/schema/invoiceBankMaster.ts](../src/db/schema/invoiceBankMaster.ts) | [0033_old_tony_stark.sql](../drizzle/0033_old_tony_stark.sql) | The company's own bank accounts printed on outgoing invoices ("remit to" footer). Five fields: bank name, account name, account number, SWIFT, address. Distinct from `banklist_master_t` (the registry of registered banks, including ones the company doesn't use itself). Multiple rows are normal — operators sometimes route different currencies through different banks. |
 | `department_master_t` | [src/db/schema/departmentMaster.ts](../src/db/schema/departmentMaster.ts) | [0035_curvy_kinsey_walden.sql](../drizzle/0035_curvy_kinsey_walden.sql) | Internal department catalogue ("Operations", "Finance", "Customer Service"). Picked on user records and payment-request entries so cost centres can be reported per department. |
 
+## Transaction-page configuration (§4.5 / §4.12)
+
+The metadata behind every non-master screen — `/clients`, `/license`, `/import`, `/export`, `/local`, `/payments` and the invoice pages. These were created directly on the production database and only became migrations in [0041_add_master_page_and_office_tables.sql](../drizzle/0041_add_master_page_and_office_tables.sql); their content is seeded by [src/db/seed/masterPages.ts](../src/db/seed/masterPages.ts).
+
+| Table | Schema file | Migration | Purpose |
+| ----- | ----------- | --------- | ------- |
+| `master_page_t` | [src/db/schema/masterPage.ts](../src/db/schema/masterPage.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | One row per transactional page: slug, title, route, and the `target_table` it writes to (resolved through a server-side whitelist, never trusted from the row). |
+| `master_page_accordion_t` | [src/db/schema/masterPageAccordion.ts](../src/db/schema/masterPageAccordion.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | The collapsible sections a page renders, in `display_order`. |
+| `master_page_accordion_field_t` | [src/db/schema/masterPageAccordionField.ts](../src/db/schema/masterPageAccordionField.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | Every field on an accordion: `field_type`, options source, `props`, plus the `conditions` (visibleWhen / requiredWhen) and `derive` (fromRelated / template / tiered / statusMap / count) JSON the form runtime evaluates. |
+| `master_page_accordion_role_t` | [src/db/schema/masterPageAccordionRole.ts](../src/db/schema/masterPageAccordionRole.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | Per-role view/edit grant on an accordion. |
+| `master_page_accordion_field_role_t` | [src/db/schema/masterPageAccordionFieldRole.ts](../src/db/schema/masterPageAccordionFieldRole.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | Per-role view/edit/hidden override on a single field — the accordion-scoped sibling of `form_field_role_t`. |
+| `master_bulk_filter_t` | [src/db/schema/masterBulkFilter.ts](../src/db/schema/masterBulkFilter.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | Named bulk-edit filters per page ("CRF Missing", "Quittance Pending", …): a `predicate` JSON the list query compiles to a WHERE clause plus the `editable_fields` the bulk editor exposes. |
+
 ## Other tables
 
 | Table | Schema file | Migration | Purpose |
 | ----- | ----------- | --------- | ------- |
+| `main_office_master_t` | [src/db/schema/mainOfficeMaster.ts](../src/db/schema/mainOfficeMaster.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | The company's own offices (Lubumbashi, Kolwezi, Kasumbalesa, Likasi, Kinshasa). Referenced by seal batches, payment requests and local tracking. Replaces the earlier `office_master_t`, dropped in [0042](../drizzle/0042_drop_legacy_office_master.sql). |
+| `office_location_master_t` | [src/db/schema/officeLocationMaster.ts](../src/db/schema/officeLocationMaster.ts) | [0041_…](../drizzle/0041_add_master_page_and_office_tables.sql) | Province-scoped client locations (FK to `province_master_t`). Picked on client onboarding — distinct from `main_office_master_t`, which is *our* offices. |
 | `notification_outbox_t` | [src/db/schema/notificationOutbox.ts](../src/db/schema/notificationOutbox.ts) | [0011_add_notification_outbox.sql](../drizzle/0011_add_notification_outbox.sql) | Transactional outbox for `notify` side effects. `case-runtime/advanceCase` writes rows here in the same transaction as the entity UPDATE — a dispatcher worker polls `status='pending'`. |
 | `audit_log_t` | [src/db/schema/auditLog.ts](../src/db/schema/auditLog.ts) | [0019_useful_slyde.sql](../drizzle/0019_useful_slyde.sql) | Append-only audit log. Every user-initiated create / update / delete / transition goes through [recordAudit](../src/lib/audit/recordAudit.ts) inside the calling transaction, so audit rolls back with the write. [redact](../src/lib/audit/redact.ts) scrubs sensitive field names (password, *_token, secret, api_key, private_key) from `before` / `after` snapshots; `diff` is a pre-computed per-field `{ from, to }` map so detail panels don't re-derive it. CHECK constraints pin `actor_type` to user/system/api and `action` to the seven supported verbs. |
-| `bank_exchange_rate_t` | [src/db/schema/bankExchangeRate.ts](../src/db/schema/bankExchangeRate.ts) | [0031_clean_night_nurse.sql](../drizzle/0031_clean_night_nurse.sql) | Daily bank exchange rate history — one row per `(bank_id, currency_id, exchange_date)` (unique index). `bcc_rate` is the Banque Centrale du Congo official rate for that day; `bank_rate` is the actual rate the bank used — both matter because invoice rounding can use either depending on regime. Transactional (`_t`, not `_master_t`); UI lives at `/bank-exchange-rates`. Drops main's redundant `currency_code` varchar since the value already comes off the `currency_master_t` join. |
+| `bank_exchange_rate_t` | [src/db/schema/bankExchangeRate.ts](../src/db/schema/bankExchangeRate.ts) | [0031_clean_night_nurse.sql](../drizzle/0031_clean_night_nurse.sql) | Daily bank exchange rate history — one row per `(bank_id, currency_id, exchange_date)` (unique index). `bcc_rate` is the Banque Centrale du Congo official rate for that day; `bank_rate` is the actual rate the bank used — both matter because invoice rounding can use either depending on regime. Transactional (`_t`, not `_master_t`); UI lives at `/bank-exchange-rates`. Drops main's redundant `currency_code` varchar since the value already comes off the `currency_master_t` join — [db-reconcile.sql](../scripts/db-reconcile.sql) drops that column from a dump-restored database. |
 
 > **Every master table the spec called out (CLAUDE.md §4.1 / §2) is now schema'd.** Future work is about wiring them up (seeding workflows for tracking / payment request / approval, building the dispatcher worker), not adding more tables.
+
+## Provisioning a database from scratch
+
+`pnpm db:migrate && pnpm db:seed` now builds a database with the same shape *and*
+the same reference content production runs on — [scripts/setup-db.ts](../scripts/setup-db.ts)
+(restore main's dump + [db-reconcile.sql](../scripts/db-reconcile.sql)) is no
+longer the only path.
+
+A database that came from a dump has its migration bookkeeping *baselined*, so
+the §4 engine tables (rules / workflows / forms / case templates / statuses /
+validations) were never created and `db:seed` fails on the first seed that
+touches one. [0044](../drizzle/0044_backfill_engine_tables.sql) re-issues just
+those objects, guarded, so it is a no-op on a migration-built database and
+repairs a baselined one — see the README for the two-command sequence.
+
+The bulk reference data is captured from production as JSON under
+[src/db/seed/data](../src/db/seed/data) and written by
+[insertSeedRows](../src/db/seed/insertSeedRows.ts):
+
+| Seed | Payload | Contents |
+| ---- | ------- | -------- |
+| [roleCatalogue.ts](../src/db/seed/roleCatalogue.ts) | `role-catalogue.json` | Production's 50 roles. Must run before anything that grants permissions — `seedPaymentStageRoles` maps the approval chain onto roles 3/5/10/11 and the page grants reference role 52. |
+| [referenceMasters.ts](../src/db/seed/referenceMasters.ts) | `reference-masters.json` | 31 DRC lookup masters: currencies, origins/provinces, offices/locations, transit points, transport modes, goods types, kinds, regimes, clearance + document/truck/clearing status vocabularies, 632 commodities, incoterms, phases, departments, expense types, banks, payment types/subtypes, quotation categories, 148 billable items, the public-holiday calendar, and the bank exchange-rate history. |
+| [masterPages.ts](../src/db/seed/masterPages.ts) | `master-pages.json` | The transaction-page config above — 8 pages, 23 accordions, 302 fields, 39 role grants, 24 bulk filters. |
+
+Rows keep their production ids on purpose: the page config, bulk-filter
+predicates and derive/conditions rules all reference masters by id (`kind_id`
+5/6/7 are the MCA kinds, `transport_mode` 1 is ROAD, …), so renumbering would
+silently break the forms. `created_by` / `updated_by` are blanked because a
+freshly migrated database has no users until `scripts/seed-admin.js` runs, and
+`created_at` / `updated_at` fall back to their column defaults.
+
+Re-capture the JSON only when the baseline every deployment should start from
+actually moves; day-to-day additions are config changes made in the admin
+screens.
+
+The sidebar ([menus.ts](../src/db/seed/menus.ts)) and the dashboard cards
+([dashboardCards.ts](../src/db/seed/dashboardCards.ts)) stay hand-curated —
+they're structural decisions, not captured data — but their content is kept at
+parity with production: the seeded sidebar renders the same 94 visible entries,
+and the 46 dashboard cards match key-for-key. Production also carries four
+hidden (`display='N'`, `url='#'`) duplicates of Local Tracking / Local Dashboard
+/ Import KPI / Export KPI left over from before those pages shipped; the seed's
+natural key is `menu_name` within a parent, so it emits only the live row.
 
 ## Conventions
 

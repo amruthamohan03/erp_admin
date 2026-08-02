@@ -1,5 +1,8 @@
 import type { Database } from '@/lib/db';
 import { seedBootstrapRole } from './bootstrapRole';
+import { seedRoleCatalogue } from './roleCatalogue';
+import { seedReferenceMasters } from './referenceMasters';
+import { seedMasterPages } from './masterPages';
 import { seedFieldValidations } from './fieldValidations';
 import { seedLicenseTypes } from './licenseTypes';
 import { seedLicenseStatuses } from './licenseStatuses';
@@ -62,6 +65,25 @@ export async function seedMasters(db: Database): Promise<void> {
   // Bootstrap Super Admin role (id = 1). Must run first: the admin
   // user and every role_menu_mapping row below reference role_id = 1.
   await seedBootstrapRole(db);
+
+  // The rest of production's roles. seedPaymentStageRoles and the page grants
+  // below reference them by id, so they have to exist before either runs.
+  await seedRoleCatalogue(db);
+
+  // --- DRC reference masters (§4.1) -----------------------------------------
+  // Currencies, origins/provinces, transit points, transport modes, goods
+  // types, kinds, regimes, status vocabularies, commodities, expense types,
+  // banks, payment types/subtypes, quotation categories + items, holidays.
+  // Everything downstream (page config, sample data, the derive/conditions
+  // rules) references these by id, so they seed before anything else.
+  await seedReferenceMasters(db);
+
+  // --- Transaction-page configuration (§4.5 / §4.12) -------------------------
+  // The pages/accordions/fields/grants/bulk-filters that drive /clients,
+  // /license, /import, /export, /local, /payments and the invoice screens.
+  // Depends on seedReferenceMasters (options_source targets) and on
+  // seedRoleCatalogue (the per-role accordion/field grants).
+  await seedMasterPages(db);
 
   // Independent foundational masters.
   await seedFieldValidations(db);
@@ -163,6 +185,9 @@ export async function seedMasters(db: Database): Promise<void> {
 
 export {
   seedBootstrapRole,
+  seedRoleCatalogue,
+  seedReferenceMasters,
+  seedMasterPages,
   seedFieldValidations,
   seedLicenseTypes,
   seedLicenseStatuses,

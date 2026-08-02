@@ -288,6 +288,34 @@
       "when": 1784574119376,
       "tag": "0040_curved_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784660519376,
+      "tag": "0041_add_master_page_and_office_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784660519377,
+      "tag": "0042_drop_legacy_office_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784660519378,
+      "tag": "0043_relax_banklist_bank_code_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784660519379,
+      "tag": "0044_backfill_engine_tables",
+      "breakpoints": true
     }
   ]
 }

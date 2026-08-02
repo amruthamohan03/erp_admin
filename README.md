@@ -30,16 +30,50 @@ npm install
 cp .env.example .env.local
 #  → set PGHOST, PGUSER, PGPASSWORD, PGDATABASE, and a real JWT_SECRET
 
-# 3. apply migrations (the SQL is in drizzle/, generated from src/db/schema/)
+# 3. create the (empty) database — db:migrate does not create it
+createdb -h localhost -U postgres erp_admin
+#  → or: psql -U postgres -c 'CREATE DATABASE erp_admin'
+
+# 4. apply migrations (the SQL is in drizzle/, generated from src/db/schema/)
 npm run db:migrate
 
-# 4. seed the admin user
+# 5. seed masters — roles, the DRC reference masters, the transaction-page
+#    config, menus, dashboard cards, workflows. See docs/masters.md.
+npm run db:seed
+
+# 6. seed the admin user (needs role 1 from step 5 — run it after, not before)
 npm run seed
 
-# 5. run dev
+# 7. run dev
 npm run dev
 #  → http://localhost:3000
 #  → default login: admin / Admin@123 (change the JWT_SECRET in prod!)
+```
+
+Steps 3–6 are idempotent: re-running them on an existing database is a no-op
+(migrations are guarded, seeds upsert on their natural keys), so it is safe to
+repeat any of them after a `git pull`.
+
+To work against a copy of production data instead of seeded data, use
+`npm run setup:db -- --from-dump path/to/erp_admin.sql` (see
+[scripts/setup-db.ts](scripts/setup-db.ts)) in place of steps 3–6.
+
+### Existing database that was baselined, not migrated
+
+A database provisioned from a dump (`setup:db`, or restored by hand) has its
+migration bookkeeping stamped rather than replayed, so `db:migrate` would try to
+re-run migrations whose tables the dump already has, and `db:seed` fails with
+`relation "field_validation_master_t" does not exist` — the §4 engine tables
+(rules, workflows, forms, case templates, statuses, validations) were never
+created. Repair it with:
+
+```bash
+# stamp everything up to the last schema migration as applied…
+npm run db:baseline -- --through 0043_relax_banklist_bank_code_unique
+
+# …then let 0044 create just the missing engine tables (guarded, keeps data)
+npm run db:migrate
+npm run db:seed
 ```
 
 ---
@@ -57,7 +91,8 @@ npm run dev
 | `npm run test:integration` | DB-backed integration tests via Testcontainers (or `TEST_DATABASE_URL`) |
 | `npm run test:all`      | Unit + integration                                                    |
 | `npm run db:generate`   | Generate a Drizzle migration after editing `src/db/schema/*`           |
-| `npm run db:migrate`    | Apply pending migrations                                              |
+| `npm run db:migrate`    | Apply pending migrations (reports the failing statement when one errors) |
+| `npm run db:baseline`   | Stamp existing migrations as applied on a dump-restored database — `-- --through <tag>` to stop early |
 | `npm run db:studio`     | Open Drizzle Studio                                                   |
 | `npm run db:introspect` | Reverse-engineer schema from an existing DB                           |
 | `npm run db:seed`       | Seed master tables (license + invoice modules, field validations, …)  |

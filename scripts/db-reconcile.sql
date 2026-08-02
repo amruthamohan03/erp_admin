@@ -15,6 +15,18 @@ ALTER TABLE seal_individual_numbers_t RENAME TO seal_number_t;
 ALTER TABLE refferer_master_t         RENAME TO referer_master_t;
 ALTER TABLE done_by_t                 RENAME TO done_by_master_t;
 ALTER TABLE partial_t                 RENAME TO partial_master_t;
+-- Branding singleton: main kept the plain name, the restructure schema (0040)
+-- and /api/v1/application-settings/branding both use the _master_t name. Same
+-- columns, so a rename is enough. Migration 0044 performs the same rename,
+-- guarded — this line is for databases provisioned by setup:db, which loads a
+-- dump and reconciles without running the migration chain.
+ALTER TABLE application_settings_t    RENAME TO application_settings_master_t;
+
+-- Columns main carries that the restructure schema deliberately dropped:
+--   bank_exchange_rate_t.currency_code duplicates
+--   currency_master_t.currency_short_name, which the restructure reads through
+--   the currency_id FK join instead (see docs/masters.md).
+ALTER TABLE bank_exchange_rate_t DROP COLUMN IF EXISTS currency_code;
 
 -- Column-name deltas:
 ALTER TABLE seal_number_t    RENAME COLUMN seal_master_id TO seal_batch_id;

@@ -60,9 +60,7 @@ const PARENTS: ParentSpec[] = [
   { name: 'Mapping', order: 4, icon: 'ti ti-layout-grid' },
   { name: 'Import License', order: 5, icon: 'ti ti-file-certificate' },
   { name: 'Tracking Management', order: 6, icon: 'ti ti-truck' },
-  { name: 'Payment', order: 7, icon: 'ti ti-cash' },
   { name: 'Sydonia', order: 8, icon: 'ti ti-file' },
-  { name: 'Fiche De Calcul', order: 8, icon: 'ti ti-file' },
   { name: 'Quotation Management', order: 9, icon: 'ti ti-cash' },
   { name: 'Invoice Management', order: 10, icon: 'ti ti-invoice' },
   { name: 'Seal Tracker', order: 11, icon: 'ti ti-lock' },
@@ -74,7 +72,6 @@ const PARENTS: ParentSpec[] = [
   // to this branch — the links 404 until it ships (kept as real URLs,
   // not '#', so they resolve the moment the page lands).
   { name: 'Transactional Pages', order: 93, icon: 'ti ti-forms' },
-  { name: 'DGI Reports', order: 94, icon: 'ti ti-report' },
 ];
 
 // The single Dashboard entry (id=1 in the original) links directly
@@ -126,7 +123,6 @@ const CHILDREN: ChildSpec[] = [
     url: '#',
     note: 'TODO(port): payment_method_master_t not on branch (payment-types + payment-subtypes are close).',
   },
-  { parent: 'Masters', name: 'Payment Type', order: 24, url: '/masters/payment-types' },
   { parent: 'Masters', name: 'Refferer', order: 25, url: '/masters/referers' },
   { parent: 'Masters', name: 'Dashboard Cards', order: 25, url: '/masters/dashboard-cards' },
   { parent: 'Masters', name: 'Currency', order: 26, url: '/masters/currencies' },
@@ -134,7 +130,6 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Truck Status', order: 29, url: '/masters/truck-statuses' },
   { parent: 'Masters', name: 'Unit', order: 30, url: '/masters/units' },
   { parent: 'Masters', name: 'Document Status', order: 31, url: '/masters/document-statuses' },
-  { parent: 'Masters', name: 'Payment Subtype', order: 32, url: '/masters/payment-subtypes' },
   {
     parent: 'Masters',
     name: 'Perdiem',
@@ -157,11 +152,9 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Invoice Bank', order: 107, url: '/masters/invoice-banks' },
   // New masters added on this branch — appended at the end so they
   // don't disturb the original ordering.
-  { parent: 'Masters', name: 'Partials', order: 200, url: '/masters/partials' },
   { parent: 'Masters', name: 'Commodities', order: 201, url: '/masters/commodities' },
   { parent: 'Masters', name: 'Done By', order: 202, url: '/masters/done-by' },
   { parent: 'Masters', name: 'Group Companies', order: 203, url: '/masters/group-companies' },
-  { parent: 'Masters', name: 'Form Definitions', order: 204, url: '/masters/forms' },
   { parent: 'Masters', name: 'Application Settings', order: 206, url: '/settings/application' },
 
   // ── Client Management (original menu_id=2) ──────────────────────
@@ -178,12 +171,9 @@ const CHILDREN: ChildSpec[] = [
   },
   { parent: 'Mapping', name: 'Dashboard Cards Mapping', order: 3, url: '/mapping/roletodashboardcard' },
   { parent: 'Mapping', name: 'Role Menu Mapping', order: 12, url: '/mapping/roletomenu' },
-  // New on this branch — form-field role grants.
-  { parent: 'Mapping', name: 'Field Grants', order: 20, url: '/mapping/fieldgrants' },
 
   // ── Import License (original menu_id=110) ───────────────────────
   { parent: 'Import License', name: 'Create Import License', order: 1, url: '/licenses/new' },
-  { parent: 'Import License', name: 'License Dashboard', order: 2, url: '/licenses/dashboard' },
   { parent: 'Import License', name: 'Licenses (list)', order: 3, url: '/licenses' },
   {
     parent: 'Import License',
@@ -206,56 +196,25 @@ const CHILDREN: ChildSpec[] = [
     url: '#',
     note: 'TODO(port): import synthesis report not on branch.',
   },
+  {
+    parent: 'Import License',
+    name: 'PARTIELLE (Bivac)',
+    order: 110,
+    url: '/bivac',
+    icon: 'ti ti-layers',
+  },
 
   // ── Tracking Management (original menu_id=55) ───────────────────
+  { parent: 'Tracking Management', name: 'Local Tracking', order: 10, url: '/local' },
+  { parent: 'Tracking Management', name: 'Local Dashboard', order: 11, url: '/local/dashboard' },
+  { parent: 'Tracking Management', name: 'Import Tracking', order: 39, url: '/imports' },
+  { parent: 'Tracking Management', name: 'Export Tracking', order: 40, url: '/exports' },
   {
     parent: 'Tracking Management',
-    name: 'Local Tracking',
-    order: 37,
-    url: '#',
-    note: 'TODO(port): local tracking module not on branch.',
-  },
-  {
-    parent: 'Tracking Management',
-    name: 'Import Tracking',
-    order: 39,
-    url: '#',
-    note: 'TODO(port): separate import tracking module — /imports is the customs consignment page under Sydonia.',
-  },
-  {
-    parent: 'Tracking Management',
-    name: 'Export Tracking',
+    name: 'PARTIELLE Allocation',
     order: 40,
-    url: '#',
-    note: 'TODO(port): separate export tracking module — /exports is under Sydonia.',
+    url: '/imports/partielles',
   },
-  {
-    parent: 'Tracking Management',
-    name: 'Local Dashboard',
-    order: 49,
-    url: '#',
-    note: 'TODO(port): local tracking dashboard not on branch.',
-  },
-  {
-    parent: 'Tracking Management',
-    name: 'Import Dashboard',
-    order: 53,
-    url: '/imports/dashboard',
-  },
-  {
-    parent: 'Tracking Management',
-    name: 'Export Dashboard',
-    order: 106,
-    url: '/exports/dashboard',
-  },
-  {
-    parent: 'Tracking Management',
-    name: 'Import KPI',
-    order: 113,
-    url: '#',
-    note: 'TODO(port): import KPI dashboard not on branch.',
-  },
-  { parent: 'Tracking Management', name: 'Tracking Dashboard', order: 114, url: '/tracking' },
   {
     parent: 'Tracking Management',
     name: 'Client Import Dashboard',
@@ -263,52 +222,59 @@ const CHILDREN: ChildSpec[] = [
     url: '#',
     note: 'TODO(port): per-client import dashboard not on branch.',
   },
-  {
-    parent: 'Tracking Management',
-    name: 'Export KPI',
-    order: 116,
-    url: '#',
-    note: 'TODO(port): export KPI dashboard not on branch.',
-  },
-
-  // ── Payment (original menu_id=59) ───────────────────────────────
-  { parent: 'Payment', name: 'Payment Request', order: 43, url: '/payment-requests' },
+  { parent: 'Tracking Management', name: 'Import KPI', order: 117, url: '/imkpi' },
+  { parent: 'Tracking Management', name: 'Export KPI', order: 118, url: '/exkpi' },
 
   // ── Sydonia (original menu_id=61) ───────────────────────────────
-  { parent: 'Sydonia', name: 'Import Sydonia', order: 41, url: '/imports' },
-  { parent: 'Sydonia', name: 'Export Sydonia', order: 42, url: '/exports' },
-  { parent: 'Sydonia', name: 'Bulk Create Exports', order: 205, url: '/exports/bulk-new' },
-  { parent: 'Sydonia', name: 'Bulk Create Imports', order: 207, url: '/imports/bulk-new' },
-
-  // ── Fiche De Calcul (original menu_id=65) ───────────────────────
-  { parent: 'Fiche De Calcul', name: 'Fiche De Calcul', order: 44, url: '/fiche-de-calcul' },
+  { parent: 'Sydonia', name: 'Import Sydonia', order: 41, url: '/imports-sydonia' },
+  { parent: 'Sydonia', name: 'Export Sydonia', order: 42, url: '/exports-sydonia' },
+  // Hidden in production — the bulk-create screens are reachable from the
+  // list pages instead.
+  {
+    parent: 'Sydonia',
+    name: 'Bulk Create Exports',
+    order: 205,
+    url: '/exports/bulk-new',
+    display: 'N',
+  },
+  {
+    parent: 'Sydonia',
+    name: 'Bulk Create Imports',
+    order: 207,
+    url: '/imports/bulk-new',
+    display: 'N',
+  },
 
   // ── Quotation Management (original menu_id=67) ──────────────────
-  { parent: 'Quotation Management', name: 'Quotation Dashboard', order: 44, url: '/quotations/dashboard' },
   { parent: 'Quotation Management', name: 'Invoice Quotation', order: 45, url: '/quotations' },
 
   // ── Invoice Management (original menu_id=68) ────────────────────
-  { parent: 'Invoice Management', name: 'FV IMP Clearing Service', order: 46, url: '/invoices' },
+  { parent: 'Invoice Management', name: 'Export Invoice', order: 3, url: '/export-invoices' },
+  { parent: 'Invoice Management', name: 'Import Invoice', order: 4, url: '/import-invoices' },
+  // The four differentiated FV/FA variants are hidden in production — the
+  // import/export invoice pages above cover both flows.
   {
     parent: 'Invoice Management',
     name: 'FV EXP Clearing Service',
     order: 86,
     url: '#',
-    note: 'TODO(port): differentiated export invoice flow — /invoices covers all invoice types today.',
+    display: 'N',
+    note: 'TODO(port): differentiated export invoice flow.',
   },
   {
     parent: 'Invoice Management',
     name: 'FV Other Service',
     order: 87,
     url: '#',
+    display: 'N',
     note: 'TODO(port): differentiated other-service invoice flow.',
   },
-  { parent: 'Invoice Management', name: 'FA IMP Clearing Service', order: 101, url: '/credit-notes' },
   {
     parent: 'Invoice Management',
     name: 'FA EXP Clearing Service',
     order: 102,
     url: '#',
+    display: 'N',
     note: 'TODO(port): differentiated export credit-note flow.',
   },
   {
@@ -316,6 +282,7 @@ const CHILDREN: ChildSpec[] = [
     name: 'FA Other Services',
     order: 102,
     url: '#',
+    display: 'N',
     note: 'TODO(port): differentiated other-service credit-note flow.',
   },
   {
@@ -330,7 +297,9 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Seal Tracker', name: 'Seal Tracker', order: 50, url: '/masters/seals' },
 
   // ── Advance Payment (original menu_id=83) ───────────────────────
-  // All five customs pre-payment flows are on main but not on branch.
+  { parent: 'Advance Payment', name: 'Payment Requests', order: 1, url: '/payments' },
+  { parent: 'Advance Payment', name: 'Payment Dashboard', order: 2, url: '/payments/dashboard' },
+  // The five customs pre-payment flows are on main but not on branch.
   // Kept as placeholders so the group stays populated.
   {
     parent: 'Advance Payment',
@@ -375,17 +344,6 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Transactional Pages', name: 'Accordions', order: 2, url: '/masters/pages?tab=accordions' },
   { parent: 'Transactional Pages', name: 'Fields', order: 3, url: '/masters/pages?tab=fields' },
   { parent: 'Transactional Pages', name: 'Role Grants', order: 4, url: '/masters/pages?tab=roles' },
-
-  // ── DGI Reports (original menu_id=94) ───────────────────────────
-  // Three specialised DGI reports; our /reports module covers the
-  // generic surface. Each linked to /reports as a starting point.
-  { parent: 'DGI Reports', name: 'X Report (Current Session)', order: 95, url: '/reports' },
-  { parent: 'DGI Reports', name: 'Z Report (Closed Session)', order: 96, url: '/reports' },
-  { parent: 'DGI Reports', name: 'A Report (Articles)', order: 97, url: '/reports' },
-
-  // ── Branch-only top-level extras — belong under Masters if we
-  // ever grow "operational tools" as its own group. For now, kept
-  // as unattached top-level via a synthetic parent.
 ];
 
 // New top-level rows added on this branch that don't map to any
@@ -399,7 +357,6 @@ const EXTRA_TOP_LEVEL: Array<{
 }> = [
   { name: 'Bulk Update', order: 95, url: '/bulk-update', icon: 'ti ti-edit' },
   { name: 'Bulk Edit', order: 94, url: '/bulk-edit', icon: 'ti ti-list-check' },
-  { name: 'Reports', order: 96, url: '/reports', icon: 'ti ti-report' },
   { name: 'Settings', order: 97, url: '/settings', icon: 'ti ti-settings' },
 ];
 

@@ -47,11 +47,23 @@ export async function getSession(): Promise<AuthPayload | null> {
   return verifyToken(token);
 }
 
+// A `secure` cookie is discarded by the browser over plain HTTP, and the login
+// POST still returns 200 — so the symptom is "credentials accepted, still
+// bounced back to /login". Tying that flag to NODE_ENV alone breaks any
+// deployment that serves a production build without TLS in front of it (a
+// staging box reached by IP, say). AUTH_COOKIE_SECURE overrides it; read at
+// call time so the process environment is what decides, not import order.
+function secureCookieEnabled(): boolean {
+  const override = process.env.AUTH_COOKIE_SECURE;
+  if (override) return override === 'true';
+  return process.env.NODE_ENV === 'production';
+}
+
 export async function setAuthCookie(token: string) {
   const store = await cookies();
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookieEnabled(),
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,

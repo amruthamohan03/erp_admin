@@ -27,7 +27,10 @@ const DEFAULTS: Array<{ stage: string; roleId: number }> = [
 export async function seedPaymentStageRoles(db: Database | Transaction): Promise<void> {
   await db
     .insert(paymentStageRole)
-    .values(DEFAULTS.map((d) => ({ stage: d.stage, roleId: d.roleId, createdBy: 1 })))
+    // created_by is left null: seedMasters runs against a database that may not
+    // have the admin user yet (scripts/seed-admin.js is a separate command), and
+    // stamping a non-existent user id fails the FK to users_t.
+    .values(DEFAULTS.map((d) => ({ stage: d.stage, roleId: d.roleId })))
     .onConflictDoUpdate({
       target: [paymentStageRole.stage, paymentStageRole.roleId],
       set: { updatedAt: sql`now()` },

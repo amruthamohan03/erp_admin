@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { usersT } from './users';
 
 // Registered bank catalogue (BCC, Rawbank, Equity BCDC, …). Picked
@@ -16,8 +17,12 @@ import { usersT } from './users';
 // rate read into `bank_exchange_rate_t` — distinct from "banks the
 // client transacts through". Stored as a 'Y'/'N' char to match main.
 //
-// bank_code is unique among non-soft-deleted rows — same partial-
-// unique-by-display-Y treatment as imports.mca_ref.
+// bank_code is NOT unique. The restructure schema originally declared a unique
+// index on it (0031), but production has always used it as a free-text
+// placeholder — all 13 banks carry 'N/A' — so the constraint could never be
+// applied to the real database and blocked seeding production's bank list.
+// 0043 drops it; production's uniqueness lives on bank_name instead, as the
+// case-insensitive index uq_banklist_master_t_bank_name_ci.
 
 export const banklistMaster = pgTable(
   'banklist_master_t',
@@ -41,7 +46,9 @@ export const banklistMaster = pgTable(
       .notNull(),
   },
   (t) => ({
-    bankCodeUq: uniqueIndex('uq_banklist_master_t_bank_code').on(t.bankCode),
+    bankNameUq: uniqueIndex('uq_banklist_master_t_bank_name_ci').on(
+      sql`lower(${t.bankName})`,
+    ),
   }),
 );
 
