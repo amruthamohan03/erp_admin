@@ -243,7 +243,7 @@ function RoleFormModal({
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (<div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">{error}</div>)}
           <div>
-            <label className="label">Role Name *</label>
+            <label className="label required">Role Name</label>
             <input className="input" value={form.role_name}
               onChange={(e) => setForm({ ...form, role_name: e.target.value })} required />
           </div>

@@ -285,7 +285,7 @@ function BankFormModal({
             </div>
           )}
           <div>
-            <label className="label">Bank Name *</label>
+            <label className="label required">Bank Name</label>
             <input
               className="input"
               value={form.bank_name}
@@ -295,7 +295,7 @@ function BankFormModal({
             <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Bank Code *</label>
+            <label className="label required">Bank Code</label>
             <input
               className="input"
               value={form.bank_code}

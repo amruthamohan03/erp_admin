@@ -11,6 +11,7 @@ import {
   Plus, Search, Edit2, Trash2, CheckCircle2, Check, FileText, X, FileSpreadsheet,
   FileCheck, Loader2, ShieldCheck, AlertTriangle, FileType, FileDigit,
 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface Row {
@@ -364,10 +365,13 @@ export default function ExportInvoiceListPage() {
               </div>
               <div>
                 <label className="label">Normalized By</label>
-                <select className="input" value={dgiForm.normalized_by} onChange={(e) => setDgiForm((f) => ({ ...f, normalized_by: e.target.value }))}>
-                  <option value="">-- Select User --</option>
-                  {norms.map((n) => <option key={n.id} value={n.id}>{n.full_name}</option>)}
-                </select>
+                <SearchableSelect
+                  value={dgiForm.normalized_by}
+                  emptyLabel="-- Select User --"
+                  placeholder="-- Select User --"
+                  options={norms.map((n) => ({ value: String(n.id), label: n.full_name }))}
+                  onChange={(v) => setDgiForm((f) => ({ ...f, normalized_by: v }))}
+                />
               </div>
               <p className="text-xs text-slate-500">Filling all three on a validated invoice marks it DGI-Verified automatically.</p>
             </div>

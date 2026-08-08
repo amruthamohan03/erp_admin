@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface ItemRow {
@@ -142,36 +143,30 @@ export default function ItemsPage() {
               }}
             />
           </div>
-          <select
-            className="input max-w-[200px]"
+          <SearchableSelect
+            className="max-w-[200px]"
+            aria-label="Filter by category"
             value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
+            emptyLabel="All Categories"
+            placeholder="All Categories"
+            options={categories.map((c) => ({ value: String(c.id), label: c.category_name }))}
+            onChange={(v) => {
+              setCategoryFilter(v);
               setPage(1);
             }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.category_name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input max-w-[200px]"
+          />
+          <SearchableSelect
+            className="max-w-[200px]"
+            aria-label="Filter by type"
             value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
+            emptyLabel="All Types"
+            placeholder="All Types"
+            options={ITEM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            onChange={(v) => {
+              setTypeFilter(v);
               setPage(1);
             }}
-          >
-            <option value="">All Types</option>
-            {ITEM_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -361,7 +356,7 @@ function ItemFormModal({
             </div>
           )}
           <div>
-            <label className="label">Item Name *</label>
+            <label className="label required">Item Name</label>
             <input
               className="input"
               value={form.item_name}
@@ -383,50 +378,36 @@ function ItemFormModal({
             </div>
             <div>
               <label className="label">Category</label>
-              <select
-                className="input"
+              <SearchableSelect
+                aria-label="Category"
                 value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-              >
-                <option value="">— Select —</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.category_name}
-                  </option>
-                ))}
-              </select>
+                emptyLabel="— Select —"
+                placeholder="— Select —"
+                options={categories.map((c) => ({ value: String(c.id), label: c.category_name }))}
+                onChange={(v) => setForm({ ...form, category_id: v })}
+              />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="label">Type *</label>
-              <select
-                className="input"
-                value={form.item_type}
-                onChange={(e) => setForm({ ...form, item_type: e.target.value })}
+              <label className="label required">Type</label>
+              <SearchableSelect
+                aria-label="Type"
                 required
-              >
-                {ITEM_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                value={form.item_type}
+                options={ITEM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => setForm({ ...form, item_type: v })}
+              />
             </div>
             <div>
-              <label className="label">Tax Class *</label>
-              <select
-                className="input"
-                value={form.tax_not_tax}
-                onChange={(e) => setForm({ ...form, tax_not_tax: e.target.value })}
+              <label className="label required">Tax Class</label>
+              <SearchableSelect
+                aria-label="Tax class"
                 required
-              >
-                {TAX_CLASS_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                value={form.tax_not_tax}
+                options={TAX_CLASS_OPTIONS.map((c) => ({ value: c, label: c }))}
+                onChange={(v) => setForm({ ...form, tax_not_tax: v })}
+              />
             </div>
             <div>
               <label className="label">Percentage</label>

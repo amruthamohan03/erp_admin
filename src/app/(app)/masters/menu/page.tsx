@@ -363,7 +363,7 @@ function MenuFormModal({
           )}
 
           <div>
-            <label className="label">Menu Name *</label>
+            <label className="label required">Menu Name</label>
             <input
               className="input"
               value={form.menu_name}

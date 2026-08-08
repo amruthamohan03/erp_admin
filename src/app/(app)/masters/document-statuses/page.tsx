@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -116,21 +117,18 @@ export default function DocumentStatusesPage() {
               }}
             />
           </div>
-          <select
-            className="input max-w-[200px]"
+          <SearchableSelect
+            className="max-w-[200px]"
+            aria-label="Filter by type"
             value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value as '' | DocumentStatusType);
+            emptyLabel="All Types"
+            placeholder="All Types"
+            options={TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            onChange={(v) => {
+              setTypeFilter(v as '' | DocumentStatusType);
               setPage(1);
             }}
-          >
-            <option value="">All Types</option>
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -306,7 +304,7 @@ function DocumentStatusFormModal({
             </div>
           )}
           <div>
-            <label className="label">Status *</label>
+            <label className="label required">Status</label>
             <input
               className="input uppercase"
               value={name}
@@ -317,19 +315,13 @@ function DocumentStatusFormModal({
             <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
           </div>
           <div>
-            <label className="label">Type *</label>
-            <select
-              className="input"
+            <label className="label required">Type</label>
+            <SearchableSelect
               value={type}
-              onChange={(e) => setType(e.target.value as DocumentStatusType)}
               required
-            >
-              {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              options={TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => setType(v as DocumentStatusType)}
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Eye, Edit2, Trash2, Truck, MapPin, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import { formatDate as fmtDate } from '@/lib/formatDate';
 
 // Local Tracking list. The create/edit form is a transaction-page
 // (/local/new, /local/[id]); this page owns the stat cards (total + per-office
@@ -31,12 +32,7 @@ const OFFICE_GRAD: Record<number, string> = {
   2: 'from-sky-500 to-blue-600',
   4: 'from-emerald-500 to-teal-600',
 };
-
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return y && m && day ? `${day}-${m}-${y}` : d;
-}
+
 
 export default function LocalPage() {
   const [items, setItems] = useState<Row[]>([]);

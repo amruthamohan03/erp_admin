@@ -365,32 +365,20 @@ export default function BulkUpdatePage() {
                 const opNeedsValue = f.op !== 'isNull' && f.op !== 'isNotNull';
                 return (
                   <div key={f._id} className="flex items-center gap-2">
-                    <select
-                      className="input flex-1 min-w-[120px]"
+                    <SearchableSelect
+                      className="flex-1 min-w-[120px]"
+                      aria-label="Filter column"
                       value={f.col}
-                      onChange={(e) =>
-                        updateFilter(f._id, { col: e.target.value })
-                      }
-                    >
-                      {selectedTarget.filter_columns.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="input min-w-[120px]"
+                      options={selectedTarget.filter_columns.map((c) => ({ value: c.name, label: c.label }))}
+                      onChange={(v) => updateFilter(f._id, { col: v })}
+                    />
+                    <SearchableSelect
+                      className="min-w-[120px]"
+                      aria-label="Filter operator"
                       value={f.op}
-                      onChange={(e) =>
-                        updateFilter(f._id, { op: e.target.value as Op })
-                      }
-                    >
-                      {OP_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={OP_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                      onChange={(v) => updateFilter(f._id, { op: v as Op })}
+                    />
                     <input
                       className="input flex-1 min-w-[100px]"
                       type={
@@ -475,19 +463,13 @@ export default function BulkUpdatePage() {
                 );
                 return (
                   <div key={p._id} className="flex items-center gap-2">
-                    <select
-                      className="input flex-1 min-w-[120px]"
+                    <SearchableSelect
+                      className="flex-1 min-w-[120px]"
+                      aria-label="Column to update"
                       value={p.col}
-                      onChange={(e) =>
-                        updatePatch(p._id, { col: e.target.value })
-                      }
-                    >
-                      {selectedTarget.editable_columns.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={selectedTarget.editable_columns.map((c) => ({ value: c.name, label: c.label }))}
+                      onChange={(v) => updatePatch(p._id, { col: v })}
+                    />
                     <input
                       className="input flex-1 min-w-[100px]"
                       type={

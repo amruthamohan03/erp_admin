@@ -286,7 +286,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Bank Name *</label>
+            <label className="label required">Bank Name</label>
             <input
               className="input uppercase"
               value={bank}
@@ -299,7 +299,7 @@ function FormModal({
             </div>
           </div>
           <div>
-            <label className="label">Account Name *</label>
+            <label className="label required">Account Name</label>
             <input
               className="input uppercase"
               value={accountName}
@@ -309,7 +309,7 @@ function FormModal({
             />
           </div>
           <div>
-            <label className="label">Account Number *</label>
+            <label className="label required">Account Number</label>
             <input
               className="input font-mono"
               value={accountNumber}

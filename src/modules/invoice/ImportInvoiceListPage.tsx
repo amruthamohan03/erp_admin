@@ -11,6 +11,7 @@ import {
   Plus, Search, Edit2, Trash2, CheckCircle2, Check, FileText, X, Printer, FileSpreadsheet,
   FileCheck, FilePlus2, Loader2, Clock, AlertTriangle, ShieldCheck,
 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface Row {
@@ -366,10 +367,13 @@ export default function ImportInvoiceListPage() {
               </div>
               <div>
                 <label className="label">Normalized By</label>
-                <select className="input" value={dgiForm.normalized_by} onChange={(e) => setDgiForm((f) => ({ ...f, normalized_by: e.target.value }))}>
-                  <option value="">-- Select User --</option>
-                  {norms.map((n) => <option key={n.id} value={n.id}>{n.full_name}</option>)}
-                </select>
+                <SearchableSelect
+                  value={dgiForm.normalized_by}
+                  emptyLabel="-- Select User --"
+                  placeholder="-- Select User --"
+                  options={norms.map((n) => ({ value: String(n.id), label: n.full_name }))}
+                  onChange={(v) => setDgiForm((f) => ({ ...f, normalized_by: v }))}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">

@@ -6,6 +6,9 @@
 // Per §6 CLAUDE.md, every table renders solid black borders on all cells.
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 export type PrintPage = 'full' | 'p1' | 'p2';
 
@@ -16,13 +19,7 @@ const num = (v: unknown): number => {
 const money = (n: number): string =>
   (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (v: unknown): string =>
-  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string));
-const fmtDate = (v: unknown): string => {
-  if (!v) return '';
-  const s = String(v).slice(0, 10);
-  const [y, m, d] = s.split('-');
-  return y && m && d ? `${d}/${m}/${y}` : s;
-};
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string));
 
 interface Item {
   category_id: number;

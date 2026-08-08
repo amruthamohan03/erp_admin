@@ -8,6 +8,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Search, X, FileInput, ChartBar, AlertOctagon, CircleCheck, Route, CalendarOff, Users, Download } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 interface StageKpi {
   key: string; label: string; short: string; from: string; to: string; threshold: number; priority: boolean; color: string; icon: string;
@@ -150,17 +151,27 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
           <div>
             <label className="label">Client</label>
-            <select className="input" value={f.client_id} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, client_id: v })); setApplied((x) => ({ ...x, client_id: v })); }}>
-              <option value="all">All Clients</option>
-              {(data?.clients_list ?? []).map((c) => <option key={c.id} value={c.id}>{c.short_name}</option>)}
-            </select>
+            {/* Options labelled by short code, per the client label rule (§4.15). */}
+            <SearchableSelect
+              aria-label="Client"
+              value={f.client_id}
+              options={[
+                { value: 'all', label: 'All Clients' },
+                ...(data?.clients_list ?? []).map((c) => ({ value: String(c.id), label: c.short_name })),
+              ]}
+              onChange={(v) => { setF((x) => ({ ...x, client_id: v })); setApplied((x) => ({ ...x, client_id: v })); }}
+            />
           </div>
           <div>
             <label className="label">Type of Clearance</label>
-            <select className="input" value={f.clearance_type} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, clearance_type: v })); setApplied((x) => ({ ...x, clearance_type: v })); }}>
-              <option value="">All Types</option>
-              {(data?.clearance_types ?? []).map((c) => <option key={c.id} value={c.id}>{c.clearance_name}</option>)}
-            </select>
+            <SearchableSelect
+              aria-label="Type of clearance"
+              value={f.clearance_type}
+              emptyLabel="All Types"
+              placeholder="All Types"
+              options={(data?.clearance_types ?? []).map((c) => ({ value: String(c.id), label: c.clearance_name }))}
+              onChange={(v) => { setF((x) => ({ ...x, clearance_type: v })); setApplied((x) => ({ ...x, clearance_type: v })); }}
+            />
           </div>
           <div>
             <label className="label">Created From</label>

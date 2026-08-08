@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { PAGE_SIZE_OPTIONS } from '@/lib/hooks/usePagedList';
 
 interface PaginationFooterProps {
@@ -54,17 +55,14 @@ export default function PaginationFooter({
               stay one or two lines, not four. */}
           <span className="hidden sm:inline">Rows per page:</span>
           <span className="sm:hidden">Rows:</span>
-          <select
-            className="input w-auto px-2 py-1"
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-          >
-            {pageSizeOptions.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            size="sm"
+            className="w-20"
+            aria-label="Rows per page"
+            value={String(pageSize)}
+            options={pageSizeOptions.map((n) => ({ value: String(n), label: String(n) }))}
+            onChange={(v) => setPageSize(Number(v))}
+          />
         </label>
       </div>
 

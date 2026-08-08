@@ -262,7 +262,7 @@ function ClearingStatusFormModal({
             </div>
           )}
           <div>
-            <label className="label">Clearing Status *</label>
+            <label className="label required">Clearing Status</label>
             <input
               className="input uppercase"
               value={name}

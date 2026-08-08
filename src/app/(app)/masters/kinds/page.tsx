@@ -253,7 +253,7 @@ function KindFormModal({
             </div>
           )}
           <div>
-            <label className="label">Kind Name *</label>
+            <label className="label required">Kind Name</label>
             <input
               className="input"
               value={name}
@@ -263,7 +263,7 @@ function KindFormModal({
             />
           </div>
           <div>
-            <label className="label">Short Name *</label>
+            <label className="label required">Short Name</label>
             <input
               className="input uppercase"
               value={shortName}

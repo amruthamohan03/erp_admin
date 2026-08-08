@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import Toggle from '@/components/ui/Toggle';
@@ -121,21 +122,18 @@ export default function ExpenseTypesPage() {
               }}
             />
           </div>
-          <select
-            className="input max-w-[200px]"
+          <SearchableSelect
+            className="max-w-[200px]"
+            aria-label="Filter by category"
             value={flagFilter}
-            onChange={(e) => {
-              setFlagFilter(e.target.value);
+            emptyLabel="All Categories"
+            placeholder="All Categories"
+            options={CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+            onChange={(v) => {
+              setFlagFilter(v);
               setPage(1);
             }}
-          >
-            <option value="">All Categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -331,7 +329,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Expense Type Name *</label>
+            <label className="label required">Expense Type Name</label>
             <input
               className="input uppercase"
               value={name}

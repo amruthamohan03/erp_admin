@@ -6,6 +6,9 @@ import { X, FileText, Eye, Edit2, FileSpreadsheet } from 'lucide-react';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { accentFor } from './accents';
 import type { PageDef, PageFieldDef, PageFetchResponse } from '@/types';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 // A read-only "beautiful" record viewer for any transactional page. Instead of
 // re-rendering the edit form with disabled inputs, it reuses the exact same
@@ -27,12 +30,7 @@ interface RecordViewModalProps {
   onExport?: () => void;
   onClose: () => void;
 }
-
-function fmtDate(v: string): string {
-  // Date columns arrive as 'YYYY-MM-DD'; render dd/mm/yyyy with no tz shift.
-  const [y, m, d] = v.slice(0, 10).split('-');
-  return y && m && d ? `${d}/${m}/${y}` : v;
-}
+
 
 function getString(props: Record<string, unknown> | null, key: string): string | undefined {
   const v = props?.[key];

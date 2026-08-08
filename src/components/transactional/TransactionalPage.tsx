@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Save } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive, deriveTriggers } from '@/lib/pages/derive';
 import type { PageDef, PageFetchResponse } from '@/types';
-import Accordion from './Accordion';
+import Accordion, { type ResolvedField } from './Accordion';
 
 interface TransactionalPageProps {
   slug: string;
@@ -19,6 +21,17 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // §4.17 — one save for the whole page, so its state lives here rather than being
+  // duplicated per section.
+  const [openSlugs, setOpenSlugs] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // Only a user edit sets `dirty` — the reactive pure-derive pass below writes
+  // values without touching it, so loading a record never looks unsaved.
+  const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,6 +53,10 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     }
     setPage(result.data.page);
     setValues(result.data.values ?? {});
+    // Open the first section by default; the rest stay collapsed as before.
+    setOpenSlugs(new Set(result.data.page.accordions.slice(0, 1).map((a) => a.slug)));
+    setDirty(false);
+    setInvalidFields(new Set());
     setLoading(false);
   }, [slug, entityId]);
 
@@ -81,6 +98,15 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
   );
 
   const handleFieldChange = useCallback((fieldName: string, value: unknown) => {
+    setDirty(true);
+    setSavedAt(null);
+    // Clear this field's error as soon as the user addresses it.
+    setInvalidFields((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
     setValues((prev) => {
       const next = { ...prev, [fieldName]: value };
       if (asyncTriggers.has(fieldName)) void runAsyncDerive(fieldName, next);
@@ -108,26 +134,97 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     if (next) setValues(next);
   }, [values, page, allFields]);
 
-  const saveAccordion = useCallback(async (accordionSlug: string, fieldNames: string[]) => {
-    const payloadValues: Record<string, unknown> = {};
-    for (const name of fieldNames) {
-      payloadValues[name] = values[name] ?? null;
+  // §4.12 — every field's effective state, resolved once per render against the
+  // current values. The page needs this to build the save payload; the accordions
+  // render from it, so the work is not repeated per section (§4.10).
+  const resolvedByAccordion = useMemo(() => {
+    const map = new Map<string, ResolvedField[]>();
+    for (const acc of page?.accordions ?? []) {
+      map.set(
+        acc.slug,
+        acc.fields.map((field) => ({
+          field,
+          state: resolveFieldState(parseConditions(field.conditions), field.required, values),
+        })),
+      );
     }
-    const res = await fetch(`/api/v1/pages/${slug}/${entityId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accordion_slug: accordionSlug, values: payloadValues }),
+    return map;
+  }, [page, values]);
+
+  const editableAccordions = useMemo(
+    () => (page?.accordions ?? []).filter((a) => a.permission === 'edit'),
+    [page],
+  );
+
+  function toggleAccordion(accSlug: string) {
+    setOpenSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(accSlug)) next.delete(accSlug);
+      else next.add(accSlug);
+      return next;
     });
-    const json: { ok: boolean; data?: { id: number }; error?: { message?: string } } = await res.json();
-    if (!res.ok || !json.ok) {
-      throw new Error(json.error?.message || 'Save failed');
+  }
+
+  // §4.17 — the page's single save. Every editable section goes up in ONE request,
+  // which the server commits as one transaction: either the whole form lands or
+  // none of it does.
+  const handleSave = useCallback(async () => {
+    if (!page) return;
+    setSaving(true);
+    setSaveError(null);
+    setInvalidFields(new Set());
+
+    const accordions = editableAccordions.map((acc) => {
+      const visible = (resolvedByAccordion.get(acc.slug) ?? []).filter((r) => r.state.visible);
+      const payloadValues: Record<string, unknown> = {};
+      for (const { field } of visible) {
+        payloadValues[field.name] = values[field.name] ?? null;
+      }
+      return { slug: acc.slug, values: payloadValues };
+    });
+
+    try {
+      const res = await fetch(`/api/v1/pages/${slug}/${entityId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accordions }),
+      });
+      const json: {
+        ok: boolean;
+        data?: { id: number };
+        error?: { message?: string; details?: { field?: string } };
+      } = await res.json();
+
+      if (!res.ok || !json.ok) {
+        const field = json.error?.details?.field;
+        if (field) {
+          setInvalidFields(new Set([field]));
+          // The offending field may sit in a collapsed section — open it so the
+          // message points at something the user can actually see.
+          for (const [accSlug, fields] of resolvedByAccordion) {
+            if (fields.some((r) => r.field.name === field && r.state.visible)) {
+              setOpenSlugs((prev) => new Set(prev).add(accSlug));
+              break;
+            }
+          }
+        }
+        setSaveError(json.error?.message || 'Save failed');
+        return;
+      }
+
+      setSavedAt(new Date());
+      setDirty(false);
+      // If we just created a new entity, navigate to its canonical edit URL so
+      // subsequent saves target that id instead of staying on /new.
+      if (entityId === 'new' && json.data?.id) {
+        router.replace(`/${slug}/${json.data.id}`);
+      }
+    } catch (e) {
+      setSaveError((e as Error).message || 'Save failed');
+    } finally {
+      setSaving(false);
     }
-    // If we just created a new entity, navigate to its canonical edit URL so
-    // subsequent saves target that id instead of staying on /new.
-    if (entityId === 'new' && json.data?.id) {
-      router.replace(`/${slug}/${json.data.id}`);
-    }
-  }, [slug, entityId, values, router]);
+  }, [page, editableAccordions, resolvedByAccordion, values, slug, entityId, router]);
 
   return (
     <>
@@ -137,7 +234,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
         <BackButton fallback={page ? page.route : '/dashboard'} />
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
           {page?.title ?? 'Loading...'}
           {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-slate-500">— New</span>}
         </h1>
@@ -154,20 +251,49 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       )}
 
       {!loading && !error && page && (
-        <form onSubmit={(e) => e.preventDefault()}>
-          {page.accordions.map((acc, idx) => (
-            <Accordion
-              key={acc.id}
-              accordion={acc}
-              values={values}
-              onChange={handleFieldChange}
-              onSave={(visibleFieldNames) => saveAccordion(acc.slug, visibleFieldNames)}
-              defaultOpen={idx === 0}
-              accentIndex={idx}
-              entityType={`page:${slug}`}
-              entityId={entityId}
-            />
-          ))}
+        <form onSubmit={(e) => { e.preventDefault(); void handleSave(); }}>
+          {/* Bottom padding clears the sticky action bar so the last section's
+              fields are never hidden behind it. */}
+          <div className="pb-24">
+            {page.accordions.map((acc, idx) => (
+              <Accordion
+                key={acc.id}
+                accordion={acc}
+                values={values}
+                onChange={handleFieldChange}
+                resolved={resolvedByAccordion.get(acc.slug) ?? []}
+                open={openSlugs.has(acc.slug)}
+                onToggle={() => toggleAccordion(acc.slug)}
+                invalidFields={invalidFields}
+                accentIndex={idx}
+                entityType={`page:${slug}`}
+                entityId={entityId}
+              />
+            ))}
+          </div>
+
+          {editableAccordions.length > 0 && (
+            <div className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur sm:-mx-6 sm:px-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                {saveError && (
+                  <span className="flex-1 text-sm text-red-600 dark:text-red-400">{saveError}</span>
+                )}
+                {!saveError && savedAt && !saving && (
+                  <span className="flex-1 inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Saved {savedAt.toLocaleTimeString()}
+                  </span>
+                )}
+                {!saveError && !savedAt && dirty && (
+                  <span className="flex-1 text-xs text-slate-500 dark:text-slate-400">Unsaved changes</span>
+                )}
+                <button type="submit" disabled={saving} className="btn-primary sm:w-auto">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving…' : entityId === 'new' ? 'Create' : 'Save'}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       )}
     </>

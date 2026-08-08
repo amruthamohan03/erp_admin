@@ -262,7 +262,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Group Company Name *</label>
+            <label className="label required">Group Company Name</label>
             <input
               className="input uppercase"
               value={name}

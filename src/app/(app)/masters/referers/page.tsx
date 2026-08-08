@@ -258,7 +258,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Referrer Name *</label>
+            <label className="label required">Referrer Name</label>
             <input
               className="input"
               value={name}

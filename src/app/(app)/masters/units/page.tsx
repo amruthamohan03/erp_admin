@@ -255,7 +255,7 @@ function UnitFormModal({
             </div>
           )}
           <div>
-            <label className="label">Unit Name *</label>
+            <label className="label required">Unit Name</label>
             <input
               className="input"
               value={name}

@@ -271,7 +271,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Code *</label>
+            <label className="label required">Code</label>
             <input
               className="input uppercase font-mono"
               value={shortName}
@@ -282,7 +282,7 @@ function FormModal({
             <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Description *</label>
+            <label className="label required">Description</label>
             <textarea
               className="input min-h-[120px]"
               value={fullName}

@@ -262,7 +262,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Truck Status *</label>
+            <label className="label required">Truck Status</label>
             <input
               className="input uppercase"
               value={status}

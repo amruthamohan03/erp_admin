@@ -5,8 +5,10 @@ import {
   Plus, Trash2, Edit2, Copy, Save, X, FileText, Boxes, Send, Layers, CalendarClock, Search, ChevronDown,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { clientOptionLabel } from '@/lib/clientOptions';
+import { formatDate } from '@/lib/formatDate';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 
 interface Opt { id: number; label: string }
@@ -340,9 +342,6 @@ export default function QuotationsPage() {
     if (s?.ok) setStats(s.data as Record<string, number>);
   }
 
-  function fmtDate(d: string | null): string {
-    if (!d) return ''; const [y, m, day] = d.slice(0, 10).split('-'); return y ? `${day}/${m}/${y}` : d;
-  }
 
   return (
     <>
@@ -388,47 +387,43 @@ export default function QuotationsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-3">
             <div>
-              <label className="label">Client *</label>
-              <select className="input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                <option value="">Select Client</option>
-                {clients.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-              </select>
+              <label className="label required">Client</label>
+              {/* Options labelled by short code, per the client label rule (§4.15). */}
+              <SearchableSelect required aria-label="Client" value={clientId} placeholder="Select Client"
+                options={clients.map((o) => ({ value: String(o.id), label: o.label }))}
+                onChange={setClientId} />
             </div>
             <div>
-              <label className="label">Quotation Ref *</label>
+              <label className="label required">Quotation Ref</label>
               <input className="input bg-indigo-50 font-semibold text-indigo-700 text-center" value={quotationRef} readOnly placeholder="Auto-generated" />
             </div>
             <div>
-              <label className="label">Date *</label>
-              <input type="date" className="input" value={quotationDate} onChange={(e) => setQuotationDate(e.target.value)} />
+              <label className="label required">Date</label>
+              <input required type="date" className="input" value={quotationDate} onChange={(e) => setQuotationDate(e.target.value)} />
             </div>
             <div>
-              <label className="label">Kind *</label>
-              <select className="input" value={kindId} onChange={(e) => setKindId(e.target.value)}>
-                <option value="">Select Kind</option>
-                {kinds.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-              </select>
+              <label className="label required">Kind</label>
+              <SearchableSelect required aria-label="Kind" value={kindId} placeholder="Select Kind"
+                options={kinds.map((o) => ({ value: String(o.id), label: o.label }))}
+                onChange={setKindId} />
             </div>
             <div>
-              <label className="label">Transport *</label>
-              <select className="input" value={transportId} onChange={(e) => setTransportId(e.target.value)}>
-                <option value="">Select Transport</option>
-                {transports.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-              </select>
+              <label className="label required">Transport</label>
+              <SearchableSelect required aria-label="Transport" value={transportId} placeholder="Select Transport"
+                options={transports.map((o) => ({ value: String(o.id), label: o.label }))}
+                onChange={setTransportId} />
             </div>
             <div>
-              <label className="label">Type of Goods *</label>
-              <select className="input" value={goodsId} onChange={(e) => setGoodsId(e.target.value)}>
-                <option value="">Select Type</option>
-                {goods.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-              </select>
+              <label className="label required">Type of Goods</label>
+              <SearchableSelect required aria-label="Type of goods" value={goodsId} placeholder="Select Type"
+                options={goods.map((o) => ({ value: String(o.id), label: o.label }))}
+                onChange={setGoodsId} />
             </div>
             <div>
-              <label className="label">ARSP *</label>
-              <select className="input" value={arsp} onChange={(e) => setArsp(e.target.value as 'Enabled' | 'Disabled')}>
-                <option value="Disabled">Disabled</option>
-                <option value="Enabled">Enabled</option>
-              </select>
+              <label className="label required">ARSP</label>
+              <SearchableSelect required aria-label="ARSP" value={arsp}
+                options={[{ value: 'Disabled', label: 'Disabled' }, { value: 'Enabled', label: 'Enabled' }]}
+                onChange={(v) => setArsp(v as 'Enabled' | 'Disabled')} />
             </div>
           </div>
 
@@ -486,16 +481,14 @@ export default function QuotationsPage() {
                         return (
                           <tr key={r.uid} className="border-t border-slate-100">
                             <td className="px-2 py-1">
-                              <select className="input py-1 text-xs" value={r.item_id} onChange={(e) => setRow(cat.id, r.uid, { item_id: e.target.value })}>
-                                <option value="">Select Description</option>
-                                {opts.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
-                              </select>
+                              <SearchableSelect size="sm" aria-label="Description" value={r.item_id} placeholder="Select Description"
+                                options={opts.map((o) => ({ value: String(o.id), label: o.name }))}
+                                onChange={(v) => setRow(cat.id, r.uid, { item_id: v })} />
                             </td>
                             <td className="px-2 py-1">
-                              <select className="input py-1 text-xs" value={r.unit_id} onChange={(e) => setRow(cat.id, r.uid, { unit_id: e.target.value })}>
-                                <option value="">Unit</option>
-                                {units.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-                              </select>
+                              <SearchableSelect size="sm" aria-label="Unit" value={r.unit_id} placeholder="Unit"
+                                options={units.map((o) => ({ value: String(o.id), label: o.label }))}
+                                onChange={(v) => setRow(cat.id, r.uid, { unit_id: v })} />
                             </td>
                             {cdf ? (<>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.cif_split} onChange={(e) => setRow(cat.id, r.uid, { cif_split: e.target.value })} placeholder="0.00" /></td>
@@ -507,10 +500,9 @@ export default function QuotationsPage() {
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.cost_usd} onChange={(e) => setRow(cat.id, r.uid, { cost_usd: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1 text-right text-slate-600">{money(t.subtotal)}</td>
                               <td className="px-2 py-1">
-                                <select className="input py-1 text-xs" value={r.currency_id} onChange={(e) => setRow(cat.id, r.uid, { currency_id: e.target.value })}>
-                                  <option value="">CUR</option>
-                                  {currencies.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-                                </select>
+                                <SearchableSelect size="sm" aria-label="Currency" value={r.currency_id} placeholder="CUR"
+                                  options={currencies.map((o) => ({ value: String(o.id), label: o.label }))}
+                                  onChange={(v) => setRow(cat.id, r.uid, { currency_id: v })} />
                               </td>
                               <td className="px-2 py-1 text-center"><Toggle size="sm" checked={r.has_tva} onChange={(v) => setRow(cat.id, r.uid, { has_tva: v })} /></td>
                               <td className="px-2 py-1 text-right text-slate-600">{money(t.tva)}</td>
@@ -519,10 +511,9 @@ export default function QuotationsPage() {
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.quantity} onChange={(e) => setRow(cat.id, r.uid, { quantity: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.taux_usd} onChange={(e) => setRow(cat.id, r.uid, { taux_usd: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1">
-                                <select className="input py-1 text-xs" value={r.currency_id} onChange={(e) => setRow(cat.id, r.uid, { currency_id: e.target.value })}>
-                                  <option value="">CUR</option>
-                                  {currencies.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-                                </select>
+                                <SearchableSelect size="sm" aria-label="Currency" value={r.currency_id} placeholder="CUR"
+                                  options={currencies.map((o) => ({ value: String(o.id), label: o.label }))}
+                                  onChange={(v) => setRow(cat.id, r.uid, { currency_id: v })} />
                               </td>
                               <td className="px-2 py-1 text-center"><Toggle size="sm" checked={r.has_tva} onChange={(v) => setRow(cat.id, r.uid, { has_tva: v })} /></td>
                               <td className="px-2 py-1 text-right text-slate-600">{money(t.tva)}</td>
@@ -591,7 +582,7 @@ export default function QuotationsPage() {
                   <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
                   <td className="font-medium text-primary-700">{r.quotation_ref}</td>
                   <td>{r.client_name || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-xs text-slate-600">{fmtDate(r.quotation_date)}</td>
+                  <td className="text-xs text-slate-600">{formatDate(r.quotation_date, '')}</td>
                   <td>{r.kind_name ? <span className="inline-block rounded bg-cyan-100 text-cyan-800 px-2 py-0.5 text-[11px]">{r.kind_name}</span> : '—'}</td>
                   <td className="text-right font-semibold text-primary-700">{r.total_amount ? `${money(Number(r.total_amount))} USD` : '—'}</td>
                   <td className="text-right text-emerald-700">{r.total_amount_cdf && Number(r.total_amount_cdf) > 0 ? `${money(Number(r.total_amount_cdf))} CDF` : '—'}</td>

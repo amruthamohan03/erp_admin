@@ -282,7 +282,7 @@ function QuotationCategoryFormModal({
             </div>
           )}
           <div>
-            <label className="label">Category Name *</label>
+            <label className="label required">Category Name</label>
             <input
               className="input"
               value={name}

@@ -320,7 +320,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
             <UniquenessIndicator status={unique.status} message={unique.message} />
           </div>
           <div>
-            <label className="label">Title *</label>
+            <label className="label required">Title</label>
             <input
               className="input"
               value={form.title}
@@ -330,7 +330,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
             />
           </div>
           <div>
-            <label className="label">Route *</label>
+            <label className="label required">Route</label>
             <input
               className="input font-mono"
               value={form.route}

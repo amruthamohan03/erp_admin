@@ -262,7 +262,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Container Size *</label>
+            <label className="label required">Container Size</label>
             <input
               className="input uppercase"
               value={size}

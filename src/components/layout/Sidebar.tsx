@@ -98,12 +98,13 @@ export default function Sidebar() {
       <aside
         aria-label="Main navigation"
         className={clsx(
-          // Overlay drawer on small screens; docked, self-scrolling column from `lg`.
+          // `fixed` at every breakpoint — as an overlay drawer below `lg`, and as a
+          // pinned column from `lg` up. Fixed rather than sticky on purpose: the
+          // sidebar must not move when a long page scrolls, and sticky is only as
+          // reliable as the overflow/height of every ancestor between here and the
+          // viewport. DashboardShell offsets the content column to match the width.
           'fixed inset-y-0 start-0 z-50 flex w-72 max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground shadow-2xl',
           'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
-          // The drawer's inset-y/start pins have to be released at `lg`, or the
-          // sticky column inherits a conflicting bottom constraint from `inset-y-0`.
-          'lg:sticky lg:inset-y-auto lg:start-auto lg:top-0 lg:h-screen',
           'lg:max-w-none lg:translate-x-0 lg:shadow-none',
           'lg:border-e lg:border-sidebar-border',
           mobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full',

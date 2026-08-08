@@ -5,6 +5,8 @@ import { FileText, Settings } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/modules/imports/PartielleManageModal';
 import SealPickerControl from '@/components/ui/SealPickerControl';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import Toggle from '@/components/ui/Toggle';
 
 interface FieldRendererProps {
   field: PageFieldDef;
@@ -25,6 +27,9 @@ interface FieldRendererProps {
   // §4.5 — current form state, so a select with `props.optionsParams` can filter
   // its options by another field (e.g. Regime filtered by the selected client).
   values?: Record<string, unknown>;
+  // §4.18 — the server rejected this field on the last save; highlight it even
+  // though the browser's own `:user-invalid` may not have fired.
+  invalid?: boolean;
 }
 
 type Props = Record<string, unknown> | null;
@@ -59,13 +64,18 @@ export default function FieldRenderer({
   minBound,
   maxBound,
   values,
+  invalid,
 }: FieldRendererProps) {
   const effectiveRequired = requiredOverride ?? field.required;
+  // Spread into every control, so the §4.18 error highlight reaches each field type
+  // from one place. Native controls also self-mark via `:user-invalid`; this covers
+  // the server-driven case.
   const baseProps = {
     id: field.name,
     name: field.name,
     required: effectiveRequired,
     disabled: readonly,
+    'aria-invalid': invalid || undefined,
   };
 
   switch (field.field_type) {
@@ -164,6 +174,7 @@ export default function FieldRenderer({
           onChange={onChange}
           requiredOverride={effectiveRequired}
           values={values}
+          invalid={invalid}
         />
       );
 
@@ -178,6 +189,7 @@ export default function FieldRenderer({
           onChange={onChange}
           requiredOverride={effectiveRequired}
           values={values}
+          invalid={invalid}
         />
       );
 
@@ -193,20 +205,16 @@ export default function FieldRenderer({
         onChange(options.filter((o) => current.has(o.value)).map((o) => o.value).join(joinChar));
       }
       return (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {options.map((opt) => (
-            <label key={opt.value} className="inline-flex items-center gap-1 text-sm">
-              {/* Multi-select: a checkbox marks membership of a set, not a setting
-                  being switched on — §4.11 keeps these as checkboxes. */}
-              <input
-                type="checkbox"
-                className="checkbox"
-                disabled={readonly}
-                checked={current.has(opt.value)}
-                onChange={(e) => toggle(opt.value, e.target.checked)}
-              />
-              <span>{opt.label}</span>
-            </label>
+            <Toggle
+              key={opt.value}
+              size="sm"
+              label={opt.label}
+              disabled={readonly}
+              checked={current.has(opt.value)}
+              onChange={(v) => toggle(opt.value, v)}
+            />
           ))}
         </div>
       );
@@ -349,7 +357,7 @@ function SealPicker({ field, value, readonly, onChange }: FieldRendererProps) {
 
 type DynamicSelectProps = FieldRendererProps;
 
-function DynamicSelect({ field, value, readonly, onChange, requiredOverride, values }: DynamicSelectProps) {
+function DynamicSelect({ field, value, readonly, onChange, requiredOverride, values, invalid }: DynamicSelectProps) {
   const staticOptions = (field.options_static ?? []) as Array<{ value: string; label: string }>;
   const source = field.options_source;
   const labelField = field.options_label_field ?? 'name';
@@ -430,22 +438,18 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     .sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
-    <select
+    <SearchableSelect
       id={field.name}
-      name={field.name}
+      aria-label={field.label}
       required={requiredOverride ?? field.required}
+      invalid={invalid}
       disabled={readonly || (source != null && loading)}
-      className="input"
       value={asString(value)}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-    >
-      <option value="">— Select —</option>
-      {options.map((opt) => (
-        <option key={String(opt.value)} value={String(opt.value)}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+      emptyLabel="— Select —"
+      placeholder={source != null && loading ? 'Loading…' : '— Select —'}
+      options={options.map((opt) => ({ value: String(opt.value), label: String(opt.label) }))}
+      onChange={(v) => onChange(v === '' ? null : v)}
+    />
   );
 }
 
@@ -453,7 +457,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
 // from /api/v1/partielle-options?license_id= (value = partial_name, the string
 // link stored in inspection_reports). The "+" posts a new allotment to
 // /api/v1/partielles, then reloads and selects it — no external menu needed.
-function PartiellePicker({ field, value, readonly, onChange, requiredOverride, values }: DynamicSelectProps) {
+function PartiellePicker({ field, value, readonly, onChange, requiredOverride, values, invalid }: DynamicSelectProps) {
   const licenseId =
     values && values['license_id'] != null && values['license_id'] !== '' ? Number(values['license_id']) : null;
 
@@ -493,22 +497,19 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
   return (
     <div>
       <div className="flex items-center gap-2">
-        <select
+        <SearchableSelect
           id={field.name}
-          name={field.name}
+          className="flex-1"
+          aria-label={field.label}
           required={requiredOverride ?? field.required}
+          invalid={invalid}
           disabled={readonly || loading}
-          className="input"
           value={asString(value)}
-          onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-        >
-          <option value="">{licenseId ? '— Select PARTIELLE —' : 'Select License First'}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          emptyLabel={licenseId ? '— Select PARTIELLE —' : 'Select License First'}
+          placeholder={licenseId ? '— Select PARTIELLE —' : 'Select License First'}
+          options={options.map((o) => ({ value: String(o.value), label: String(o.label) }))}
+          onChange={(v) => onChange(v === '' ? null : v)}
+        />
         {!readonly && (
           <button
             type="button"

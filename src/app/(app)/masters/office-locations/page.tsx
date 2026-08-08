@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MapPin, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -316,7 +317,7 @@ function OfficeLocationFormModal({
             </div>
           )}
           <div>
-            <label className="label">Location Name *</label>
+            <label className="label required">Location Name</label>
             <input
               className="input"
               value={name}
@@ -331,18 +332,13 @@ function OfficeLocationFormModal({
           </div>
           <div>
             <label className="label">Province</label>
-            <select
-              className="input"
+            <SearchableSelect
               value={provinceId}
-              onChange={(e) => setProvinceId(e.target.value)}
-            >
-              <option value="">— None —</option>
-              {provinces.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.province_name}
-                </option>
-              ))}
-            </select>
+              emptyLabel="— None —"
+              placeholder="— None —"
+              options={provinces.map((p) => ({ value: String(p.id), label: p.province_name }))}
+              onChange={setProvinceId}
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

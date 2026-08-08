@@ -5,7 +5,11 @@ import {
   Layers, Search, Filter, Eye, Edit2, X, Check, FileText, FileSpreadsheet, Info,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { clientOptionLabel } from '@/lib/clientOptions';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '-');
 
 // Bivac / PARTIELLE Management — import licences (kind 1,2) split into named
 // PARTIELLE allocations, tracked against usage from imports. Ported from main's
@@ -66,12 +70,7 @@ function fmt(n: number | string | null | undefined): string {
   return (Number.isFinite(v) ? (v as number) : 0).toLocaleString('en-US', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
-}
-function fmtDate(d: string | null): string {
-  if (!d) return '-';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return y && m && day ? `${day}-${m}-${y}` : d;
-}
+}
 
 export default function BivacPage() {
   // ---- Licences table (server-side) ----
@@ -242,15 +241,19 @@ export default function BivacPage() {
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-primary-600" />
             <label htmlFor="clientFilter" className="text-sm font-medium text-slate-700 dark:text-slate-300">Client</label>
-            <select
-              id="clientFilter" className="input py-1 px-2 text-sm w-52"
+            {/* Options labelled by short code, per the client label rule (§4.15). */}
+            <SearchableSelect
+              id="clientFilter"
+              size="sm"
+              className="w-52"
               value={clientFilter}
-              onChange={(e) => { setClientFilter(e.target.value); setPage(1); }}
-            >
-              <option value="0">All Clients</option>
-              {/* Short code, per the app-wide client label rule (§4.15). */}
-              {clientOpts.map((c) => (<option key={c.id} value={c.id}>{clientOptionLabel(c)}</option>))}
-            </select>
+              placeholder="All Clients"
+              options={[
+                { value: '0', label: 'All Clients' },
+                ...clientOpts.map((c) => ({ value: String(c.id), label: clientOptionLabel(c) })),
+              ]}
+              onChange={(v) => { setClientFilter(v); setPage(1); }}
+            />
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />

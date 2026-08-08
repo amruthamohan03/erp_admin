@@ -30,6 +30,9 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 // Row shape returned by /api/v1/exports (list joins). Keys mirror
 // what main's /export list renders (client_name, license_number,
@@ -101,12 +104,7 @@ const CARD_GRADIENT = 'from-indigo-500 to-purple-600';
 
 function fmtCount(n: number): string {
   return n.toLocaleString();
-}
-function fmtDate(d: string | null): string {
-  if (!d) return '';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return y && m && day ? `${day}/${m}/${y}` : d;
-}
+}
 function fmtNum(v: string | null | undefined): string {
   if (v == null || v === '') return '';
   const n = Number(v);
@@ -427,20 +425,17 @@ export default function ExportsListPage() {
 
         <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2 text-sm">
-            <select
-              className="input py-1 px-2 text-sm w-auto"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+            <SearchableSelect
+              size="sm"
+              className="w-24"
+              aria-label="Exports per page"
+              value={String(pageSize)}
+              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+              onChange={(v) => {
+                setPageSize(Number(v));
                 setPage(1);
               }}
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            />
             <span className="text-slate-500">exports per page</span>
           </div>
           <div className="relative ml-auto">

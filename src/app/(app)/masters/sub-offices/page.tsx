@@ -264,7 +264,7 @@ function SubOfficeFormModal({
             </div>
           )}
           <div>
-            <label className="label">Sub-Office Name *</label>
+            <label className="label required">Sub-Office Name</label>
             <input
               className="input"
               value={name}

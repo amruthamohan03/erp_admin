@@ -260,7 +260,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Origin Name *</label>
+            <label className="label required">Origin Name</label>
             <input
               className="input uppercase"
               value={name}
