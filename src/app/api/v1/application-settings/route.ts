@@ -9,6 +9,7 @@ import {
   withErrorHandler,
 } from '@/lib/api';
 import { applicationSettingsUpdateSchema } from '@/schemas/application-settings';
+import { brandingFromRow } from '@/db/queries/branding';
 
 // Application-wide branding (project name, colors, logo, footer).
 // Singleton row (id=1) seeded on install; the admin UI PUTs the
@@ -48,21 +49,10 @@ async function loadOrDefault() {
   return afterRace;
 }
 
+// Row → DTO lives in the query helper so the server-rendered palette and this
+// endpoint can never drift apart (§4.10); only the audit fields are added here.
 function toResponse(row: typeof applicationSettingsMaster.$inferSelect) {
-  return {
-    id: row.id,
-    project_name: row.projectName,
-    app_title: row.appTitle,
-    tagline: row.tagline,
-    logo_url: row.logoUrl,
-    favicon_url: row.faviconUrl,
-    primary_color: row.primaryColor,
-    accent_color: row.accentColor,
-    sidebar_bg: row.sidebarBg,
-    sidebar_fg: row.sidebarFg,
-    footer_text: row.footerText,
-    updated_at: row.updatedAt,
-  };
+  return { id: row.id, ...brandingFromRow(row), updated_at: row.updatedAt };
 }
 
 export const GET = withErrorHandler(async (_req: NextRequest) => {

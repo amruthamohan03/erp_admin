@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
+import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 
 // A row of the licenses list — mirrors the /api/v1/licenses GET select.
 interface LicenseRow {
@@ -248,7 +249,8 @@ export default function LicensesListPage() {
     let cancelled = false;
     (async () => {
       const [c, t] = await Promise.all([
-        fetchOptions('clients', 'short_name'),
+        // Clients are labelled by short code app-wide (§4.15).
+        fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD),
         fetchOptions('transport-modes', 'transport_mode_name'),
       ]);
       if (cancelled) return;

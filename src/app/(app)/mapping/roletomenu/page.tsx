@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Save, Search, ShieldCheck } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
 
@@ -290,14 +291,14 @@ export default function RoleToMenuPage() {
                     <th key={c.key} className="text-center">
                       <div className="flex flex-col items-center gap-1">
                         <span>{c.label}</span>
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        <Toggle
+                          size="sm"
                           checked={columnAllOn[c.key]}
-                          onChange={(e) =>
-                            toggleColumn(c.key, e.target.checked)
-                          }
+                          onChange={(v) => toggleColumn(c.key, v)}
                           disabled={filtered.length === 0 || loadingRows}
+                          aria-label={`${c.label} for ${
+                            search ? 'matching' : 'all'
+                          } menus`}
                           title={`Toggle ${c.label} for ${
                             search ? 'matching' : 'all'
                           } menus`}
@@ -356,22 +357,20 @@ export default function RoleToMenuPage() {
                         </td>
                         {PERM_COLUMNS.map((c) => (
                           <td key={c.key} className="text-center">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                            <Toggle
+                              size="sm"
                               checked={r[c.key]}
                               onChange={() => togglePerm(r.menu_id, c.key)}
+                              aria-label={`${c.label} for ${r.menu_name}`}
                             />
                           </td>
                         ))}
                         <td className="text-center">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                          <Toggle
+                            size="sm"
                             checked={allOn}
-                            onChange={(e) =>
-                              toggleRow(r.menu_id, e.target.checked)
-                            }
+                            onChange={(v) => toggleRow(r.menu_id, v)}
+                            aria-label={`All permissions for ${r.menu_name}`}
                             title="Toggle all permissions for this menu"
                           />
                         </td>

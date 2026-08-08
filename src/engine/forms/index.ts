@@ -23,7 +23,7 @@ export { resolveValidationKey, resolveValidationKeys } from './resolveValidation
 // validate createCase / advanceCase input.
 //
 // Rendering: the <DynamicForm> React component in ./DynamicForm.tsx wires
-// each field_type to a UI primitive (Input/Textarea/Switch/SearchableSelect)
+// each field_type to a UI primitive (Input/Textarea/Toggle/SearchableSelect)
 // and uses the same buildFormZodSchema for client-side validation before
 // hitting the server. Import it directly:
 //

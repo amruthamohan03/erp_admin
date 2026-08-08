@@ -5,6 +5,7 @@ import {
   Layers, Search, Filter, Eye, Edit2, X, Check, FileText, FileSpreadsheet, Info,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import { clientOptionLabel } from '@/lib/clientOptions';
 
 // Bivac / PARTIELLE Management — import licences (kind 1,2) split into named
 // PARTIELLE allocations, tracked against usage from imports. Ported from main's
@@ -247,7 +248,8 @@ export default function BivacPage() {
               onChange={(e) => { setClientFilter(e.target.value); setPage(1); }}
             >
               <option value="0">All Clients</option>
-              {clientOpts.map((c) => (<option key={c.id} value={c.id}>{c.short_name ?? c.id}</option>))}
+              {/* Short code, per the app-wide client label rule (§4.15). */}
+              {clientOpts.map((c) => (<option key={c.id} value={c.id}>{clientOptionLabel(c)}</option>))}
             </select>
           </div>
           <div className="relative">

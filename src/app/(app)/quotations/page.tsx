@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
+import { clientOptionLabel } from '@/lib/clientOptions';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 
 interface Opt { id: number; label: string }
@@ -133,8 +134,8 @@ export default function QuotationsPage() {
   useEffect(() => {
     (async () => {
       const [cl, ki, tr, go, cu, un] = await Promise.all([
-        // clients returns company_name/short_name — there is no `name`/`client_code`.
-        fetchOpts('/api/v1/clients?pageSize=100', (r) => String(r.company_name ?? r.short_name ?? r.id)),
+        // Clients are labelled by short code — one resolver for the whole app (§4.15).
+        fetchOpts('/api/v1/clients?pageSize=100', clientOptionLabel),
         fetchOpts('/api/v1/kinds?pageSize=100', (r) => String(r.kind_name ?? r.id)),
         fetchOpts('/api/v1/transport-modes?pageSize=100', (r) => String(r.transport_mode_name ?? r.id)),
         fetchOpts('/api/v1/goods-types?pageSize=100', (r) => String(r.goods_type ?? r.id)),

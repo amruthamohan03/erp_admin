@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import Toggle from '@/components/ui/Toggle';
 import { Separator } from '@/components/ui/separator';
 import { useTranslate } from '@/components/providers/TranslateProvider';
 import { localeLabels, locales, type Locale } from '@/i18n/config';
@@ -90,9 +90,10 @@ export default function PreferencesTab({
               Receive notifications about activity in your account.
             </p>
           </div>
-          <Switch
+          <Toggle
+            aria-label="Email notifications"
             checked={emailNotifs}
-            onCheckedChange={(v) => {
+            onChange={(v) => {
               setEmailNotifs(v);
               persistPrefs({ email_notifications: v });
             }}
@@ -108,9 +109,10 @@ export default function PreferencesTab({
               Reduce padding for a denser layout.
             </p>
           </div>
-          <Switch
+          <Toggle
+            aria-label="Compact mode"
             checked={compact}
-            onCheckedChange={(v) => {
+            onChange={(v) => {
               setCompact(v);
               persistPrefs({ compact_mode: v });
             }}

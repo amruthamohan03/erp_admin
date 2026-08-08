@@ -17,15 +17,18 @@ module.exports = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        // The numeric shades are var-driven like DEFAULT: the ~190 existing
+        // `text-primary-600` / `bg-primary-50` usages across the master pages have to
+        // follow the operator-configured brand too, not stay frozen blue.
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          900: '#1e3a8a',
+          50: 'hsl(var(--primary-50))',
+          100: 'hsl(var(--primary-100))',
+          500: 'hsl(var(--primary-500))',
+          600: 'hsl(var(--primary-600))',
+          700: 'hsl(var(--primary-700))',
+          900: 'hsl(var(--primary-900))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -34,6 +37,22 @@ module.exports = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        brand: {
+          DEFAULT: 'hsl(var(--brand))',
+          foreground: 'hsl(var(--brand-foreground))',
+          accent: 'hsl(var(--brand-accent))',
+          'accent-foreground': 'hsl(var(--brand-accent-foreground))',
+          from: 'hsl(var(--brand-from))',
+          to: 'hsl(var(--brand-to))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

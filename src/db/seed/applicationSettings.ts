@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { applicationSettingsMaster } from '@/db/schema';
 import type { Database, Transaction } from '@/lib/db';
+import { BRANDING_DEFAULTS } from '@/lib/branding';
 
 // Seed the singleton settings row. Uses INSERT ... ON CONFLICT
 // (id=1) DO NOTHING so re-seeding leaves operator-edited values
@@ -17,11 +18,11 @@ export async function seedApplicationSettings(
       projectName: 'ERP Admin',
       appTitle: 'ERP Admin',
       tagline: 'Management Console',
-      primaryColor: '#2563eb',
-      accentColor: '#2563eb',
-      sidebarBg: '#0f172a',
-      sidebarFg: '#e2e8f0',
-      footerText: '© {year} ERP Admin · All rights reserved.',
+      primaryColor: BRANDING_DEFAULTS.primary_color,
+      accentColor: BRANDING_DEFAULTS.accent_color,
+      sidebarBg: BRANDING_DEFAULTS.sidebar_bg,
+      sidebarFg: BRANDING_DEFAULTS.sidebar_fg,
+      footerText: BRANDING_DEFAULTS.footer_text,
     })
     .onConflictDoNothing({ target: applicationSettingsMaster.id });
 

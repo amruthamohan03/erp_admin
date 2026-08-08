@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   RotateCcw,
   Save,
@@ -8,6 +9,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { BRANDING_DEFAULTS } from '@/lib/branding';
 
 interface SettingsForm {
   project_name: string;
@@ -22,20 +24,24 @@ interface SettingsForm {
   footer_text: string;
 }
 
+// Mirrors the shipped defaults rather than restating them, so "Reset to defaults"
+// can never drift from the column defaults and the server-side palette (§4.10).
+// The form models absent values as '' where the DTO uses null.
 const DEFAULTS: SettingsForm = {
-  project_name: 'ERP Admin',
-  app_title: 'ERP Admin',
-  tagline: 'Management Console',
-  logo_url: '',
-  favicon_url: '',
-  primary_color: '#2563eb',
-  accent_color: '#2563eb',
-  sidebar_bg: '#0f172a',
-  sidebar_fg: '#e2e8f0',
-  footer_text: '© {year} ERP Admin · All rights reserved.',
+  project_name: BRANDING_DEFAULTS.project_name,
+  app_title: BRANDING_DEFAULTS.app_title,
+  tagline: BRANDING_DEFAULTS.tagline ?? '',
+  logo_url: BRANDING_DEFAULTS.logo_url ?? '',
+  favicon_url: BRANDING_DEFAULTS.favicon_url ?? '',
+  primary_color: BRANDING_DEFAULTS.primary_color,
+  accent_color: BRANDING_DEFAULTS.accent_color,
+  sidebar_bg: BRANDING_DEFAULTS.sidebar_bg,
+  sidebar_fg: BRANDING_DEFAULTS.sidebar_fg,
+  footer_text: BRANDING_DEFAULTS.footer_text ?? '',
 };
 
 export default function ApplicationSettingsPage() {
+  const router = useRouter();
   const [form, setForm] = useState<SettingsForm>(DEFAULTS);
   // Inputs render disabled until the initial fetch settles. SSR and the
   // first client render both start `true`, so the `disabled` attribute
@@ -98,7 +104,10 @@ export default function ApplicationSettingsPage() {
         setError(json.error?.message || 'Save failed');
         return;
       }
-      setNotice('Saved — refresh the page to see the new branding.');
+      // The palette is inlined by the server-rendered root layout, so a refresh —
+      // not a state update — is what repaints the app in the new colours.
+      router.refresh();
+      setNotice('Saved — the new branding is applied across the app.');
     } catch {
       setError('Network error');
     } finally {

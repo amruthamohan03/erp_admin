@@ -196,8 +196,11 @@ export default function FieldRenderer({
         <div className="flex flex-wrap gap-3">
           {options.map((opt) => (
             <label key={opt.value} className="inline-flex items-center gap-1 text-sm">
+              {/* Multi-select: a checkbox marks membership of a set, not a setting
+                  being switched on — §4.11 keeps these as checkboxes. */}
               <input
                 type="checkbox"
+                className="checkbox"
                 disabled={readonly}
                 checked={current.has(opt.value)}
                 onChange={(e) => toggle(opt.value, e.target.checked)}

@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { fetchClientOptions } from '@/lib/clientOptions';
 
 // /imports/bulk-new — sibling of /exports/bulk-new. Same overall
 // shape (client + license + MCA prefix header, editable row grid,
@@ -88,21 +89,13 @@ export default function BulkNewImportsPage() {
 
   useEffect(() => {
     (async () => {
-      const [cRes, lRes] = await Promise.all([
-        // clients caps pageSize at 100; an over-cap value 422s and yields no
-        // options. licenses allows up to 500.
-        fetch('/api/v1/clients?pageSize=100').then((r) => r.json()),
+      const [clientOpts, lRes] = await Promise.all([
+        // Clients are labelled by short code, via the shared helper (§4.15).
+        // licenses allows pageSize up to 500.
+        fetchClientOptions(),
         fetch('/api/v1/licenses?pageSize=500').then((r) => r.json()),
       ]);
-      if (cRes.ok) {
-        setClients(
-          // clients returns company_name/short_name — there is no `name` key.
-          (cRes.data as { id: number; company_name: string }[]).map((c) => ({
-            value: String(c.id),
-            label: c.company_name,
-          })),
-        );
-      }
+      setClients(clientOpts);
       if (lRes.ok) {
         setLicenses(
           (
