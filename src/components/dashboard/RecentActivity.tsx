@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react';
+import { formatDate } from '@/lib/formatDate';
 
 // Recent-activity feed for /dashboard. Four panels (imports,
 // exports, quotations, licenses), each showing the 5 most recently
@@ -86,15 +87,7 @@ function fmtAmount(v: string | null, ccy: string): string {
   })}`;
 }
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
+const fmtDate = (iso: string): string => formatDate(iso, '');
 
 export default function RecentActivity() {
   const [data, setData] = useState<ActivityPayload | null>(null);

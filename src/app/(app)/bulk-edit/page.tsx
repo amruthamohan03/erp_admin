@@ -340,8 +340,8 @@ export default function BulkEditPage() {
       )}
 
       <section className="card p-4 mb-4">
-        <label className="label">Entity *</label>
-        <SearchableSelect
+        <label className="label required">Entity</label>
+        <SearchableSelect required
           value={entity}
           onChange={resetOnEntityChange}
           options={targets.map((t) => ({ value: t.entity, label: t.label }))}
@@ -377,30 +377,25 @@ export default function BulkEditPage() {
               const noValue = f.op === 'isNull' || f.op === 'isNotNull';
               return (
                 <div key={f._id} className="grid grid-cols-12 gap-2">
-                  <select
-                    className="input col-span-4 text-sm"
+                  <SearchableSelect
+                    className="col-span-4"
+                    size="sm"
+                    aria-label="Filter column"
                     value={f.col}
-                    onChange={(e) => updateFilter(f._id, { col: e.target.value })}
-                  >
-                    {selectedTarget.filter_columns.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.label} ({c.name})
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="input col-span-3 text-sm"
+                    options={selectedTarget.filter_columns.map((c) => ({
+                      value: c.name,
+                      label: `${c.label} (${c.name})`,
+                    }))}
+                    onChange={(v) => updateFilter(f._id, { col: v })}
+                  />
+                  <SearchableSelect
+                    className="col-span-3"
+                    size="sm"
+                    aria-label="Filter operator"
                     value={f.op}
-                    onChange={(e) =>
-                      updateFilter(f._id, { op: e.target.value as Op })
-                    }
-                  >
-                    {OP_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={OP_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    onChange={(v) => updateFilter(f._id, { op: v as Op })}
+                  />
                   <input
                     className="input col-span-4 text-sm"
                     value={f.value}

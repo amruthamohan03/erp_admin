@@ -270,7 +270,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Phase Name *</label>
+            <label className="label required">Phase Name</label>
             <input
               className="input"
               value={name}
@@ -284,7 +284,7 @@ function FormModal({
             />
           </div>
           <div>
-            <label className="label">Phase Code *</label>
+            <label className="label required">Phase Code</label>
             <input
               className="input font-mono uppercase"
               value={code}

@@ -260,7 +260,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Done By Name *</label>
+            <label className="label required">Done By Name</label>
             <input
               className="input"
               value={name}

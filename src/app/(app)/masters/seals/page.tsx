@@ -5,8 +5,12 @@ import {
   Shield, Boxes, CheckCircle2, ShieldAlert, MapPin, Plus, Search, Edit2, Eye, Trash2,
   FileSpreadsheet, ListOrdered, X, Save, ChevronDown,
 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 // Seal batches are $10 each; total_seal is derived from total_amount. The
 // authoritative computation happens server-side — this constant only powers
@@ -72,10 +76,7 @@ const LOCATION_GRADIENTS = [
   'from-fuchsia-500 to-pink-600', 'from-sky-500 to-cyan-500', 'from-lime-500 to-green-600',
   'from-rose-400 to-amber-400', 'from-cyan-500 to-indigo-700', 'from-orange-400 to-rose-500',
 ];
-
-function fmtDate(d: string | null): string {
-  if (!d) return ''; const [y, m, day] = d.slice(0, 10).split('-'); return y ? `${day}-${m}-${y}` : d;
-}
+
 function statusBadge(s: SealStatus): string {
   if (s === 'Used') return 'bg-amber-100 text-amber-800 border-amber-200';
   if (s === 'Damaged') return 'bg-red-100 text-red-700 border-red-200';
@@ -307,27 +308,37 @@ export default function SealsPage() {
             {formErr && <div className="rounded-md bg-red-50 p-2 mb-3 text-sm text-red-700 border border-red-200">{formErr}</div>}
             <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
               <div>
-                <label className="label">Office Location <span className="text-red-500">*</span></label>
-                <select className="input" value={form.office_location_id} onChange={(e) => setForm({ ...form, office_location_id: e.target.value })}>
-                  <option value="">-- Select --</option>
-                  {offices.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-                </select>
+                <label className="label required">Office Location</label>
+                <SearchableSelect required
+                  aria-label="Office location"
+                  value={form.office_location_id}
+                  emptyLabel="-- Select --"
+                  placeholder="-- Select --"
+                  options={offices.map((o) => ({ value: String(o.id), label: o.label }))}
+                  onChange={(v) => setForm({ ...form, office_location_id: v })}
+                />
               </div>
               <div>
                 <label className="label">Sub Location</label>
-                <select className="input" value={form.sub_location} onChange={(e) => setForm({ ...form, sub_location: e.target.value })}>
-                  <option value="">Select</option>
-                  <option value="AMI">Ami Congo</option>
-                  <option value="EP">EP Ville</option>
-                </select>
+                <SearchableSelect
+                  aria-label="Sub location"
+                  value={form.sub_location}
+                  emptyLabel="Select"
+                  placeholder="Select"
+                  options={[
+                    { value: 'AMI', label: 'Ami Congo' },
+                    { value: 'EP', label: 'EP Ville' },
+                  ]}
+                  onChange={(v) => setForm({ ...form, sub_location: v })}
+                />
               </div>
               <div>
-                <label className="label">Purchase Date <span className="text-red-500">*</span></label>
-                <input type="date" className="input" value={form.purchase_date} onChange={(e) => setForm({ ...form, purchase_date: e.target.value })} />
+                <label className="label required">Purchase Date</label>
+                <input required type="date" className="input" value={form.purchase_date} onChange={(e) => setForm({ ...form, purchase_date: e.target.value })} />
               </div>
               <div>
-                <label className="label">Total Amount ($) <span className="text-red-500">*</span></label>
-                <input type="number" step="0.01" min="0" className="input" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} placeholder="Enter total amount" />
+                <label className="label required">Total Amount ($)</label>
+                <input required type="number" step="0.01" min="0" className="input" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} placeholder="Enter total amount" />
               </div>
               <div>
                 <label className="label">Per Seal Amount</label>
@@ -339,10 +350,15 @@ export default function SealsPage() {
               </div>
               <div>
                 <label className="label">Display</label>
-                <select className="input" value={form.display} onChange={(e) => setForm({ ...form, display: e.target.value as 'Y' | 'N' })}>
-                  <option value="Y">Yes</option>
-                  <option value="N">No</option>
-                </select>
+                <SearchableSelect
+                  aria-label="Display"
+                  value={form.display}
+                  options={[
+                    { value: 'Y', label: 'Yes' },
+                    { value: 'N', label: 'No' },
+                  ]}
+                  onChange={(v) => setForm({ ...form, display: v as 'Y' | 'N' })}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
@@ -610,14 +626,22 @@ function EditNumberModal({ data, onClose, onSaved }: {
         <div className="p-5 space-y-3">
           {err && <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">{err}</div>}
           <div><label className="label">Location</label><input className="input bg-slate-100" value={data.location} readOnly /></div>
-          <div><label className="label">Seal Number *</label><input className="input" value={seal} onChange={(e) => setSeal(e.target.value)} /></div>
+          <div><label className="label required">Seal Number</label><input required className="input" value={seal} onChange={(e) => setSeal(e.target.value)} /></div>
           <div>
-            <label className="label">Status *</label>
-            <select className="input" value={status} onChange={(e) => setStatus(e.target.value as SealStatus)}>
-              <option value="Available">Available</option>
-              <option value="Used">Used</option>
-              <option value="Damaged" disabled={wasUsed}>Damaged</option>
-            </select>
+            <label className="label required">Status</label>
+            <SearchableSelect
+              required
+              aria-label="Status"
+              value={status}
+              // A "Used" seal can't move to "Damaged", so that option is withheld
+              // rather than rendered disabled — the dropdown has no disabled state.
+              options={[
+                { value: 'Available', label: 'Available' },
+                { value: 'Used', label: 'Used' },
+                ...(wasUsed ? [] : [{ value: 'Damaged', label: 'Damaged' }]),
+              ]}
+              onChange={(v) => setStatus(v as SealStatus)}
+            />
             {wasUsed && <div className="text-xs text-amber-600 mt-1">A &quot;Used&quot; seal cannot be changed to &quot;Damaged&quot;.</div>}
           </div>
           <div><label className="label">Notes</label><textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>

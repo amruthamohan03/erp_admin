@@ -255,7 +255,7 @@ function TransportModeFormModal({
             </div>
           )}
           <div>
-            <label className="label">Mode Name *</label>
+            <label className="label required">Mode Name</label>
             <input
               className="input uppercase"
               value={name}
@@ -265,7 +265,7 @@ function TransportModeFormModal({
             />
           </div>
           <div>
-            <label className="label">Transport Letter *</label>
+            <label className="label required">Transport Letter</label>
             <input
               className="input uppercase"
               value={letter}

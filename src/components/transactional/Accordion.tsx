@@ -1,22 +1,34 @@
 'use client';
 
-import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
-import type { PageAccordionDef } from '@/types';
-import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
+import type { PageAccordionDef, PageFieldDef } from '@/types';
+import type { FieldState } from '@/lib/pages/conditions';
 import { parseDerive, isEditableDerive } from '@/lib/pages/derive';
 import { accentFor } from './accents';
 import FieldRenderer from './FieldRenderer';
+
+// §4.17 — presentational only. The accordion renders fields and reports clicks; it
+// owns no save button and no save state, because a transaction page has exactly one
+// Save that commits every section together. Open/closed and the resolved field
+// states are lifted to TransactionalPage, which needs both to build the payload and
+// to reveal the section holding a validation error.
+
+export interface ResolvedField {
+  field: PageFieldDef;
+  state: FieldState;
+}
 
 interface AccordionProps {
   accordion: PageAccordionDef;
   values: Record<string, unknown>;
   onChange: (fieldName: string, value: unknown) => void;
-  // §4.12 — receives the names of the fields that are currently VISIBLE (per the
-  // config-driven conditions) so a kind-hidden section isn't written on save.
-  onSave: (visibleFieldNames: string[]) => Promise<void>;
-  defaultOpen?: boolean;
+  /** Fields with their conditions already resolved, computed once by the page. */
+  resolved: ResolvedField[];
+  open: boolean;
+  onToggle: () => void;
+  /** Field names that failed server validation — highlighted after a failed save. */
+  invalidFields?: ReadonlySet<string>;
   // Position of this accordion on the page — picks a stable accent colour from
   // ACCENTS so sibling sections read as one harmonious set (see §4.10: one
   // shared palette, not per-page ad-hoc colours).
@@ -41,41 +53,20 @@ export default function Accordion({
   accordion,
   values,
   onChange,
-  onSave,
-  defaultOpen,
+  resolved,
+  open,
+  onToggle,
+  invalidFields,
   accentIndex = 0,
   entityType,
   entityId,
 }: AccordionProps) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
-
   const readonly = accordion.permission === 'view';
   const accent = accentFor(accentIndex);
-
-  // §4.12 — resolve every field's effective state against the current form values
-  // once per render. Hidden fields are dropped from the DOM and from the save
-  // payload; the same rules run server-side (defense in depth).
-  const resolved = accordion.fields.map((field) => ({
-    field,
-    state: resolveFieldState(parseConditions(field.conditions), field.required, values),
-  }));
   const visibleFields = resolved.filter((r) => r.state.visible);
-
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave(visibleFields.map((r) => r.field.name));
-      setSavedAt(new Date());
-    } catch (e) {
-      setError((e as Error).message || 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
+  const errorCount = invalidFields
+    ? visibleFields.filter((r) => invalidFields.has(r.field.name)).length
+    : 0;
 
   return (
     <div
@@ -89,7 +80,8 @@ export default function Accordion({
 
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
+        aria-expanded={open}
         className={clsx(
           'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors',
           open ? accent.tint : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60',
@@ -114,6 +106,14 @@ export default function Accordion({
           </span>
         </span>
 
+        {/* A single page-level Save means an error can sit in a section the user
+            cannot see — mark the header so a collapsed section still shows it. */}
+        {errorCount > 0 && (
+          <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-500/15 dark:text-red-300">
+            {errorCount} error{errorCount === 1 ? '' : 's'}
+          </span>
+        )}
+
         {readonly && (
           <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 dark:bg-slate-800 dark:text-slate-300">
             read-only
@@ -129,18 +129,13 @@ export default function Accordion({
 
       {open && (
         <div className="p-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-          {error && (
-            <div className="rounded-md bg-red-50 p-2 mb-3 text-sm text-red-700 border border-red-200 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300">
-              {error}
-            </div>
-          )}
-
           <div className="flex flex-wrap -mx-2">
             {visibleFields.map(({ field, state }) => (
               <div key={field.id} className={`${colClassFor(field.props)} mb-3`}>
-                <label htmlFor={field.name} className="label">
+                {/* §4.18 — the `required` class renders the star; never type one
+                    into the label text. */}
+                <label htmlFor={field.name} className={clsx('label', state.required && 'required')}>
                   {field.label}
-                  {state.required && <span className="text-red-600 ml-0.5">*</span>}
                 </label>
                 <FieldRenderer
                   field={field}
@@ -163,32 +158,14 @@ export default function Accordion({
                   entityType={entityType}
                   entityId={entityId}
                   values={values}
+                  invalid={invalidFields?.has(field.name)}
                 />
+                {invalidFields?.has(field.name) && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">This field needs a value.</p>
+                )}
               </div>
             ))}
           </div>
-
-          {!readonly && (
-            <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 mt-2">
-              {savedAt && !saving && (
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Saved {savedAt.toLocaleTimeString()}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className={clsx(
-                  'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r hover:brightness-105',
-                  accent.bar,
-                )}
-              >
-                {saving ? 'Saving…' : `Save ${accordion.title}`}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

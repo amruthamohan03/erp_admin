@@ -306,7 +306,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">HS Code Number *</label>
+            <label className="label required">HS Code Number</label>
             <input
               className="input font-mono"
               value={number}

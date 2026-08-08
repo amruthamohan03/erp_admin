@@ -14,6 +14,7 @@ import {
   Undo2,
   XCircle,
 } from 'lucide-react';
+import Toggle from '@/components/ui/Toggle';
 
 interface BatchDetail {
   id: number;
@@ -379,16 +380,16 @@ export default function SealBatchDetailPage() {
               <table className="table-base">
                 <thead>
                   <tr>
-                    <th className="w-10">
-                      <input
-                        type="checkbox"
-                        className="checkbox"
+                    <th className="w-14">
+                      {/* A switch has no indeterminate state, so the partial case is
+                          carried by the "N selected" count above the table. */}
+                      <Toggle
+                        size="sm"
                         checked={allChecked}
-                        ref={(el) => {
-                          if (el) el.indeterminate = someChecked;
-                        }}
-                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                        onChange={toggleSelectAll}
                         disabled={numbers.length === 0}
+                        aria-label={allChecked ? 'Deselect all numbers' : 'Select all numbers'}
+                        title={someChecked ? 'Some numbers selected' : undefined}
                       />
                     </th>
                     <th className="w-12">#</th>
@@ -422,11 +423,11 @@ export default function SealBatchDetailPage() {
                         }
                       >
                         <td>
-                          <input
-                            type="checkbox"
-                            className="checkbox"
+                          <Toggle
+                            size="sm"
                             checked={selected.has(n.id)}
                             onChange={() => toggleSelect(n.id)}
+                            aria-label={`Select ${n.seal_number}`}
                           />
                         </td>
                         <td className="text-slate-500 font-medium">

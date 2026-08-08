@@ -8,6 +8,7 @@
 // field type) and the exports bulk-create grid — one implementation, §4.10.
 import { useState } from 'react';
 import { Shield, Search, X, Check, Plus } from 'lucide-react';
+import Toggle from '@/components/ui/Toggle';
 
 interface SealPickerControlProps {
   // Comma-joined seal numbers (e.g. "AA74423, AA74424").
@@ -83,11 +84,10 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
                 {loading && <div className="py-6 text-center text-sm text-slate-500">Loading…</div>}
                 {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-slate-500">No available seals.</div>}
                 {!loading && options.map((s) => (
-                  <label key={s} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
-                    {/* Selecting seals from a list — §4.11 keeps selection on checkboxes. */}
-                    <input type="checkbox" className="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
+                  <div key={s} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent">
+                    <Toggle size="sm" checked={checked.has(s)} onChange={() => toggle(s)} aria-label={`Select seal ${s}`} />
                     <span className="font-mono">{s}</span>
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>

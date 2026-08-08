@@ -252,7 +252,7 @@ function UserFormModal({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Username *</label>
+              <label className="label required">Username</label>
               <input className="input" value={form.username} disabled={isEdit}
                 onChange={(e) => setForm({ ...form, username: e.target.value })} required />
             </div>
@@ -263,13 +263,13 @@ function UserFormModal({
             </div>
           </div>
           <div>
-            <label className="label">Full Name *</label>
+            <label className="label required">Full Name</label>
             <input className="input" value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Email *</label>
+              <label className="label required">Email</label>
               <input type="email" className="input" value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })} required />
             </div>
@@ -280,7 +280,7 @@ function UserFormModal({
             </div>
           </div>
           <div>
-            <label className="label">Role *</label>
+            <label className="label required">Role</label>
             <SearchableSelect
               value={String(form.role_id)}
               onChange={(v) => setForm({ ...form, role_id: Number(v) })}

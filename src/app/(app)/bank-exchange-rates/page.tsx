@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 
 interface Row {
@@ -383,27 +384,20 @@ function BankExchangeRateFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Bank *</label>
-              <select
-                className="input"
-                value={form.bank_id}
-                onChange={(e) =>
-                  setForm({ ...form, bank_id: Number(e.target.value) })
-                }
+              <label className="label required">Bank</label>
+              <SearchableSelect
+                value={String(form.bank_id)}
                 required
-              >
-                {banks.length === 0 && (
-                  <option value="">No banks available</option>
-                )}
-                {banks.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.bank_name} ({b.bank_code})
-                  </option>
-                ))}
-              </select>
+                placeholder={banks.length === 0 ? 'No banks available' : 'Select...'}
+                options={banks.map((b) => ({
+                  value: String(b.id),
+                  label: `${b.bank_name} (${b.bank_code})`,
+                }))}
+                onChange={(v) => setForm({ ...form, bank_id: Number(v) })}
+              />
             </div>
             <div>
-              <label className="label">Date *</label>
+              <label className="label required">Date</label>
               <input
                 type="date"
                 className="input"
@@ -417,21 +411,16 @@ function BankExchangeRateFormModal({
           </div>
 
           <div>
-            <label className="label">Currency *</label>
-            <select
-              className="input"
-              value={form.currency_id}
-              onChange={(e) =>
-                setForm({ ...form, currency_id: Number(e.target.value) })
-              }
+            <label className="label required">Currency</label>
+            <SearchableSelect
+              value={String(form.currency_id)}
               required
-            >
-              {currencies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.currency_name} ({c.currency_short_name})
-                </option>
-              ))}
-            </select>
+              options={currencies.map((c) => ({
+                value: String(c.id),
+                label: `${c.currency_name} (${c.currency_short_name})`,
+              }))}
+              onChange={(v) => setForm({ ...form, currency_id: Number(v) })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -154,14 +154,12 @@ import Toggle from '@/components/ui/Toggle';
 
 `Toggle` wraps `@radix-ui/react-switch`, so keyboard handling, focus and `role="switch"` come from the primitive rather than being reimplemented. It takes `checked` and `onChange(value: boolean)`, plus optional `label`, `size` (`'sm' | 'md'`), `disabled`, `id`, `title`, `className`, `aria-label`. **Inside a table cell, pass `aria-label`** — a bare switch in a grid is unnamed to a screen reader, and the column header alone does not name it.
 
-**The one carve-out: selection is not state.** A control meaning *"this item is part of my selection"* stays a checkbox. A switch reads as "this setting is now on", and it cannot express the indeterminate state a select-all header needs. Keep `<input type="checkbox" className="checkbox">` — the `.checkbox` class in globals.css is the only sanctioned styling — for:
+**No exceptions — this includes selection.** Row selection, select-all headers, and multi-select option groups all use `<Toggle>` too. There are zero `<input type="checkbox">` elements in `src/`, and adding one is a defect. Two consequences to handle rather than route around:
 
-- table row selection and its select-all header (e.g. [masters/seals/[id]](src/app/masters/seals/[id]/page.tsx))
-- multi-select option groups, picking many from a list (e.g. [FieldRenderer](src/components/transactional/FieldRenderer.tsx), [SealPickerControl](src/components/ui/SealPickerControl.tsx))
+- **A switch has no indeterminate state.** Where a select-all header used to render a half-checked box, show the count separately (`{n} selected` above the table, as [masters/seals/[id]](src/app/masters/seals/[id]/page.tsx) does) and let the header switch mean *all / not-all*.
+- **Switches are wider than checkboxes** (28px at `size="sm"` vs 16px). Give the column room — `w-14` rather than `w-10` — instead of shrinking the control.
 
-The test: does flipping it change a *setting*, or does it add an item to a *set you are about to act on*? Setting → `<Toggle>`. Set membership → checkbox.
-
-Radio buttons are unaffected — mutually exclusive choice is neither case; use a select or a radio group.
+Radio buttons are unaffected — mutually exclusive choice is neither case; use a searchable dropdown (§4.16) or a radio group.
 
 > §4.12–§4.14 are referenced throughout the codebase (`§4.12` = the metadata page runtime, `§4.13` = back-navigation, `§4.14` = field-level role grants) but have never been written up here. Numbers are reserved; do not reuse them for something else.
 
@@ -182,6 +180,105 @@ fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD);      // page-local option fe
 For **master-driven selects** this is config, not code: a `master_page_accordion_field_t` row with `options_source = 'clients'` must have `options_label_field = 'short_name'`. The seed ships that for all seven client selects, and migration `0046` normalises any row that drifted. If you add a client select through the page-builder, set the label field — don't special-case it in the renderer.
 
 **This is about selection, not display.** Detail views, report columns, print/PDF output and export files still show `company_name` where the full legal name is the right thing — an invoice needs the legal entity, a dropdown needs the code. Some read-only tables sensibly show both (`{short_name} — {company_name}`); that's fine. The rule binds anything the user picks *from*.
+
+### 4.16 Every dropdown is a searchable dropdown
+
+**Pick-one lists use `<SearchableSelect>` ([src/components/ui/SearchableSelect.tsx](src/components/ui/SearchableSelect.tsx)) — never a raw `<select>`.** There are zero `<select>` elements in `src/`, and adding one is a defect. A native select gives no type-ahead past first-letter matching, which is unusable the moment a list passes a couple of dozen rows — and in this app clients, licenses, items, HS codes and users all do. One control everywhere also means one set of styles, one keyboard model, and one place to fix a bug.
+
+```tsx
+import SearchableSelect from '@/components/ui/SearchableSelect';
+
+<SearchableSelect
+  value={clientId}                       // always a string; convert at the boundary
+  onChange={setClientId}                 // (value: string) => void
+  options={clients.map((c) => ({ value: String(c.id), label: c.short_name }))}
+  emptyLabel="All Clients"               // renders a clear/none row; omit for a required pick
+  placeholder="All Clients"
+  aria-label="Client"                    // required when there is no visible <label>
+/>
+```
+
+Notes that catch people out:
+
+- **`value` is a string.** A numeric id needs `String(id)` in and `Number(v)` out — a `number` silently never matches an option.
+- **`emptyLabel` vs `placeholder`.** `emptyLabel` adds a selectable "none" row inside the list; `placeholder` is only the closed-state text. A filter usually wants both; a required field wants `placeholder` alone.
+- **No `disabled` on individual options.** Withhold the option instead — see the seal status field, where "Damaged" is dropped rather than greyed out.
+- **`size="sm"`** for inline filter bars and table footers; the default suits form fields.
+- Options are sorted A→Z (numeric-aware) by the component. Don't pre-sort at the call site.
+
+Radio groups remain fine for two or three mutually exclusive choices rendered inline. Boolean on/off is a `<Toggle>` (§4.11), not a two-option dropdown.
+
+### 4.17 One save per transaction page, not one per accordion
+
+**A transaction page has exactly one Save button, in a sticky action bar at the bottom.** Accordions are a way to *organise a long form*, not separate records — an operator filling a consignment thinks in terms of "save this consignment", not "save Basic, then save Contact, then save Legal". Per-section save buttons also meant a half-filled entity could sit in the database between clicks, and any cross-section validation rule saw stale values for the sections that hadn't been saved yet.
+
+The pieces:
+
+- **[TransactionalPage](src/components/transactional/TransactionalPage.tsx)** owns the form: the values, which accordions are open, the resolved field states (§4.12 conditions), save/dirty/error state, and the single Save.
+- **[Accordion](src/components/transactional/Accordion.tsx)** is presentational. It renders fields and reports toggles. **It must not own a save button, a save handler, or any save state.** Adding one back is a defect.
+- **`POST /api/v1/pages/{slug}/{id}`** accepts every editable section in one request and commits them in **one transaction**:
+
+```jsonc
+{ "accordions": [ { "slug": "basic", "values": {…} }, { "slug": "contact", "values": {…} } ] }
+```
+
+The single-accordion shape (`{ accordion_slug, values }`) is still accepted for API-only callers, but the UI never uses it.
+
+Three consequences worth knowing before you touch this:
+
+1. **Each accordion's values are whitelisted against its own field list.** A field cannot be written through an accordion that doesn't own it — don't "simplify" the route by merging all values into one bag before the permission check.
+2. **A create is a single INSERT carrying the whole form.** There is no "first accordion creates, the rest update" sequencing, and no half-written row when a later section fails validation.
+3. **Every accordion is validated on every save**, so `required` is judged against the *resulting* value — patch first, then the merged context of stored row + submission. A required field that is legitimately absent from the patch (read-only, or derived) must not fail on that alone.
+
+Because one Save covers sections the user may have collapsed, the page surfaces errors where they can be seen: a failed save opens the accordion holding the offending field, marks the field, and shows an error count on that section's header. Keep that behaviour if you rework the save flow.
+
+### 4.18 Mandatory fields: red star on the label, red highlight when empty
+
+**A required field carries a red star on its label, and highlights itself in red when it is required and empty.** Both come from shared CSS — never hand-roll either.
+
+**The star.** Add `required` to the label's class. Do **not** type an asterisk into the label text:
+
+```tsx
+<label className="label required">Client</label>          // ✅ CSS renders the star
+<label className="label">Client *</label>                 // ❌ drifts in glyph, colour, spacing
+<label className="label">Client <span className="text-red-500">*</span></label>  // ❌ same
+```
+
+The rule is `label.required::after` in globals.css, matched on the element rather than on `.label`, so it also covers the Radix `<Label>` primitive used by [DynamicForm](src/engine/forms/DynamicForm.tsx). The star is generated content, so screen readers announce the control's own `required` attribute instead of stray punctuation.
+
+**The highlight.** `.input:user-invalid` and `.input[aria-invalid="true"]` paint the destructive border and ring. Two paths feed it:
+
+- **Native** — the control needs the `required` attribute. `:user-invalid` (not `:invalid`) is deliberate: the browser applies it only after the user has edited the control or attempted to submit, so a blank form doesn't open covered in red.
+- **`aria-invalid`** — for a server-driven error (a failed save naming a field) and for controls that aren't native inputs.
+
+**A star without `required` on the control is a defect** — it promises a check that can never fire. The two go together. Read-only and derived fields are the one exception: the constraint API exempts them, so they keep the star (the data *is* required) without the attribute.
+
+**`<SearchableSelect>` needs its own handling** — the visible control is a `<button>`, which the browser never marks `:user-invalid`. It tracks engagement itself and sets `aria-invalid` once a `required` pick has been opened and dismissed without choosing; pass `invalid` to force it from outside.
+
+For the metadata-driven pages this is config, not code: `master_page_accordion_field_t.required` drives both the star and the attribute through [Accordion](src/components/transactional/Accordion.tsx) and [FieldRenderer](src/components/transactional/FieldRenderer.tsx). Don't special-case a field in the renderer.
+
+### 4.19 Dates display as day/month/year
+
+**Every date a user reads renders `DD/MM/YYYY`**, through [src/lib/formatDate.ts](src/lib/formatDate.ts). Never hand-roll a date string and never call `toLocaleDateString()`.
+
+```ts
+import { formatDate, formatDateTime, toDateInputValue } from '@/lib/formatDate';
+
+formatDate('2026-08-03')                 // '03/08/2026'
+formatDate(null)                         // '—'   (NO_DATE; pass a second arg to override)
+formatDateTime('2026-08-03T14:30:00Z')   // '03/08/2026 14:30'  — audit trails, activity feeds
+toDateInputValue(row.expiry)             // '2026-08-03'  — for <input type="date">
+```
+
+Three things this exists to prevent, all of which were live in the codebase:
+
+1. **Locale drift.** `toLocaleDateString()` follows the *machine's* regional settings, so the same row renders `03/08/2026` on one box and `08/03/2026` on another. For a customs operation that is a date being read as March instead of August. Formatting here is deliberately **not** locale-aware — the business format is fixed.
+2. **Timezone shift.** `new Date('2026-01-01')` is UTC midnight, which renders as *31/12/2025* west of Greenwich. `formatDate` reads a `YYYY-MM-DD` string textually and only uses the `Date` API for real timestamps.
+3. **Drift between screens.** Twelve local `fmtDate` helpers had produced five different formats. One implementation, one format.
+
+**Display only.** Stored values, API payloads and query params stay ISO `YYYY-MM-DD` — that is what Postgres, Zod and the HTML date input all expect. `<input type="date">` must be fed `toDateInputValue()`, never `formatDate()`; a localised value renders the picker blank.
+
+The one sanctioned exception is a **calendar tile** that stacks the day over an abbreviated month (see the holiday chips in [KpiDelayView](src/modules/kpi/KpiDelayView.tsx)). That is still day-before-month, so the rule's intent holds; pin the locale (`'en'`) and timezone explicitly.
 
 ## 5. Directory layout
 
@@ -333,6 +430,10 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to apply a schema or data change directly to the database (Studio, `psql`, a throwaway script, `drizzle-kit push` on a shared DB) → no, it goes in a migration script (§7.2).
 - Requests to add an `<input type="checkbox">` for a boolean setting, or a second toggle/switch component → no, use `<Toggle>` (§4.11).
 - Requests to label a client dropdown with `company_name` → no, pickers show `short_name` via the shared resolver (§4.15).
+- Requests to add a raw `<select>` ("it's only a few options") → no, use `<SearchableSelect>` (§4.16).
+- Requests to put a save button on an individual accordion → no, a transaction page has one page-level Save (§4.17).
+- Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
+- Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

@@ -257,7 +257,7 @@ function CurrencyFormModal({
             </div>
           )}
           <div>
-            <label className="label">Currency Name *</label>
+            <label className="label required">Currency Name</label>
             <input
               className="input uppercase"
               value={name}
@@ -267,7 +267,7 @@ function CurrencyFormModal({
             />
           </div>
           <div>
-            <label className="label">Short Name *</label>
+            <label className="label required">Short Name</label>
             <input
               className="input uppercase"
               value={shortName}

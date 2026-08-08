@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Toggle from '@/components/ui/Toggle';
+import { toDateInputValue } from '@/lib/formatDate';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { FormFieldRow } from '@/db/schema';
 import type {
@@ -201,11 +202,10 @@ function FieldRow({
   const isReadOnly = field.permission === 'view';
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={field.fieldKey}>
+      {/* §4.18 — the `required` class renders the star; never type one into the
+          label text, so every screen shows the same marker. */}
+      <Label htmlFor={field.fieldKey} className={field.required && !isReadOnly ? 'required' : undefined}>
         {field.label}
-        {field.required && !isReadOnly && (
-          <span className="text-destructive ms-1">*</span>
-        )}
         {isReadOnly && (
           <span className="ms-2 text-xs uppercase tracking-wide text-muted-foreground">
             read-only
@@ -277,7 +277,9 @@ function FieldInput({
         <Input
           id={id}
           type="date"
-          value={(value as string | undefined) ?? ''}
+          // §4.19 — a date input's value is ISO by spec. Normalising here means a
+          // stored timestamp still populates the picker instead of rendering blank.
+          value={toDateInputValue(value)}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
         />

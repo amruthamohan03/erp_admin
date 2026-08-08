@@ -259,7 +259,7 @@ function CommodityFormModal({
             </div>
           )}
           <div>
-            <label className="label">Commodity Name *</label>
+            <label className="label required">Commodity Name</label>
             <input
               className="input uppercase"
               value={name}

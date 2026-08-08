@@ -259,8 +259,8 @@ export default function BulkNewImportsPage() {
       <div className="card p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="label">Client *</label>
-            <SearchableSelect
+            <label className="label required">Client</label>
+            <SearchableSelect required
               value={clientId}
               onChange={(v) => { setClientId(v); setLicenseId(''); }}
               options={clients}
@@ -269,8 +269,8 @@ export default function BulkNewImportsPage() {
             />
           </div>
           <div>
-            <label className="label">License *</label>
-            <SearchableSelect
+            <label className="label required">License</label>
+            <SearchableSelect required
               value={licenseId}
               onChange={setLicenseId}
               options={clientId ? licenses.filter((l) => l.clientId === clientId) : licenses}
@@ -279,8 +279,8 @@ export default function BulkNewImportsPage() {
             />
           </div>
           <div>
-            <label className="label">MCA reference prefix *</label>
-            <input
+            <label className="label required">MCA reference prefix</label>
+            <input required
               className="input"
               value={mcaPrefix}
               onChange={(e) => setMcaPrefix(e.target.value)}

@@ -259,7 +259,7 @@ function ClearanceFormModal({
             </div>
           )}
           <div>
-            <label className="label">Clearance Name *</label>
+            <label className="label required">Clearance Name</label>
             <input
               className="input uppercase"
               value={name}

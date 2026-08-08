@@ -4,6 +4,7 @@ import { Suspense, use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Edit2, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 
@@ -185,7 +186,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
       )}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Slug *</label>
+          <label className="label required">Slug</label>
           <input
             className="input font-mono"
             value={form.slug}
@@ -195,7 +196,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
           />
         </div>
         <div>
-          <label className="label">Title *</label>
+          <label className="label required">Title</label>
           <input
             className="input"
             value={form.title}
@@ -205,7 +206,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
           />
         </div>
         <div>
-          <label className="label">Route *</label>
+          <label className="label required">Route</label>
           <input
             className="input font-mono"
             value={form.route}
@@ -215,7 +216,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
           />
         </div>
         <div>
-          <label className="label">Target Table *</label>
+          <label className="label required">Target Table</label>
           <input
             className="input font-mono"
             value={form.target_table}
@@ -236,14 +237,12 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
         </div>
         <div>
           <label className="label">Status</label>
-          <select
-            className="input"
+          <SearchableSelect
+            aria-label="Status"
             value={form.display}
-            onChange={(e) => setForm({ ...form, display: e.target.value as 'Y' | 'N' })}
-          >
-            <option value="Y">Active</option>
-            <option value="N">Inactive</option>
-          </select>
+            options={[{ value: 'Y', label: 'Active' }, { value: 'N', label: 'Inactive' }]}
+            onChange={(v) => setForm({ ...form, display: v as 'Y' | 'N' })}
+          />
         </div>
       </div>
       <p className="text-xs text-slate-500 pt-2">
@@ -469,7 +468,7 @@ function AccordionFormModal({
             </div>
           )}
           <div>
-            <label className="label">Slug *</label>
+            <label className="label required">Slug</label>
             <input
               className="input font-mono"
               value={form.slug}
@@ -481,7 +480,7 @@ function AccordionFormModal({
             />
           </div>
           <div>
-            <label className="label">Title *</label>
+            <label className="label required">Title</label>
             <input
               className="input"
               value={form.title}
@@ -514,14 +513,12 @@ function AccordionFormModal({
             </div>
             <div>
               <label className="label">Status</label>
-              <select
-                className="input"
+              <SearchableSelect
+                aria-label="Status"
                 value={form.display}
-                onChange={(e) => setForm({ ...form, display: e.target.value as 'Y' | 'N' })}
-              >
-                <option value="Y">Active</option>
-                <option value="N">Inactive</option>
-              </select>
+                options={[{ value: 'Y', label: 'Active' }, { value: 'N', label: 'Inactive' }]}
+                onChange={(v) => setForm({ ...form, display: v as 'Y' | 'N' })}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -709,23 +706,17 @@ function RolesTab({ pageId }: { pageId: number }) {
                   const cur = matrix.grants[k] ?? 'none';
                   return (
                     <td key={a.id} className="text-center">
-                      <select
+                      <SearchableSelect
+                        size="sm"
+                        aria-label={`${r.role_name} access to ${a.title}`}
                         value={cur}
-                        onChange={(e) =>
-                          setCell(a.id, r.id, e.target.value as 'view' | 'edit' | 'none')
-                        }
-                        className={`text-xs rounded border px-1.5 py-0.5 ${
-                          cur === 'edit'
-                            ? 'border-primary-300 bg-primary-50 text-primary-700'
-                            : cur === 'view'
-                              ? 'border-slate-300 bg-slate-50 text-slate-700'
-                              : 'border-slate-200 text-slate-400'
-                        }`}
-                      >
-                        <option value="none">none</option>
-                        <option value="view">view</option>
-                        <option value="edit">edit</option>
-                      </select>
+                        options={[
+                          { value: 'none', label: 'none' },
+                          { value: 'view', label: 'view' },
+                          { value: 'edit', label: 'edit' },
+                        ]}
+                        onChange={(v) => setCell(a.id, r.id, v as 'view' | 'edit' | 'none')}
+                      />
                     </td>
                   );
                 })}
@@ -884,36 +875,27 @@ function FieldsTab({ pageId }: { pageId: number }) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-slate-600">Accordion:</label>
-            <select
-              className="input max-w-xs"
-              value={accordionId ?? ''}
-              onChange={(e) => setAccordionId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="" disabled>
-                — Select —
-              </option>
-              {accordions.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              className="max-w-xs"
+              aria-label="Accordion"
+              value={accordionId != null ? String(accordionId) : ''}
+              placeholder="— Select —"
+              options={accordions.map((a) => ({ value: String(a.id), label: a.title }))}
+              onChange={(v) => setAccordionId(v ? Number(v) : null)}
+            />
           </div>
           {/* §4.14 — pick a role to manage per-field access. */}
           <div className="flex items-center gap-2">
             <label className="text-sm text-slate-600">Role access:</label>
-            <select
-              className="input max-w-xs"
-              value={roleId ?? ''}
-              onChange={(e) => setRoleId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">— None (manage fields) —</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role_name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              className="max-w-xs"
+              aria-label="Role access"
+              value={roleId != null ? String(roleId) : ''}
+              emptyLabel="— None (manage fields) —"
+              placeholder="— None (manage fields) —"
+              options={roles.map((r) => ({ value: String(r.id), label: r.role_name }))}
+              onChange={(v) => setRoleId(v ? Number(v) : null)}
+            />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1003,26 +985,18 @@ function FieldsTab({ pageId }: { pageId: number }) {
                     </td>
                     {showAccess && (
                       <td>
-                        <select
+                        <SearchableSelect
+                          size="sm"
+                          aria-label={`Access override for ${f.label}`}
                           value={cur}
-                          onChange={(e) =>
-                            setOverride(f.id, e.target.value as FieldOverride | 'inherit')
-                          }
-                          className={`text-xs rounded border px-1.5 py-0.5 w-full ${
-                            cur === 'edit'
-                              ? 'border-primary-300 bg-primary-50 text-primary-700'
-                              : cur === 'view'
-                                ? 'border-slate-300 bg-slate-50 text-slate-700'
-                                : cur === 'hidden'
-                                  ? 'border-red-300 bg-red-50 text-red-700'
-                                  : 'border-slate-200 text-slate-400'
-                          }`}
-                        >
-                          <option value="inherit">Inherit</option>
-                          <option value="view">View (read-only)</option>
-                          <option value="edit">Edit</option>
-                          <option value="hidden">Hidden</option>
-                        </select>
+                          options={[
+                            { value: 'inherit', label: 'Inherit' },
+                            { value: 'view', label: 'View (read-only)' },
+                            { value: 'edit', label: 'Edit' },
+                            { value: 'hidden', label: 'Hidden' },
+                          ]}
+                          onChange={(v) => setOverride(f.id, v as FieldOverride | 'inherit')}
+                        />
                       </td>
                     )}
                     <td className="text-right">
@@ -1199,7 +1173,7 @@ function FieldFormModal({
               />
             </div>
             <div>
-              <label className="label">Label *</label>
+              <label className="label required">Label</label>
               <input
                 className="input"
                 value={form.label}
@@ -1209,18 +1183,13 @@ function FieldFormModal({
               />
             </div>
             <div>
-              <label className="label">Field Type *</label>
-              <select
-                className="input"
+              <label className="label required">Field Type</label>
+              <SearchableSelect required
+                aria-label="Field type"
                 value={form.field_type}
-                onChange={(e) => setForm({ ...form, field_type: e.target.value })}
-              >
-                {FIELD_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                options={FIELD_TYPES.map((t) => ({ value: t, label: t }))}
+                onChange={(v) => setForm({ ...form, field_type: v })}
+              />
             </div>
             <div>
               <label className="label">Display Order</label>
@@ -1234,26 +1203,22 @@ function FieldFormModal({
             </div>
             <div>
               <label className="label">Required</label>
-              <select
-                className="input"
+              <SearchableSelect
+                aria-label="Required"
                 value={form.required ? 'Y' : 'N'}
-                onChange={(e) => setForm({ ...form, required: e.target.value === 'Y' })}
-              >
-                <option value="N">No</option>
-                <option value="Y">Yes</option>
-              </select>
+                options={[{ value: 'N', label: 'No' }, { value: 'Y', label: 'Yes' }]}
+                onChange={(v) => setForm({ ...form, required: v === 'Y' })}
+              />
             </div>
             {isEdit && (
               <div>
                 <label className="label">Status</label>
-                <select
-                  className="input"
+                <SearchableSelect
+                  aria-label="Status"
                   value={form.display}
-                  onChange={(e) => setForm({ ...form, display: e.target.value as 'Y' | 'N' })}
-                >
-                  <option value="Y">Active</option>
-                  <option value="N">Inactive</option>
-                </select>
+                  options={[{ value: 'Y', label: 'Active' }, { value: 'N', label: 'Inactive' }]}
+                  onChange={(v) => setForm({ ...form, display: v as 'Y' | 'N' })}
+                />
               </div>
             )}
           </div>

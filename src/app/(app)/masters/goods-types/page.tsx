@@ -268,7 +268,7 @@ function GoodsTypeFormModal({
             </div>
           )}
           <div>
-            <label className="label">Type *</label>
+            <label className="label required">Type</label>
             <input
               className="input uppercase"
               value={type}
@@ -279,7 +279,7 @@ function GoodsTypeFormModal({
             <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Short Name *</label>
+            <label className="label required">Short Name</label>
             <input
               className="input uppercase"
               value={shortName}

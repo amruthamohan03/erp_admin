@@ -6,6 +6,7 @@ import {
   Plus, Search, Eye, Edit2, Check, X, Receipt, Wallet, Layers,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import { formatDate as fmtDate } from '@/lib/formatDate';
 
 // Payment Request — multi-stage approval workflow list. The form (create/edit)
 // is a transaction-page (/payments/new, /payments/[id]); this page owns the
@@ -51,10 +52,7 @@ const CARDS: Array<{ key: string; label: string; grad: string }> = [
 function fmt(v: string | number | null | undefined): string {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
   return (Number.isFinite(n) ? (n as number) : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function fmtDate(d: string | null): string {
-  return d ? new Date(d).toLocaleDateString() : '—';
-}
+}
 
 // Derive the display status + the ONE actionable stage for a row.
 function statusOf(r: Row): { label: string; cls: string; stage: Stage | null } {
@@ -331,8 +329,8 @@ export default function PaymentsPage() {
               </div>
               {act.stage === 'paid' && (
                 <div>
-                  <label className="label">Cash Collector <span className="text-red-600">*</span></label>
-                  <input className="input" value={cashCollector} onChange={(e) => setCashCollector(e.target.value)} placeholder="Collector name" />
+                  <label className="label required">Cash Collector</label>
+                  <input required className="input" value={cashCollector} onChange={(e) => setCashCollector(e.target.value)} placeholder="Collector name" />
                 </div>
               )}
               <div>

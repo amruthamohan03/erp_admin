@@ -452,7 +452,7 @@ function CardFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Card Key *</label>
+              <label className="label required">Card Key</label>
               <input
                 className="input"
                 value={form.card_key}
@@ -467,7 +467,7 @@ function CardFormModal({
               </p>
             </div>
             <div>
-              <label className="label">Content Id *</label>
+              <label className="label required">Content Id</label>
               <input
                 className="input"
                 value={form.card_content_id}
@@ -481,7 +481,7 @@ function CardFormModal({
           </div>
 
           <div>
-            <label className="label">Title *</label>
+            <label className="label required">Title</label>
             <input
               className="input"
               value={form.card_title}

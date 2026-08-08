@@ -166,7 +166,7 @@ export default function ApplicationSettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="label">Project Name *</label>
+              <label className="label required">Project Name</label>
               <input
                 className="input"
                 value={form.project_name}
@@ -181,7 +181,7 @@ export default function ApplicationSettingsPage() {
               </p>
             </div>
             <div>
-              <label className="label">Browser Tab Title *</label>
+              <label className="label required">Browser Tab Title</label>
               <input
                 className="input"
                 value={form.app_title}

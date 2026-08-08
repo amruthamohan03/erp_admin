@@ -31,7 +31,11 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import BulkUpdateModal from '@/modules/imports/BulkUpdateModal';
 import { isPendingFilter } from '@/lib/imports/bulkFields';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 interface ImportRow {
   id: number;
@@ -123,12 +127,7 @@ const STATUS_FILTER_KEYS = new Set<string>([
   'insurance_missing', 'audited_pending', 'archived_pending', 'dgda_in_pending',
   'liquidation_pending', 'quittance_pending', 'dgda_out_pending', 'dispatch_deliver_pending',
 ]);
-
-function fmtDate(d: string | null): string {
-  if (!d) return '';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return y && m && day ? `${day}/${m}/${y}` : d;
-}
+
 function fmtNum(n: string | null): string {
   if (n === null || n === '') return '';
   const v = Number(n);
@@ -409,71 +408,47 @@ export default function ImportsListPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
             <label className="label">Filter by Clients</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Client"
               value={draft.client_id}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, client_id: e.target.value }))
-              }
-            >
-              <option value="">All Clients</option>
-              {clientOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Clients"
+              placeholder="All Clients"
+              options={clientOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, client_id: v }))}
+            />
           </div>
           <div>
             <label className="label">Type of Goods</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Type of goods"
               value={draft.type_of_goods}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, type_of_goods: e.target.value }))
-              }
-            >
-              <option value="">All Types of Goods</option>
-              {goodsOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Types of Goods"
+              placeholder="All Types of Goods"
+              options={goodsOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, type_of_goods: v }))}
+            />
           </div>
           <div>
             <label className="label">Entry Point</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Entry point"
               value={draft.entry_point_id}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, entry_point_id: e.target.value }))
-              }
-            >
-              <option value="">All Entry Points</option>
-              {entryOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Entry Points"
+              placeholder="All Entry Points"
+              options={entryOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, entry_point_id: v }))}
+            />
           </div>
           <div>
             <label className="label">Transport Mode</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Transport mode"
               value={draft.transport_mode}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, transport_mode: e.target.value }))
-              }
-            >
-              <option value="">All Transport Modes</option>
-              {transportOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Transport Modes"
+              placeholder="All Transport Modes"
+              options={transportOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, transport_mode: v }))}
+            />
           </div>
           <div>
             <label className="label">Start Date</label>
@@ -564,20 +539,17 @@ export default function ImportsListPage() {
         {/* Toolbar */}
         <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2 text-sm">
-            <select
-              className="input py-1 px-2 text-sm w-auto"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+            <SearchableSelect
+              size="sm"
+              className="w-24"
+              aria-label="Imports per page"
+              value={String(pageSize)}
+              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+              onChange={(v) => {
+                setPageSize(Number(v));
                 setPage(1);
               }}
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            />
             <span className="text-slate-500">imports per page</span>
             {pendingActive.length > 0 && (
               <button

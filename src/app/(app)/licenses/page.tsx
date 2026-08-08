@@ -22,7 +22,11 @@ import {
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { formatDate } from '@/lib/formatDate';
+
+const fmtDate = (v: unknown): string => formatDate(v, '');
 
 // A row of the licenses list — mirrors the /api/v1/licenses GET select.
 interface LicenseRow {
@@ -107,13 +111,7 @@ interface Option {
   id: number;
   label: string;
 }
-
-function fmtDate(d: string | null): string {
-  if (!d) return '';
-  // Date columns arrive as 'YYYY-MM-DD'; render dd/mm/yyyy without timezone shifts.
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return y && m && day ? `${day}/${m}/${y}` : d;
-}
+
 
 // Stat value backing a card. The seed stores the exact stats key in the
 // data_source fragment (e.g. '/api/v1/licenses/stats#total_count').
@@ -341,37 +339,25 @@ export default function LicensesListPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
           <div>
             <label className="label">Client</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Client"
               value={draft.client_id}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, client_id: e.target.value }))
-              }
-            >
-              <option value="">All Clients</option>
-              {clientOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Clients"
+              placeholder="All Clients"
+              options={clientOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, client_id: v }))}
+            />
           </div>
           <div>
             <label className="label">Transport Mode</label>
-            <select
-              className="input"
+            <SearchableSelect
+              aria-label="Transport mode"
               value={draft.transport_mode_id}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, transport_mode_id: e.target.value }))
-              }
-            >
-              <option value="">All Transport Modes</option>
-              {transportOpts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyLabel="All Transport Modes"
+              placeholder="All Transport Modes"
+              options={transportOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, transport_mode_id: v }))}
+            />
           </div>
           <div>
             <label className="label">Start Date</label>
@@ -449,20 +435,17 @@ export default function LicensesListPage() {
         {/* Toolbar: page-size + search */}
         <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2 text-sm">
-            <select
-              className="input py-1 px-2 text-sm w-auto"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+            <SearchableSelect
+              size="sm"
+              className="w-24"
+              aria-label="Entries per page"
+              value={String(pageSize)}
+              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+              onChange={(v) => {
+                setPageSize(Number(v));
                 setPage(1);
               }}
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            />
             <span className="text-slate-500">entries per page</span>
           </div>
 

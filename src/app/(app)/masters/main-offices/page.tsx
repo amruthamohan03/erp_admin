@@ -278,7 +278,7 @@ function MainOfficeFormModal({
             </div>
           )}
           <div>
-            <label className="label">Main Location Name *</label>
+            <label className="label required">Main Location Name</label>
             <input
               className="input"
               value={name}

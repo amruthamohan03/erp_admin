@@ -1,16 +1,23 @@
-// §4.12 — POST one accordion's worth of changes to the page's target entity.
-// §4.10 — wraps the write + audit_log insert in a single Drizzle transaction.
+// §4.12 — POST changes to the page's target entity. §4.17 — a transaction page has
+// ONE save, so the normal request carries every editable accordion at once and this
+// route commits them as a single INSERT/UPDATE.
+// §4.10 — the write + audit_log insert share one Drizzle transaction.
 //
-// Request body shape:
-//   { accordion_slug: 'basic', values: { company_name: '...', short_name: '...' } }
+// Request body — the page-level form:
+//   { accordions: [ { slug: 'basic', values: {...} }, { slug: 'contact', values: {...} } ] }
 //
-// - 'new' as the path id creates a new entity (only one accordion is allowed
-//   to drive a create — the first one in display_order; other accordions
-//   require an existing id).
-// - Existing id: partial UPDATE limited to columns owned by the named accordion.
+// Single-accordion shape, still accepted so API-only callers don't break:
+//   { accordion_slug: 'basic', values: {...} }
 //
-// The values object is filtered against the field list for the named accordion
-// (server-side whitelist), so untrusted keys can't slip extra columns in.
+// - 'new' as the path id creates the entity. Because every accordion arrives in one
+//   request, the create is a single INSERT carrying the whole form — no
+//   "first accordion creates, the rest update" sequencing, and no half-written row
+//   if a later section fails validation.
+// - Existing id: partial UPDATE limited to columns owned by the named accordions.
+//
+// Each accordion's values are filtered against ITS OWN field list (server-side
+// whitelist), so untrusted keys can't slip extra columns in, and a field cannot be
+// written through an accordion that doesn't own it.
 import { NextRequest } from 'next/server';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -40,24 +47,45 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const target = getPageTarget(slug);
   if (!target) return fail('Unknown page', 404);
 
-  let body: { accordion_slug?: string; values?: Record<string, unknown> };
+  let body: {
+    accordions?: Array<{ slug?: string; values?: Record<string, unknown> }>;
+    accordion_slug?: string;
+    values?: Record<string, unknown>;
+  };
   try {
     body = await req.json();
   } catch {
     return fail('Invalid JSON body', 400);
   }
-  const accordionSlug = body.accordion_slug;
-  const submittedValues = body.values ?? {};
-  if (!accordionSlug || typeof accordionSlug !== 'string') {
-    return fail('accordion_slug is required', 422);
+
+  // Normalise both request shapes to one list so the rest of the handler has a
+  // single code path (§4.10).
+  const submitted: Array<{ slug: string; values: Record<string, unknown> }> = [];
+  if (Array.isArray(body.accordions)) {
+    for (const entry of body.accordions) {
+      if (!entry?.slug || typeof entry.slug !== 'string') {
+        return fail('Each accordion needs a slug', 422);
+      }
+      submitted.push({ slug: entry.slug, values: entry.values ?? {} });
+    }
+  } else if (typeof body.accordion_slug === 'string' && body.accordion_slug) {
+    submitted.push({ slug: body.accordion_slug, values: body.values ?? {} });
+  }
+  if (submitted.length === 0) {
+    return fail('accordions (or accordion_slug) is required', 422);
+  }
+  const submittedSlugs = submitted.map((a) => a.slug);
+  if (new Set(submittedSlugs).size !== submittedSlugs.length) {
+    return fail('Duplicate accordion slug in request', 422);
   }
 
-  // 1) Resolve the page + accordion + permission for this role.
+  // 1) Resolve the page + every named accordion + this role's permission on each.
   const rows = await db
     .select({
       page_id: masterPage.id,
       page_target: masterPage.targetTable,
       accordion_id: masterPageAccordion.id,
+      accordion_slug: masterPageAccordion.slug,
       permission: masterPageAccordionRole.permission,
     })
     .from(masterPage)
@@ -70,21 +98,33 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       and(
         eq(masterPage.slug, slug),
         eq(masterPage.display, 'Y'),
-        eq(masterPageAccordion.slug, accordionSlug),
+        inArray(masterPageAccordion.slug, submittedSlugs),
         eq(masterPageAccordion.display, 'Y'),
         eq(masterPageAccordionRole.roleId, session.role_id),
       ),
-    )
-    .limit(1);
+    );
 
-  const grant = rows[0];
-  if (!grant) return fail('Forbidden — this accordion is not visible to your role', 403);
-  if (grant.permission !== 'edit') return fail('Forbidden — read-only access', 403);
+  const grantBySlug = new Map(rows.map((r) => [r.accordion_slug, r]));
+  for (const entry of submitted) {
+    const g = grantBySlug.get(entry.slug);
+    if (!g) return fail(`Forbidden — accordion "${entry.slug}" is not visible to your role`, 403);
+    if (g.permission !== 'edit') {
+      return fail(`Forbidden — read-only access to accordion "${entry.slug}"`, 403);
+    }
+  }
 
-  // 2) Fetch the field definitions for THIS accordion to build a whitelist.
+  // Values are keyed by the accordion that submitted them, so step 4 can reject a
+  // field pushed through an accordion that doesn't own it.
+  const valuesByAccordionId = new Map<number, Record<string, unknown>>(
+    submitted.map((entry) => [grantBySlug.get(entry.slug)!.accordion_id, entry.values]),
+  );
+  const accordionIds = Array.from(valuesByAccordionId.keys());
+
+  // 2) Fetch the field definitions for these accordions to build a whitelist.
   const fields = await db
     .select({
       id: masterPageAccordionField.id,
+      accordion_id: masterPageAccordionField.accordionId,
       name: masterPageAccordionField.name,
       label: masterPageAccordionField.label,
       required: masterPageAccordionField.required,
@@ -95,21 +135,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .from(masterPageAccordionField)
     .where(
       and(
-        eq(masterPageAccordionField.accordionId, grant.accordion_id),
+        inArray(masterPageAccordionField.accordionId, accordionIds),
         eq(masterPageAccordionField.display, 'Y'),
       ),
     )
     .orderBy(asc(masterPageAccordionField.displayOrder));
 
-  if (fields.length === 0) return fail('Accordion has no fields configured', 500);
+  if (fields.length === 0) return fail('No fields configured on the submitted accordions', 500);
 
   // §4.14 — resolve each field's effective permission for this role; only fields
   // that resolve to 'edit' may be written (absence of an override ⇒ inherit the
-  // accordion's 'edit', i.e. the prior behavior).
+  // owning accordion's 'edit', i.e. the prior behavior).
   const overrides = await fetchFieldOverrides(fields.map((f) => f.id), session.role_id);
+  const permissionByAccordionId = new Map(rows.map((r) => [r.accordion_id, r.permission]));
   const editableNames = new Set<string>();
   for (const f of fields) {
-    if (effectiveFieldPermission(grant.permission as 'view' | 'edit', overrides.get(f.id)) === 'edit') {
+    const accordionPermission = permissionByAccordionId.get(f.accordion_id) as 'view' | 'edit';
+    if (effectiveFieldPermission(accordionPermission, overrides.get(f.id)) === 'edit') {
       editableNames.add(f.name);
     }
   }
@@ -133,20 +175,27 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     ? await fetchEntityValues(slug, entityId, allColumns)
     : null;
   if (!isCreate && !before) return fail('Entity not found', 404);
-  const evalContext: Record<string, unknown> = { ...(before ?? {}), ...submittedValues };
 
-  // 4) Restrict the incoming values to (editable ∩ accordion ∩ target columns),
-  //    and drop any field that resolves to hidden or read-only for these values.
+  // Merged across every submitted accordion: with one page-level save, a condition
+  // that references a field in another section sees that section's *new* value in
+  // the same request rather than the stale stored one.
+  const mergedSubmitted: Record<string, unknown> = Object.assign({}, ...submitted.map((a) => a.values));
+  const evalContext: Record<string, unknown> = { ...(before ?? {}), ...mergedSubmitted };
+
+  // 4) Restrict the incoming values to (editable ∩ owning accordion ∩ target
+  //    columns), and drop any field that resolves to hidden or read-only.
   const safeColumnSet = new Set(safeColumnsFor(slug, fields.map((f) => f.name)));
 
   const patch: Record<string, unknown> = {};
   for (const f of fields) {
     if (!safeColumnSet.has(f.name) || !editableNames.has(f.name)) continue;
-    if (!(f.name in submittedValues)) continue;
+    // Only the accordion that owns the field may supply its value.
+    const ownerValues = valuesByAccordionId.get(f.accordion_id) ?? {};
+    if (!(f.name in ownerValues)) continue;
     const state = resolveFieldState(parseConditions(f.conditions), f.required, evalContext);
     // A field the rules hide or freeze must not be written from this request.
     if (!state.visible || state.readonly) continue;
-    patch[f.name] = submittedValues[f.name];
+    patch[f.name] = ownerValues[f.name];
   }
 
   // §4.12 — pure derives (statusMap / formula) are authoritative: recompute them
@@ -168,11 +217,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const state = resolveFieldState(parseConditions(f.conditions), f.required, evalContext);
     if (!state.visible) continue;
     if (state.required) {
-      const v = patch[f.name];
+      // "Required" means the entity ENDS UP with a value — judged against the patch
+      // first, then the merged context (stored row + this submission). A page-level
+      // save validates every accordion, so a required field that is legitimately
+      // absent from the patch — read-only, or derived — must not fail on that
+      // alone. This reads context only; nothing extra gets written.
+      const v = f.name in patch ? patch[f.name] : evalContext[f.name];
       const empty = v === undefined || v === null || v === '';
       if (empty) return fail(`Required field missing: ${f.label}`, 422, { field: f.name });
     }
-    const boundError = checkBounds(state, f.label, submittedValues[f.name]);
+    const boundError = checkBounds(state, f.label, mergedSubmitted[f.name]);
     if (boundError) return fail(boundError, 422, { field: f.name });
   }
 
@@ -257,7 +311,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       before,
       after: patch,
       metadata: {
-        accordion: accordionSlug,
+        // `accordion` stays singular for back-compat with existing audit rows and
+        // the detail UI; `accordions` carries the full set a page-level save wrote.
+        accordion: submittedSlugs[0],
+        accordions: submittedSlugs,
         // For per-field reconstruction in the audit detail UI.
         fields: Object.keys(patch),
       },

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import Toggle from '@/components/ui/Toggle';
@@ -124,21 +125,18 @@ export default function TransitPointsPage() {
               }}
             />
           </div>
-          <select
-            className="input max-w-[200px]"
+          <SearchableSelect
+            className="max-w-[200px]"
+            aria-label="Filter by flag"
             value={capabilityFilter}
-            onChange={(e) => {
-              setCapabilityFilter(e.target.value);
+            emptyLabel="All Flags"
+            placeholder="All Flags"
+            options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
+            onChange={(v) => {
+              setCapabilityFilter(v);
               setPage(1);
             }}
-          >
-            <option value="">All Flags</option>
-            {FLAGS.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -338,7 +336,7 @@ function TransitPointFormModal({
             </div>
           )}
           <div>
-            <label className="label">Transit Point Name *</label>
+            <label className="label required">Transit Point Name</label>
             <input
               className="input uppercase"
               value={name}

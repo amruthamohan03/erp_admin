@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -297,7 +298,7 @@ function FormModal({
             </div>
           )}
           <div>
-            <label className="label">Province Name *</label>
+            <label className="label required">Province Name</label>
             <input
               className="input"
               value={name}
@@ -308,19 +309,13 @@ function FormModal({
             <UniquenessIndicator status={status} message={message} />
           </div>
           <div>
-            <label className="label">Origin *</label>
-            <select
-              className="input"
-              value={originId}
-              onChange={(e) => setOriginId(Number(e.target.value))}
+            <label className="label required">Origin</label>
+            <SearchableSelect
+              value={String(originId)}
               required
-            >
-              {origins.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.origin_name}
-                </option>
-              ))}
-            </select>
+              options={origins.map((o) => ({ value: String(o.id), label: o.origin_name }))}
+              onChange={(v) => setOriginId(Number(v))}
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
