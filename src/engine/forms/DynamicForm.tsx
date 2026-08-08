@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { FormFieldRow } from '@/db/schema';
 import type {
@@ -303,10 +303,10 @@ function FieldInput({
       );
     case 'checkbox':
       return (
-        <Switch
+        <Toggle
           id={id}
           checked={Boolean(value)}
-          onCheckedChange={(v) => onChange(v)}
+          onChange={(v) => onChange(v)}
           disabled={disabled}
         />
       );

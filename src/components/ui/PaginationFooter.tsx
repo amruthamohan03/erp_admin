@@ -34,13 +34,13 @@ export default function PaginationFooter({
   pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: PaginationFooterProps) {
   if (!mounted) {
-    return <div className="h-[60px] border-t border-slate-200" />;
+    return <div className="h-[60px] border-t border-border" />;
   }
 
   return (
-    <div className="flex items-center justify-between p-4 border-t border-slate-200 text-sm flex-wrap gap-3">
-      <div className="flex items-center gap-3">
-        <span className="text-slate-500">
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-border p-3 text-sm sm:flex-row sm:p-4">
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        <span className="text-muted-foreground">
           {totalRows === 0
             ? '0 results'
             : `Showing ${startIndex + 1}–${Math.min(
@@ -48,11 +48,14 @@ export default function PaginationFooter({
                 totalRows,
               )} of ${totalRows}`}
         </span>
-        <span className="text-slate-300">|</span>
-        <label className="flex items-center gap-2 text-slate-600">
-          Rows per page:
+        <span className="hidden text-border sm:inline">|</span>
+        <label className="flex items-center gap-2 text-muted-foreground">
+          {/* The label shortens rather than wrapping — on a phone the footer has to
+              stay one or two lines, not four. */}
+          <span className="hidden sm:inline">Rows per page:</span>
+          <span className="sm:hidden">Rows:</span>
           <select
-            className="input py-1 px-2 w-auto"
+            className="input w-auto px-2 py-1"
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
           >
@@ -71,18 +74,20 @@ export default function PaginationFooter({
           disabled={page === 1}
           onClick={() => setPage(1)}
           title="First page"
+          aria-label="First page"
         >
-          <ChevronsLeft className="h-4 w-4" />
+          <ChevronsLeft className="h-4 w-4 rtl:-scale-x-100" />
         </button>
         <button
           className="btn-secondary px-2 py-1"
           disabled={page === 1}
           onClick={() => setPage(Math.max(1, page - 1))}
           title="Previous page"
+          aria-label="Previous page"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" />
         </button>
-        <span className="px-3 py-1 text-slate-700">
+        <span className="whitespace-nowrap px-3 py-1 text-foreground">
           Page <strong>{page}</strong> of <strong>{totalPages}</strong>
         </span>
         <button
@@ -90,16 +95,18 @@ export default function PaginationFooter({
           disabled={page >= totalPages}
           onClick={() => setPage(Math.min(totalPages, page + 1))}
           title="Next page"
+          aria-label="Next page"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
         </button>
         <button
           className="btn-secondary px-2 py-1"
           disabled={page >= totalPages}
           onClick={() => setPage(totalPages)}
           title="Last page"
+          aria-label="Last page"
         >
-          <ChevronsRight className="h-4 w-4" />
+          <ChevronsRight className="h-4 w-4 rtl:-scale-x-100" />
         </button>
       </div>
     </div>

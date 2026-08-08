@@ -30,7 +30,9 @@
       "Bash(node .drizzle-tmp/gen.js)",
       "Bash(git commit *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'Allow remote dev-server origins via NEXT_ALLOWED_DEV_ORIGINS *)"
+      "Bash(git commit -m 'Allow remote dev-server origins via NEXT_ALLOWED_DEV_ORIGINS *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm lint *)"
     ],
     "additionalDirectories": [
       "c:\\next\\erp-admin",

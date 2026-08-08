@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Save, RefreshCw, Loader2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import Toggle from '@/components/ui/Toggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 
 type Kind = 'export' | 'import';
@@ -422,8 +423,9 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
                       onChange={(e) => patchItem(idx, { taux_usd: Number(e.target.value) })} className="input w-28" />
                   </td>
                   <td className="text-center">
-                    <input type="checkbox" checked={!!it.has_tva} disabled={readonly}
-                      onChange={(e) => patchItem(idx, { has_tva: e.target.checked ? 1 : 0 })} />
+                    <Toggle size="sm" checked={!!it.has_tva} disabled={readonly}
+                      aria-label={`TVA on line ${idx + 1}`}
+                      onChange={(v) => patchItem(idx, { has_tva: v ? 1 : 0 })} />
                   </td>
                   <td className="text-right tabular-nums">{money(it.subtotal_usd)}</td>
                   <td className="text-right tabular-nums">{money(it.tva_usd)}</td>

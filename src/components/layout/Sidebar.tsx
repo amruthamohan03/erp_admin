@@ -3,8 +3,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Circle } from 'lucide-react';
+import { ChevronDown, LayoutGrid, X } from 'lucide-react';
 import clsx from 'clsx';
+import { useSidebar } from '@/components/layout/SidebarProvider';
+import { useBranding } from '@/lib/hooks/useBranding';
 import type { MenuTreeNode } from '@/types/menu';
 
 // Convert "menu/index"-style URLs into "/menu" Next.js routes.
@@ -23,6 +25,8 @@ function isActive(pathname: string, href: string): boolean {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const branding = useBranding();
+  const { mobileOpen, closeMobile, collapsed, setCollapsed, rail } = useSidebar();
   const [menus, setMenus] = useState<MenuTreeNode[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,15 @@ export default function Sidebar() {
   }, [activeParentId]);
 
   function toggle(id: number) {
+    // In rail mode the children have nowhere to render, so the click means "show me
+    // this group" — widen the sidebar and open it, rather than toggling state the
+    // user cannot see. Everywhere else it is a plain open/close.
+    if (rail) {
+      setCollapsed(false);
+      setOpenGroups((prev) => new Set(prev).add(id));
+      return;
+    }
+
     setOpenGroups((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -71,140 +84,230 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex min-h-screen w-64 flex-col text-white shadow-xl bg-gradient-to-b from-indigo-950 via-violet-950 to-slate-950">
-      <div className="flex items-center gap-3 border-b border-white/15 px-6 py-5">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30">
-          <i className="ti ti-layout-grid text-lg" />
-        </span>
-        <div className="leading-tight">
-          <h2 className="text-base font-semibold tracking-wide">ERP Admin Panel</h2>
-          <p className="mt-0.5 text-xs text-white/60">Management Console</p>
+    <>
+      {/* Drawer backdrop — below `lg` only. Kept mounted so it can fade. */}
+      <div
+        aria-hidden
+        onClick={closeMobile}
+        className={clsx(
+          'fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
+
+      <aside
+        aria-label="Main navigation"
+        className={clsx(
+          // Overlay drawer on small screens; docked, self-scrolling column from `lg`.
+          'fixed inset-y-0 start-0 z-50 flex w-72 max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground shadow-2xl',
+          'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
+          // The drawer's inset-y/start pins have to be released at `lg`, or the
+          // sticky column inherits a conflicting bottom constraint from `inset-y-0`.
+          'lg:sticky lg:inset-y-auto lg:start-auto lg:top-0 lg:h-screen',
+          'lg:max-w-none lg:translate-x-0 lg:shadow-none',
+          'lg:border-e lg:border-sidebar-border',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full',
+          collapsed ? 'lg:w-[4.75rem]' : 'lg:w-64',
+        )}
+      >
+        <div
+          className={clsx(
+            'flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border',
+            collapsed ? 'lg:justify-center lg:px-0' : '',
+            'px-4',
+          )}
+        >
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sidebar-accent/20 ring-1 ring-sidebar-border">
+            {branding.logo_url ? (
+              // Plain <img>: the logo URL is operator-supplied and can point anywhere,
+              // which next/image would reject against the configured remotePatterns.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logo_url} alt="" className="h-full w-full object-contain" />
+            ) : (
+              <LayoutGrid className="h-5 w-5" />
+            )}
+          </span>
+
+          <div className={clsx('min-w-0 flex-1 leading-tight', collapsed && 'lg:hidden')}>
+            <h2 className="truncate text-sm font-semibold tracking-wide">
+              {branding.project_name}
+            </h2>
+            {branding.tagline && (
+              <p className="mt-0.5 truncate text-xs text-sidebar-foreground/60">
+                {branding.tagline}
+              </p>
+            )}
+          </div>
+
+          {/* Drawer dismiss — the backdrop and Escape also close it, but a visible
+              control is the only affordance a touch user can see. */}
+          <button
+            type="button"
+            onClick={closeMobile}
+            aria-label="Close navigation"
+            className="-me-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/20 hover:text-sidebar-foreground lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {loading && (
-          <div className="text-xs text-white/50 px-3 py-2">Loading menu...</div>
-        )}
-
-        {!loading && menus.length === 0 && (
-          <div className="text-xs text-white/50 px-3 py-2">No menus available</div>
-        )}
-
-        {!loading && menus.map((item) => {
-          const href = toHref(item.url);
-          const hasChildren = item.children.length > 0;
-          const isOpen = openGroups.has(item.id);
-          const active = !hasChildren && isActive(pathname, href);
-          const groupActive = hasChildren && item.children.some((c) => isActive(pathname, toHref(c.url)));
-
-          // Leaf top-level item -> simple link
-          if (!hasChildren) {
-            return (
-              <Link
-                key={item.id}
-                href={href}
-                className={clsx(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                  active
-                    ? 'bg-white text-indigo-950 font-semibold shadow-sm'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white',
-                )}
-              >
-                <MenuIcon icon={item.icon} fallback />
-                <span className="flex-1 truncate">{item.menu_name}</span>
-                <Badge text={item.badge} />
-              </Link>
-            );
-          }
-
-          // Parent with children -> collapsible group
-          return (
-            <div key={item.id}>
-              <button
-                type="button"
-                onClick={() => toggle(item.id)}
-                className={clsx(
-                  'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                  groupActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white',
-                )}
-              >
-                <MenuIcon icon={item.icon} fallback />
-                <span className="flex-1 truncate text-left">{item.menu_name}</span>
-                <Badge text={item.badge} />
-                <ChevronDown
-                  className={clsx(
-                    'h-4 w-4 transition-transform',
-                    isOpen ? 'rotate-180' : '',
-                  )}
+        <nav className="scrollbar-thin flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-3">
+          {loading && (
+            <div className="space-y-2 px-1 py-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="h-8 animate-pulse rounded-md bg-sidebar-foreground/10"
                 />
-              </button>
-
-              {isOpen && (
-                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-white/15 pl-2">
-                  {item.children.map((child) => {
-                    const childHref = toHref(child.url);
-                    const childActive = isActive(pathname, childHref);
-                    return (
-                      <Link
-                        key={child.id}
-                        href={childHref}
-                        className={clsx(
-                          'flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors',
-                          childActive
-                            ? 'bg-white text-indigo-950 font-semibold shadow-sm'
-                            : 'text-white/60 hover:bg-white/10 hover:text-white',
-                        )}
-                      >
-                        <Circle className="h-1.5 w-1.5 fill-current opacity-70" />
-                        <span className="flex-1 truncate">{child.menu_name}</span>
-                        <Badge text={child.badge} />
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
+              ))}
             </div>
-          );
-        })}
-      </nav>
+          )}
 
-      <div className="p-4 border-t border-white/15 text-xs text-white/50">
-        v0.1.0
-      </div>
-    </aside>
+          {!loading && menus.length === 0 && (
+            <div className={clsx('px-3 py-2 text-xs text-sidebar-foreground/50', collapsed && 'lg:hidden')}>
+              No menus available
+            </div>
+          )}
+
+          {!loading && menus.map((item) => {
+            const href = toHref(item.url);
+            const hasChildren = item.children.length > 0;
+            const isOpen = openGroups.has(item.id) && !rail;
+            const active = !hasChildren && isActive(pathname, href);
+            const groupActive = hasChildren && item.children.some((c) => isActive(pathname, toHref(c.url)));
+
+            // Leaf top-level item -> simple link
+            if (!hasChildren) {
+              return (
+                <Link
+                  key={item.id}
+                  href={href}
+                  title={rail ? item.menu_name : undefined}
+                  aria-current={active ? 'page' : undefined}
+                  className={clsx(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                    collapsed && 'lg:justify-center lg:px-0',
+                    active
+                      ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm'
+                      : 'text-sidebar-foreground/75 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground',
+                  )}
+                >
+                  <MenuIcon icon={item.icon} label={item.menu_name} />
+                  <span className={clsx('flex-1 truncate', collapsed && 'lg:hidden')}>
+                    {item.menu_name}
+                  </span>
+                  <Badge text={item.badge} hidden={collapsed} />
+                </Link>
+              );
+            }
+
+            // Parent with children -> collapsible group
+            return (
+              <div key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => toggle(item.id)}
+                  aria-expanded={isOpen}
+                  title={rail ? item.menu_name : undefined}
+                  className={clsx(
+                    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                    collapsed && 'lg:justify-center lg:px-0',
+                    groupActive
+                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground'
+                      : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground',
+                  )}
+                >
+                  <MenuIcon icon={item.icon} label={item.menu_name} />
+                  <span className={clsx('flex-1 truncate text-left', collapsed && 'lg:hidden')}>
+                    {item.menu_name}
+                  </span>
+                  <Badge text={item.badge} hidden={collapsed} />
+                  <ChevronDown
+                    className={clsx(
+                      'h-4 w-4 shrink-0 transition-transform',
+                      isOpen ? 'rotate-180' : '',
+                      collapsed && 'lg:hidden',
+                    )}
+                  />
+                </button>
+
+                {isOpen && (
+                  <div className="ms-3 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-2">
+                    {item.children.map((child) => {
+                      const childHref = toHref(child.url);
+                      const childActive = isActive(pathname, childHref);
+                      return (
+                        <Link
+                          key={child.id}
+                          href={childHref}
+                          aria-current={childActive ? 'page' : undefined}
+                          className={clsx(
+                            'flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors',
+                            childActive
+                              ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm'
+                              : 'text-sidebar-foreground/60 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground',
+                          )}
+                        >
+                          <span
+                            className={clsx(
+                              'h-1.5 w-1.5 shrink-0 rounded-full',
+                              childActive ? 'bg-current' : 'bg-current opacity-50',
+                            )}
+                          />
+                          <span className="flex-1 truncate">{child.menu_name}</span>
+                          <Badge text={child.badge} />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div
+          className={clsx(
+            'shrink-0 border-t border-sidebar-border p-4 text-xs text-sidebar-foreground/50',
+            collapsed && 'lg:hidden',
+          )}
+        >
+          v0.1.0
+        </div>
+      </aside>
+    </>
   );
 }
 
-// Tabler icon classes (`ti ti-...`) come from your old data.
-// They render as <i className="ti ti-..."> if you have the Tabler webfont loaded.
-// If not, we just show a small dot so layout doesn't break.
-function MenuIcon({
-  icon,
-  fallback,
-}: {
-  icon: string | null | undefined;
-  fallback?: boolean;
-}) {
+// Tabler icon classes (`ti ti-...`) come from the menu master data. They render as
+// <i className="ti ti-..."> via the webfont loaded in the root layout. Without an
+// icon we fall back to the menu's initial, which stays meaningful in rail mode
+// where the label is hidden.
+function MenuIcon({ icon, label }: { icon: string | null | undefined; label: string }) {
   const cls = (icon || '').trim();
   if (cls) {
-    return <i className={clsx(cls, 'text-base w-4 h-4 inline-flex items-center justify-center')} />;
+    return (
+      <i className={clsx(cls, 'inline-flex h-5 w-5 shrink-0 items-center justify-center text-base')} />
+    );
   }
-  if (fallback) {
-    return <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-40" />;
-  }
-  return null;
-}
-
-function Badge({ text }: { text: string | null | undefined }) {
-  const t = (text || '').trim();
-  if (!t) return null;
   return (
-    <span className="text-[10px] uppercase rounded bg-indigo-500 text-white px-1.5 py-0.5">
-      {t}
+    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-sidebar-foreground/15 text-[10px] font-semibold uppercase">
+      {label.trim().charAt(0) || '•'}
     </span>
   );
 }
 
+function Badge({ text, hidden }: { text: string | null | undefined; hidden?: boolean }) {
+  const t = (text || '').trim();
+  if (!t) return null;
+  return (
+    <span
+      className={clsx(
+        'rounded bg-sidebar-accent px-1.5 py-0.5 text-[10px] uppercase text-sidebar-accent-foreground',
+        hidden && 'lg:hidden',
+      )}
+    >
+      {t}
+    </span>
+  );
+}

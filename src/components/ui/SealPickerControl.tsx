@@ -84,7 +84,8 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
                 {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-slate-500">No available seals.</div>}
                 {!loading && options.map((s) => (
                   <label key={s} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
-                    <input type="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
+                    {/* Selecting seals from a list — §4.11 keeps selection on checkboxes. */}
+                    <input type="checkbox" className="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
                     <span className="font-mono">{s}</span>
                   </label>
                 ))}

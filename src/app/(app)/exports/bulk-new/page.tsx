@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import SealPickerControl from '@/components/ui/SealPickerControl';
+import { fetchClientOptions } from '@/lib/clientOptions';
 
 // No. of Seals is derived from the comma-joined seal numbers — same rule the
 // single form applies via its `count` derive on dgda_seal_no.
@@ -104,21 +105,13 @@ export default function BulkNewExportsPage() {
   // single unpaginated fetch is fine.
   useEffect(() => {
     (async () => {
-      const [cRes, lRes] = await Promise.all([
-        // clients caps pageSize at 100; an over-cap value 422s and yields no
-        // options. licenses allows up to 500.
-        fetch('/api/v1/clients?pageSize=100').then((r) => r.json()),
+      const [clientOpts, lRes] = await Promise.all([
+        // Clients are labelled by short code, via the shared helper (§4.15).
+        // licenses allows pageSize up to 500.
+        fetchClientOptions(),
         fetch('/api/v1/licenses?pageSize=500').then((r) => r.json()),
       ]);
-      if (cRes.ok) {
-        setClients(
-          // Show the client short_name (fall back to company_name if absent).
-          (cRes.data as { id: number; company_name: string; short_name: string | null }[]).map((c) => ({
-            value: String(c.id),
-            label: c.short_name || c.company_name,
-          })),
-        );
-      }
+      setClients(clientOpts);
       if (lRes.ok) {
         setLicenses(
           (

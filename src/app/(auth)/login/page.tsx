@@ -3,10 +3,13 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Toggle from '@/components/ui/Toggle';
+import { useBranding } from '@/lib/hooks/useBranding';
 
 function LoginForm() {
   const sp = useSearchParams();
   const next = sp.get('next') || '/dashboard';
+  const branding = useBranding();
 
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('Admin@123');
@@ -41,31 +44,39 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="flex min-h-screen bg-card">
       {/* Left: form panel */}
       <div className="flex w-full flex-col justify-center px-6 py-12 sm:px-12 lg:w-1/2 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
-          {/* Logo */}
+          {/* Logo — the operator's mark when one is configured, else the house glyph. */}
           <div className="mb-10">
-            <svg
-              viewBox="0 0 64 24"
-              className="h-8 w-auto text-primary-600"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M2 6c4-6 10-6 14 0s10 6 14 0v6c-4 6-10 6-14 0S6 6 2 12V6z" />
-            </svg>
+            {branding.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logo_url} alt={branding.project_name} className="h-10 w-auto object-contain" />
+            ) : (
+              <svg
+                viewBox="0 0 64 24"
+                className="h-8 w-auto text-primary-600"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M2 6c4-6 10-6 14 0s10 6 14 0v6c-4 6-10 6-14 0S6 6 2 12V6z" />
+              </svg>
+            )}
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Customs clearance &amp; logistics ERP
+          <p className="mt-2 text-sm text-muted-foreground">
+            {branding.tagline ?? 'Customs clearance & logistics ERP'}
           </p>
 
           {error && (
-            <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div
+              role="alert"
+              className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+            >
               {error}
             </div>
           )}
@@ -101,15 +112,7 @@ function LoginForm() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                />
-                Remember me
-              </label>
+              <Toggle checked={remember} onChange={setRemember} label="Remember me" />
               <Link
                 href="/forgot-password"
                 className="text-sm font-medium text-primary-600 hover:text-primary-700"
@@ -127,9 +130,9 @@ function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-8 text-xs text-slate-500 text-center">
-            Default: <code className="bg-slate-100 px-1 rounded">admin</code> /{' '}
-            <code className="bg-slate-100 px-1 rounded">Admin@123</code>
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Default: <code className="rounded bg-muted px-1">admin</code> /{' '}
+            <code className="rounded bg-muted px-1">Admin@123</code>
           </p>
         </div>
       </div>
@@ -175,7 +178,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center bg-card text-muted-foreground">
           Loading...
         </div>
       }

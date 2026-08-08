@@ -382,7 +382,7 @@ export default function SealBatchDetailPage() {
                     <th className="w-10">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        className="checkbox"
                         checked={allChecked}
                         ref={(el) => {
                           if (el) el.indeterminate = someChecked;
@@ -424,7 +424,7 @@ export default function SealBatchDetailPage() {
                         <td>
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                            className="checkbox"
                             checked={selected.has(n.id)}
                             onChange={() => toggleSelect(n.id)}
                           />

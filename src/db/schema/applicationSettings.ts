@@ -30,9 +30,11 @@ export const applicationSettingsMaster = pgTable(
     tagline: varchar('tagline', { length: 255 }),
     logoUrl: text('logo_url'),
     faviconUrl: text('favicon_url'),
-    primaryColor: varchar('primary_color', { length: 20 }).notNull().default('#2563eb'),
-    accentColor: varchar('accent_color', { length: 20 }).notNull().default('#2563eb'),
-    sidebarBg: varchar('sidebar_bg', { length: 20 }).notNull().default('#0f172a'),
+    // Defaults mirror BRANDING_DEFAULTS in src/lib/branding.ts — the whole token set
+    // (shades, gradients, foregrounds) is derived from these four values.
+    primaryColor: varchar('primary_color', { length: 20 }).notNull().default('#4f46e5'),
+    accentColor: varchar('accent_color', { length: 20 }).notNull().default('#7c3aed'),
+    sidebarBg: varchar('sidebar_bg', { length: 20 }).notNull().default('#151a30'),
     sidebarFg: varchar('sidebar_fg', { length: 20 }).notNull().default('#e2e8f0'),
     footerText: text('footer_text'),
     updatedBy: integer('updated_by').references(() => usersT.id, {

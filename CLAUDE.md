@@ -91,7 +91,7 @@ UI forms are generated from `form_definition_master_t` + `form_field_master_t`. 
 
 Cross-field validation isn't handled by `validation_json` — wire those through the rule engine (§4.2) as a separate rule attached to the form definition.
 
-React renderer: `<DynamicForm>` in [src/engine/forms/DynamicForm.tsx](src/engine/forms/DynamicForm.tsx) maps each supported `field_type` to a UI primitive (Input/Textarea/Switch/SearchableSelect) and runs `buildFormZodSchema` client-side before submit. Server `createCase` re-validates with the same schema — single source of truth on both sides.
+React renderer: `<DynamicForm>` in [src/engine/forms/DynamicForm.tsx](src/engine/forms/DynamicForm.tsx) maps each supported `field_type` to a UI primitive (Input/Textarea/Toggle/SearchableSelect) and runs `buildFormZodSchema` client-side before submit. Server `createCase` re-validates with the same schema — single source of truth on both sides.
 
 ### 4.6 Configurable workflow
 Workflow transitions live in `workflow_master_t` + `workflow_transition_master_t`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
@@ -141,7 +141,47 @@ Two non-negotiable rules that apply to **every** change, not just new features:
 
 When a task tempts you to duplicate or to step outside the structure, that is the signal to refactor the shared thing or extend the existing home for it — the fix lands in one place, and the whole project stays consistent.
 
----
+### 4.11 Toggles, not checkboxes, for on/off state
+
+**Anything that represents a boolean setting uses `<Toggle>` ([src/components/ui/Toggle.tsx](src/components/ui/Toggle.tsx)) — never `<input type="checkbox">`.** One control, one look, everywhere: active/inactive flags, `can_view`/`can_add`/… permission cells, visibility, "has TVA", "remember me", feature switches, and `field_type: 'checkbox'` in the dynamic form renderer. There is exactly one toggle component in the project — do not add a second one, and do not hand-roll a styled button that behaves like one.
+
+```tsx
+import Toggle from '@/components/ui/Toggle';
+
+<Toggle checked={row.is_active} onChange={setActive} label="Active" />
+<Toggle size="sm" checked={r.can_edit} onChange={...} aria-label={`Edit for ${r.menu_name}`} />
+```
+
+`Toggle` wraps `@radix-ui/react-switch`, so keyboard handling, focus and `role="switch"` come from the primitive rather than being reimplemented. It takes `checked` and `onChange(value: boolean)`, plus optional `label`, `size` (`'sm' | 'md'`), `disabled`, `id`, `title`, `className`, `aria-label`. **Inside a table cell, pass `aria-label`** — a bare switch in a grid is unnamed to a screen reader, and the column header alone does not name it.
+
+**The one carve-out: selection is not state.** A control meaning *"this item is part of my selection"* stays a checkbox. A switch reads as "this setting is now on", and it cannot express the indeterminate state a select-all header needs. Keep `<input type="checkbox" className="checkbox">` — the `.checkbox` class in globals.css is the only sanctioned styling — for:
+
+- table row selection and its select-all header (e.g. [masters/seals/[id]](src/app/masters/seals/[id]/page.tsx))
+- multi-select option groups, picking many from a list (e.g. [FieldRenderer](src/components/transactional/FieldRenderer.tsx), [SealPickerControl](src/components/ui/SealPickerControl.tsx))
+
+The test: does flipping it change a *setting*, or does it add an item to a *set you are about to act on*? Setting → `<Toggle>`. Set membership → checkbox.
+
+Radio buttons are unaffected — mutually exclusive choice is neither case; use a select or a radio group.
+
+> §4.12–§4.14 are referenced throughout the codebase (`§4.12` = the metadata page runtime, `§4.13` = back-navigation, `§4.14` = field-level role grants) but have never been written up here. Numbers are reserved; do not reuse them for something else.
+
+### 4.15 Clients are labelled by short code, everywhere
+
+A client has two names: **`company_name`** — the full legal name, up to 200 chars — and **`short_name`**, the 3-character client code. **Every dropdown, filter, picker and option list shows `short_name`, never `company_name`.** It is what operators say out loud, it is what the reference formats embed, and a select full of 200-character legal names is unreadable and unscannable.
+
+There is one resolver — [src/lib/clientOptions.ts](src/lib/clientOptions.ts). Do not re-derive the label at a call site:
+
+```ts
+import { clientOptionLabel, fetchClientOptions, CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+
+const clients = await fetchClientOptions();              // ready-to-render [{ value, label }]
+<option key={c.id}>{clientOptionLabel(c)}</option>       // labelling rows you already hold
+fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD);      // page-local option fetchers
+```
+
+For **master-driven selects** this is config, not code: a `master_page_accordion_field_t` row with `options_source = 'clients'` must have `options_label_field = 'short_name'`. The seed ships that for all seven client selects, and migration `0046` normalises any row that drifted. If you add a client select through the page-builder, set the label field — don't special-case it in the renderer.
+
+**This is about selection, not display.** Detail views, report columns, print/PDF output and export files still show `company_name` where the full legal name is the right thing — an invoice needs the legal entity, a dropdown needs the code. Some read-only tables sensibly show both (`{short_name} — {company_name}`); that's fine. The rule binds anything the user picks *from*.
 
 ## 5. Directory layout
 
@@ -225,10 +265,21 @@ export const usersRelations = relations(users, ({ one }) => ({
 }));
 ```
 
-### 7.2 Migrations
-- All schema changes go through `drizzle-kit generate` → review the SQL → commit both the schema file and the generated `drizzle/*.sql`.
-- Never `drizzle-kit push` against staging or production. `push` is for local prototyping only.
-- Migrations are immutable once merged. Fix a bad migration with a new migration, never edit history.
+### 7.2 Migrations — every DB change is a migration script
+
+**Non-negotiable: no database change ships without a committed migration script.** If a change is not in `drizzle/`, it does not exist. Applying something by hand — via Drizzle Studio, `psql`, a one-off `pnpm tsx` script, `drizzle-kit push`, or a DDL statement typed into a terminal — is a defect, because the next environment (another dev, staging, production) will not have it. The rule covers **structure and data**:
+
+- **Structure** (tables, columns, types, defaults, constraints, indexes, enums, views, functions, triggers): change the Drizzle schema file in `src/db/schema/`, run `pnpm db:generate`, review the generated SQL, and commit **both** the schema file and the generated `drizzle/*.sql` in the same commit.
+- **Data** (master/config rows, backfills, corrections, renames of a status code, new `_master_t` seed entries, permission rows): write a migration too. Either add a hand-written `.sql` migration alongside the generated ones, or — when the change is a repeatable baseline — put it in `src/db/seed/` **and** reference it from a migration so a fresh database reaches the same state. Never fix data only in the running database.
+- **Both together:** a change that adds a column *and* backfills it is one reviewed migration, not a migration plus a manual UPDATE someone is expected to remember.
+
+Rules that follow from this:
+
+- Never `drizzle-kit push` against shared, staging, or production databases. `push` is for local prototyping only, and anything it created locally must still be regenerated as a proper migration before commit.
+- Migrations are immutable once merged. Fix a bad migration with a **new** migration — never edit, reorder, or delete an existing `drizzle/*.sql` or its journal entry.
+- Migrations must be idempotent-safe to apply in order on an empty database. Don't depend on rows or objects that only exist because someone touched a specific environment by hand.
+- Destructive migrations (drop column/table, narrow a type, delete rows) need an explicit heads-up to the user before generating — see §12.
+- If you ever have to describe a DB change as "just run this SQL", stop: turn it into a migration file instead.
 
 ### 7.3 Query patterns
 - **Simple reads:** use the query builder (`db.select().from(...)`) or the relational API (`db.query.users.findMany({ with: { role: true } })`).
@@ -262,7 +313,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 ## 9. What to do at the end of a task
 
 - Run `pnpm typecheck && pnpm lint && pnpm test` before declaring done.
-- If you changed any Drizzle schema, run `pnpm db:generate` and commit the generated SQL.
+- If you changed any Drizzle schema, run `pnpm db:generate` and commit the generated SQL. Same for any data change — master rows, backfills, corrections — it goes in a migration script (§7.2), never applied by hand. Before declaring done, confirm a fresh database migrated from zero would end up in the state your change assumes.
 - If you added a new master table, also add: schema file, migration, seed entry, admin CRUD screen (auto-generated via dynamic form), and an entry in `docs/masters.md`.
 - If you added a new API route, regenerate the OpenAPI spec (`pnpm openapi`).
 - Summarize changes in plain English at the end of the response, grouped by: schema changes, new APIs, new UI, new masters.
@@ -279,6 +330,9 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to bypass the response envelope → no, unless it's a non-JSON response (file download, etc.).
 - Requests to write raw `pg.query("...")` calls → no, use Drizzle's `sql` tag or query builder.
 - Requests to edit an already-merged migration → no, write a new one.
+- Requests to apply a schema or data change directly to the database (Studio, `psql`, a throwaway script, `drizzle-kit push` on a shared DB) → no, it goes in a migration script (§7.2).
+- Requests to add an `<input type="checkbox">` for a boolean setting, or a second toggle/switch component → no, use `<Toggle>` (§4.11).
+- Requests to label a client dropdown with `company_name` → no, pickers show `short_name` via the shared resolver (§4.15).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

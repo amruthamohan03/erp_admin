@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import BrandingProvider from '@/components/providers/BrandingProvider';
 import ThemeProvider from '@/components/providers/ThemeProvider';
 import TranslateProvider from '@/components/providers/TranslateProvider';
+import { loadBranding } from '@/db/queries/branding';
+import { brandingCssVars } from '@/lib/branding';
 import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import './globals.css';
 
@@ -16,6 +19,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
   const dir = localeDirs[locale];
 
+  // Resolved server-side so the configured palette is in the first HTML response —
+  // a client-side apply would flash the default brand on every navigation.
+  const branding = await loadBranding();
+
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
       <head>
@@ -29,10 +36,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
         />
+        <style
+          id="brand-tokens"
+          dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }}
+        />
       </head>
-      <body>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider>
-          <TranslateProvider initialLocale={locale}>{children}</TranslateProvider>
+          <BrandingProvider branding={branding}>
+            <TranslateProvider initialLocale={locale}>{children}</TranslateProvider>
+          </BrandingProvider>
         </ThemeProvider>
       </body>
     </html>

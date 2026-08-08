@@ -29,6 +29,7 @@ import {
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 
 // Row shape returned by /api/v1/exports (list joins). Keys mirror
 // what main's /export list renders (client_name, license_number,
@@ -173,9 +174,8 @@ export default function ExportsListPage() {
     let cancelled = false;
     (async () => {
       const [c, t, s] = await Promise.all([
-        // clients returns company_name/short_name (no `name`); label by
-        // short_name so the filter shows the client's short code.
-        fetchOptions('clients', 'short_name'),
+        // Clients are labelled by short code app-wide (§4.15).
+        fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD),
         fetchOptions('transport-modes', 'transport_mode_name'),
         fetch('/api/v1/exports/stats').then((res) => res.json()),
       ]);

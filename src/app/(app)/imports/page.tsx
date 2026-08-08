@@ -31,6 +31,7 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import BulkUpdateModal from '@/modules/imports/BulkUpdateModal';
 import { isPendingFilter } from '@/lib/imports/bulkFields';
+import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 
 interface ImportRow {
   id: number;
@@ -291,9 +292,8 @@ export default function ImportsListPage() {
     let cancelled = false;
     (async () => {
       const [c, g, e, t] = await Promise.all([
-        // clients returns company_name/short_name (no `name`); label by
-        // short_name so the filter shows the client's short code.
-        fetchOptions('clients', 'short_name'),
+        // Clients are labelled by short code app-wide (§4.15).
+        fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD),
         fetchOptions('goods-types', 'goods_type'),
         fetchOptions('transit-points', 'transit_point_name'),
         fetchOptions('transport-modes', 'transport_mode_name'),

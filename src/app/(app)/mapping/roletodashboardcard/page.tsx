@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard, Save, Search } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
 
@@ -259,12 +260,14 @@ export default function RoleToDashboardCardPage() {
                   <th className="text-center">
                     <div className="flex flex-col items-center gap-1">
                       <span>Visible</span>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      <Toggle
+                        size="sm"
                         checked={columnAllOn}
-                        onChange={(e) => toggleColumn(e.target.checked)}
+                        onChange={toggleColumn}
                         disabled={filtered.length === 0 || loadingRows}
+                        aria-label={`Visibility for ${
+                          search ? 'matching' : 'all'
+                        } cards`}
                         title={`Toggle visibility for ${
                           search ? 'matching' : 'all'
                         } cards`}
@@ -328,11 +331,11 @@ export default function RoleToDashboardCardPage() {
                         />
                       </td>
                       <td className="text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        <Toggle
+                          size="sm"
                           checked={r.is_visible}
                           onChange={() => toggleVisible(r.card_id)}
+                          aria-label={`Visible: ${r.card_title}`}
                         />
                       </td>
                     </tr>
