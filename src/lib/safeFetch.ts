@@ -12,7 +12,18 @@
 
 export type FetchResult<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number; message: string; detail?: string };
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      detail?: string;
+      /**
+       * `error.details.field` when the server pointed at a specific input, so a
+       * form can mark it. Lifted out of `details` because every form that
+       * highlights a field would otherwise re-parse the stringified blob.
+       */
+      field?: string;
+    };
 
 export async function safeFetchJson<T = unknown>(
   input: RequestInfo | URL,
@@ -71,16 +82,25 @@ export async function safeFetchJson<T = unknown>(
   }
 
   if (!res.ok || !json?.ok) {
+    const details = json?.error?.details;
+    const isObject = !!details && typeof details === 'object' && !Array.isArray(details);
+    const bag = isObject ? (details as Record<string, unknown>) : null;
+    const field = typeof bag?.field === 'string' ? bag.field : undefined;
+    // A details bag that only names the offending field carries no extra prose —
+    // the caller marks that input instead of printing {"field":"…"} at the user.
+    const onlyField = !!bag && field !== undefined && Object.keys(bag).length === 1;
+
     return {
       ok: false,
       status: res.status,
       message: json?.error?.message ?? `Request failed (status ${res.status})`,
       detail:
-        json?.error?.details !== undefined
-          ? typeof json.error.details === 'string'
-            ? json.error.details
-            : JSON.stringify(json.error.details)
-          : undefined,
+        details === undefined || onlyField
+          ? undefined
+          : typeof details === 'string'
+            ? details
+            : JSON.stringify(details),
+      field,
     };
   }
 

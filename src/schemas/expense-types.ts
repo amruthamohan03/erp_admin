@@ -35,10 +35,26 @@ export const EXPENSE_TYPE_FLAGS = [
 ] as const;
 export type ExpenseTypeFlag = (typeof EXPENSE_TYPE_FLAGS)[number];
 
+/**
+ * Payment request `pay_for` code → the expense-type flag it scopes to.
+ * 0 Import, 1 Export, 2 Local, 3 Other, 4 Pre Payment (advance).
+ */
+export const PAY_FOR_EXPENSE_FLAG: Record<number, ExpenseTypeFlag> = {
+  0: 'is_import',
+  1: 'is_export',
+  2: 'is_local',
+  3: 'is_other',
+  4: 'is_advance',
+};
+
 export const expenseTypeListQuerySchema = z.object({
   q: z.string().optional(),
   // Single flag filter: ?flag=is_import returns rows where is_import=true.
   flag: z.enum(EXPENSE_TYPE_FLAGS).optional(),
+  // Same filter addressed by the payment request's `pay_for` code, so the
+  // Expense Type picker can scope itself straight from the form value without
+  // the config having to know the flag column names.
+  pay_for: z.coerce.number().int().min(0).max(4).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

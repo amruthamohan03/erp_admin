@@ -6,6 +6,7 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import {
   expenseTypeCreateSchema,
   expenseTypeListQuerySchema,
+  PAY_FOR_EXPENSE_FLAG,
   type ExpenseTypeFlag,
 } from '@/schemas';
 
@@ -28,6 +29,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const q = expenseTypeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
     flag: searchParams.get('flag') ?? undefined,
+    pay_for: searchParams.get('pay_for') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -39,7 +41,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(expenseTypeMaster.expenseTypeName, `%${q.q.trim()}%`),
     );
   }
-  if (q.flag) conds.push(eq(FLAG_COLUMNS[q.flag], true));
+  // `pay_for` is the same filter reached by the payment request's category code;
+  // an explicit `flag` still wins so existing callers are unaffected.
+  const flag = q.flag ?? (q.pay_for !== undefined ? PAY_FOR_EXPENSE_FLAG[q.pay_for] : undefined);
+  if (flag) conds.push(eq(FLAG_COLUMNS[flag], true));
   const where = and(...conds);
 
   const [countRow] = await db

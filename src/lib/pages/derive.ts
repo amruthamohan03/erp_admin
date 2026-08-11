@@ -79,11 +79,25 @@ export interface CountDerive {
   field: string;
 }
 
+// Sum of one key across a JSON array held in another field — e.g. a payment
+// request's header `amount` from its `mca_data` reference lines. The rule "the
+// sum of the reference amounts equals the header amount" is then *derived*
+// rather than merely validated, so the two can't drift. Pure, so the server
+// recomputes it on save and a tampered client total cannot persist.
+export interface SumJsonDerive {
+  kind: 'sumJson';
+  /** Field holding the array (JSONB column, or its JSON string form). */
+  field: string;
+  /** Key on each element to add up. */
+  amountKey: string;
+}
+
 export type DeriveSpec =
   | StatusMapDerive
   | FormulaDerive
   | TieredDerive
   | CountDerive
+  | SumJsonDerive
   | FromRelatedDerive
   | TemplateDerive;
 
@@ -96,8 +110,15 @@ export function parseDerive(raw: unknown): DeriveSpec | null {
 
 export function isPureDerive(
   spec: DeriveSpec | null,
-): spec is StatusMapDerive | FormulaDerive | TieredDerive | CountDerive {
-  return !!spec && (spec.kind === 'statusMap' || spec.kind === 'formula' || spec.kind === 'tiered' || spec.kind === 'count');
+): spec is StatusMapDerive | FormulaDerive | TieredDerive | CountDerive | SumJsonDerive {
+  return (
+    !!spec &&
+    (spec.kind === 'statusMap' ||
+      spec.kind === 'formula' ||
+      spec.kind === 'tiered' ||
+      spec.kind === 'count' ||
+      spec.kind === 'sumJson')
+  );
 }
 
 export function isAsyncDerive(spec: DeriveSpec | null): spec is FromRelatedDerive | TemplateDerive {
@@ -164,7 +185,30 @@ export function computePureDerive(spec: DeriveSpec | null, values: Values): stri
     if (v === undefined || v === null || v === '') return 0;
     return String(v).split(',').map((s) => s.trim()).filter(Boolean).length;
   }
+  if (spec.kind === 'sumJson') {
+    const rows = asRows(values[spec.field]);
+    // No rows ⇒ leave the field alone rather than forcing it to 0. A total of
+    // zero and "nothing entered yet" are different states, and blanking a stored
+    // amount because the array hasn't loaded would be destructive.
+    if (rows.length === 0) return undefined;
+    const total = rows.reduce((sum, row) => sum + num(row[spec.amountKey]), 0);
+    return Math.round(total * 100) / 100;
+  }
   return undefined;
+}
+
+/** Coerce a JSONB array field to rows — it arrives parsed from the API but as a string from a form. */
+function asRows(v: unknown): Array<Record<string, unknown>> {
+  let raw = v;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((r): r is Record<string, unknown> => !!r && typeof r === 'object');
 }
 
 /** Render a template string against a flat token object from a derive source. */

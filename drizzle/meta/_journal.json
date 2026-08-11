@@ -330,6 +330,27 @@
       "when": 1784660519381,
       "tag": "0046_client_dropdowns_use_short_name",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1784660519382,
+      "tag": "0047_license_form_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1784660519383,
+      "tag": "0048_payment_request_reference_grid",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1784660519384,
+      "tag": "0049_fix_master_page_routes",
+      "breakpoints": true
     }
   ]
 }

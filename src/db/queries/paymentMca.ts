@@ -188,6 +188,73 @@ export async function validateRefs({
 }
 
 // ---------------------------------------------------------------------------
+// TRANSACTION-PAGE GUARD
+// ---------------------------------------------------------------------------
+/**
+ * Validate the reference lines a payment transaction page is about to write, in
+ * the shape the generic page-save route expects: an error message, or null when
+ * the lines are acceptable. Counterpart to assertImportPartielleCapacity — the
+ * rule is payment-specific, so it hangs off the route's page hook rather than
+ * living in the generic writer.
+ *
+ * Runs against the MERGED context (stored row + this submission), so a reference
+ * is re-checked when the client or expense type changes on another accordion,
+ * not only when the grid itself is edited.
+ */
+export async function assertPaymentMcaRefs(
+  ctx: Record<string, unknown>,
+  excludePaymentId: number | null,
+): Promise<string | null> {
+  const lines = parseLines(ctx['mca_data']);
+  if (lines.length === 0) return null; // nothing to check; `required` covers absence
+  if (lines.length > 50) return 'A request can carry at most 50 references';
+
+  const seen = new Set<string>();
+  for (const l of lines) {
+    const up = l.mca_ref.toUpperCase();
+    if (seen.has(up)) return `Reference ${l.mca_ref} is listed more than once`;
+    seen.add(up);
+  }
+
+  const verdicts = await validateRefs({
+    refs: lines.map((l) => l.mca_ref),
+    payFor: ctx['pay_for'] === null || ctx['pay_for'] === undefined ? null : Number(ctx['pay_for']),
+    clientId: ctx['client_id'] ? Number(ctx['client_id']) : null,
+    expenseType: ctx['expense_type'] ? Number(ctx['expense_type']) : null,
+    paymentId: excludePaymentId,
+  });
+  const bad = verdicts.filter((v) => !v.valid);
+  if (bad.length === 0) return null;
+
+  const detail = bad
+    .map((v) => `${v.mca_ref} (${!v.exists ? 'not found for this client' : `already used by request #${v.duplicate}`})`)
+    .join(', ');
+  return `Invalid reference${bad.length === 1 ? '' : 's'}: ${detail}`;
+}
+
+/** The first reference, denormalised onto payment_request_t.mca_ref for list/search. */
+export function firstMcaRef(value: unknown): string | null {
+  return parseLines(value)[0]?.mca_ref ?? null;
+}
+
+/** Reference lines from a JSONB column or the JSON string a form may submit. */
+function parseLines(value: unknown): McaLine[] {
+  let raw = value;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l): l is Record<string, unknown> => !!l && typeof l === 'object')
+    .map((l) => ({ mca_ref: String(l.mca_ref ?? '').trim(), amount: round2(N(l.amount)) }))
+    .filter((l) => l.mca_ref !== '');
+}
+
+// ---------------------------------------------------------------------------
 // SAVE — validate, then persist mca_data + denormalised mca_ref + amount
 // ---------------------------------------------------------------------------
 export interface McaSaveResult {

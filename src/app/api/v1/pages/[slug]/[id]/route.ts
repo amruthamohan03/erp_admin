@@ -28,17 +28,21 @@ import {
   masterPageAccordionField,
   sealNumber,
 } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
 import { assertImportPartielleCapacity } from '@/db/queries/partielle';
+import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
 
-export async function POST(req: NextRequest, { params }: Ctx) {
+// Wrapped so an unexpected throw comes back as the {ok:false,error} envelope
+// (§4.4). Unwrapped, Next answers with an empty-bodied 500 and the caller's
+// res.json() dies with "unexpected end of JSON input", hiding the real cause.
+export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -223,7 +227,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       // absent from the patch — read-only, or derived — must not fail on that
       // alone. This reads context only; nothing extra gets written.
       const v = f.name in patch ? patch[f.name] : evalContext[f.name];
-      const empty = v === undefined || v === null || v === '';
+      // An array-valued field (the payment reference grid) is empty when it has
+      // no rows — `[]` is a value, but not one that satisfies `required`.
+      const empty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
       if (empty) return fail(`Required field missing: ${f.label}`, 422, { field: f.name });
     }
     const boundError = checkBounds(state, f.label, mergedSubmitted[f.name]);
@@ -240,19 +246,40 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (partielleError) return fail(partielleError, 422, { field: 'inspection_reports' });
   }
 
+  // A payment request's references must exist in the tracking table for its
+  // client and must not already be consumed by another request with the same
+  // expense type. Page-specific like the two rules above, and enforced here so a
+  // direct API call gets the same answer as the grid's live check.
+  if (slug === 'payment' && 'mca_data' in patch) {
+    const mcaError = await assertPaymentMcaRefs(evalContext, entityId);
+    if (mcaError) return fail(mcaError, 422, { field: 'mca_data' });
+    // Keep the denormalised first reference in step with the grid. Written from
+    // code rather than from a configured field, so it is not part of the
+    // whitelist above — the column name is a literal, never client input.
+    patch['mca_ref'] = firstMcaRef(patch['mca_data']);
+  }
+
   // 7) Transactional write + audit.
-  const newId = await db.transaction(async (tx) => {
+  const write = async (): Promise<number> => db.transaction(async (tx) => {
     // Apply the partial update / insert. We build the SQL dynamically because
     // the column set is data-driven — but every identifier comes from the
     // whitelisted `safeColumns` set, so this is safe.
     let savedId: number;
 
     if (isCreate) {
+      // Omit the columns the form left empty so their DB defaults apply. Passing
+      // an explicit NULL DEFEATS a column default — Postgres only falls back to
+      // the default when the column is absent from the INSERT. Listing every
+      // configured field unconditionally therefore made any optional field whose
+      // column is NOT NULL DEFAULT <x> impossible to leave blank (client_master_t
+      // .invoice_template DEFAULT 'I' was one), failing the whole create.
+      // Updates still write NULL, because clearing a field has to stay possible.
+      const provided = Object.keys(patch).filter((c) => patch[c] !== null && patch[c] !== undefined);
       // Always set created_by + updated_by on inserts; the entity table requires
       // them in practice.
-      const cols = [...Object.keys(patch), 'created_by', 'updated_by'];
+      const cols = [...provided, 'created_by', 'updated_by'];
       const vals = [
-        ...cols.slice(0, -2).map((c) => sql`${patch[c] ?? null}`),
+        ...provided.map((c) => sql`${patch[c]}`),
         sql`${session.uid}`,
         sql`${session.uid}`,
       ];
@@ -323,12 +350,48 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return savedId;
   });
 
+  // A unique index on the target table (e.g. license_t's partial unique on
+  // license_number) would otherwise surface as an unhandled 500. Translate it into
+  // the same shape a validation failure uses, so the UI can open the offending
+  // section and mark the field instead of showing a raw database error.
+  let newId: number;
+  try {
+    newId = await write();
+  } catch (err) {
+    const conflictColumn = uniqueViolationColumn(err, Object.keys(patch));
+    if (!conflictColumn) throw err;
+    const label = fields.find((f) => f.name === conflictColumn)?.label ?? conflictColumn;
+    return fail(`${label} must be unique — that value is already in use.`, 409, {
+      field: conflictColumn,
+    });
+  }
+
   return ok({ id: newId }, isCreate ? 201 : 200);
+});
+
+/**
+ * The column a Postgres unique violation (23505) landed on, or null if the error
+ * is something else. Matched by looking for a written column name inside the
+ * constraint name (`uq_license_t_license_number` → `license_number`); the longest
+ * match wins so a column that is a suffix of another can't shadow it.
+ */
+function uniqueViolationColumn(err: unknown, writtenColumns: string[]): string | null {
+  const chain: unknown[] = [err, (err as { cause?: unknown })?.cause];
+  for (const candidate of chain) {
+    const e = candidate as { code?: string; constraint?: string; detail?: string } | undefined;
+    if (e?.code !== '23505') continue;
+    const haystack = `${e.constraint ?? ''} ${e.detail ?? ''}`;
+    const hits = writtenColumns
+      .filter((col) => haystack.includes(col))
+      .sort((a, b) => b.length - a.length);
+    return hits[0] ?? null;
+  }
+  return null;
 }
 
 // Convenience GET so the client can refresh values for a specific accordion
 // without re-fetching the whole page structure. Same role check as POST.
-export async function GET(req: NextRequest, { params }: Ctx) {
+export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -395,4 +458,4 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const values = await fetchEntityValues(slug, entityId, safeColumns);
   if (!values) return fail('Entity not found', 404);
   return ok({ values });
-}
+});
