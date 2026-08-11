@@ -39,6 +39,7 @@ import {
   invoiceBankMaster,
   clientMaster,
   masterPage,
+  licenseT,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError } from '@/lib/errors';
@@ -329,6 +330,18 @@ const RESOURCES: Record<string, ResourceConfig> = {
     nameColumn: clientMaster.companyName,
     idColumn: clientMaster.id,
     displayColumn: clientMaster.display,
+  },
+
+  // A transaction entity rather than a master — the licence form checks this live
+  // while the operator types, moving the answer from save time to typing time.
+  // Deliberately NOT filtered by display: license_t's partial unique index on
+  // license_number ignores display too, so a soft-deleted licence really does still
+  // hold its number. Filtering here would report "Available" for a value the
+  // database then rejects.
+  'license-numbers': {
+    table: licenseT,
+    nameColumn: licenseT.licenseNumber,
+    idColumn: licenseT.id,
   },
 };
 

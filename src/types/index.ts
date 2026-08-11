@@ -55,7 +55,8 @@ export type FieldType =
   | 'checkbox-group'
   | 'file'
   | 'seal-picker'
-  | 'partielle-picker';
+  | 'partielle-picker'
+  | 'mca-grid';
 
 export interface PageFieldDef {
   id: number;

@@ -28,7 +28,10 @@ export default function Sidebar() {
   const branding = useBranding();
   const { mobileOpen, closeMobile, collapsed, setCollapsed, rail } = useSidebar();
   const [menus, setMenus] = useState<MenuTreeNode[]>([]);
-  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
+  // Accordion, not a set: exactly one main menu is expanded at a time. With a long
+  // menu tree, several open groups push the active submenu off-screen and the user
+  // loses the sense of where they are.
+  const [openGroup, setOpenGroup] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,17 +54,15 @@ export default function Sidebar() {
     return null;
   }, [menus, pathname]);
 
-  // Auto-open the group containing the active route. setState is guarded so it's
-  // a no-op once the group is already open — no cascading render loop.
+  // Navigating collapses whatever else was open and expands only the group holding
+  // the active route. When no group owns the route (a top-level leaf such as the
+  // dashboard) we leave the current one alone rather than closing a group the user
+  // just opened to browse. setState is guarded so it's a no-op once that group is
+  // already the open one — no cascading render loop.
   useEffect(() => {
     if (activeParentId != null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOpenGroups((prev) => {
-        if (prev.has(activeParentId)) return prev;
-        const next = new Set(prev);
-        next.add(activeParentId);
-        return next;
-      });
+      setOpenGroup((prev) => (prev === activeParentId ? prev : activeParentId));
     }
   }, [activeParentId]);
 
@@ -71,16 +72,11 @@ export default function Sidebar() {
     // user cannot see. Everywhere else it is a plain open/close.
     if (rail) {
       setCollapsed(false);
-      setOpenGroups((prev) => new Set(prev).add(id));
+      setOpenGroup(id);
       return;
     }
 
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setOpenGroup((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -173,7 +169,7 @@ export default function Sidebar() {
           {!loading && menus.map((item) => {
             const href = toHref(item.url);
             const hasChildren = item.children.length > 0;
-            const isOpen = openGroups.has(item.id) && !rail;
+            const isOpen = openGroup === item.id && !rail;
             const active = !hasChildren && isActive(pathname, href);
             const groupActive = hasChildren && item.children.some((c) => isActive(pathname, toHref(c.url)));
 

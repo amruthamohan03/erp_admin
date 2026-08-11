@@ -184,19 +184,17 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     });
 
     try {
-      const res = await fetch(`/api/v1/pages/${slug}/${entityId}`, {
+      // Same helper the load path uses (§4.10). A raw res.json() here turned any
+      // empty-bodied or non-JSON response into "JSON.parse: unexpected end of
+      // data", which told the user nothing about what actually failed.
+      const result = await safeFetchJson<{ id: number }>(`/api/v1/pages/${slug}/${entityId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accordions }),
       });
-      const json: {
-        ok: boolean;
-        data?: { id: number };
-        error?: { message?: string; details?: { field?: string } };
-      } = await res.json();
 
-      if (!res.ok || !json.ok) {
-        const field = json.error?.details?.field;
+      if (!result.ok) {
+        const field = result.field;
         if (field) {
           setInvalidFields(new Set([field]));
           // The offending field may sit in a collapsed section — open it so the
@@ -208,17 +206,22 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
             }
           }
         }
-        setSaveError(json.error?.message || 'Save failed');
+        setSaveError([result.message, result.detail].filter(Boolean).join(' — ') || 'Save failed');
         return;
       }
 
       setSavedAt(new Date());
       setDirty(false);
-      // If we just created a new entity, navigate to its canonical edit URL so
-      // subsequent saves target that id instead of staying on /new.
-      if (entityId === 'new' && json.data?.id) {
-        router.replace(`/${slug}/${json.data.id}`);
-      }
+      // Every save — create or edit — ends on the list, so the operator sees the
+      // record land among its peers instead of being left on a form with nothing
+      // left to do. Uses the page's configured route rather than the slug:
+      // `/${slug}` is not where these pages live (clients is /masters/clients,
+      // import is /imports, …).
+      //
+      // `replace`, not `push`: the form is finished with, and leaving it in the
+      // history means Back returns to a stale copy of a record that has already
+      // been saved — and on a create, to a /new that would submit a second time.
+      router.replace(page.route);
     } catch (e) {
       setSaveError((e as Error).message || 'Save failed');
     } finally {

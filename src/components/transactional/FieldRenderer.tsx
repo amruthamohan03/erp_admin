@@ -1,12 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FileText, Settings } from 'lucide-react';
+import { Check, FileText, Plus, Settings, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/modules/imports/PartielleManageModal';
+import McaRefGrid from '@/modules/payments/McaRefGrid';
+import type { McaLine } from '@/db/schema';
 import SealPickerControl from '@/components/ui/SealPickerControl';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface FieldRendererProps {
   field: PageFieldDef;
@@ -53,6 +57,16 @@ function getBool(props: Props, key: string): boolean {
   return props?.[key] === true;
 }
 
+// Form values arrive as strings from selects and as numbers from the API. `pay_for`
+// is a 0-based code, so zero has to survive — hence the explicit opt-in rather
+// than a truthiness check.
+function toId(v: unknown, { allowZero = false }: { allowZero?: boolean } = {}): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n === 0 && !allowZero ? null : n;
+}
+
 export default function FieldRenderer({
   field,
   value,
@@ -81,18 +95,14 @@ export default function FieldRenderer({
   switch (field.field_type) {
     case 'text':
       return (
-        <input
-          type="text"
-          {...baseProps}
-          className={`input${getBool(field.props, 'uppercase') ? ' uppercase' : ''}`}
-          value={asString(value)}
-          minLength={getNumber(field.props, 'minLength')}
-          maxLength={getNumber(field.props, 'maxLength')}
-          pattern={getString(field.props, 'pattern')}
-          onChange={(e) => {
-            const v = getBool(field.props, 'uppercase') ? e.target.value.toUpperCase() : e.target.value;
-            onChange(v);
-          }}
+        <TextField
+          field={field}
+          value={value}
+          readonly={readonly}
+          onChange={onChange}
+          requiredOverride={effectiveRequired}
+          entityId={entityId}
+          invalid={invalid}
         />
       );
 
@@ -220,6 +230,24 @@ export default function FieldRenderer({
       );
     }
 
+    // §2 step 6 — the payment request's reference lines. Reads client / category
+    // / expense type off the form so its two checks (exists for this client, not
+    // already consumed) scope themselves as those fields change.
+    case 'mca-grid':
+      return (
+        <McaRefGrid
+          value={Array.isArray(value) ? (value as McaLine[]) : []}
+          onChange={(lines) => onChange(lines)}
+          readonly={readonly}
+          invalid={invalid}
+          clientId={toId(values?.['client_id'])}
+          payFor={toId(values?.['pay_for'], { allowZero: true })}
+          expenseType={toId(values?.['expense_type'])}
+          locationId={toId(values?.['location_id'])}
+          paymentId={entityId && entityId !== 'new' ? Number(entityId) : null}
+        />
+      );
+
     case 'seal-picker':
       return (
         <SealPicker
@@ -248,60 +276,106 @@ export default function FieldRenderer({
   }
 }
 
-// §4.11 — file field: presign → direct-to-S3 PUT → commit, storing the files.id
-// as the field value. A committed value renders a masked "View File" link.
+// Text input, with an optional live uniqueness check driven by config rather than
+// by a per-field special case: `props.unique` names a resource under
+// /api/v1/uniqueness/{resource} (e.g. 'license-numbers') and the field debounces a
+// check against it while the operator types. The database constraint is still the
+// authority — this only moves the "already exists" answer from save time to typing
+// time, where it costs nothing to fix.
+function TextField({ field, value, readonly, onChange, requiredOverride, entityId, invalid }: FieldRendererProps) {
+  const uppercase = getBool(field.props, 'uppercase');
+  const uniqueResource = getString(field.props, 'unique');
+  const text = asString(value);
+
+  // Editing an existing row must not collide with itself.
+  const excludeId = entityId && entityId !== 'new' ? Number(entityId) : null;
+  const { status, message } = useUniqueCheck({
+    resource: uniqueResource ?? '',
+    // An empty value keeps the hook idle, so a field without `unique` never fires.
+    value: uniqueResource ? text : '',
+    excludeId: Number.isFinite(excludeId) ? excludeId : null,
+  });
+  const taken = status === 'taken';
+
+  return (
+    <div>
+      <input
+        type="text"
+        id={field.name}
+        name={field.name}
+        required={requiredOverride ?? field.required}
+        disabled={readonly}
+        aria-invalid={invalid || taken || undefined}
+        className={`input${uppercase ? ' uppercase' : ''}`}
+        value={text}
+        minLength={getNumber(field.props, 'minLength')}
+        maxLength={getNumber(field.props, 'maxLength')}
+        pattern={getString(field.props, 'pattern')}
+        onChange={(e) => onChange(uppercase ? e.target.value.toUpperCase() : e.target.value)}
+      />
+      {uniqueResource && !readonly && status !== 'idle' && (
+        <p
+          className={`mt-1 text-xs ${
+            taken || status === 'error'
+              ? 'text-red-600 dark:text-red-400'
+              : status === 'available'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// §4.11 — file field: one multipart POST to /api/v1/files, storing the returned
+// files.id as the field value. A stored value renders a masked "View File" link.
+//
+// This deliberately matches what the endpoint implements. It previously spoke a
+// presign → direct PUT → commit protocol that does not exist here: the route
+// reads `req.formData()` and writes the bytes itself in a single round-trip, and
+// there is no /files/{id}/commit route at all. Every upload therefore failed on
+// the first call, project-wide.
 function FileUpload({ field, value, readonly, onChange, entityType, entityId }: FieldRendererProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileId = asString(value); // stored files.id, or ''
   const accept = getString(field.props, 'accept');
+  const maxSizeKb = getNumber(field.props, 'maxSizeKb');
 
   async function handleSelect(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Checked here as well as server-side so an oversized file fails instantly
+    // rather than after uploading the bytes.
+    if (maxSizeKb && file.size > maxSizeKb * 1024) {
+      setError(`File is larger than the ${Math.round(maxSizeKb / 1024)} MB limit`);
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     setError(null);
     try {
-      // 1) register + presign
-      const presignRes = await fetch('/api/v1/files', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          original_name: file.name,
-          mime: file.type || 'application/octet-stream',
-          size: file.size,
-          entity_type: entityType ?? null,
-          entity_id: entityId ?? null,
-          // Name the stored file after this input field (e.g. 'id_nat_file.pdf').
-          field_name: field.name,
-        }),
-      });
-      const presign = await presignRes.json();
-      if (!presignRes.ok || !presign.ok) throw new Error(presign.error?.message || 'Could not start upload');
-      const { file_id, upload_url, mode } = presign.data as {
-        file_id: number; upload_url: string; mode: 's3' | 'local';
-      };
+      const body = new FormData();
+      body.append('file', file);
+      // Keys the stored object to the record this field belongs to.
+      if (entityType) body.append('entity_type', entityType);
+      if (entityId) body.append('entity_id', entityId);
 
-      // 2) upload the bytes — to S3 directly, or to our local endpoint.
-      const put = await fetch(upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body: file,
-      });
-      if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`);
-
-      // 3) S3 needs a separate commit; the local endpoint commits itself.
-      if (mode === 's3') {
-        const commitRes = await fetch(`/api/v1/files/${file_id}/commit`, { method: 'POST' });
-        const commit = await commitRes.json();
-        if (!commitRes.ok || !commit.ok) throw new Error(commit.error?.message || 'Commit failed');
-      }
-
-      onChange(String(file_id));
+      // No Content-Type header — the browser sets it with the multipart boundary.
+      const result = await safeFetchJson<{ id: number }>('/api/v1/files', { method: 'POST', body });
+      if (!result.ok) throw new Error(result.message);
+      onChange(String(result.data.id));
     } catch (err) {
       setError((err as Error).message || 'Upload failed');
     } finally {
       setUploading(false);
+      // Let the same file be re-picked after a failure.
+      e.target.value = '';
     }
   }
 
@@ -362,6 +436,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
   const source = field.options_source;
   const labelField = field.options_label_field ?? 'name';
   const labelTemplate = getString(field.props, 'labelTemplate');
+  const quickAdd = parseQuickAdd(field.props);
 
   // §4.5 — dependent options. `props.optionsParams` maps a query-param name to the
   // form field whose value supplies it (e.g. { "client_id": "client_id" }). Each
@@ -437,9 +512,10 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     .slice()
     .sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: 'base' }));
 
-  return (
+  const select = (
     <SearchableSelect
       id={field.name}
+      className={quickAdd ? 'flex-1' : undefined}
       aria-label={field.label}
       required={requiredOverride ?? field.required}
       invalid={invalid}
@@ -450,6 +526,161 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
       options={options.map((opt) => ({ value: String(opt.value), label: String(opt.label) }))}
       onChange={(v) => onChange(v === '' ? null : v)}
     />
+  );
+
+  if (!quickAdd || !source) return select;
+
+  return (
+    <QuickAddSelect
+      config={quickAdd}
+      source={source}
+      labelField={labelField}
+      readonly={readonly}
+      onAdded={(option) => {
+        // Append rather than refetch: the new row is selected immediately, and the
+        // next natural options fetch reconciles the list anyway.
+        setDynamic((prev) => [...prev, option]);
+        onChange(String(option.value));
+      }}
+    >
+      {select}
+    </QuickAddSelect>
+  );
+}
+
+// §4.1 — a select whose master can be extended without leaving the form. Config,
+// not a per-field component: `props.quickAdd` = { field, title?, placeholder? }
+// names the column the create endpoint expects, and the POST goes to the field's
+// OWN `options_source` (e.g. /api/v1/origins), so any master with a single-name
+// create endpoint opts in with one config row.
+interface QuickAddConfig {
+  /** Column the create endpoint expects, e.g. 'origin_name'. */
+  field: string;
+  title?: string;
+  placeholder?: string;
+}
+
+function parseQuickAdd(props: Props): QuickAddConfig | null {
+  const raw = props?.['quickAdd'];
+  if (!raw || typeof raw !== 'object') return null;
+  const cfg = raw as Record<string, unknown>;
+  return typeof cfg.field === 'string' && cfg.field
+    ? {
+        field: cfg.field,
+        title: typeof cfg.title === 'string' ? cfg.title : undefined,
+        placeholder: typeof cfg.placeholder === 'string' ? cfg.placeholder : undefined,
+      }
+    : null;
+}
+
+function QuickAddSelect({
+  config,
+  source,
+  labelField,
+  readonly,
+  onAdded,
+  children,
+}: {
+  config: QuickAddConfig;
+  source: string;
+  labelField: string;
+  readonly: boolean;
+  onAdded: (option: { value: string | number; label: string }) => void;
+  children: React.ReactNode;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(): Promise<void> {
+    const name = draft.trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/${source}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [config.field]: name }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok || json.data?.id == null) {
+        throw new Error(json?.error?.message || `Could not add (HTTP ${res.status})`);
+      }
+      const row = json.data as Record<string, unknown>;
+      onAdded({ value: row.id as string | number, label: String(row[labelField] ?? name) });
+      setDraft('');
+      setAdding(false);
+    } catch (e) {
+      setError((e as Error).message || 'Could not add');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        {children}
+        {!readonly && (
+          <button
+            type="button"
+            title={config.title ?? 'Add a new option'}
+            aria-label={config.title ?? 'Add a new option'}
+            onClick={() => setAdding((v) => !v)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {adding && !readonly && (
+        <div className="mt-2 rounded-md border border-border bg-muted/40 p-2">
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              className="input flex-1"
+              placeholder={config.placeholder ?? 'New value'}
+              value={draft}
+              disabled={busy}
+              // Enter must not bubble to the page form, which would fire the
+              // single page-level Save (§4.17) instead of adding the option.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void submit();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setAdding(false);
+                }
+              }}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={busy || !draft.trim()}
+              aria-label="Save new option"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setError(null); }}
+              disabled={busy}
+              aria-label="Cancel"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 
