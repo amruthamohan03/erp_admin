@@ -100,7 +100,9 @@ export const clientMaster = pgTable(
     // CHECK constraint in migration: 0 <= credit_term <= 365
     creditTerm: integer('credit_term').default(0),
 
-    // Three "done by" assignments — FK to done_by_master_t (1=Client, 2=Malabar).
+    // Three "done by" assignments — FK to done_by_master_t: the client, or us.
+    // The company row renders as the configured project name, not stored text
+    // (see src/lib/doneByLabel.ts), so don't assume a fixed id or label here.
     liquidationPaidBy: integer('liquidation_paid_by').references(
       () => doneByMaster.id,
     ),

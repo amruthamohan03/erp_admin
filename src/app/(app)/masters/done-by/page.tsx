@@ -4,11 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import Toggle from '@/components/ui/Toggle';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface Row {
   id: number;
   done_by_name: string;
+  /** Marks the entry that stands for our own company (renders as the project name). */
+  is_company: boolean;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -123,7 +126,14 @@ export default function DoneByPage() {
                     <td className="text-slate-500 font-medium">
                       {startIndex + idx + 1}
                     </td>
-                    <td className="font-medium">{r.done_by_name}</td>
+                    <td className="font-medium">
+                      {r.done_by_name}
+                      {r.is_company && (
+                        <span className="ms-2 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">
+                          Our company
+                        </span>
+                      )}
+                    </td>
                     <td className="text-right whitespace-nowrap">
                       <button
                         onClick={() => setEditing(r)}
@@ -196,12 +206,14 @@ function FormModal({
 }) {
   const isEdit = !!row;
   const [name, setName] = useState(row?.done_by_name || '');
+  const [isCompany, setIsCompany] = useState(row?.is_company ?? false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Skip the check while value is unchanged in edit mode — it would
-  // always collide with itself otherwise.
-  const checkValue = isEdit && name === row?.done_by_name ? '' : name;
+  // always collide with itself otherwise. The company row's name is not editable
+  // at all, so it never needs checking.
+  const checkValue = isCompany || (isEdit && name === row?.done_by_name) ? '' : name;
   const { status, message } = useUniqueCheck({
     resource: 'done-by',
     value: checkValue,
@@ -224,7 +236,11 @@ function FormModal({
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ done_by_name: name }),
+        // The company row's label comes from branding, so the server rejects a
+        // name alongside the flag — send only what it will accept.
+        body: JSON.stringify(
+          isCompany ? { is_company: true } : { done_by_name: name, ...(isEdit ? { is_company: false } : {}) },
+        ),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -265,11 +281,35 @@ function FormModal({
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
+              required={!isCompany}
+              disabled={isCompany}
               maxLength={50}
             />
-            <UniquenessIndicator status={status} message={message} />
+            {isCompany ? (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Shown as the project name from Settings → Application. Rename it there.
+              </p>
+            ) : (
+              <UniquenessIndicator status={status} message={message} />
+            )}
           </div>
+
+          {/* §4.1 — which entry means "our company" is configuration, not a
+              hardcoded id. Marking it here makes its label follow the project
+              name everywhere it is offered. */}
+          {isEdit && (
+            <div className="rounded-md border border-border p-2">
+              <Toggle
+                checked={isCompany}
+                onChange={setIsCompany}
+                label="This entry is our own company"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Only one entry can be the company. It displays as the configured project name
+                instead of stored text.
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
