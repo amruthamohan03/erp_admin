@@ -351,6 +351,13 @@
       "when": 1784660519384,
       "tag": "0049_fix_master_page_routes",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784660519385,
+      "tag": "0050_done_by_company_row",
+      "breakpoints": true
     }
   ]
 }

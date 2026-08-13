@@ -458,6 +458,11 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
 
   const [dynamic, setDynamic] = useState<Array<{ value: string | number; label: string }>>([]);
   const [loading, setLoading] = useState(false);
+  // A failed options fetch used to be swallowed, which rendered exactly like a
+  // master with no rows: an empty dropdown saying "No matches". The two need to
+  // look different — one is a data state the user can fix, the other is a fault
+  // they should report.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!source) return;
@@ -473,31 +478,35 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     // endpoint caps too. TODO(dropdown): switch to a server-side searchable
     // select for entities that can exceed 100 rows (clients, licenses).
     const url = `/api/v1/${source}${source.includes('?') ? '&' : '?'}pageSize=100${paramQuery ? `&${paramQuery}` : ''}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((json) => {
+    safeFetchJson<unknown>(url)
+      .then((result) => {
         if (cancelled) return;
-        const list = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json?.data?.items)
-            ? json.data.items
-            : null;
-        if (json?.ok && list) {
-          const opts = list.map((row: Record<string, unknown>) => {
-            const v = row['id'] as string | number;
-            let label = '';
-            if (labelTemplate) {
-              label = labelTemplate.replace(/\{(\w+)\}/g, (_, k: string) => String(row[k] ?? ''));
-            } else {
-              label = String(row[labelField] ?? row[labelField.replace('_', '')] ?? v);
-            }
-            return { value: v, label };
-          });
-          setDynamic(opts);
+        if (!result.ok) {
+          setLoadError(result.message);
+          setDynamic([]);
+          return;
         }
-      })
-      .catch(() => {
-        // Swallow; the dropdown will just be empty.
+        const data = result.data as unknown;
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray((data as { items?: unknown[] })?.items)
+            ? (data as { items: unknown[] }).items
+            : null;
+        if (!list) {
+          setLoadError('Options could not be read');
+          setDynamic([]);
+          return;
+        }
+        setLoadError(null);
+        setDynamic(
+          (list as Record<string, unknown>[]).map((row) => {
+            const v = row['id'] as string | number;
+            const label = labelTemplate
+              ? labelTemplate.replace(/\{(\w+)\}/g, (_, k: string) => String(row[k] ?? ''))
+              : String(row[labelField] ?? row[labelField.replace('_', '')] ?? v);
+            return { value: v, label };
+          }),
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -518,17 +527,30 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
       className={quickAdd ? 'flex-1' : undefined}
       aria-label={field.label}
       required={requiredOverride ?? field.required}
-      invalid={invalid}
+      invalid={invalid || !!loadError}
       disabled={readonly || (source != null && loading)}
       value={asString(value)}
       emptyLabel="— Select —"
-      placeholder={source != null && loading ? 'Loading…' : '— Select —'}
+      placeholder={
+        source != null && loading ? 'Loading…' : loadError ? 'Options unavailable' : '— Select —'
+      }
       options={options.map((opt) => ({ value: String(opt.value), label: String(opt.label) }))}
       onChange={(v) => onChange(v === '' ? null : v)}
     />
   );
 
-  if (!quickAdd || !source) return select;
+  const withError = loadError ? (
+    <div>
+      {select}
+      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+        Could not load options: {loadError}
+      </p>
+    </div>
+  ) : (
+    select
+  );
+
+  if (!quickAdd || !source) return withError;
 
   return (
     <QuickAddSelect
@@ -543,7 +565,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
         onChange(String(option.value));
       }}
     >
-      {select}
+      {withError}
     </QuickAddSelect>
   );
 }

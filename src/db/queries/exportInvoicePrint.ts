@@ -7,6 +7,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { formatDate } from '@/lib/formatDate';
+import { loadBranding } from './branding';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -19,7 +20,7 @@ const num = (v: unknown): number => {
 const money = (n: number): string =>
   (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (v: unknown): string =>
-  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string));
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string));
 
 interface Item {
   category_id: number;
@@ -52,6 +53,9 @@ function itemsTable(header: string, items: Item[]): { html: string; sub: number;
 }
 
 export async function buildExportInvoicePrintHtml(id: number, page: PrintPage): Promise<string | null> {
+  // §4.1 — the letterhead names the deployment, not a hardcoded company. Comes
+  // from Settings → Application, the same source as the app's own branding.
+  const companyName = (await loadBranding()).project_name;
   const invRes = await db.execute(sql`
     SELECT inv.*, c.company_name, c.short_name, c.address, c.rccm_number, c.nif_number, c.id_nat_number,
            l.license_number, tg.goods_type, tm.transport_mode_name,
@@ -235,7 +239,7 @@ table.items th,table.items td{padding:3px 6px;font-size:10px;}
 </style></head><body>${watermark}
 <div class="noprint"><button class="btn" onclick="window.print()">Print / Save as PDF</button></div>
 <div class="doc">
-<div class="hdr"><div><div class="co">MALABAR RDC SARL</div></div>
+<div class="hdr"><div><div class="co">${esc(companyName)}</div></div>
 <div class="addr">No. 1068, Avenue Ruwe, Quartier Makutano,<br>Lubumbashi, DRC<br>RCCM: 13-B-1122 · NIF: A 1309334 L</div></div>
 <span class="badge">${statusBadge}</span>
 ${dn}

@@ -8,6 +8,9 @@ export type DoneByCreateInput = z.infer<typeof doneByCreateSchema>;
 export const doneByUpdateSchema = z.object({
   done_by_name: z.string().min(1).max(50).optional(),
   display: z.enum(['Y', 'N']).optional(),
+  // Marks the row that stands for the operating company. Its label then renders
+  // as the configured project name — see src/lib/doneByLabel.ts.
+  is_company: z.boolean().optional(),
 });
 export type DoneByUpdateInput = z.infer<typeof doneByUpdateSchema>;
 

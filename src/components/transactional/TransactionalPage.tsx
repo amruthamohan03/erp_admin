@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Save } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive, deriveTriggers } from '@/lib/pages/derive';
+import { parentListRoute } from '@/lib/pages/listRoute';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion, { type ResolvedField } from './Accordion';
 
@@ -17,6 +18,7 @@ interface TransactionalPageProps {
 
 export default function TransactionalPage({ slug, entityId }: TransactionalPageProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [page, setPage] = useState<PageDef | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,10 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
+
+  // Where this record's list lives — the parent path, derived from the URL rather
+  // than from the drift-prone master_page_t.route. See listRoute.ts.
+  const listRoute = useMemo(() => parentListRoute(pathname, page?.route), [pathname, page?.route]);
 
   // Flatten every field once per page load for derive bookkeeping.
   const allFields = useMemo(
@@ -214,27 +220,25 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       setDirty(false);
       // Every save — create or edit — ends on the list, so the operator sees the
       // record land among its peers instead of being left on a form with nothing
-      // left to do. Uses the page's configured route rather than the slug:
-      // `/${slug}` is not where these pages live (clients is /masters/clients,
-      // import is /imports, …).
+      // left to do.
       //
       // `replace`, not `push`: the form is finished with, and leaving it in the
       // history means Back returns to a stale copy of a record that has already
       // been saved — and on a create, to a /new that would submit a second time.
-      router.replace(page.route);
+      router.replace(listRoute);
     } catch (e) {
       setSaveError((e as Error).message || 'Save failed');
     } finally {
       setSaving(false);
     }
-  }, [page, editableAccordions, resolvedByAccordion, values, slug, entityId, router]);
+  }, [page, editableAccordions, resolvedByAccordion, values, slug, entityId, router, listRoute]);
 
   return (
     <>
       {/* §4.13 — Back goes to the page's own list view (e.g. /clients) so
           refresh + back still lands somewhere useful for the user. */}
       <div className="mb-4">
-        <BackButton fallback={page ? page.route : '/dashboard'} />
+        <BackButton fallback={listRoute} />
       </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">

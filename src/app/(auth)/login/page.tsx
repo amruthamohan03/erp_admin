@@ -130,10 +130,6 @@ function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
-            Default: <code className="rounded bg-muted px-1">admin</code> /{' '}
-            <code className="rounded bg-muted px-1">Admin@123</code>
-          </p>
         </div>
       </div>
 
