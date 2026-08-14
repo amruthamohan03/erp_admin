@@ -227,7 +227,7 @@ export default function SealBatchDetailPage() {
         <div>
           <Link
             href="/masters/seals"
-            className="text-sm text-slate-500 hover:underline flex items-center gap-1 mb-1"
+            className="text-sm text-muted-foreground hover:underline flex items-center gap-1 mb-1"
           >
             <ArrowLeft className="h-3 w-3" /> Back to batches
           </Link>
@@ -274,25 +274,25 @@ export default function SealBatchDetailPage() {
         <div className="space-y-6">
           {batch && (
             <div className="card p-6 space-y-3">
-              <div className="text-xs uppercase tracking-wide text-slate-500">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 Batch details
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <dt className="text-slate-500">Office</dt>
+                <dt className="text-muted-foreground">Office</dt>
                 <dd className="text-slate-900">{batch.location_name ?? '—'}</dd>
-                <dt className="text-slate-500">Sub-office</dt>
+                <dt className="text-muted-foreground">Sub-office</dt>
                 <dd className="text-slate-900">
                   {batch.sub_office_code ?? '—'}
                 </dd>
-                <dt className="text-slate-500">Purchase date</dt>
+                <dt className="text-muted-foreground">Purchase date</dt>
                 <dd className="text-slate-900">{batch.purchase_date ?? '—'}</dd>
-                <dt className="text-slate-500">Total amount</dt>
+                <dt className="text-muted-foreground">Total amount</dt>
                 <dd className="text-slate-900 font-mono">
                   {batch.total_amount ?? '0'}
                 </dd>
-                <dt className="text-slate-500">Budget (seals)</dt>
+                <dt className="text-muted-foreground">Budget (seals)</dt>
                 <dd className="text-slate-900">{batch.total_seal}</dd>
-                <dt className="text-slate-500">Added so far</dt>
+                <dt className="text-muted-foreground">Added so far</dt>
                 <dd className="text-slate-900">
                   {numbers.length} of {batch.total_seal}
                 </dd>
@@ -305,7 +305,7 @@ export default function SealBatchDetailPage() {
               <PackagePlus className="h-5 w-5 text-primary-600" />
               <div className="font-medium">Add Seal Numbers</div>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Paste one per line or separated by commas. Duplicates within
               the paste + collisions with existing rows surface as clear
               errors.
@@ -369,7 +369,7 @@ export default function SealBatchDetailPage() {
                 </button>
                 <button
                   onClick={() => setSelected(new Set())}
-                  className="ml-auto text-sm text-slate-500 hover:underline"
+                  className="ml-auto text-sm text-muted-foreground hover:underline"
                 >
                   Clear
                 </button>
@@ -401,14 +401,14 @@ export default function SealBatchDetailPage() {
                 <tbody>
                   {loading && (
                     <tr>
-                      <td colSpan={5} className="text-center text-slate-500 py-8">
+                      <td colSpan={5} className="text-center text-muted-foreground py-8">
                         Loading...
                       </td>
                     </tr>
                   )}
                   {!loading && numbers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center text-slate-500 py-8">
+                      <td colSpan={5} className="text-center text-muted-foreground py-8">
                         No numbers in this batch yet. Add them above.
                       </td>
                     </tr>
@@ -430,7 +430,7 @@ export default function SealBatchDetailPage() {
                             aria-label={`Select ${n.seal_number}`}
                           />
                         </td>
-                        <td className="text-slate-500 font-medium">
+                        <td className="text-muted-foreground font-medium">
                           {idx + 1}
                         </td>
                         <td>
@@ -452,7 +452,7 @@ export default function SealBatchDetailPage() {
                             {n.status}
                           </span>
                         </td>
-                        <td className="text-xs text-slate-500">
+                        <td className="text-xs text-muted-foreground">
                           {n.notes ?? '—'}
                         </td>
                       </tr>

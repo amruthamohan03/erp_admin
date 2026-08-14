@@ -142,7 +142,7 @@ export default function DashboardCardsGrid({
   }, [cards]);
 
   if (loading) {
-    return <div className="text-sm text-slate-500">Loading cards…</div>;
+    return <div className="text-sm text-muted-foreground">Loading cards…</div>;
   }
 
   if (cards.length === 0) {
@@ -189,14 +189,14 @@ export default function DashboardCardsGrid({
                 <CardIcon name={c.card_icon} className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm text-slate-500 truncate">
+                <div className="text-sm text-muted-foreground truncate">
                   {c.card_title}
                 </div>
                 <div className="text-2xl font-bold text-slate-900 truncate">
                   {formatCardValue(values[c.card_key]) ?? '—'}
                 </div>
                 {c.card_subtitle && (
-                  <div className="text-xs text-slate-400 truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {c.card_subtitle}
                   </div>
                 )}

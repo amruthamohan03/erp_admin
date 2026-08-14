@@ -127,7 +127,7 @@ export default function PartielleManageModal({
 
         <div className="p-5 space-y-4 max-h-[75vh] overflow-auto">
           {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-          {loading && <div className="py-8 text-center text-slate-500">Loading…</div>}
+          {loading && <div className="py-8 text-center text-muted-foreground">Loading…</div>}
 
           {!loading && lic && (
             <>
@@ -198,13 +198,13 @@ export default function PartielleManageModal({
                   </thead>
                   <tbody>
                     {data.rows.length === 0 && (
-                      <tr><td colSpan={13} className="text-center text-slate-500 py-6">No allotments yet.</td></tr>
+                      <tr><td colSpan={13} className="text-center text-muted-foreground py-6">No allotments yet.</td></tr>
                     )}
                     {data.rows.map((r, idx) => {
                       const editing = edit?.id === r.id;
                       return (
                         <tr key={r.id} className="hover:bg-slate-50">
-                          <td className="text-slate-400">{idx + 1}</td>
+                          <td className="text-muted-foreground">{idx + 1}</td>
                           <td>{lic.ref_cod}</td>
                           <td className="font-mono">{r.partial_name}</td>
                           <td className="text-right tabular-nums">{money(lic.license_weight)}</td>

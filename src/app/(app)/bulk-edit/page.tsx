@@ -307,7 +307,7 @@ export default function BulkEditPage() {
 
   if (loadingTargets) {
     return (
-      <div className="flex items-center gap-2 text-slate-500 py-20 justify-center">
+      <div className="flex items-center gap-2 text-muted-foreground py-20 justify-center">
         <Loader2 className="h-5 w-5 animate-spin" /> Loading targets…
       </div>
     );
@@ -365,7 +365,7 @@ export default function BulkEditPage() {
             </button>
           </div>
           {filters.length === 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               No filters — add one to narrow which rows load.
             </p>
           )}
@@ -408,7 +408,7 @@ export default function BulkEditPage() {
                   <button
                     type="button"
                     onClick={() => removeFilter(f._id)}
-                    className="text-slate-400 hover:text-red-600 p-1 col-span-1 justify-self-end"
+                    className="text-muted-foreground hover:text-red-600 p-1 col-span-1 justify-self-end"
                     title="Remove filter"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -482,7 +482,7 @@ export default function BulkEditPage() {
                   <tr>
                     <td
                       colSpan={2 + selectedTarget.editable_columns.length}
-                      className="text-center text-slate-500 py-8"
+                      className="text-center text-muted-foreground py-8"
                     >
                       No matching rows.
                     </td>
@@ -493,7 +493,7 @@ export default function BulkEditPage() {
                   const rowEdits = edits[id] ?? {};
                   return (
                     <tr key={id} className="hover:bg-slate-50">
-                      <td className="text-slate-500 text-xs">
+                      <td className="text-muted-foreground text-xs">
                         {startIndex + idx + 1}
                       </td>
                       <td className="font-mono text-xs text-slate-700">

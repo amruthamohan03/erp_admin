@@ -101,7 +101,7 @@ export default function Accordion({
           <span className={clsx('block font-semibold truncate', open ? accent.title : 'text-slate-900 dark:text-slate-100')}>
             {accordion.title}
           </span>
-          <span className="block text-xs text-slate-400 dark:text-slate-500">
+          <span className="block text-xs text-muted-foreground dark:text-muted-foreground">
             {visibleFields.length} field{visibleFields.length === 1 ? '' : 's'}
           </span>
         </span>
@@ -121,7 +121,7 @@ export default function Accordion({
         )}
         <ChevronDown
           className={clsx(
-            'shrink-0 h-5 w-5 text-slate-400 transition-transform duration-200',
+            'shrink-0 h-5 w-5 text-muted-foreground transition-transform duration-200',
             open ? 'rotate-180' : '',
           )}
         />

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -24,6 +25,8 @@ export default function IncotermsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -60,9 +63,10 @@ export default function IncotermsPage() {
     const res = await fetch(`/api/v1/incoterms/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This incoterm could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The incoterm has been disabled.' });
     load();
   }
 
@@ -81,7 +85,7 @@ export default function IncotermsPage() {
       <div className="card">
         <div className="p-4 border-b border-slate-200">
           <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9"
               placeholder="Search code or description..."
@@ -107,14 +111,14 @@ export default function IncotermsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={4} className="text-center text-slate-500 py-8">
+                  <td colSpan={4} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center text-slate-500 py-8">
+                  <td colSpan={4} className="text-center text-muted-foreground py-8">
                     No incoterms found
                   </td>
                 </tr>
@@ -122,7 +126,7 @@ export default function IncotermsPage() {
               {!loading &&
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium align-top">
+                    <td className="text-muted-foreground font-medium align-top">
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-mono font-medium align-top">
@@ -134,14 +138,14 @@ export default function IncotermsPage() {
                     <td className="text-right align-top">
                       <button
                         onClick={() => setEditing(r)}
-                        className="text-slate-500 hover:text-primary-600 p-1"
+                        className="ico-edit"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(r.id)}
-                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        className="ico-delete ml-1"
                         title="Disable"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -174,6 +178,7 @@ export default function IncotermsPage() {
           onSaved={() => {
             setShowCreate(false);
             load();
+            setResult({ status: 'success', title: 'Created', message: 'The incoterm has been created.' });
           }}
         />
       )}
@@ -185,9 +190,12 @@ export default function IncotermsPage() {
           onSaved={() => {
             setEditing(null);
             load();
+            setResult({ status: 'success', title: 'Saved', message: 'Your changes to this incoterm have been saved.' });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -259,7 +267,7 @@ function FormModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-900"
+            className="text-muted-foreground hover:text-slate-900"
           >
             <X className="h-5 w-5" />
           </button>

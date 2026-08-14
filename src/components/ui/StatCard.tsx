@@ -16,7 +16,7 @@ export default function StatCard({ icon, label, value }: StatCardProps) {
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-xs uppercase tracking-wide text-slate-500">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
           {label}
         </div>
         <div className="text-xl font-bold text-slate-900 truncate">{value}</div>

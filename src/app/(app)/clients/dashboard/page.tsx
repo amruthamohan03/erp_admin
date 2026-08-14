@@ -71,7 +71,7 @@ export default function ClientsDashboardPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Client Dashboard</h1>
-            <p className="text-sm text-slate-500">Real-time insights and analytics</p>
+            <p className="text-sm text-muted-foreground">Real-time insights and analytics</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -79,13 +79,13 @@ export default function ClientsDashboardPage() {
             type="button"
             title="Toggle theme (placeholder)"
             disabled
-            className="h-9 w-9 rounded-md border border-slate-200 text-slate-400 inline-flex items-center justify-center"
+            className="h-9 w-9 rounded-md border border-slate-200 text-muted-foreground inline-flex items-center justify-center"
           >
             <Sun className="h-4 w-4" />
           </button>
           <a
             href="/api/v1/clients/export"
-            className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 text-sm font-medium shadow-sm transition"
+            className="btn-excel btn-sm"
           >
             <FileSpreadsheet className="h-4 w-4" />
             Export Excel
@@ -112,7 +112,7 @@ export default function ClientsDashboardPage() {
       </div>
 
       {loading && (
-        <div className="card p-6 text-center text-slate-500">Loading dashboard...</div>
+        <div className="card p-6 text-center text-muted-foreground">Loading dashboard...</div>
       )}
 
       {/* ---- Charts (driven by /api/v1/clients/dashboard) ---- */}
@@ -150,7 +150,7 @@ function DonutCard({
     <div className="card p-4">
       <h3 className="font-semibold text-slate-800 mb-3">{title}</h3>
       {total === 0 ? (
-        <p className="text-sm text-slate-500 py-12 text-center">No data</p>
+        <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
       ) : (
         <>
           <div className="flex justify-center mb-3">
@@ -258,7 +258,7 @@ function BarCard({
     <div className="card p-4">
       <h3 className="font-semibold text-slate-800 mb-3">{title}</h3>
       {data.length === 0 ? (
-        <p className="text-sm text-slate-500 py-12 text-center">No data</p>
+        <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
       ) : (
         <div className="space-y-3">
           {data.map((d, i) => (
@@ -307,7 +307,7 @@ function MonthlyTrend({ data }: { data: MonthlyPoint[] }) {
                 title={`${d.month}: ${d.value}`}
               />
             </div>
-            <div className="text-[10px] text-slate-500">{monthLabel}</div>
+            <div className="text-[10px] text-muted-foreground">{monthLabel}</div>
           </div>
         );
       })}

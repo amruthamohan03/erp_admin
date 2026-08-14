@@ -14,6 +14,7 @@ import {
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MenuItem } from '@/types/menu';
 
@@ -55,6 +56,8 @@ export default function DashboardCardsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<CardRow | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,9 +118,10 @@ export default function DashboardCardsPage() {
     const res = await fetch(`/api/v1/dashboard-cards/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This dashboard card could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The dashboard card has been disabled.' });
     load();
   }
 
@@ -129,9 +133,10 @@ export default function DashboardCardsPage() {
     });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This dashboard card could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The dashboard card has been disabled.' });
     load();
   }
 
@@ -143,7 +148,7 @@ export default function DashboardCardsPage() {
             <LayoutDashboard className="h-6 w-6 text-primary-600" />
             Dashboard Cards
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage the cards available on the dashboard. Per-role visibility is
             set in Role &rarr; Dashboard Cards mapping.
           </p>
@@ -156,7 +161,7 @@ export default function DashboardCardsPage() {
       <div className="card">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
           <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9"
               placeholder="Search title, key, subtitle, category, menu..."
@@ -196,14 +201,14 @@ export default function DashboardCardsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && paged.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     No cards found
                   </td>
                 </tr>
@@ -211,13 +216,13 @@ export default function DashboardCardsPage() {
               {!loading &&
                 paged.map((m, idx) => (
                   <tr key={m.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-muted-foreground font-medium">
                       {startIndex + idx + 1}
                     </td>
                     <td>
                       <div className="font-medium">{m.card_title}</div>
                       {m.card_subtitle && (
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-muted-foreground">
                           {m.card_subtitle}
                         </div>
                       )}
@@ -243,7 +248,7 @@ export default function DashboardCardsPage() {
                       {m.card_icon ? (
                         <span className="inline-flex items-center gap-1 text-xs">
                           <i className={`bi ${m.card_icon}`} />
-                          <code className="text-slate-500">{m.card_icon}</code>
+                          <code className="text-muted-foreground">{m.card_icon}</code>
                         </span>
                       ) : (
                         '—'
@@ -258,7 +263,7 @@ export default function DashboardCardsPage() {
                         className={
                           m.display === 'Y'
                             ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
-                            : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500'
+                            : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
                         }
                       >
                         {m.display === 'Y' ? 'Active' : 'Disabled'}
@@ -267,7 +272,7 @@ export default function DashboardCardsPage() {
                     <td className="text-right whitespace-nowrap">
                       <button
                         onClick={() => toggleVisibility(m)}
-                        className="text-slate-500 hover:text-amber-600 p-1"
+                        className="text-muted-foreground hover:text-amber-600 p-1"
                         title={m.display === 'Y' ? 'Disable' : 'Enable'}
                       >
                         {m.display === 'Y' ? (
@@ -278,14 +283,14 @@ export default function DashboardCardsPage() {
                       </button>
                       <button
                         onClick={() => setEditing(m)}
-                        className="text-slate-500 hover:text-primary-600 p-1 ml-1"
+                        className="ico-edit ml-1"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(m.id)}
-                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        className="ico-delete ml-1"
                         title="Disable"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -316,6 +321,7 @@ export default function DashboardCardsPage() {
           onSaved={() => {
             setShowCreate(false);
             load();
+            setResult({ status: 'success', title: 'Created', message: 'The dashboard card has been created.' });
           }}
         />
       )}
@@ -328,9 +334,12 @@ export default function DashboardCardsPage() {
           onSaved={() => {
             setEditing(null);
             load();
+            setResult({ status: 'success', title: 'Saved', message: 'Your changes to this dashboard card have been saved.' });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -437,7 +446,7 @@ function CardFormModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-900"
+            className="text-muted-foreground hover:text-slate-900"
           >
             <X className="h-5 w-5" />
           </button>
@@ -462,7 +471,7 @@ function CardFormModal({
                 placeholder="e.g. total_users"
                 required
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Unique identifier. Lowercase + underscores recommended.
               </p>
             </div>
@@ -515,7 +524,7 @@ function CardFormModal({
                 }
                 placeholder="bi-card-text"
               />
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 Preview: <i className={`bi ${form.card_icon}`} />
               </p>
             </div>
@@ -594,7 +603,7 @@ function CardFormModal({
               }
               placeholder="/api/v1/users?pageSize=1  (must return { value })"
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Optional API path. If set, the dashboard fetches it and shows{' '}
               <code>data.value</code> (or <code>data.total</code>) on the card.
             </p>

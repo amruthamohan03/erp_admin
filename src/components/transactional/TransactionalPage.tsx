@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Save } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive, deriveTriggers } from '@/lib/pages/derive';
@@ -31,6 +32,9 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
   const [saveError, setSaveError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // §4.22 — the acknowledged outcome of the save. On success, dismissing it is
+  // what navigates to the list; on failure it just closes.
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   // Only a user edit sets `dirty` — the reactive pure-derive pass below writes
   // values without touching it, so loading a record never looks unsaved.
   const [dirty, setDirty] = useState(false);
@@ -213,25 +217,38 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
           }
         }
         setSaveError([result.message, result.detail].filter(Boolean).join(' — ') || 'Save failed');
+        // §4.22 — state the outcome. Dismissing returns to the form, which still
+        // holds the work with the offending field marked.
+        setSaveResult({
+          status: 'error',
+          title: entityId === 'new' ? 'Not created' : 'Not saved',
+          message: result.message || 'The record could not be saved.',
+          detail: result.detail,
+        });
         return;
       }
 
       setSavedAt(new Date());
       setDirty(false);
-      // Every save — create or edit — ends on the list, so the operator sees the
-      // record land among its peers instead of being left on a form with nothing
-      // left to do.
-      //
-      // `replace`, not `push`: the form is finished with, and leaving it in the
-      // history means Back returns to a stale copy of a record that has already
-      // been saved — and on a create, to a /new that would submit a second time.
-      router.replace(listRoute);
+      // §4.22 — confirm before moving. Navigating straight to the list on success
+      // is indistinguishable from the page changing on its own; the operator gets
+      // told the record was written, and OK carries them to the list.
+      setSaveResult({
+        status: 'success',
+        title: entityId === 'new' ? 'Created' : 'Saved',
+        message:
+          entityId === 'new'
+            ? `${page.title} created successfully.`
+            : `Your changes to this ${page.title.toLowerCase()} have been saved.`,
+      });
     } catch (e) {
       setSaveError((e as Error).message || 'Save failed');
     } finally {
       setSaving(false);
     }
-  }, [page, editableAccordions, resolvedByAccordion, values, slug, entityId, router, listRoute]);
+    // Navigation moved to the result dialog's OK, so the save itself no longer
+    // touches the router or the list route.
+  }, [page, editableAccordions, resolvedByAccordion, values, slug, entityId]);
 
   return (
     <>
@@ -243,12 +260,12 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
           {page?.title ?? 'Loading...'}
-          {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-slate-500">— New</span>}
+          {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-muted-foreground">— New</span>}
         </h1>
       </div>
 
       {loading && (
-        <div className="card p-6 text-center text-slate-500">Loading page definition...</div>
+        <div className="card p-6 text-center text-muted-foreground">Loading page definition...</div>
       )}
 
       {!loading && error && (
@@ -292,7 +309,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
                   </span>
                 )}
                 {!saveError && !savedAt && dirty && (
-                  <span className="flex-1 text-xs text-slate-500 dark:text-slate-400">Unsaved changes</span>
+                  <span className="flex-1 text-xs text-muted-foreground dark:text-muted-foreground">Unsaved changes</span>
                 )}
                 <button type="submit" disabled={saving} className="btn-primary sm:w-auto">
                   <Save className="h-4 w-4" />
@@ -303,6 +320,18 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
           )}
         </form>
       )}
+
+      {/* §4.22 — OK on a successful save is what carries the user to the list;
+          on a failure it closes and leaves the form intact. */}
+      <ResultDialog
+        result={saveResult}
+        okLabel="OK"
+        onDismiss={() => {
+          const wasSuccess = saveResult?.status === 'success';
+          setSaveResult(null);
+          if (wasSuccess) router.replace(listRoute);
+        }}
+      />
     </>
   );
 }

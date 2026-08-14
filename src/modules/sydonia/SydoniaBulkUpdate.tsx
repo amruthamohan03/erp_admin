@@ -127,8 +127,8 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
           >
             <UploadCloud className="h-12 w-12 mx-auto text-primary-500 mb-3" />
             <div className="text-lg font-semibold text-slate-800">Drag &amp; drop the Excel file here</div>
-            <div className="text-sm text-slate-500 mt-1">or click to browse</div>
-            <div className="mt-4 inline-block text-left text-xs text-slate-500 leading-relaxed">
+            <div className="text-sm text-muted-foreground mt-1">or click to browse</div>
+            <div className="mt-4 inline-block text-left text-xs text-muted-foreground leading-relaxed">
               <strong>Excel format:</strong><br />
               • <strong>Column A:</strong> MCA Ref (required — must exist in the {label.toLowerCase()} table)<br />
               • <strong>B</strong> Declaration Ref, <strong>C</strong> Declaration Date, <strong>D</strong> Liquidation Ref, <strong>E</strong> Liquidation Date<br />
@@ -139,7 +139,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
         )}
 
         {phase === 'processing' && (
-          <div className="py-12 text-center text-slate-500">
+          <div className="py-12 text-center text-muted-foreground">
             <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary-600 mb-3" />
             Validating records against the database…
           </div>
@@ -178,7 +178,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i} className={r.valid ? 'bg-emerald-50' : 'bg-red-50'}>
-                      <td className="text-slate-400">{i + 1}</td>
+                      <td className="text-muted-foreground">{i + 1}</td>
                       <td className="font-mono font-semibold">{r.mca_ref}</td>
                       <td>{r.declaration_reference || '—'}</td>
                       <td>{r.declaration_date || '—'}</td>

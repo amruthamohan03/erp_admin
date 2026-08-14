@@ -221,7 +221,7 @@ export default function RoleToMenuPage() {
             <ShieldCheck className="h-6 w-6 text-primary-600" />
             Role &rarr; Menu Mapping
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Grant view / add / edit / delete / approve permissions per role.
           </p>
         </div>
@@ -268,7 +268,7 @@ export default function RoleToMenuPage() {
         <div className="card">
           <div className="p-4 border-b border-slate-200">
             <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="input pl-9"
                 placeholder="Search menu, url, parent..."
@@ -314,7 +314,7 @@ export default function RoleToMenuPage() {
                   <tr>
                     <td
                       colSpan={PERM_COLUMNS.length + 3}
-                      className="text-center text-slate-500 py-8"
+                      className="text-center text-muted-foreground py-8"
                     >
                       Loading…
                     </td>
@@ -324,7 +324,7 @@ export default function RoleToMenuPage() {
                   <tr>
                     <td
                       colSpan={PERM_COLUMNS.length + 3}
-                      className="text-center text-slate-500 py-8"
+                      className="text-center text-muted-foreground py-8"
                     >
                       No menus to map.
                     </td>
@@ -341,16 +341,16 @@ export default function RoleToMenuPage() {
                       r.can_approve;
                     return (
                       <tr key={r.menu_id} className="hover:bg-slate-50">
-                        <td className="text-slate-500 font-medium">
+                        <td className="text-muted-foreground font-medium">
                           {startIndex + idx + 1}
                         </td>
                         <td className={isChild ? 'pl-10' : 'font-medium'}>
                           {isChild && (
-                            <span className="text-slate-400 mr-2">└</span>
+                            <span className="text-muted-foreground mr-2">└</span>
                           )}
                           {r.menu_name}
                           {r.url && r.url !== '#' && (
-                            <span className="ml-2 text-xs text-slate-400">
+                            <span className="ml-2 text-xs text-muted-foreground">
                               {r.url}
                             </span>
                           )}

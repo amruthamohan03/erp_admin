@@ -187,7 +187,7 @@ export default function RoleToDashboardCardPage() {
             <LayoutDashboard className="h-6 w-6 text-primary-600" />
             Role &rarr; Dashboard Cards
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Choose which dashboard cards each role sees and the order they
             appear in.
           </p>
@@ -235,7 +235,7 @@ export default function RoleToDashboardCardPage() {
         <div className="card">
           <div className="p-4 border-b border-slate-200">
             <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="input pl-9"
                 placeholder="Search card title, key, category..."
@@ -281,7 +281,7 @@ export default function RoleToDashboardCardPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="text-center text-slate-500 py-8"
+                      className="text-center text-muted-foreground py-8"
                     >
                       Loading…
                     </td>
@@ -291,7 +291,7 @@ export default function RoleToDashboardCardPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="text-center text-slate-500 py-8"
+                      className="text-center text-muted-foreground py-8"
                     >
                       No cards to map.
                     </td>
@@ -300,7 +300,7 @@ export default function RoleToDashboardCardPage() {
                 {!loadingRows &&
                   paged.map((r, idx) => (
                     <tr key={r.card_id} className="hover:bg-slate-50">
-                      <td className="text-slate-500 font-medium">
+                      <td className="text-muted-foreground font-medium">
                         {startIndex + idx + 1}
                       </td>
                       <td>
@@ -308,7 +308,7 @@ export default function RoleToDashboardCardPage() {
                           {r.card_icon && <i className={`bi ${r.card_icon}`} />}
                           {r.card_title}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-muted-foreground">
                           <code>{r.card_key}</code>
                           {r.card_subtitle ? ` — ${r.card_subtitle}` : ''}
                         </div>
@@ -318,7 +318,7 @@ export default function RoleToDashboardCardPage() {
                           {r.card_category || '—'}
                         </span>
                       </td>
-                      <td className="text-slate-500">{r.default_order}</td>
+                      <td className="text-muted-foreground">{r.default_order}</td>
                       <td>
                         <input
                           type="number"

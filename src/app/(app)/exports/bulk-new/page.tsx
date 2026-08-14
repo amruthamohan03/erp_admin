@@ -312,7 +312,7 @@ export default function BulkNewExportsPage() {
               onChange={(e) => setMcaPrefix(e.target.value)}
               placeholder="EXP-2026-BATCH1"
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Each row gets <code>{`{prefix}-0001, {prefix}-0002…`}</code>
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function BulkNewExportsPage() {
         {usage && (
           <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
             {usageLoading ? (
-              <span className="text-slate-500">Loading license usage…</span>
+              <span className="text-muted-foreground">Loading license usage…</span>
             ) : (
               <div className="flex flex-wrap gap-x-6 gap-y-1">
                 <span className="text-slate-600">
@@ -393,7 +393,7 @@ export default function BulkNewExportsPage() {
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i}>
-                  <td className="text-slate-500 text-xs">{i + 1}</td>
+                  <td className="text-muted-foreground text-xs">{i + 1}</td>
                   <td>
                     <input
                       type="date"
@@ -506,7 +506,7 @@ export default function BulkNewExportsPage() {
                     <button
                       type="button"
                       onClick={() => removeRow(i)}
-                      className="text-slate-400 hover:text-red-600 p-1"
+                      className="ico-delete"
                       title="Remove row"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -525,7 +525,7 @@ export default function BulkNewExportsPage() {
           >
             <Plus className="h-4 w-4" /> Add row
           </button>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-muted-foreground">
             Totals — FOB{' '}
             <span className="font-mono">{fmtMoney(batchFob)}</span>, weight{' '}
             <span className="font-mono">{batchWeight.toLocaleString()}</span> MT

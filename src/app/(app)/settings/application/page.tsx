@@ -128,7 +128,7 @@ export default function ApplicationSettingsPage() {
             <SettingsIcon className="h-6 w-6 text-primary-600" />
             Application Settings
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Branding and color palette shown across the app. Stored as a
             single row in <code>application_settings_t</code>.
           </p>
@@ -176,7 +176,7 @@ export default function ApplicationSettingsPage() {
                 disabled={loading}
                 required
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Shown in the sidebar header.
               </p>
             </div>
@@ -191,7 +191,7 @@ export default function ApplicationSettingsPage() {
                 disabled={loading}
                 required
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Shown in the browser tab and used in metadata.
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function ApplicationSettingsPage() {
               disabled={loading}
               placeholder="Management Console"
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Optional subtitle under the project name.
             </p>
           </div>
@@ -223,7 +223,7 @@ export default function ApplicationSettingsPage() {
               maxLength={300}
               placeholder="© {year} Your Company · All rights reserved."
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Shown across the bottom of every authenticated page. Use{' '}
               <code>{'{year}'}</code> to insert the current year.
             </p>
@@ -296,7 +296,7 @@ export default function ApplicationSettingsPage() {
               Accent
             </span>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Changes apply across the app after saving and reloading.
           </p>
         </aside>
@@ -380,7 +380,7 @@ function ColorField({
           maxLength={7}
         />
       </div>
-      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }
@@ -473,7 +473,7 @@ function FileField({
               className="max-h-full max-w-full object-contain"
             />
           ) : (
-            <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
               None
             </span>
           )}
@@ -513,11 +513,11 @@ function FileField({
             )}
           </div>
           {value && (
-            <code className="text-xs text-slate-500 truncate">{value}</code>
+            <code className="text-xs text-muted-foreground truncate">{value}</code>
           )}
         </div>
       </div>
-      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

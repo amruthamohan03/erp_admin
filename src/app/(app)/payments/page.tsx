@@ -52,7 +52,7 @@ const CARDS: Array<{ key: string; label: string; grad: string }> = [
 function fmt(v: string | number | null | undefined): string {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
   return (Number.isFinite(n) ? (n as number) : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+}
 
 // Derive the display status + the ONE actionable stage for a row.
 function statusOf(r: Row): { label: string; cls: string; stage: Stage | null } {
@@ -189,9 +189,9 @@ export default function PaymentsPage() {
 
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2"><Layers className="h-4 w-4 text-slate-500" /> List of Payment Requests</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2"><Layers className="h-4 w-4 text-muted-foreground" /> List of Payment Requests</span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input className="input pl-9 text-sm w-64" placeholder="Search requestee, beneficiary, client…"
               value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
@@ -208,8 +208,8 @@ export default function PaymentsPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && (<tr><td colSpan={13} className="text-center text-slate-500 py-8">Loading…</td></tr>)}
-              {!loading && items.length === 0 && (<tr><td colSpan={13} className="text-center text-slate-500 py-8">No payment requests found.</td></tr>)}
+              {loading && (<tr><td colSpan={13} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
+              {!loading && items.length === 0 && (<tr><td colSpan={13} className="text-center text-muted-foreground py-8">No payment requests found.</td></tr>)}
               {!loading && items.map((r) => {
                 const st = statusOf(r);
                 const canAct = st.stage != null && canStage.has(st.stage);
@@ -233,8 +233,8 @@ export default function PaymentsPage() {
                     <td className="text-slate-600">{fmtDate(r.created_at)}</td>
                     <td>
                       <div className="inline-flex items-center gap-1 justify-center">
-                        <button type="button" onClick={() => openView(r.id)} title="View" className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-slate-600 hover:bg-slate-700 text-white"><Eye className="h-3.5 w-3.5" /></button>
-                        <Link href={`/payments/${r.id}`} title="Edit" className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 hover:bg-primary-700 text-white"><Edit2 className="h-3.5 w-3.5" /></Link>
+                        <button type="button" onClick={() => openView(r.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
+                        <Link href={`/payments/${r.id}`} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
                         {canAct && st.stage && (
                           <button type="button" onClick={() => openAction(r, st.stage as Stage)} title={`Act: ${st.label}`}
                             className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-2 h-7 text-[11px] font-medium">
@@ -272,18 +272,18 @@ export default function PaymentsPage() {
                   ['Expense Type', view.expense_type_name], ['Cash Collector', view.cash_collector], ['Chargeback', view.chargeback ? fmt(view.chargeback as string) : '—'],
                 ] as Array<[string, unknown]>).map(([k, v]) => (
                   <div key={k}>
-                    <dt className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">{k}</dt>
+                    <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{k}</dt>
                     <dd className="text-slate-800 dark:text-slate-100">{v === null || v === undefined || v === '' ? '—' : String(v)}</dd>
                   </div>
                 ))}
               </dl>
               <div className="mt-4">
-                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">Motif</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Motif</div>
                 <div className="rounded-md bg-slate-50 dark:bg-slate-800/40 p-2 text-sm whitespace-pre-wrap">{String(view.motif ?? '—')}</div>
               </div>
               {mcaLines.length > 0 && (
                 <div className="mt-4">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">References ({mcaLines.length})</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">References ({mcaLines.length})</div>
                   <table className="table-base text-xs">
                     <thead><tr><th>#</th><th>Reference</th><th className="text-right">Amount</th></tr></thead>
                     <tbody>
@@ -296,12 +296,12 @@ export default function PaymentsPage() {
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                 {([['Dept', 'dept_approval', 'dept_approved_by_name'], ['Finance', 'finance_approval', 'finance_approved_by_name'], ['Mgmt', 'management_approval', 'management_approved_by_name'], ['Under Proc.', 'under_process', 'under_process_by_name'], ['Paid', 'paid_approval', 'paid_approved_by_name']] as Array<[string, string, string]>).map(([label, ap, by]) => {
                   const v = view[ap] as number | null;
-                  const badge = v === 1 ? 'bg-emerald-100 text-emerald-700' : v === -1 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500';
+                  const badge = v === 1 ? 'bg-emerald-100 text-emerald-700' : v === -1 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-muted-foreground';
                   return (
                     <div key={label} className="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-center">
                       <div className="font-semibold text-slate-600 dark:text-slate-300 mb-1">{label}</div>
                       <span className={`inline-block rounded-full px-2 py-0.5 ${badge}`}>{v === 1 ? 'Approved' : v === -1 ? 'Rejected' : 'Pending'}</span>
-                      {view[by] ? <div className="mt-1 text-slate-400 truncate">{String(view[by])}</div> : null}
+                      {view[by] ? <div className="mt-1 text-muted-foreground truncate">{String(view[by])}</div> : null}
                     </div>
                   );
                 })}
@@ -334,11 +334,15 @@ export default function PaymentsPage() {
                 </div>
               )}
               <div>
-                <label className="label">Rejection reason <span className="text-slate-400">(only if rejecting)</span></label>
+                <label className="label">Rejection reason <span className="text-muted-foreground">(only if rejecting)</span></label>
                 <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason…" />
               </div>
             </div>
+            {/* §4.21 — a way out that is not the X or the backdrop. This modal
+                commits an approval, so leaving without deciding must be an
+                explicit, labelled choice. */}
             <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+              <button type="button" onClick={() => setAct(null)} disabled={busy} className="btn-secondary">Cancel</button>
               <button type="button" onClick={submitReject} disabled={busy} className="btn-danger"><X className="h-4 w-4" /> Reject</button>
               <button type="button" onClick={submitApprove} disabled={busy} className="btn-primary"><Check className="h-4 w-4" /> {busy ? '…' : 'Approve'}</button>
             </div>

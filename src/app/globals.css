@@ -11,13 +11,17 @@
    */
   :root {
     --background: 220 33% 98%;
-    --foreground: 222 47% 11%;
+    /* Body text is near-black, not a soft slate. The previous 11% lightness read
+       as grey against white and made long forms tiring; secondary text is
+       distinguished by weight and by --muted-foreground, not by fading the
+       primary colour. */
+    --foreground: 222 45% 6%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 45% 6%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 45% 6%;
 
     --primary: 243 75% 59%;
     --primary-foreground: 0 0% 98%;
@@ -29,13 +33,16 @@
     --primary-900: 243 75% 28%;
 
     --secondary: 214 32% 95%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary-foreground: 222 45% 6%;
 
     --muted: 214 32% 95%;
-    --muted-foreground: 215 16% 47%;
+    /* Secondary text still has to be READ — hints, table meta, "Showing 1–20 of
+       340". At 47% it was mid-grey and failed against white for anyone not in
+       ideal lighting; 30% keeps the hierarchy but stays comfortably legible. */
+    --muted-foreground: 215 22% 30%;
 
     --accent: 214 32% 94%;
-    --accent-foreground: 222 47% 11%;
+    --accent-foreground: 222 45% 6%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
@@ -46,8 +53,13 @@
     --warning: 32 95% 44%;
     --warning-foreground: 0 0% 98%;
 
+    /* --border is structural (card edges, dividers) and stays light so the page
+       does not turn into a grid of boxes. --input is the border of a control the
+       user is meant to type into, and is deliberately much darker: an input has
+       to announce where its edges are. The two are separate tokens precisely so
+       they can differ. */
     --border: 214 32% 90%;
-    --input: 214 32% 88%;
+    --input: 216 28% 22%;
     --ring: 243 75% 59%;
 
     /* Brand — the gradient chrome (header, footer strip) and emphasis surfaces. */
@@ -92,7 +104,8 @@
     --secondary-foreground: 210 40% 96%;
 
     --muted: 222 25% 17%;
-    --muted-foreground: 215 20% 68%;
+    /* Mirrors the light theme's intent — secondary text that is still readable. */
+    --muted-foreground: 215 22% 76%;
 
     --accent: 222 25% 19%;
     --accent-foreground: 210 40% 96%;
@@ -106,8 +119,11 @@
     --warning: 32 85% 55%;
     --warning-foreground: 32 40% 8%;
 
+    /* The light theme darkens --input to make a control's edge obvious; on a dark
+       ground the same intent means going LIGHTER, not darker. Inverting the value
+       rather than copying it is what keeps the two themes equivalent. */
     --border: 222 22% 20%;
-    --input: 222 22% 24%;
+    --input: 220 16% 52%;
     --ring: 243 80% 70%;
 
     --brand: 243 80% 70%;
@@ -181,12 +197,50 @@
   .btn-primary { @apply btn bg-primary text-primary-foreground shadow-sm hover:bg-primary/90; }
   .btn-secondary { @apply btn border border-border bg-secondary text-secondary-foreground hover:bg-accent; }
   .btn-danger { @apply btn bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90; }
+
+  /* §4.20 — an action button is coloured by WHAT IT PRODUCES, not by the page it
+     happens to sit on. Before these existed every screen hand-rolled the same
+     class string, and the same action drifted: "Export All to Excel" was emerald
+     on the licence list but amber on the invoice list, and print was rose in one
+     place and slate in another. Colour is a signal operators learn once. */
+  .btn-pdf { @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-700; }
+  .btn-excel { @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700; }
+  /* Neutral is a real choice, not an absence of one: it marks an action that
+     neither produces a document nor changes data (View, Reset filters). */
+  .btn-neutral { @apply btn bg-slate-600 text-white shadow-sm hover:bg-slate-700; }
+
+  /* §4.20 — row actions. The three that appear in almost every table get a
+     reserved hue, so a column of glyphs is readable without stopping to read the
+     tooltips: view is near-black, edit is blue, delete is red. Filled variant,
+     for tables whose action column uses solid buttons. */
+  .btn-view { @apply btn bg-slate-900 text-white shadow-sm hover:bg-slate-800; }
+  .btn-edit { @apply btn bg-blue-600 text-white shadow-sm hover:bg-blue-700; }
+  .btn-delete { @apply btn bg-red-600 text-white shadow-sm hover:bg-red-700; }
+
+  /* Same three meanings, unfilled, for tables that use bare glyphs (the master
+     screens). Coloured AT REST, not only on hover: an all-grey row of icons that
+     reveals which one deletes only once the pointer is on it makes the operator
+     hunt for the most dangerous control on the page. */
+  .ico {
+    @apply inline-flex items-center justify-center rounded-md p-1 transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+  .ico-view { @apply ico text-foreground hover:bg-accent; }
+  .ico-edit { @apply ico text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10; }
+  .ico-delete { @apply ico text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10; }
+
+  /* Size variants. Declared AFTER the colour classes so their padding wins —
+     both are single-class selectors, so source order is what decides. */
+  .btn-sm { @apply px-3 py-1.5 text-sm; }
+  .btn-icon { @apply h-7 w-7 gap-0 rounded-md p-0; }
   .input {
     @apply w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm
            placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring
            disabled:cursor-not-allowed disabled:opacity-60;
   }
-  .label { @apply mb-1 block text-sm font-medium text-foreground/80; }
+  /* Full-strength foreground: a field label is not secondary information, and the
+     previous /80 was the main source of the washed-out look on long forms. */
+  .label { @apply mb-1 block text-sm font-medium text-foreground; }
 
   /* §4.18 — the required marker. Add `required` to a label's class rather than
      typing a star into the label text, so every screen renders the same glyph in

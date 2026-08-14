@@ -223,12 +223,12 @@ export default function BivacPage() {
             </span>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">PARTIELLE Management</h1>
-              <p className="text-sm text-slate-500">Import-licence allocation & usage tracking (Bivac)</p>
+              <p className="text-sm text-muted-foreground">Import-licence allocation & usage tracking (Bivac)</p>
             </div>
           </div>
           <button
             type="button" disabled title="Excel export — coming in the next pass"
-            className="inline-flex items-center gap-1.5 rounded-md bg-slate-200 text-slate-400 px-3 py-2 text-sm font-medium cursor-not-allowed dark:bg-slate-800"
+            className="btn-excel btn-sm"
           >
             <FileSpreadsheet className="h-4 w-4" /> Export Excel
           </button>
@@ -256,7 +256,7 @@ export default function BivacPage() {
             />
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-64"
               placeholder="Search licence, CRF, client, currency, goods…"
@@ -287,13 +287,13 @@ export default function BivacPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && (<tr><td colSpan={14} className="text-center text-slate-500 py-8">Loading…</td></tr>)}
+              {loading && (<tr><td colSpan={14} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
               {!loading && items.length === 0 && (
-                <tr><td colSpan={14} className="text-center text-slate-500 py-8">No import licences found.</td></tr>
+                <tr><td colSpan={14} className="text-center text-muted-foreground py-8">No import licences found.</td></tr>
               )}
               {!loading && items.map((l, idx) => (
                 <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
                   <td className="font-mono text-xs font-medium">{l.license_number || <span className="text-slate-300">—</span>}</td>
                   <td className="text-slate-600 text-xs">{l.ref_cod || <span className="text-slate-300">—</span>}</td>
                   <td className="text-center">
@@ -306,7 +306,7 @@ export default function BivacPage() {
                         {l.partielle_count}
                       </button>
                     ) : (
-                      <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold bg-slate-100 text-slate-400 dark:bg-slate-800">0</span>
+                      <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold bg-slate-100 text-muted-foreground dark:bg-slate-800">0</span>
                     )}
                   </td>
                   <td className="font-medium">{l.client_name || <span className="text-slate-300">—</span>}</td>
@@ -357,7 +357,7 @@ export default function BivacPage() {
                 ['Files', String(totals.files)],
               ].map(([label, val]) => (
                 <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-800/40">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">{label}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
                   <div className="text-sm font-bold text-slate-800 dark:text-slate-100 tabular-nums">{val}</div>
                 </div>
               ))}
@@ -379,9 +379,9 @@ export default function BivacPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {partialsLoading && (<tr><td colSpan={9} className="text-center text-slate-500 py-6">Loading…</td></tr>)}
+                  {partialsLoading && (<tr><td colSpan={9} className="text-center text-muted-foreground py-6">Loading…</td></tr>)}
                   {!partialsLoading && partials?.length === 0 && (
-                    <tr><td colSpan={9} className="text-center text-slate-500 py-6">No PARTIELLE for this licence.</td></tr>
+                    <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No PARTIELLE for this licence.</td></tr>
                   )}
                   {!partialsLoading && partials?.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
@@ -402,7 +402,7 @@ export default function BivacPage() {
                       </td>
                       <td className="text-center">
                         <button type="button" onClick={() => openEdit(p)} title="Edit allocation"
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 hover:bg-primary-700 text-white">
+                          className="btn-edit btn-icon">
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
                       </td>
@@ -434,11 +434,11 @@ export default function BivacPage() {
                 </tr>
               </thead>
               <tbody>
-                {filesLoading && (<tr><td colSpan={11} className="text-center text-slate-500 py-6">Loading…</td></tr>)}
-                {!filesLoading && files?.length === 0 && (<tr><td colSpan={11} className="text-center text-slate-500 py-6">No import files.</td></tr>)}
+                {filesLoading && (<tr><td colSpan={11} className="text-center text-muted-foreground py-6">Loading…</td></tr>)}
+                {!filesLoading && files?.length === 0 && (<tr><td colSpan={11} className="text-center text-muted-foreground py-6">No import files.</td></tr>)}
                 {!filesLoading && files?.map((f, i) => (
                   <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                    <td className="text-slate-500">{i + 1}</td>
+                    <td className="text-muted-foreground">{i + 1}</td>
                     <td className="font-mono">{f.mca_ref || '—'}</td>
                     <td>{f.inspection_reports || '—'}</td>
                     <td>{f.declaration_reference || '—'}</td>
@@ -499,7 +499,7 @@ export default function BivacPage() {
                   ['AV − Used Wt', `${fmt(avW - edit.used_weight)} KG`], ['AV − Used FOB', fmt(avF - edit.used_fob)],
                 ].map(([label, val]) => (
                   <div key={label} className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/40">
-                    <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">{label}</div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
                     <div className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">{val}</div>
                   </div>
                 ))}

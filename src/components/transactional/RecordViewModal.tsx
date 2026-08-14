@@ -210,7 +210,7 @@ export default function RecordViewModal({
 
         <div className="p-5 max-h-[75vh] overflow-y-auto">
           {loading && (
-            <div className="py-12 text-center text-sm text-slate-500">Loading details…</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">Loading details…</div>
           )}
 
           {!loading && error && (
@@ -239,7 +239,7 @@ export default function RecordViewModal({
                     </div>
                     <div className="p-4">
                       {acc.fields.length === 0 ? (
-                        <p className="text-sm text-slate-400">No fields.</p>
+                        <p className="text-sm text-muted-foreground">No fields.</p>
                       ) : (
                         <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                           {acc.fields.map((f) => (
@@ -247,7 +247,7 @@ export default function RecordViewModal({
                               key={f.id}
                               className={WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''}
                             >
-                              <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                                 {f.label}
                               </dt>
                               <dd className="mt-0.5 text-sm text-slate-800 break-words dark:text-slate-100">
@@ -279,7 +279,7 @@ export default function RecordViewModal({
             <button
               type="button"
               onClick={onExport}
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
+              className="btn-excel btn-sm"
             >
               <FileSpreadsheet className="h-4 w-4" /> Export
             </button>

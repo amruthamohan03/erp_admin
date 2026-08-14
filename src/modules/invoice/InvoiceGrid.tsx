@@ -228,7 +228,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
   );
 
   if (loading) {
-    return <div className="card mt-6 p-6 text-center text-slate-500">Loading invoice grid…</div>;
+    return <div className="card mt-6 p-6 text-center text-muted-foreground">Loading invoice grid…</div>;
   }
   if (error) {
     return (
@@ -297,7 +297,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
             <tbody>
               {mca.length === 0 && (
                 <tr>
-                  <td colSpan={kind === 'export' ? 9 : 3} className="py-4 text-center text-slate-400">
+                  <td colSpan={kind === 'export' ? 9 : 3} className="py-4 text-center text-muted-foreground">
                     No MCA references selected.
                   </td>
                 </tr>
@@ -401,19 +401,19 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={readonly ? 9 : 10} className="py-4 text-center text-slate-400">
+                  <td colSpan={readonly ? 9 : 10} className="py-4 text-center text-muted-foreground">
                     No items. Load from a quotation or add a row.
                   </td>
                 </tr>
               )}
               {items.map((it, idx) => (
                 <tr key={it.id ?? `new-${idx}`}>
-                  <td className="text-slate-500">{it.category_header ?? it.category_name ?? '—'}</td>
+                  <td className="text-muted-foreground">{it.category_header ?? it.category_name ?? '—'}</td>
                   <td>
                     <input value={it.item_name ?? ''} disabled={readonly}
                       onChange={(e) => patchItem(idx, { item_name: e.target.value })} className="input min-w-[12rem]" />
                   </td>
-                  <td className="text-slate-500">{it.unit_text ?? '—'}</td>
+                  <td className="text-muted-foreground">{it.unit_text ?? '—'}</td>
                   <td>
                     <input type="number" step="0.001" value={it.quantity} disabled={readonly}
                       onChange={(e) => patchItem(idx, { quantity: Number(e.target.value) })} className="input w-20" />
@@ -451,7 +451,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
             </tfoot>
           </table>
         </div>
-        <div className="mt-3 text-sm text-slate-500">
+        <div className="mt-3 text-sm text-muted-foreground">
           Total weight: <span className="font-medium tabular-nums">{money(totals.weight)}</span>
         </div>
       </div>

@@ -288,7 +288,7 @@ export default function LicensesListPage() {
           type="button"
           onClick={exportAll}
           title="Export all licenses (respects active filters) to Excel/CSV"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
+          className="btn-excel btn-sm"
         >
           <FileSpreadsheet className="h-4 w-4" /> Export All to Excel
         </button>
@@ -422,7 +422,7 @@ export default function LicensesListPage() {
       {/* ---- List card ---- */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-slate-500" />
+          <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold text-slate-800">License List</span>
           {activeCard !== 'all' && (
             <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">
@@ -446,11 +446,11 @@ export default function LicensesListPage() {
                 setPage(1);
               }}
             />
-            <span className="text-slate-500">entries per page</span>
+            <span className="text-muted-foreground">entries per page</span>
           </div>
 
           <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-64"
               placeholder="Search license, client, bank, invoice..."
@@ -483,14 +483,14 @@ export default function LicensesListPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={11} className="text-center text-slate-500 py-8">
+                  <td colSpan={11} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center text-slate-500 py-8">
+                  <td colSpan={11} className="text-center text-muted-foreground py-8">
                     No licenses found — click <strong>New License</strong> to
                     create one.
                   </td>
@@ -499,7 +499,7 @@ export default function LicensesListPage() {
               {!loading &&
                 items.map((l, idx) => (
                   <tr key={l.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-muted-foreground font-medium">
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-mono text-xs font-medium">
@@ -549,14 +549,14 @@ export default function LicensesListPage() {
                           type="button"
                           onClick={() => setViewId(l.id)}
                           title="View details"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
+                          className="btn-view btn-icon"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         <Link
                           href={`/licenses/${l.id}`}
                           title="Edit"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-primary-600 hover:bg-primary-700 text-white transition"
+                          className="btn-edit btn-icon"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </Link>
@@ -564,7 +564,7 @@ export default function LicensesListPage() {
                           type="button"
                           onClick={() => exportOne(l.id)}
                           title="Export to Excel"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                          className="btn-excel btn-icon transition"
                         >
                           <FileSpreadsheet className="h-3.5 w-3.5" />
                         </button>

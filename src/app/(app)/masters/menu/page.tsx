@@ -5,6 +5,7 @@ import { Plus, Search, Trash2, Edit2, X, Eye, EyeOff } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MenuItem } from '@/types/menu';
 
@@ -19,6 +20,8 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<MenuRow | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,9 +77,10 @@ export default function MenuPage() {
     const res = await fetch(`/api/v1/menus/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This menu could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The menu has been disabled.' });
     load();
   }
 
@@ -88,9 +92,10 @@ export default function MenuPage() {
     });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This menu could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The menu has been disabled.' });
     load();
   }
 
@@ -99,7 +104,7 @@ export default function MenuPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Menu Management</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage sidebar menus. Maximum 2 levels (parent + child).
           </p>
         </div>
@@ -111,7 +116,7 @@ export default function MenuPage() {
       <div className="card">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
           <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9"
               placeholder="Search name, url, parent..."
@@ -150,14 +155,14 @@ export default function MenuPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="text-center text-slate-500 py-8">
+                  <td colSpan={9} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && paged.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center text-slate-500 py-8">
+                  <td colSpan={9} className="text-center text-muted-foreground py-8">
                     No menus found
                   </td>
                 </tr>
@@ -168,10 +173,10 @@ export default function MenuPage() {
                   const serial = startIndex + idx + 1;
                   return (
                     <tr key={m.id} className="hover:bg-slate-50">
-                      <td className="text-slate-500 font-medium">{serial}</td>
+                      <td className="text-muted-foreground font-medium">{serial}</td>
                       <td>
                         <span className={isParent ? 'font-semibold' : 'pl-4'}>
-                          {!isParent && <span className="text-slate-400">└ </span>}
+                          {!isParent && <span className="text-muted-foreground">└ </span>}
                           {m.menu_name}
                         </span>
                       </td>
@@ -195,7 +200,7 @@ export default function MenuPage() {
                         {m.icon ? (
                           <span className="inline-flex items-center gap-1 text-xs">
                             <i className={m.icon} />
-                            <code className="text-slate-500">{m.icon}</code>
+                            <code className="text-muted-foreground">{m.icon}</code>
                           </span>
                         ) : (
                           '—'
@@ -206,7 +211,7 @@ export default function MenuPage() {
                           className={
                             m.display === 'Y'
                               ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
-                              : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500'
+                              : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
                           }
                         >
                           {m.display === 'Y' ? 'Active' : 'Disabled'}
@@ -215,7 +220,7 @@ export default function MenuPage() {
                       <td className="text-right whitespace-nowrap">
                         <button
                           onClick={() => toggleVisibility(m)}
-                          className="text-slate-500 hover:text-amber-600 p-1"
+                          className="text-muted-foreground hover:text-amber-600 p-1"
                           title={m.display === 'Y' ? 'Disable' : 'Enable'}
                         >
                           {m.display === 'Y' ? (
@@ -226,14 +231,14 @@ export default function MenuPage() {
                         </button>
                         <button
                           onClick={() => setEditing(m)}
-                          className="text-slate-500 hover:text-primary-600 p-1 ml-1"
+                          className="ico-edit ml-1"
                           title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(m.id)}
-                          className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                          className="ico-delete ml-1"
                           title="Disable"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -265,6 +270,7 @@ export default function MenuPage() {
           onSaved={() => {
             setShowCreate(false);
             load();
+            setResult({ status: 'success', title: 'Created', message: 'The menu has been created.' });
           }}
         />
       )}
@@ -277,9 +283,12 @@ export default function MenuPage() {
           onSaved={() => {
             setEditing(null);
             load();
+            setResult({ status: 'success', title: 'Saved', message: 'Your changes to this menu have been saved.' });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -350,7 +359,7 @@ function MenuFormModal({
       <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">{isEdit ? 'Edit Menu' : 'Create Menu'}</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -385,7 +394,7 @@ function MenuFormModal({
                 emptyLabel="— None (top-level) —"
                 placeholder="Select parent..."
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Leave empty for a top-level menu.
               </p>
             </div>
@@ -411,7 +420,7 @@ function MenuFormModal({
               onChange={(e) => setForm({ ...form, url: e.target.value })}
               placeholder="e.g. menu/index or # for groups"
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Use <code>#</code> for parent groups that just expand. Otherwise use
               paths like <code>users/index</code>.
             </p>
@@ -427,7 +436,7 @@ function MenuFormModal({
                 placeholder="ti ti-dashboard"
               />
               {form.icon && (
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   Preview: <i className={form.icon} />
                 </p>
               )}

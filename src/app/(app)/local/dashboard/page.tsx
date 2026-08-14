@@ -22,7 +22,7 @@ const TOP_COLORS = ['#6366f1', '#10b981', '#f59e0b'];
 
 function HBars({ data }: { data: Array<{ label: string; value: number }> }) {
   const max = Math.max(1, ...data.map((d) => d.value));
-  if (data.length === 0) return <p className="text-sm text-slate-400 py-8 text-center">No data</p>;
+  if (data.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">No data</p>;
   return (
     <div className="space-y-2">
       {data.map((d, i) => (
@@ -68,13 +68,13 @@ export default function LocalDashboardPage() {
           <span className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white"><Truck className="h-6 w-6" /></span>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Local Tracking Dashboard</h1>
-            <p className="text-sm text-slate-500">Overview of local tracking activities</p>
+            <p className="text-sm text-muted-foreground">Overview of local tracking activities</p>
           </div>
         </div>
         <Link href="/local" className="btn-primary"><List className="h-4 w-4" /> All Trackings</Link>
       </div>
 
-      {loading && <div className="card p-6 text-center text-slate-500">Loading dashboard…</div>}
+      {loading && <div className="card p-6 text-center text-muted-foreground">Loading dashboard…</div>}
 
       {!loading && d && (
         <>
@@ -93,7 +93,7 @@ export default function LocalDashboardPage() {
           <div className="card p-4 mb-5">
             <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><MapPin className="h-4 w-4" /> Top Locations</h3>
             <div className="flex flex-wrap gap-2">
-              {d.top_locations.length === 0 ? <span className="text-sm text-slate-400">No data</span> : d.top_locations.map((l, i) => (
+              {d.top_locations.length === 0 ? <span className="text-sm text-muted-foreground">No data</span> : d.top_locations.map((l, i) => (
                 <span key={l.location_name} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white font-semibold text-sm" style={{ background: TOP_COLORS[i] ?? '#64748b' }}>
                   {l.location_name} <span className="opacity-90">· {num(l.file_count)} files</span>
                 </span>
@@ -115,15 +115,15 @@ export default function LocalDashboardPage() {
           {/* Monthly trend */}
           <div className="card p-4 mb-5">
             <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Monthly Trend (Last 12 Months)</h3>
-            {d.monthly_trend.length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">No data</p> : (
+            {d.monthly_trend.length === 0 ? <p className="text-sm text-muted-foreground py-8 text-center">No data</p> : (
               <div className="flex items-end gap-2 h-40">
                 {d.monthly_trend.map((m) => (
                   <div key={m.month_name} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                    <div className="text-[10px] text-slate-600 dark:text-slate-400">{m.tracking_count}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-muted-foreground">{m.tracking_count}</div>
                     <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t flex items-end" style={{ height: '100%' }}>
                       <div className="w-full bg-gradient-to-t from-indigo-500 to-violet-400 rounded-t" style={{ height: `${(m.tracking_count / maxMonth) * 100}%` }} title={`${m.month_name}: ${m.tracking_count}`} />
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate w-full text-center">{m.month_name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate w-full text-center">{m.month_name}</div>
                   </div>
                 ))}
               </div>
@@ -148,10 +148,10 @@ export default function LocalDashboardPage() {
               <table className="table-base">
                 <thead><tr><th className="w-12">#</th><th>Client</th><th className="text-right">Trackings</th><th className="text-right">Weight (T)</th></tr></thead>
                 <tbody>
-                  {d.top_clients.length === 0 && (<tr><td colSpan={4} className="text-center text-slate-500 py-6">No data</td></tr>)}
+                  {d.top_clients.length === 0 && (<tr><td colSpan={4} className="text-center text-muted-foreground py-6">No data</td></tr>)}
                   {d.top_clients.map((c, i) => (
                     <tr key={c.short_name + i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="text-slate-500 font-medium">{i + 1}</td>
+                      <td className="text-muted-foreground font-medium">{i + 1}</td>
                       <td className="font-medium">{c.company_name || c.short_name}</td>
                       <td className="text-right tabular-nums">{num(c.tracking_count)}</td>
                       <td className="text-right tabular-nums font-semibold">{dec(c.total_weight)}</td>
@@ -169,7 +169,7 @@ export default function LocalDashboardPage() {
               <table className="table-base whitespace-nowrap">
                 <thead><tr><th>#</th><th>Reference</th><th>Client</th><th>Location</th><th>Horse</th><th className="text-right">Weight</th><th className="text-right">Bags</th><th>CEEC Status</th></tr></thead>
                 <tbody>
-                  {d.recent_trackings.length === 0 && (<tr><td colSpan={8} className="text-center text-slate-500 py-6">No data</td></tr>)}
+                  {d.recent_trackings.length === 0 && (<tr><td colSpan={8} className="text-center text-muted-foreground py-6">No data</td></tr>)}
                   {d.recent_trackings.map((t) => {
                     const ceecOut = t.ceec_out as string | null;
                     const ceecIn = t.ceec_in as string | null;

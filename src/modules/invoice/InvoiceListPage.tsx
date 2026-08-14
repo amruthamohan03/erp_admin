@@ -175,10 +175,10 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
           <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-slate-500" /> List of {title}
+            <Layers className="h-4 w-4 text-muted-foreground" /> List of {title}
           </span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-64"
               placeholder="Search ref, client…"
@@ -208,14 +208,14 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="text-center text-slate-500 py-8">
+                  <td colSpan={8} className="text-center text-muted-foreground py-8">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-slate-500 py-8">
+                  <td colSpan={8} className="text-center text-muted-foreground py-8">
                     No invoices found.
                   </td>
                 </tr>
@@ -225,7 +225,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
                   const st = statusOf(r.validated);
                   return (
                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                      <td className="text-slate-500">{startIndex + idx + 1}</td>
+                      <td className="text-muted-foreground">{startIndex + idx + 1}</td>
                       <td className="font-medium">{r.invoice_ref || '—'}</td>
                       <td>{r.client_name || 'N/A'}</td>
                       {kind === 'export' && <td className="text-slate-600">{r.invoice_date || '—'}</td>}
@@ -241,7 +241,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
                           <Link
                             href={`/${kind}-invoices/${r.id}`}
                             title="Edit"
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 hover:bg-primary-700 text-white"
+                            className="btn-edit btn-icon"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </Link>
@@ -270,7 +270,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
                               type="button"
                               onClick={() => setConfirm({ row: r, action: 'delete' })}
                               title="Delete"
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-red-600 hover:bg-red-700 text-white"
+                              className="btn-delete btn-icon"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -314,7 +314,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
             <div className="p-5 space-y-3">
               {err && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
               <p className="text-sm text-slate-600 dark:text-slate-300">{confirmText}</p>
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-muted-foreground">
                 {confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · {fmt(confirm.row.total_usd)} USD
               </div>
             </div>

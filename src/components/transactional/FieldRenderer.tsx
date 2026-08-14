@@ -320,7 +320,7 @@ function TextField({ field, value, readonly, onChange, requiredOverride, entityI
               ? 'text-red-600 dark:text-red-400'
               : status === 'available'
                 ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-slate-500 dark:text-slate-400'
+                : 'text-muted-foreground dark:text-muted-foreground'
           }`}
         >
           {message}
@@ -409,7 +409,7 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
           onChange={handleSelect}
         />
       )}
-      {uploading && <p className="text-xs text-slate-500 mt-1">Uploading…</p>}
+      {uploading && <p className="text-xs text-muted-foreground mt-1">Uploading…</p>}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   );

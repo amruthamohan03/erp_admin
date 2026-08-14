@@ -294,7 +294,7 @@ export default function BulkUpdatePage() {
             <Database className="h-6 w-6 text-primary-600" />
             Bulk Update
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Apply one or more field updates to every row matching a filter.
             Workflow-gated columns (e.g. <code>state</code>) are excluded by
             design — use the case-runtime transition endpoints for those.
@@ -340,7 +340,7 @@ export default function BulkUpdatePage() {
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <div className="font-medium">Filter rows</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted-foreground">
                   All conditions ANDed together. Allowed columns are
                   code-whitelisted.
                 </div>
@@ -354,7 +354,7 @@ export default function BulkUpdatePage() {
             </div>
             <div className="p-4 space-y-2">
               {filters.length === 0 && (
-                <div className="text-sm text-slate-400 text-center py-4">
+                <div className="text-sm text-muted-foreground text-center py-4">
                   No filters — add one to scope the update.
                 </div>
               )}
@@ -403,7 +403,7 @@ export default function BulkUpdatePage() {
                     />
                     <button
                       onClick={() => removeFilter(f._id)}
-                      className="text-slate-400 hover:text-red-600 p-1"
+                      className="ico-delete"
                       title="Remove"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -439,7 +439,7 @@ export default function BulkUpdatePage() {
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <div className="font-medium">Set fields</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted-foreground">
                   Editable columns are code-whitelisted. Empty value sets
                   NULL for non-text fields.
                 </div>
@@ -453,7 +453,7 @@ export default function BulkUpdatePage() {
             </div>
             <div className="p-4 space-y-2">
               {patches.length === 0 && (
-                <div className="text-sm text-slate-400 text-center py-4">
+                <div className="text-sm text-muted-foreground text-center py-4">
                   No fields — add one to define the patch.
                 </div>
               )}
@@ -487,7 +487,7 @@ export default function BulkUpdatePage() {
                     />
                     <button
                       onClick={() => removePatch(p._id)}
-                      className="text-slate-400 hover:text-red-600 p-1"
+                      className="ico-delete"
                       title="Remove"
                     >
                       <Trash2 className="h-4 w-4" />

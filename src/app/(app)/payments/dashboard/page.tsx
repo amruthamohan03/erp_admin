@@ -65,13 +65,13 @@ export default function PaymentDashboardPage() {
           <span className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white"><BarChart3 className="h-6 w-6" /></span>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Payment Dashboard</h1>
-            <p className="text-sm text-slate-500">Real-time payment insights</p>
+            <p className="text-sm text-muted-foreground">Real-time payment insights</p>
           </div>
         </div>
         <Link href="/payments" className="btn-primary"><Wallet className="h-4 w-4" /> Payment Requests</Link>
       </div>
 
-      {loading && <div className="card p-6 text-center text-slate-500">Loading dashboard…</div>}
+      {loading && <div className="card p-6 text-center text-muted-foreground">Loading dashboard…</div>}
 
       {!loading && d && (
         <>
@@ -95,16 +95,16 @@ export default function PaymentDashboardPage() {
             <div className="card p-4 lg:col-span-2">
               <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Monthly Revenue</h3>
               {d.monthly.length === 0 ? (
-                <p className="text-sm text-slate-500 py-12 text-center">No data</p>
+                <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
               ) : (
                 <div className="flex items-end gap-2 h-48">
                   {d.monthly.map((m) => (
                     <div key={m.month_name} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                      <div className="text-[10px] text-slate-600 dark:text-slate-400 tabular-nums">{money(m.revenue)}</div>
+                      <div className="text-[10px] text-slate-600 dark:text-muted-foreground tabular-nums">{money(m.revenue)}</div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t flex items-end" style={{ height: '100%' }}>
                         <div className="w-full bg-gradient-to-t from-indigo-500 to-violet-400 rounded-t" style={{ height: `${(m.revenue / maxRev) * 100}%` }} title={`${m.month_name}: ${money(m.revenue)}`} />
                       </div>
-                      <div className="text-[10px] text-slate-500 truncate w-full text-center">{m.month_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate w-full text-center">{m.month_name}</div>
                     </div>
                   ))}
                 </div>
@@ -115,7 +115,7 @@ export default function PaymentDashboardPage() {
             <div className="card p-4">
               <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Status Overview</h3>
               {d.status_cards.length === 0 ? (
-                <p className="text-sm text-slate-500 py-12 text-center">No data</p>
+                <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
               ) : (
                 <div className="space-y-2">
                   {d.status_cards.map((s) => (
@@ -136,10 +136,10 @@ export default function PaymentDashboardPage() {
               <table className="table-base">
                 <thead><tr><th className="w-12">#</th><th>Client</th><th className="text-right">Requests</th><th className="text-right">Total Amount</th></tr></thead>
                 <tbody>
-                  {d.top_clients.length === 0 && (<tr><td colSpan={4} className="text-center text-slate-500 py-6">No data</td></tr>)}
+                  {d.top_clients.length === 0 && (<tr><td colSpan={4} className="text-center text-muted-foreground py-6">No data</td></tr>)}
                   {d.top_clients.map((c, i) => (
                     <tr key={c.company_name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="text-slate-500 font-medium">{i + 1}</td>
+                      <td className="text-muted-foreground font-medium">{i + 1}</td>
                       <td className="font-medium">{c.company_name}</td>
                       <td className="text-right tabular-nums">{num(c.total)}</td>
                       <td className="text-right tabular-nums font-semibold">{money(c.revenue)}</td>

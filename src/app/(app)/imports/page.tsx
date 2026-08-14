@@ -351,7 +351,7 @@ export default function ImportsListPage() {
           type="button"
           onClick={exportAll}
           title="Export all imports (respects active filters) to Excel/CSV"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
+          className="btn-excel btn-sm"
         >
           <FileSpreadsheet className="h-4 w-4" /> Export All to Excel
         </button>
@@ -524,7 +524,7 @@ export default function ImportsListPage() {
       {/* ---- List card ---- */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <Truck className="h-4 w-4 text-slate-500" />
+          <Truck className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold text-slate-800">Imports List</span>
           {activeFilters.map((key) => (
             <span
@@ -550,7 +550,7 @@ export default function ImportsListPage() {
                 setPage(1);
               }}
             />
-            <span className="text-slate-500">imports per page</span>
+            <span className="text-muted-foreground">imports per page</span>
             {pendingActive.length > 0 && (
               <button
                 type="button"
@@ -563,7 +563,7 @@ export default function ImportsListPage() {
             )}
           </div>
           <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-64"
               placeholder="Search MCA ref, client, invoice..."
@@ -595,14 +595,14 @@ export default function ImportsListPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     No imports found — click <strong>New Import</strong> to
                     create one.
                   </td>
@@ -611,7 +611,7 @@ export default function ImportsListPage() {
               {!loading &&
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-muted-foreground font-medium">
                       {startIndex + idx + 1}
                     </td>
                     <td>
@@ -664,14 +664,14 @@ export default function ImportsListPage() {
                           type="button"
                           onClick={() => setViewId(r.id)}
                           title="View details"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
+                          className="btn-view btn-icon"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         <Link
                           href={`/imports/${r.id}`}
                           title="Edit"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-primary-600 hover:bg-primary-700 text-white transition"
+                          className="btn-edit btn-icon"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </Link>
@@ -679,7 +679,7 @@ export default function ImportsListPage() {
                           type="button"
                           onClick={() => exportOne(r.id)}
                           title="Export to Excel"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                          className="btn-excel btn-icon transition"
                         >
                           <FileSpreadsheet className="h-3.5 w-3.5" />
                         </button>

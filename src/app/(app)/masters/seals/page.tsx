@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import { formatDate } from '@/lib/formatDate';
 
@@ -76,7 +77,7 @@ const LOCATION_GRADIENTS = [
   'from-fuchsia-500 to-pink-600', 'from-sky-500 to-cyan-500', 'from-lime-500 to-green-600',
   'from-rose-400 to-amber-400', 'from-cyan-500 to-indigo-700', 'from-orange-400 to-rose-500',
 ];
-
+
 function statusBadge(s: SealStatus): string {
   if (s === 'Used') return 'bg-amber-100 text-amber-800 border-amber-200';
   if (s === 'Damaged') return 'bg-red-100 text-red-700 border-red-200';
@@ -111,6 +112,8 @@ export default function SealsPage() {
   const [manageFor, setManageFor] = useState<SealMasterRow | null>(null);
   const [viewData, setViewData] = useState<Record<string, unknown> | null>(null);
   const [editNumber, setEditNumber] = useState<{ id: number; seal_number: string; status: SealStatus; notes: string; location: string } | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const totalSeal = useMemo(() => {
     const amt = parseFloat(form.total_amount); return Number.isFinite(amt) && amt > 0 ? Math.floor(amt / SEAL_UNIT_PRICE) : 0;
@@ -247,7 +250,11 @@ export default function SealsPage() {
   async function deleteMaster(id: number) {
     if (!confirm('Delete this seal master (and its seal numbers)?')) return;
     const res = await fetch(`/api/v1/seals/${id}`, { method: 'DELETE' }); const j = await res.json();
-    if (!j.ok) { alert(j.error?.message || 'Failed'); return; }
+    if (!j.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: j.error?.message || 'This seal master could not be deleted.' });
+      return;
+    }
+    setResult({ status: 'success', title: 'Deleted', message: 'The seal master and its seal numbers have been deleted.' });
     await loadMasters(); await loadStats(); await loadNumbers();
   }
   async function openView(id: number) {
@@ -299,7 +306,7 @@ export default function SealsPage() {
             <ChevronDown className={`h-5 w-5 transition-transform ${formOpen ? 'rotate-180' : ''}`} />
           </button>
           <button type="button" onClick={() => { window.location.href = '/api/v1/seals/export-all'; }}
-            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-sm font-medium">
+            className="btn-excel btn-sm">
             <FileSpreadsheet className="h-4 w-4" /> Export All to Excel
           </button>
         </div>
@@ -372,11 +379,11 @@ export default function SealsPage() {
       {/* ---- masters list ---- */}
       <div className="card mb-4">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-slate-500" /> Seal Masters List
+          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Masters List
             {(masterStatus || masterLocation) ? <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">filtered</span> : null}
           </span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input className="input pl-9 text-sm w-56" placeholder="Search location, sub office..." value={masterSearch} onChange={(e) => { setMasterSearch(e.target.value); mp.resetPage(); }} />
           </div>
         </div>
@@ -386,26 +393,26 @@ export default function SealsPage() {
               <tr><th className="w-12">#</th><th>Office Location</th><th>Sub Office</th><th>Purchase Date</th><th className="text-right">Total Amount</th><th className="text-right">Total Seal</th><th className="text-center">Added</th><th>Display</th><th className="text-center">Actions</th></tr>
             </thead>
             <tbody>
-              {mp.paged.length === 0 && (<tr><td colSpan={9} className="text-center text-slate-500 py-8">No seals found.</td></tr>)}
+              {mp.paged.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No seals found.</td></tr>)}
               {mp.paged.map((m, idx) => (
                 <tr key={m.id} className="hover:bg-slate-50">
-                  <td className="text-slate-500 font-medium">{mp.startIndex + idx + 1}</td>
+                  <td className="text-muted-foreground font-medium">{mp.startIndex + idx + 1}</td>
                   <td className="font-medium">{m.location_name || <span className="text-slate-300">—</span>}</td>
                   <td className="text-slate-600 text-xs">{m.sub_office_code || <span className="text-slate-300">—</span>}</td>
                   <td className="text-slate-600 text-xs">{fmtDate(m.purchase_date)}</td>
                   <td className="text-right text-slate-700 text-xs">${Number(m.total_amount ?? 0).toFixed(2)}</td>
                   <td className="text-right text-slate-700 text-xs">{m.total_seal}</td>
                   <td className="text-center">
-                    <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${m.added_seals >= m.total_seal && m.total_seal > 0 ? 'bg-emerald-100 text-emerald-700' : m.added_seals > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{m.added_seals}</span>
+                    <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${m.added_seals >= m.total_seal && m.total_seal > 0 ? 'bg-emerald-100 text-emerald-700' : m.added_seals > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-muted-foreground'}`}>{m.added_seals}</span>
                   </td>
                   <td>{m.display === 'Y' ? <span className="text-emerald-600 text-xs font-medium">Yes</span> : <span className="text-red-500 text-xs font-medium">No</span>}</td>
                   <td>
                     <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
                       <button type="button" onClick={() => setManageFor(m)} title="Manage Seal Numbers" className="inline-flex items-center justify-center w-7 h-7 bg-fuchsia-600 hover:bg-fuchsia-700 text-white"><ListOrdered className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => openView(m.id)} title="View" className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white"><Eye className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => loadForEdit(m.id)} title="Edit" className="inline-flex items-center justify-center w-7 h-7 bg-primary-600 hover:bg-primary-700 text-white"><Edit2 className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => { window.location.href = `/api/v1/seals/${m.id}/export`; }} title="Export" className="inline-flex items-center justify-center w-7 h-7 bg-emerald-600 hover:bg-emerald-700 text-white"><FileSpreadsheet className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => deleteMaster(m.id)} title="Delete" className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => openView(m.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => loadForEdit(m.id)} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => { window.location.href = `/api/v1/seals/${m.id}/export`; }} title="Export" className="btn-excel btn-icon"><FileSpreadsheet className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => deleteMaster(m.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -419,9 +426,9 @@ export default function SealsPage() {
       {/* ---- individual seal numbers tracker ---- */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-slate-500" /> Seal Numbers — Usage Tracker</span>
+          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Numbers — Usage Tracker</span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input className="input pl-9 text-sm w-56" placeholder="Search seal number, location..." value={numSearch} onChange={(e) => { setNumSearch(e.target.value); np.resetPage(); }} />
           </div>
         </div>
@@ -441,10 +448,10 @@ export default function SealsPage() {
               <tr><th className="w-12">#</th><th>Seal Number</th><th>Status</th><th>Location</th><th>Purchase Date</th><th>Notes</th><th>Created</th></tr>
             </thead>
             <tbody>
-              {np.paged.length === 0 && (<tr><td colSpan={7} className="text-center text-slate-500 py-8">No seal numbers found.</td></tr>)}
+              {np.paged.length === 0 && (<tr><td colSpan={7} className="text-center text-muted-foreground py-8">No seal numbers found.</td></tr>)}
               {np.paged.map((nrow, idx) => (
                 <tr key={nrow.id} className="hover:bg-slate-50">
-                  <td className="text-slate-500 font-medium">{np.startIndex + idx + 1}</td>
+                  <td className="text-muted-foreground font-medium">{np.startIndex + idx + 1}</td>
                   <td className="font-mono font-semibold">{nrow.seal_number}</td>
                   <td><span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(nrow.status)}`}>{nrow.status}</span></td>
                   <td className="text-slate-700 text-xs">{nrow.location || <span className="text-slate-300">—</span>}</td>
@@ -468,6 +475,8 @@ export default function SealsPage() {
       {viewData && (
         <ViewModal data={viewData} onClose={() => setViewData(null)} />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -545,7 +554,7 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 max-h-[75vh] overflow-y-auto">
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
             <div className="text-sm font-semibold text-slate-700 mb-2">Add Seal Numbers</div>
-            <div className="text-xs text-slate-500 mb-1">Added: {added} / {limit}</div>
+            <div className="text-xs text-muted-foreground mb-1">Added: {added} / {limit}</div>
             <div className="w-full h-2 rounded bg-slate-200 mb-3 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
             <div className="inline-flex rounded-md overflow-hidden border border-slate-300 mb-3">
               <button type="button" onClick={() => setMode('single')} className={`px-3 py-1.5 text-sm ${mode === 'single' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>Single</button>
@@ -558,7 +567,7 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
               <div className="grid grid-cols-2 gap-2">
                 <input className="input" placeholder="Start e.g. BB91002" value={start} onChange={(e) => setStart(e.target.value)} />
                 <input className="input" placeholder="End e.g. BB91101" value={end} onChange={(e) => setEnd(e.target.value)} />
-                {start && end && (() => { const r = parseRange(); return <div className="col-span-2 text-xs text-slate-500">{r.ok ? `Will add ${r.nums!.length} seal(s)` : r.message}</div>; })()}
+                {start && end && (() => { const r = parseRange(); return <div className="col-span-2 text-xs text-muted-foreground">{r.ok ? `Will add ${r.nums!.length} seal(s)` : r.message}</div>; })()}
               </div>
             )}
             <button type="button" onClick={add} disabled={busy || added >= limit} className="btn-primary w-full mt-3">
@@ -569,13 +578,13 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
           <div>
             <div className="text-sm font-semibold text-slate-700 mb-2">Existing Seal Numbers ({added})</div>
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-              {list.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">No seal numbers yet.</div>}
+              {list.length === 0 && <div className="text-sm text-muted-foreground py-4 text-center">No seal numbers yet.</div>}
               {list.map((s) => (
                 <div key={s.id} className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
                   <div>
                     <span className="font-mono font-semibold">{s.seal_number}</span>
                     <span className={`ml-2 inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(s.status)}`}>{s.status}</span>
-                    {s.notes && <div className="text-xs text-slate-500 mt-0.5">{s.notes}</div>}
+                    {s.notes && <div className="text-xs text-muted-foreground mt-0.5">{s.notes}</div>}
                   </div>
                   <button type="button" onClick={() => onEditNumber({ id: s.id, seal_number: s.seal_number, status: s.status, notes: s.notes ?? '', location: s.location ?? '' })}
                     className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"><Edit2 className="h-3.5 w-3.5" /> Edit</button>

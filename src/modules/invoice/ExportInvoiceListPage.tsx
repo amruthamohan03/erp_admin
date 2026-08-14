@@ -190,10 +190,10 @@ export default function ExportInvoiceListPage() {
             <FileText className="h-5 w-5 text-primary-600" /> Export Invoices
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => exportProfile('dn')} className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-sm font-medium">
+            <button type="button" onClick={() => exportProfile('dn')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Export DN
             </button>
-            <button type="button" onClick={() => exportProfile('inv')} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium">
+            <button type="button" onClick={() => exportProfile('inv')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Export INV
             </button>
             <Link href="/export-invoices/new" className="btn-primary"><Plus className="h-4 w-4" /> New Invoice</Link>
@@ -232,11 +232,11 @@ export default function ExportInvoiceListPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input type="date" className="input py-1 text-xs w-36" value={dateFrom} max={dateTo || undefined}
               onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} title="From date" />
-            <span className="text-xs text-slate-400">to</span>
+            <span className="text-xs text-muted-foreground">to</span>
             <input type="date" className="input py-1 text-xs w-36" value={dateTo} min={dateFrom || undefined}
               onChange={(e) => { setDateTo(e.target.value); setPage(1); }} title="To date" />
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input className="input pl-9 text-sm w-56" placeholder="Search ref, client, goods…"
                 value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
             </div>
@@ -258,14 +258,14 @@ export default function ExportInvoiceListPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={8} className="text-center text-slate-500 py-8">Loading…</td></tr>}
-              {!loading && items.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-8">No invoices found.</td></tr>}
+              {loading && <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Loading…</td></tr>}
+              {!loading && items.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground py-8">No invoices found.</td></tr>}
               {!loading && items.map((r, idx) => {
                 const st = statusOf(r);
                 const complete = dgiComplete(r);
                 return (
                   <tr key={r.id} className="hover:bg-slate-50 text-xs">
-                    <td className="text-slate-500">{startIndex + idx + 1}</td>
+                    <td className="text-muted-foreground">{startIndex + idx + 1}</td>
                     <td className="font-medium">{r.invoice_ref || '—'}</td>
                     <td>{r.client_name || 'N/A'}</td>
                     <td className="text-center text-slate-600">{r.mca_count} file(s)</td>
@@ -275,20 +275,20 @@ export default function ExportInvoiceListPage() {
                     <td>
                       <div className="inline-flex items-center gap-1 justify-center">
                         <button type="button" title="Full PDF (all pages)" onClick={() => openPrint(r.id, 'full')}
-                          className="inline-flex items-center justify-center h-7 px-1.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white"><FileText className="h-3.5 w-3.5" /></button>
+                          className="btn-pdf btn-icon"><FileText className="h-3.5 w-3.5" /></button>
                         <button type="button" title="P1 — Debit Note" onClick={() => openPrint(r.id, 'p1')}
-                          className="inline-flex items-center justify-center h-7 px-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white"><FileType className="h-3.5 w-3.5" /></button>
+                          className="btn-pdf btn-icon"><FileType className="h-3.5 w-3.5" /></button>
                         <button type="button" title="P2 — Facture + details" onClick={() => openPrint(r.id, 'p2')}
-                          className="inline-flex items-center justify-center h-7 px-1.5 rounded-md bg-red-500 hover:bg-red-600 text-white"><FileDigit className="h-3.5 w-3.5" /></button>
+                          className="btn-pdf btn-icon"><FileDigit className="h-3.5 w-3.5" /></button>
                         <Link href={`/export-invoices/${r.id}`} title="Edit"
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 hover:bg-primary-700 text-white"><Edit2 className="h-3.5 w-3.5" /></Link>
+                          className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
                         {r.validated === 0 && (
                           <button type="button" title="Validate" onClick={() => setConfirm({ row: r, action: 'validate' })}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-cyan-600 hover:bg-cyan-700 text-white"><CheckCircle2 className="h-3.5 w-3.5" /></button>
                         )}
                         {r.validated === 1 && (
                           <button type="button" title="Mark DGI Verified" onClick={() => setConfirm({ row: r, action: 'dgi' })}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-red-800 hover:bg-red-900 text-white"><ShieldCheck className="h-3.5 w-3.5" /></button>
+                            className="btn-icon bg-violet-600 text-white shadow-sm hover:bg-violet-700"><ShieldCheck className="h-3.5 w-3.5" /></button>
                         )}
                         <button type="button" title={complete ? 'DGI info complete — edit' : 'Edit DGI info (incomplete)'} onClick={() => openDgiEdit(r)}
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-white ${complete ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-500 hover:bg-red-600'}`}>
@@ -296,7 +296,7 @@ export default function ExportInvoiceListPage() {
                         </button>
                         {r.validated === 0 && (
                           <button type="button" title="Delete" onClick={() => setConfirm({ row: r, action: 'delete' })}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-slate-500 hover:bg-red-600 text-white"><Trash2 className="h-3.5 w-3.5" /></button>
+                            className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
                         )}
                       </div>
                     </td>
@@ -327,7 +327,7 @@ export default function ExportInvoiceListPage() {
                   : confirm.action === 'dgi' ? 'Mark this invoice as DGI-verified?'
                   : 'Validate this invoice? This removes the PDF watermark.'}
               </p>
-              <div className="text-sm text-slate-500">{confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · {confirm.row.mca_count} file(s)</div>
+              <div className="text-sm text-muted-foreground">{confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · {confirm.row.mca_count} file(s)</div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
               <button type="button" onClick={() => setConfirm(null)} className="btn-secondary">Cancel</button>
@@ -373,7 +373,7 @@ export default function ExportInvoiceListPage() {
                   onChange={(v) => setDgiForm((f) => ({ ...f, normalized_by: v }))}
                 />
               </div>
-              <p className="text-xs text-slate-500">Filling all three on a validated invoice marks it DGI-Verified automatically.</p>
+              <p className="text-xs text-muted-foreground">Filling all three on a validated invoice marks it DGI-Verified automatically.</p>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
               <button type="button" onClick={() => setDgiEdit(null)} className="btn-secondary">Cancel</button>
