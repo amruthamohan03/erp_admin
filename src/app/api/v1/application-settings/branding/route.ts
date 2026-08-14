@@ -66,9 +66,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const kind = parseKind(new URL(req.url).searchParams.get('kind'));
   if (!kind) throw new BadRequestError('kind must be "logo" or "favicon"');
 
-  const form = await req.formData();
+  const label = kind === 'logo' ? 'Logo' : 'Favicon';
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    // A body larger than the server's limit fails here, before any of our own
+    // checks run, and used to surface as an opaque 500.
+    throw new BadRequestError(
+      `${label} could not be read. The file may be larger than the server accepts.`,
+    );
+  }
+
   const file = form.get('file');
-  if (!(file instanceof File)) throw new BadRequestError('No file uploaded');
+  if (!(file instanceof File)) {
+    throw new BadRequestError(`No ${label.toLowerCase()} file was included in the upload.`);
+  }
 
   const current = await loadOrDefault();
   const previous = kind === 'logo' ? current.logoUrl : current.faviconUrl;
@@ -79,18 +93,31 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     ownerId: 0,
     maxBytes: kind === 'favicon' ? 256 * 1024 : 1024 * 1024,
     allowedMime: kind === 'favicon' ? FAVICON_MIME : LOGO_MIME,
+    label,
   });
 
-  await db
+  // Commit the URL before removing the old file. If the UPDATE fails, the row
+  // still points at a file that exists — the reverse order leaves the operator
+  // with no logo at all and a database row naming a deleted one. The new upload
+  // is orphaned instead, which is recoverable and invisible.
+  const [updated] = await db
     .update(applicationSettingsMaster)
     .set({
       ...(kind === 'logo' ? { logoUrl: saved.url } : { faviconUrl: saved.url }),
       updatedBy: session.uid,
       updatedAt: sql`CURRENT_TIMESTAMP`,
     })
-    .where(eq(applicationSettingsMaster.id, SINGLETON_ID));
+    .where(eq(applicationSettingsMaster.id, SINGLETON_ID))
+    .returning();
 
-  await deleteUploadIfLocal(previous);
+  if (!updated) {
+    await deleteUploadIfLocal(saved.url);
+    throw new BadRequestError(
+      `${label} was uploaded but could not be saved — the application settings row is missing.`,
+    );
+  }
+
+  if (previous !== saved.url) await deleteUploadIfLocal(previous);
 
   return ok({ [kind === 'logo' ? 'logo_url' : 'favicon_url']: saved.url });
 });
