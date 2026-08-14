@@ -141,7 +141,7 @@ export default function PartiellesPage() {
       {licenseId && (
         <div className="card">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-slate-500" />
+            <Layers className="h-4 w-4 text-muted-foreground" />
             <span className="font-semibold text-slate-800">Allotments</span>
           </div>
 
@@ -162,16 +162,16 @@ export default function PartiellesPage() {
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={9} className="text-center text-slate-500 py-6">Loading…</td></tr>
+                  <tr><td colSpan={9} className="text-center text-muted-foreground py-6">Loading…</td></tr>
                 )}
                 {!loading && rows.length === 0 && (
-                  <tr><td colSpan={9} className="text-center text-slate-500 py-6">No allotments for this licence yet.</td></tr>
+                  <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No allotments for this licence yet.</td></tr>
                 )}
                 {!loading && rows.map((r, idx) => {
                   const editing = edit?.id === r.id;
                   return (
                     <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="text-slate-500">{idx + 1}</td>
+                      <td className="text-muted-foreground">{idx + 1}</td>
                       <td className="font-mono text-xs">{r.partial_name}</td>
                       <td className="text-right">
                         {editing ? (

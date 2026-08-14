@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -31,7 +32,7 @@ const VALID_TABS = ['accordions', 'fields', 'roles'] as const;
 
 export default function MasterPagesListPage() {
   return (
-    <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+    <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
       <MasterPagesList />
     </Suspense>
   );
@@ -43,6 +44,8 @@ function MasterPagesList() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const searchParams = useSearchParams();
   const tabHint = searchParams.get('tab');
@@ -109,9 +112,10 @@ function MasterPagesList() {
     const res = await fetch(`/api/v1/master-pages/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This page could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The page has been disabled.' });
     load();
   }
 
@@ -120,7 +124,7 @@ function MasterPagesList() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Transactional Pages</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Configure §4.12 pages — slug, title, target table, accordions, role grants, and fields.
           </p>
         </div>
@@ -138,7 +142,7 @@ function MasterPagesList() {
       <div className="card">
         <div className="p-4 border-b border-slate-200">
           <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9"
               placeholder="Search slug, title, target table..."
@@ -167,14 +171,14 @@ function MasterPagesList() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="text-center text-slate-500 py-8">
+                  <td colSpan={7} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && paged.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-slate-500 py-8">
+                  <td colSpan={7} className="text-center text-muted-foreground py-8">
                     No pages found — click <strong>New Page</strong>.
                   </td>
                 </tr>
@@ -182,7 +186,7 @@ function MasterPagesList() {
               {!loading &&
                 paged.map((i, idx) => (
                   <tr key={i.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                    <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
                     <td className="font-mono text-xs">{i.slug}</td>
                     <td className="font-medium">{i.title}</td>
                     <td className="font-mono text-xs">{i.route}</td>
@@ -192,7 +196,7 @@ function MasterPagesList() {
                         className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
                           i.display === 'Y'
                             ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-slate-100 text-slate-500'
+                            : 'bg-slate-100 text-muted-foreground'
                         }`}
                       >
                         {i.display === 'Y' ? 'Active' : 'Inactive'}
@@ -201,14 +205,14 @@ function MasterPagesList() {
                     <td className="text-right">
                       <Link
                         href={`/masters/pages/${i.id}${editSuffix}`}
-                        className="text-slate-500 hover:text-primary-600 p-1 inline-block"
+                        className="ico-edit"
                         title="Configure"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Link>
                       <button
                         onClick={() => handleDelete(i.id)}
-                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        className="ico-delete ml-1"
                         title="Disable"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -238,9 +242,12 @@ function MasterPagesList() {
           onSaved={() => {
             setShowCreate(false);
             load();
+            setResult({ status: 'success', title: 'Created', message: 'The page has been created.' });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -293,7 +300,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
       <div className="card w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">Create Page</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -306,7 +313,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <div>
             <label className="label">
               Slug *{' '}
-              <span className="text-xs text-slate-500 ml-1">(URL key, lowercase + hyphens)</span>
+              <span className="text-xs text-muted-foreground ml-1">(URL key, lowercase + hyphens)</span>
             </label>
             <input
               className="input font-mono"
@@ -343,7 +350,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <div>
             <label className="label">
               Target Table *{' '}
-              <span className="text-xs text-slate-500 ml-1">
+              <span className="text-xs text-muted-foreground ml-1">
                 (must be in src/lib/pages/targets.ts whitelist)
               </span>
             </label>

@@ -23,7 +23,7 @@ export default function UniquenessIndicator({
       : status === 'taken'
         ? 'text-red-700'
         : status === 'checking'
-          ? 'text-slate-500'
+          ? 'text-muted-foreground'
           : 'text-amber-700';
   return (
     <span className={`inline-flex items-center gap-1 text-xs ${tone}`}>

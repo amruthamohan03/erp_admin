@@ -4,6 +4,7 @@ import { Suspense, use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Edit2, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
@@ -58,7 +59,7 @@ function tabFromSearch(raw: string | null): Tab {
 export default function MasterPageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return (
-    <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+    <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
       <MasterPageDetail pageId={Number(id)} />
     </Suspense>
   );
@@ -95,7 +96,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
       <div className="mb-4">
         <Link
           href="/masters/pages"
-          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Pages
         </Link>
@@ -105,7 +106,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
           {loading ? 'Loading...' : page?.title || 'Page'}
         </h1>
         {page && (
-          <p className="text-xs font-mono text-slate-500 mt-0.5">
+          <p className="text-xs font-mono text-muted-foreground mt-0.5">
             slug={page.slug} · route={page.route} · target={page.target_table}
           </p>
         )}
@@ -119,7 +120,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
             className={`px-4 py-2 text-sm border-b-2 transition-colors ${
               tab === t
                 ? 'border-primary-600 text-primary-700 font-medium'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                : 'border-transparent text-muted-foreground hover:text-slate-900'
             }`}
           >
             {t === 'general' && 'General'}
@@ -245,7 +246,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
           />
         </div>
       </div>
-      <p className="text-xs text-slate-500 pt-2">
+      <p className="text-xs text-muted-foreground pt-2">
         Reminder: <code className="font-mono">target_table</code> must also appear in
         <code className="font-mono"> src/lib/pages/targets.ts</code> for the runtime to read/write
         it.
@@ -266,6 +267,8 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
 function AccordionsTab({ pageId }: { pageId: number }) {
   const [items, setItems] = useState<MasterPageAccordion[]>([]);
   const [loading, setLoading] = useState(false);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
   const [editing, setEditing] = useState<MasterPageAccordion | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -290,9 +293,10 @@ function AccordionsTab({ pageId }: { pageId: number }) {
     const res = await fetch(`/api/v1/master-page-accordions/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This accordion could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The accordion has been disabled.' });
     load();
   }
 
@@ -319,14 +323,14 @@ function AccordionsTab({ pageId }: { pageId: number }) {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="text-center text-slate-500 py-6">
+                <td colSpan={6} className="text-center text-muted-foreground py-6">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center text-slate-500 py-6">
+                <td colSpan={6} className="text-center text-muted-foreground py-6">
                   No accordions yet
                 </td>
               </tr>
@@ -334,14 +338,14 @@ function AccordionsTab({ pageId }: { pageId: number }) {
             {!loading &&
               items.map((a) => (
                 <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="text-slate-500 font-medium">{a.display_order}</td>
+                  <td className="text-muted-foreground font-medium">{a.display_order}</td>
                   <td className="font-mono text-xs">{a.slug}</td>
                   <td className="font-medium">{a.title}</td>
                   <td className="text-xs">
                     {a.icon ? (
                       <code className="font-mono">{a.icon}</code>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                   <td>
@@ -349,7 +353,7 @@ function AccordionsTab({ pageId }: { pageId: number }) {
                       className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
                         a.display === 'Y'
                           ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-slate-100 text-slate-500'
+                          : 'bg-slate-100 text-muted-foreground'
                       }`}
                     >
                       {a.display === 'Y' ? 'Active' : 'Inactive'}
@@ -358,14 +362,14 @@ function AccordionsTab({ pageId }: { pageId: number }) {
                   <td className="text-right">
                     <button
                       onClick={() => setEditing(a)}
-                      className="text-slate-500 hover:text-primary-600 p-1"
+                      className="ico-edit"
                       title="Edit"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(a.id)}
-                      className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                      className="ico-delete ml-1"
                       title="Disable"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -398,6 +402,8 @@ function AccordionsTab({ pageId }: { pageId: number }) {
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </div>
   );
 }
@@ -457,7 +463,7 @@ function AccordionFormModal({
       <div className="card w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold">{isEdit ? 'Edit Accordion' : 'New Accordion'}</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -491,7 +497,7 @@ function AccordionFormModal({
           </div>
           <div>
             <label className="label">
-              Icon <span className="text-xs text-slate-500 ml-1">(Tabler, e.g. ti ti-users)</span>
+              Icon <span className="text-xs text-muted-foreground ml-1">(Tabler, e.g. ti ti-users)</span>
             </label>
             <input
               className="input font-mono"
@@ -631,16 +637,16 @@ function RolesTab({ pageId }: { pageId: number }) {
   } = usePagedList(filteredRoles, { initialPageSize: 25 });
 
   if (loading || !matrix)
-    return <div className="card p-6 text-center text-slate-500">Loading matrix...</div>;
+    return <div className="card p-6 text-center text-muted-foreground">Loading matrix...</div>;
   if (matrix.accordions.length === 0)
     return (
-      <div className="card p-6 text-center text-slate-500">
+      <div className="card p-6 text-center text-muted-foreground">
         Add accordions first (see the Accordions tab).
       </div>
     );
   if (matrix.roles.length === 0)
     return (
-      <div className="card p-6 text-center text-slate-500">
+      <div className="card p-6 text-center text-muted-foreground">
         No active roles found in role_master_t.
       </div>
     );
@@ -650,14 +656,14 @@ function RolesTab({ pageId }: { pageId: number }) {
       <div className="flex items-center justify-between p-4 border-b border-slate-200">
         <div>
           <h2 className="font-semibold">Role × Accordion access</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             For each cell, choose <code>none</code> / <code>view</code> / <code>edit</code>. Save
             commits the whole matrix in one transaction.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-56"
               placeholder="Search role..."
@@ -699,7 +705,7 @@ function RolesTab({ pageId }: { pageId: number }) {
           <tbody>
             {paged.map((r, idx) => (
               <tr key={r.id}>
-                <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
                 <td className="font-medium">{r.role_name}</td>
                 {matrix.accordions.map((a) => {
                   const k = `${a.id}:${r.id}`;
@@ -752,6 +758,8 @@ interface GrantRole {
 
 function FieldsTab({ pageId }: { pageId: number }) {
   const [accordions, setAccordions] = useState<MasterPageAccordion[]>([]);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
   const [accordionId, setAccordionId] = useState<number | null>(null);
   const [fields, setFields] = useState<MasterPageField[]>([]);
   const [loading, setLoading] = useState(false);
@@ -845,7 +853,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
       );
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        alert(json.error?.message || 'Save failed');
+        setResult({ status: 'error', title: 'Not saved', message: json.error?.message || 'The role grants could not be saved.' });
         return;
       }
       setGrantDirty(false);
@@ -860,9 +868,10 @@ function FieldsTab({ pageId }: { pageId: number }) {
     const res = await fetch(`/api/v1/master-page-fields/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This field could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The field has been disabled.' });
     loadFields();
   }
 
@@ -925,7 +934,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
       </div>
 
       {showAccess && (
-        <p className="text-xs text-slate-500 px-4 pt-3">
+        <p className="text-xs text-muted-foreground px-4 pt-3">
           Per-field access for{' '}
           <strong>{roles.find((r) => r.id === roleId)?.role_name}</strong>.
           <code className="ml-1">Inherit</code> = use the accordion grant. Field access can only
@@ -950,14 +959,14 @@ function FieldsTab({ pageId }: { pageId: number }) {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={colCount} className="text-center text-slate-500 py-6">
+                <td colSpan={colCount} className="text-center text-muted-foreground py-6">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && fields.length === 0 && (
               <tr>
-                <td colSpan={colCount} className="text-center text-slate-500 py-6">
+                <td colSpan={colCount} className="text-center text-muted-foreground py-6">
                   No fields on this accordion yet
                 </td>
               </tr>
@@ -967,7 +976,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
                 const cur = overrides[f.id] ?? 'inherit';
                 return (
                   <tr key={f.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">{f.display_order}</td>
+                    <td className="text-muted-foreground font-medium">{f.display_order}</td>
                     <td className="font-mono text-xs">{f.name}</td>
                     <td>{f.label}</td>
                     <td>
@@ -981,7 +990,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
                       )}
                     </td>
                     <td className="font-mono text-xs">
-                      {f.options_source ?? <span className="text-slate-400">—</span>}
+                      {f.options_source ?? <span className="text-muted-foreground">—</span>}
                     </td>
                     {showAccess && (
                       <td>
@@ -1002,14 +1011,14 @@ function FieldsTab({ pageId }: { pageId: number }) {
                     <td className="text-right">
                       <button
                         onClick={() => setEditing(f)}
-                        className="text-slate-500 hover:text-primary-600 p-1"
+                        className="ico-edit"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(f.id)}
-                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        className="ico-delete ml-1"
                         title="Disable"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1043,6 +1052,8 @@ function FieldsTab({ pageId }: { pageId: number }) {
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </div>
   );
 }
@@ -1146,7 +1157,7 @@ function FieldFormModal({
       <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-slate-200 sticky top-0 bg-white z-10">
           <h2 className="font-semibold">{isEdit ? 'Edit Field' : 'New Field'}</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -1160,7 +1171,7 @@ function FieldFormModal({
             <div>
               <label className="label">
                 Name *{' '}
-                <span className="text-xs text-slate-500 ml-1">(must match target column)</span>
+                <span className="text-xs text-muted-foreground ml-1">(must match target column)</span>
               </label>
               <input
                 className="input font-mono"
@@ -1224,14 +1235,14 @@ function FieldFormModal({
           </div>
 
           <div className="border-t border-slate-100 pt-3">
-            <p className="text-xs text-slate-500 mb-2">
+            <p className="text-xs text-muted-foreground mb-2">
               For <code className="font-mono">select</code> fields with dynamic options:
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">
                   Options Source{' '}
-                  <span className="text-xs text-slate-500 ml-1">(API slug, e.g. industries)</span>
+                  <span className="text-xs text-muted-foreground ml-1">(API slug, e.g. industries)</span>
                 </label>
                 <input
                   className="input font-mono"
@@ -1255,7 +1266,7 @@ function FieldFormModal({
           <div>
             <label className="label">
               Options Static (JSON){' '}
-              <span className="text-xs text-slate-500 ml-1">— for checkbox-group / static select</span>
+              <span className="text-xs text-muted-foreground ml-1">— for checkbox-group / static select</span>
             </label>
             <textarea
               className="input font-mono text-xs min-h-[80px]"
@@ -1267,7 +1278,7 @@ function FieldFormModal({
           <div>
             <label className="label">
               Props (JSON){' '}
-              <span className="text-xs text-slate-500 ml-1">
+              <span className="text-xs text-muted-foreground ml-1">
                 — min/max/pattern/accept/maxSizeKb/colSpan/rows
               </span>
             </label>

@@ -139,7 +139,7 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
     void load();
   }, [base, lines, load]);
 
-  if (loading) return <div className="card mt-6 p-6 text-center text-slate-500">Loading references…</div>;
+  if (loading) return <div className="card mt-6 p-6 text-center text-muted-foreground">Loading references…</div>;
   if (error) {
     return (
       <div className="card mt-6 p-4 text-sm text-red-700 border border-red-200 bg-red-50">
@@ -165,7 +165,7 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">MCA References</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Payment for <span className="font-medium">{payForLabel}</span>
               {skipsTracking && ' — references are auto-generated and not checked against a tracking table.'}
             </p>
@@ -203,14 +203,14 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
             <tbody>
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={readonly ? 4 : 5} className="py-4 text-center text-slate-400">
+                  <td colSpan={readonly ? 4 : 5} className="py-4 text-center text-muted-foreground">
                     No references. Add a row or pick from the client&apos;s references.
                   </td>
                 </tr>
               )}
               {lines.map((l, idx) => (
                 <tr key={idx}>
-                  <td className="text-slate-500">{idx + 1}</td>
+                  <td className="text-muted-foreground">{idx + 1}</td>
                   <td>
                     <input
                       value={l.mca_ref}

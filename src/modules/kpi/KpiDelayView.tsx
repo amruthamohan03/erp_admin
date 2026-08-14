@@ -65,7 +65,7 @@ function Ring({ avg, th }: { avg: number; th: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold leading-none" style={{ color: clr }}>{avg > 0 ? d1(avg) : '—'}</span>
-        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">days</span>
+        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">days</span>
       </div>
     </div>
   );
@@ -137,7 +137,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
             <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white"><Clock className="h-6 w-6" /></span>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{cfg.title}</h1>
-              <p className="text-xs text-slate-500">On Time vs Delayed · Working days · Pending aged to today ({today})</p>
+              <p className="text-xs text-muted-foreground">On Time vs Delayed · Working days · Pending aged to today ({today})</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
         </div>
       </div>
 
-      {loading && <div className="card p-6 text-center text-slate-500">Loading KPIs…</div>}
+      {loading && <div className="card p-6 text-center text-muted-foreground">Loading KPIs…</div>}
 
       {!loading && data && (
         <>
@@ -224,12 +224,12 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-lg border-l-2 border-emerald-500 bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                           <div className="text-xl font-bold text-emerald-600">{num(pk.on_time_count)}</div>
-                          <div className="text-[10px] uppercase font-bold text-slate-400">On Time ≤{pk.threshold}d</div>
+                          <div className="text-[10px] uppercase font-bold text-muted-foreground">On Time ≤{pk.threshold}d</div>
                           <div className="text-xs font-bold text-emerald-600">{pk.on_time_pct}% of {num(pk.evaluated_count)}</div>
                         </div>
                         <div className="rounded-lg border-l-2 border-rose-500 bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                           <div className="text-xl font-bold text-rose-600">{num(pk.delayed_count)}</div>
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Delayed &gt;{pk.threshold}d</div>
+                          <div className="text-[10px] uppercase font-bold text-muted-foreground">Delayed &gt;{pk.threshold}d</div>
                           <div className="text-xs font-bold text-rose-600">{pk.delayed_pct}% of {num(pk.evaluated_count)}</div>
                         </div>
                       </div>
@@ -244,7 +244,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
             </>
           )}
 
-          <h2 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" /> Stage-by-Stage Delay Analysis <span className="text-slate-400 normal-case font-normal tracking-normal">· click to drill down</span></h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" /> Stage-by-Stage Delay Analysis <span className="text-muted-foreground normal-case font-normal tracking-normal">· click to drill down</span></h2>
           <div className="space-y-2 mb-5">
             {data.stage_kpis.map((k, i) => {
               const over = k.avg_days > 0 && k.avg_days > k.threshold;
@@ -258,17 +258,17 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                     <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200 leading-tight">{k.short}</span>
                   </div>
                   <div className="hidden lg:flex w-52 shrink-0 p-3 border-r border-slate-100 dark:border-slate-800 flex-col justify-center gap-1 text-[11px]">
-                    <div><span className="text-slate-400 font-bold w-8 inline-block">FROM</span> <span className="font-mono text-slate-700 dark:text-slate-200">{fl(k.from)}</span></div>
-                    <div><span className="text-slate-400 font-bold w-8 inline-block">TO</span> <span className="font-mono text-slate-700 dark:text-slate-200">{fl(k.to)}</span></div>
+                    <div><span className="text-muted-foreground font-bold w-8 inline-block">FROM</span> <span className="font-mono text-slate-700 dark:text-slate-200">{fl(k.from)}</span></div>
+                    <div><span className="text-muted-foreground font-bold w-8 inline-block">TO</span> <span className="font-mono text-slate-700 dark:text-slate-200">{fl(k.to)}</span></div>
                   </div>
                   <div className="w-28 shrink-0 p-3 border-r border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center">
                     <span className={`text-3xl font-bold leading-none ${none ? 'text-slate-300' : over ? 'text-rose-600' : 'text-emerald-600'}`}>{k.avg_days > 0 ? d1(k.avg_days) : '—'}</span>
-                    <span className="text-[10px] uppercase font-bold text-slate-400">avg days</span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">avg days</span>
                     <span className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded ${over ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>Target ≤{k.threshold}d</span>
                   </div>
                   <div className="flex-1 p-3 flex flex-col justify-center gap-1.5 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase text-slate-400">{num(k.evaluated_count)} records evaluated</span>
+                      <span className="text-[11px] font-bold uppercase text-muted-foreground">{num(k.evaluated_count)} records evaluated</span>
                       <span className={`text-xs font-bold ${k.on_time_pct >= 80 ? 'text-emerald-600' : 'text-rose-600'}`}>{k.on_time_pct}% on time</span>
                     </div>
                     <div className="h-2 rounded bg-slate-200 dark:bg-slate-700 flex overflow-hidden">
@@ -287,14 +287,14 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
             <div className="card p-4">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><AlertOctagon className="h-4 w-4 text-rose-500" /> Top Bottlenecks <span className="text-xs text-slate-400 font-normal">by % delayed</span></h3>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><AlertOctagon className="h-4 w-4 text-rose-500" /> Top Bottlenecks <span className="text-xs text-muted-foreground font-normal">by % delayed</span></h3>
               <div className="space-y-2">
                 {data.bottleneck_analysis.slice(0, 11).map((b, i) => (
                   <div key={b.key} className="flex items-center gap-2">
                     <span className="w-7 text-rose-500 font-bold text-sm">#{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{b.short}{b.priority && <span className="ml-1 text-[9px] rounded bg-rose-100 text-rose-700 px-1 uppercase">Priority</span>}</div>
-                      <div className="text-[10px] text-slate-400">{num(b.sample_count)} records · target ≤{b.threshold}d · {num(b.delayed_count)} delayed</div>
+                      <div className="text-[10px] text-muted-foreground">{num(b.sample_count)} records · target ≤{b.threshold}d · {num(b.delayed_count)} delayed</div>
                     </div>
                     <div className="w-24 h-2 rounded bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full bg-rose-500" style={{ width: `${(b.delayed_pct / maxBottleneck) * 100}%` }} /></div>
                     <span className="w-10 text-right font-bold text-rose-600 text-sm">{b.delayed_pct}%</span>
@@ -304,9 +304,9 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
             </div>
 
             <div className="card p-4">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><CalendarOff className="h-4 w-4 text-amber-500" /> DRC Public Holidays <span className="text-xs text-slate-400 font-normal">excluded from delay days (Sat/Sun too)</span></h3>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><CalendarOff className="h-4 w-4 text-amber-500" /> DRC Public Holidays <span className="text-xs text-muted-foreground font-normal">excluded from delay days (Sat/Sun too)</span></h3>
               <div className="grid grid-cols-2 gap-2 max-h-[340px] overflow-y-auto">
-                {holYear.length === 0 && <p className="text-sm text-slate-400 col-span-2 py-4 text-center">No holidays for {today.slice(0, 4)}</p>}
+                {holYear.length === 0 && <p className="text-sm text-muted-foreground col-span-2 py-4 text-center">No holidays for {today.slice(0, 4)}</p>}
                 {holYear.map((h) => {
                   const passed = h.holiday_date < today;
                   const [, , dd] = h.holiday_date.split('-');
@@ -315,11 +315,11 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                     <div key={h.holiday_date} className={`flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5 ${passed ? 'opacity-50' : 'border-l-2 border-l-emerald-500'}`}>
                       <div className="shrink-0 w-10 text-center rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-0.5">
                         <div className="text-base font-bold leading-none text-slate-800 dark:text-slate-100">{dd}</div>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">{mon}</div>
+                        <div className="text-[9px] font-bold text-muted-foreground uppercase">{mon}</div>
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{h.name_en}</div>
-                        <div className="text-[10px] text-slate-400 truncate">{h.name_fr}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{h.name_fr}</div>
                       </div>
                       <span className="ml-auto text-[9px] font-bold uppercase rounded px-1 shrink-0 bg-blue-50 text-blue-600">{passed ? 'Done' : h.holiday_type === 'fixed' ? 'Fixed' : 'Var'}</span>
                     </div>
@@ -341,7 +341,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.client_delay_table.length === 0 && <tr><td colSpan={5 + cfg.clientColumns.length} className="text-center text-slate-500 py-6">No data available</td></tr>}
+                  {data.client_delay_table.length === 0 && <tr><td colSpan={5 + cfg.clientColumns.length} className="text-center text-muted-foreground py-6">No data available</td></tr>}
                   {data.client_delay_table.map((r, i) => (
                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="font-semibold text-slate-900 dark:text-slate-100">{String(r.client_name ?? '')}</td>
@@ -375,16 +375,16 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                   <button key={v} type="button" onClick={() => { setStatusF(v); loadRecords(drill.key, v); }}
                     className={`text-xs font-semibold uppercase rounded-full px-3 py-1 border ${statusF === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}>{lbl}</button>
                 ))}
-                <span className="ml-auto text-xs text-slate-400 self-center">{records.length} record{records.length !== 1 ? 's' : ''}</span>
+                <span className="ml-auto text-xs text-muted-foreground self-center">{records.length} record{records.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="overflow-x-auto max-h-[62vh]">
-                {recLoading ? <div className="py-10 text-center text-slate-500">Loading records…</div> : (
+                {recLoading ? <div className="py-10 text-center text-muted-foreground">Loading records…</div> : (
                   <table className="table-base whitespace-nowrap text-xs">
                     <thead>
                       <tr><th className="w-6" /><th>ID</th><th>MCA Ref</th><th>Client</th><th>Clearance</th><th>{fl(drill.from)}</th><th>{fl(drill.to)}</th><th className="text-center">Total</th><th className="text-center">Working</th><th className="text-center">Delay</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                      {records.length === 0 && <tr><td colSpan={11} className="text-center text-slate-500 py-6">No records found</td></tr>}
+                      {records.length === 0 && <tr><td colSpan={11} className="text-center text-muted-foreground py-6">No records found</td></tr>}
                       {records.map((r, idx) => {
                         const st = r.delay_status as string;
                         const pending = r.is_pending === 1;
@@ -393,8 +393,8 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                         return (
                           <Fragment key={idx}>
                             <tr className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 ${st === 'Delayed' ? 'bg-rose-50/40 dark:bg-rose-500/5' : pending ? 'bg-amber-50/40 dark:bg-amber-500/5' : ''}`} onClick={() => setExpanded(expanded === idx ? null : idx)}>
-                            <td className="text-slate-400">{expanded === idx ? '▾' : '▸'}</td>
-                            <td className="font-mono text-slate-400">{String(r.id)}</td>
+                            <td className="text-muted-foreground">{expanded === idx ? '▾' : '▸'}</td>
+                            <td className="font-mono text-muted-foreground">{String(r.id)}</td>
                             <td><span className="font-mono font-bold text-blue-600">{String(r.mca_ref ?? '—')}</span></td>
                             <td className="font-semibold">{String(r.client_short ?? '—')}</td>
                             <td><span className="rounded bg-blue-50 text-blue-700 px-1.5 py-0.5 text-[10px] font-bold">{String(r.clearance_name ?? '—')}</span></td>
@@ -412,7 +412,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                                     {cfg.drillFields.map(([lbl, key, suffix]) => {
                                       const v = r[key];
                                       const disp = v == null || v === '' ? '—' : `${String(v)}${suffix ?? ''}`;
-                                      return <div key={key} className="flex justify-between gap-2"><span className="text-slate-400">{lbl}</span><span className="font-medium text-slate-800 dark:text-slate-100 truncate">{disp}</span></div>;
+                                      return <div key={key} className="flex justify-between gap-2"><span className="text-muted-foreground">{lbl}</span><span className="font-medium text-slate-800 dark:text-slate-100 truncate">{disp}</span></div>;
                                     })}
                                   </div>
                                 </td>
@@ -427,7 +427,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
-              <button type="button" disabled title="Excel export — coming in the next pass" className="inline-flex items-center gap-1.5 rounded-md bg-slate-200 text-slate-400 px-3 py-1.5 text-sm font-medium cursor-not-allowed dark:bg-slate-800"><Download className="h-4 w-4" /> Export</button>
+              <button type="button" disabled title="Excel export — coming in the next pass" className="btn-excel btn-sm"><Download className="h-4 w-4" /> Export</button>
               <button type="button" onClick={() => setDrill(null)} className="btn-secondary"><X className="h-4 w-4" /> Close</button>
             </div>
           </div>

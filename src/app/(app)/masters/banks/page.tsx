@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -26,6 +27,8 @@ export default function BanksPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -62,9 +65,10 @@ export default function BanksPage() {
     const res = await fetch(`/api/v1/banks/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.ok) {
-      alert(json.error?.message || 'Failed');
+      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This bank could not be disabled.' });
       return;
     }
+    setResult({ status: 'success', title: 'Deleted', message: 'The bank has been disabled.' });
     load();
   }
 
@@ -83,7 +87,7 @@ export default function BanksPage() {
       <div className="card">
         <div className="p-4 border-b border-slate-200">
           <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9"
               placeholder="Search bank name, code..."
@@ -110,14 +114,14 @@ export default function BanksPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={5} className="text-center text-slate-500 py-8">
+                  <td colSpan={5} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center text-slate-500 py-8">
+                  <td colSpan={5} className="text-center text-muted-foreground py-8">
                     No banks found
                   </td>
                 </tr>
@@ -125,7 +129,7 @@ export default function BanksPage() {
               {!loading &&
                 items.map((b, idx) => (
                   <tr key={b.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-muted-foreground font-medium">
                       {startIndex + idx + 1}
                     </td>
                     <td className="font-medium">{b.bank_name}</td>
@@ -136,14 +140,14 @@ export default function BanksPage() {
                     <td className="text-right">
                       <button
                         onClick={() => setEditing(b)}
-                        className="text-slate-500 hover:text-primary-600 p-1"
+                        className="ico-edit"
                         title="Edit"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(b.id)}
-                        className="text-slate-500 hover:text-red-600 p-1 ml-1"
+                        className="ico-delete ml-1"
                         title="Disable"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -176,6 +180,7 @@ export default function BanksPage() {
           onSaved={() => {
             setShowCreate(false);
             load();
+            setResult({ status: 'success', title: 'Created', message: 'The bank has been created.' });
           }}
         />
       )}
@@ -187,9 +192,12 @@ export default function BanksPage() {
           onSaved={() => {
             setEditing(null);
             load();
+            setResult({ status: 'success', title: 'Saved', message: 'Your changes to this bank have been saved.' });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }
@@ -197,7 +205,7 @@ export default function BanksPage() {
 function Flag({ on }: { on: boolean }) {
   return (
     <span
-      className={`inline-block rounded px-2 py-0.5 text-xs ${on ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+      className={`inline-block rounded px-2 py-0.5 text-xs ${on ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-muted-foreground'}`}
     >
       {on ? 'Yes' : 'No'}
     </span>
@@ -274,7 +282,7 @@ function BankFormModal({
           <h2 className="font-semibold">
             {isEdit ? 'Edit Bank' : 'Create Bank'}
           </h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
             <X className="h-5 w-5" />
           </button>
         </div>

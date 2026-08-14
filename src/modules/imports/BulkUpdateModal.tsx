@@ -126,7 +126,7 @@ export default function BulkUpdateModal({
 
         <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-72"
               placeholder="Narrow: MCA, client, horse, trailer, container…"
@@ -134,7 +134,7 @@ export default function BulkUpdateModal({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             {visibleRows.length} row{visibleRows.length === 1 ? '' : 's'} will be saved
           </span>
         </div>
@@ -152,11 +152,11 @@ export default function BulkUpdateModal({
 
         <div className="p-5 max-h-[68vh] overflow-auto">
           {loading ? (
-            <div className="py-10 text-center text-slate-500">Loading rows…</div>
+            <div className="py-10 text-center text-muted-foreground">Loading rows…</div>
           ) : !data || data.relevant_fields.length === 0 ? (
-            <div className="py-10 text-center text-slate-500">No editable fields for the active filters.</div>
+            <div className="py-10 text-center text-muted-foreground">No editable fields for the active filters.</div>
           ) : visibleRows.length === 0 ? (
-            <div className="py-10 text-center text-slate-500">No matching files.</div>
+            <div className="py-10 text-center text-muted-foreground">No matching files.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="table-base whitespace-nowrap text-xs">
@@ -178,11 +178,11 @@ export default function BulkUpdateModal({
                     const id = row.id as number;
                     return (
                       <tr key={id} className="hover:bg-slate-50">
-                        <td className="text-slate-400">{idx + 1}</td>
+                        <td className="text-muted-foreground">{idx + 1}</td>
                         <td className="font-mono">{String(row.mca_ref ?? '—')}</td>
                         <td>{String(row.client_name ?? '—')}</td>
                         {data.readonly_fields.map((f) => (
-                          <td key={f} className="text-slate-500">{String(row[f] ?? '—')}</td>
+                          <td key={f} className="text-muted-foreground">{String(row[f] ?? '—')}</td>
                         ))}
                         {data.relevant_fields.map((f) => (
                           <td key={f}>

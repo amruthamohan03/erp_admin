@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Edit2, Copy, Save, X, FileText, Boxes, Send, Layers, CalendarClock, Search, ChevronDown,
 } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { clientOptionLabel } from '@/lib/clientOptions';
@@ -107,6 +108,8 @@ export default function QuotationsPage() {
   const [search, setSearch] = useState('');
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
   const [activeCard, setActiveCard] = useState('all');
 
   const kindName = useMemo(() => kinds.find((k) => String(k.id) === kindId)?.label ?? '', [kinds, kindId]);
@@ -336,7 +339,11 @@ export default function QuotationsPage() {
     if (!confirm('Delete this quotation?')) return;
     const res = await fetch(`/api/v1/quotations/${id}`, { method: 'DELETE' });
     const j = await res.json();
-    if (!j.ok) { alert(j.error?.message || 'Failed'); return; }
+    if (!j.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: j.error?.message || 'This quotation could not be deleted.' });
+      return;
+    }
+    setResult({ status: 'success', title: 'Deleted', message: 'The quotation has been deleted.' });
     await loadList();
     const s = await fetch('/api/v1/quotations/stats').then((r) => r.json()).catch(() => null);
     if (s?.ok) setStats(s.data as Record<string, number>);
@@ -429,7 +436,7 @@ export default function QuotationsPage() {
 
           {/* category sections — only after Client + Kind + Transport + Type of Goods */}
           {!headerComplete && (
-            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500 mb-4">
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-muted-foreground mb-4">
               Select <strong>Client</strong>, <strong>Kind</strong>, <strong>Transport</strong> and <strong>Type of Goods</strong> to add quotation items.
             </div>
           )}
@@ -474,7 +481,7 @@ export default function QuotationsPage() {
                     </thead>
                     <tbody>
                       {catRows.length === 0 && (
-                        <tr><td colSpan={9} className="px-3 py-3 text-center text-slate-400">No items — click + to add.</td></tr>
+                        <tr><td colSpan={9} className="px-3 py-3 text-center text-muted-foreground">No items — click + to add.</td></tr>
                       )}
                       {catRows.map((r) => {
                         const t = rowTotals(r, cat.is_customs);
@@ -561,9 +568,9 @@ export default function QuotationsPage() {
       {/* list */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><FileText className="h-4 w-4 text-slate-500" /> Quotations List</span>
+          <span className="font-semibold text-slate-800 flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /> Quotations List</span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input className="input pl-9 text-sm w-64" placeholder="Search ref or client..." value={search} onChange={(e) => { setSearch(e.target.value); resetPage(); }} />
           </div>
         </div>
@@ -576,10 +583,10 @@ export default function QuotationsPage() {
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 && (<tr><td colSpan={8} className="text-center text-slate-500 py-8">No quotations found.</td></tr>)}
+              {paged.length === 0 && (<tr><td colSpan={8} className="text-center text-muted-foreground py-8">No quotations found.</td></tr>)}
               {paged.map((r, idx) => (
                 <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
                   <td className="font-medium text-primary-700">{r.quotation_ref}</td>
                   <td>{r.client_name || <span className="text-slate-300">—</span>}</td>
                   <td className="text-xs text-slate-600">{formatDate(r.quotation_date, '')}</td>
@@ -588,9 +595,9 @@ export default function QuotationsPage() {
                   <td className="text-right text-emerald-700">{r.total_amount_cdf && Number(r.total_amount_cdf) > 0 ? `${money(Number(r.total_amount_cdf))} CDF` : '—'}</td>
                   <td>
                     <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                      <button type="button" onClick={() => loadForEdit(r.id)} title="Edit" className="inline-flex items-center justify-center w-7 h-7 bg-primary-600 hover:bg-primary-700 text-white"><Edit2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => loadForEdit(r.id)} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></button>
                       <button type="button" onClick={() => loadForEdit(r.id, true)} title="Copy" className="inline-flex items-center justify-center w-7 h-7 bg-sky-600 hover:bg-sky-700 text-white"><Copy className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => del(r.id)} title="Delete" className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => del(r.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -600,6 +607,8 @@ export default function QuotationsPage() {
         </div>
         <PaginationFooter page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} totalRows={totalRows} totalPages={totalPages} startIndex={startIndex} mounted={mounted} />
       </div>
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }

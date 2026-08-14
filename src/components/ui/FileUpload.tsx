@@ -128,7 +128,7 @@ export default function FileUpload({
       )}
       {value ? (
         <div className="flex items-center gap-2 p-2 border border-slate-200 rounded-md bg-slate-50">
-          <Paperclip className="h-4 w-4 text-slate-400 shrink-0" />
+          <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="min-w-0 flex-1">
             <a
               href={`/api/v1/files/${value.id}/view`}
@@ -139,12 +139,12 @@ export default function FileUpload({
               {value.original_name}
             </a>
             {value.size != null && (
-              <div className="text-xs text-slate-500">{fmtSize(value.size)}</div>
+              <div className="text-xs text-muted-foreground">{fmtSize(value.size)}</div>
             )}
           </div>
           <a
             href={`/api/v1/files/${value.id}/view`}
-            className="p-1 text-slate-500 hover:text-primary-600"
+            className="p-1 text-muted-foreground hover:text-primary-600"
             title="Download"
           >
             <Download className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function FileUpload({
             type="button"
             onClick={handleRemove}
             disabled={uploading || disabled}
-            className="p-1 text-slate-500 hover:text-red-600 disabled:opacity-50"
+            className="p-1 text-muted-foreground hover:text-red-600 disabled:opacity-50"
             title="Remove"
           >
             {uploading ? (

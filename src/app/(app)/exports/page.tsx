@@ -268,7 +268,7 @@ export default function ExportsListPage() {
         <a
           href={`/api/v1/exports/export?${buildParams().toString()}`}
           title="Excel — flat list (respects filters)"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium transition"
+          className="btn-excel btn-sm"
         >
           <FileSpreadsheet className="h-4 w-4" /> Export ALL to Excel
         </a>
@@ -419,7 +419,7 @@ export default function ExportsListPage() {
       {/* ---- List card ---- */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <Truck className="h-4 w-4 text-slate-500" />
+          <Truck className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold text-slate-800">Exports List</span>
         </div>
 
@@ -436,10 +436,10 @@ export default function ExportsListPage() {
                 setPage(1);
               }}
             />
-            <span className="text-slate-500">exports per page</span>
+            <span className="text-muted-foreground">exports per page</span>
           </div>
           <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               className="input pl-9 text-sm w-64"
               placeholder="Search MCA ref, client, invoice, buyer..."
@@ -471,14 +471,14 @@ export default function ExportsListPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center text-slate-500 py-8">
+                  <td colSpan={10} className="text-center text-muted-foreground py-8">
                     No exports found — click <strong>New Export</strong> to
                     create one.
                   </td>
@@ -487,7 +487,7 @@ export default function ExportsListPage() {
               {!loading &&
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-slate-500 font-medium">
+                    <td className="text-muted-foreground font-medium">
                       {startIndex + idx + 1}
                     </td>
                     <td>
@@ -540,21 +540,21 @@ export default function ExportsListPage() {
                           type="button"
                           onClick={() => setViewId(r.id)}
                           title="View details"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-slate-600 hover:bg-slate-700 text-white transition"
+                          className="btn-view btn-icon"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         <Link
                           href={`/exports/${r.id}`}
                           title="Edit"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-primary-600 hover:bg-primary-700 text-white transition"
+                          className="btn-edit btn-icon"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </Link>
                         <a
                           href={`/api/v1/exports/${r.id}/export`}
                           title="Export to Excel"
-                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                          className="btn-excel btn-icon transition"
                         >
                           <FileSpreadsheet className="h-3.5 w-3.5" />
                         </a>

@@ -280,6 +280,110 @@ Three things this exists to prevent, all of which were live in the codebase:
 
 The one sanctioned exception is a **calendar tile** that stacks the day over an abbreviated month (see the holiday chips in [KpiDelayView](src/modules/kpi/KpiDelayView.tsx)). That is still day-before-month, so the rule's intent holds; pin the locale (`'en'`) and timezone explicitly.
 
+### 4.20 Colour comes from tokens, and an action button is coloured by what it produces
+
+**Never hardcode a text or border colour on a Tailwind palette class.** `text-slate-500`, `text-slate-400` and friends bypass the theme entirely: they are a fixed grey that cannot follow light/dark, cannot follow the operator's configured palette, and drift into a washed-out "light black" that is tiring to read. There are zero `text-slate-400` / `text-slate-500` classes in `src/`, and adding one is a defect.
+
+Use the tokens in [globals.css](src/app/globals.css):
+
+| Need | Token class |
+| --- | --- |
+| Body / labels / primary reading text | `text-foreground` |
+| Secondary text — hints, table meta, counts | `text-muted-foreground` |
+| Card edges, dividers, table rules | `border-border` |
+| The border of an input the user types into | `border-input` |
+
+Two of these are deliberately tuned rather than inherited, and both must stay that way:
+
+- **`--foreground` is near-black, and `.label` uses it at full strength.** A field label is not secondary information. The old `text-foreground/80` was the single biggest source of the faded look on long forms.
+- **`--input` is much darker than `--border`.** They are separate tokens precisely so they can differ: structural edges stay light so the page is not a grid of boxes, while a control the user is meant to type into announces where its edges are. In dark mode the same intent **inverts** — `--input` goes *lighter* than the surface, not darker. When changing one theme's value, change the other to match the intent, not the number.
+
+**Action buttons are coloured by what they produce, not by the page they sit on.** Colour is a signal operators learn once; the same action must look the same everywhere. Use the shared classes — never hand-roll `inline-flex items-center gap-1.5 rounded-md bg-…` again:
+
+```tsx
+<button className="btn-pdf btn-sm">   <Printer /> Print / PDF </button>   {/* red   — produces a PDF */}
+<button className="btn-excel btn-sm"> <FileSpreadsheet /> Export </button> {/* green — produces a spreadsheet */}
+<button className="btn-neutral btn-sm"><Eye /> View </button>              {/* slate — produces nothing */}
+<button className="btn-primary">Save</button>
+<button className="btn-danger">Delete</button>
+<button className="btn-secondary">Cancel</button>
+```
+
+`btn-sm` and `btn-icon` are size modifiers and carry no colour; put them **after** the colour class. `btn-icon` is the 28px square used in table action columns.
+
+**Three row-action hues are reserved.** A table's action column is scanned, not read, so the same glyph must mean the same thing in the same colour on every screen:
+
+| Action | Filled (solid buttons) | Bare (glyph-only tables) |
+| --- | --- | --- |
+| **View** — opens a read-only look | `btn-view btn-icon` — near-black | `ico-view` |
+| **Edit** — opens the record for change | `btn-edit btn-icon` — blue | `ico-edit` |
+| **Delete / disable** — destroys or hides | `btn-delete btn-icon` — red | `ico-delete` |
+
+```tsx
+<button onClick={() => setViewId(r.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
+<Link href={`/imports/${r.id}`} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
+<button onClick={() => remove(r.id)} title="Delete" className="ico-delete ml-1"><Trash2 className="h-4 w-4" /></button>
+```
+
+Two consequences to respect:
+
+- **Colour the icon at rest, not on hover.** The master screens used to render every action grey and only reveal the red on hover, which made the operator hunt for the most dangerous control in the row. `ico-delete` is red before the pointer arrives.
+- **Never dress a non-destructive action in the delete hue.** "Mark DGI Verified" wore `bg-red-800` immediately beside the real Delete button; it now uses violet. Any other action — copy, manage, verify, toggle visibility — picks a hue **outside** the reserved three.
+
+This rule exists because the same action had drifted across screens: "Export All to Excel" was emerald on the licence list, amber on the invoice list, sky on the client dashboard and grey when disabled; PDF was violet, rose *and* red within a single row of buttons; Delete was `bg-red-600` in one table and `bg-slate-500` in another. If a new action genuinely does not fit `pdf` / `excel` / `neutral` / `view` / `edit` / `delete` / `primary` / `danger`, add a class to globals.css — do not inline it at the call site.
+
+### 4.21 Every modal has a labelled way out
+
+**A modal's footer always carries a `Cancel` (or `Close`) button, in every mode — creating, editing, viewing and confirming alike.** An `X` in the corner and a click on the backdrop are not sufficient: both are unlabelled, neither is obvious on a touch screen, and a dialog that commits something (an approval, a rejection, a delete) must let the user leave without deciding through an explicit, labelled control.
+
+```tsx
+<div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+  <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+  <button type="submit" className="btn-primary">Save</button>
+</div>
+```
+
+Rules that follow:
+
+- **Never render the cancel conditionally.** `{!isEdit && <Cancel/>}` is a defect — editing is exactly when an escape route matters most, because the user has a half-changed record in front of them.
+- `Cancel` for a form, `Close` for a read-only view. Both count; a bare `X` alone does not.
+- Keep the `X` in the header as well — it is a convenience, not the primary control.
+- The cancel stays enabled while a save is in flight unless cancelling is genuinely unsafe.
+
+### 4.22 Every CRUD operation reports its outcome, and the user acknowledges it
+
+**A create, update or delete always ends in [`<ResultDialog>`](src/components/ui/ResultDialog.tsx) — success or failure — and nothing moves until the user clicks OK.** There are zero `alert()` calls in `src/`, and adding one is a defect.
+
+```tsx
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+
+const [result, setResult] = useState<SaveResult | null>(null);
+
+if (!json.ok) {
+  setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This client could not be disabled.' });
+  return;
+}
+setResult({ status: 'success', title: 'Deleted', message: 'The client has been disabled.' });
+load();
+
+// …and once, at the end of the component:
+<ResultDialog result={result} onDismiss={() => setResult(null)} />
+```
+
+**OK is what navigates.** On a transaction page a successful save does *not* redirect on its own — it opens the dialog, and dismissing it is what takes the user to the list (§4.13 derives that route). A silent navigation is indistinguishable from the page changing by itself, and gives no confirmation that the record was actually written.
+
+**Failure dismisses in place.** The form still holds the user's work and the offending field is already marked (§4.18), so closing the dialog must return them to it — never navigate away from unsaved input.
+
+Rules that follow:
+
+- **Never use `alert()` or `confirm()` for a result.** `alert()` is unstyled, unthemed, blocks the main thread and cannot show a field-level detail. (`confirm()` is still acceptable *before* a destructive action — that is a question, not a result.)
+- **Say what happened to what.** "The client has been disabled" beats "Success". Take the noun from the thing being acted on.
+- **Titles are outcomes, not statuses**: `Created`, `Saved`, `Deleted`, `Not saved`, `Not deleted`.
+- **Pass the server's message through.** `json.error?.message` first, and only fall back to generic copy when the server said nothing useful.
+- The dialog focuses its OK button on open, closes on Escape and on backdrop click, and carries a labelled button per §4.21.
+
+This exists because the two prior patterns both failed the operator: master screens threw a native `alert('Failed')` that named neither the record nor the reason, while transaction pages silently redirected on success and dropped a line of red text into the action bar on failure — so a save that worked and a save that did nothing looked nearly identical.
+
 ## 5. Directory layout
 
 ```
@@ -434,6 +538,11 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to put a save button on an individual accordion → no, a transaction page has one page-level Save (§4.17).
 - Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
 - Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).
+- Requests to hardcode `text-slate-400` / `text-slate-500` or any palette colour for text → no, use `text-foreground` / `text-muted-foreground` (§4.20).
+- Requests to hand-roll an export/print button's colours, or to colour the same action differently on two screens → no, use `btn-pdf` / `btn-excel` / `btn-neutral` (§4.20).
+- Requests to recolour View / Edit / Delete away from black / blue / red, to leave a delete icon grey until hover, or to put a non-destructive action in the delete hue → no, those three hues are reserved (§4.20).
+- Requests to drop the Cancel button from a modal, or to hide it while editing → no, every modal keeps a labelled way out (§4.21).
+- Requests to report a save/delete with `alert()`, a toast-only, or a silent redirect → no, use `<ResultDialog>` and let OK do the navigating (§4.22).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

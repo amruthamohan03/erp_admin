@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Eye, Edit2, Trash2, Truck, MapPin, X } from 'lucide-react';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { formatDate as fmtDate } from '@/lib/formatDate';
 
@@ -42,6 +43,8 @@ export default function LocalPage() {
   const [search, setSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState(0);
   const [loading, setLoading] = useState(false);
+  // §4.22 — the acknowledged outcome of a create / update / delete.
+  const [result, setResult] = useState<SaveResult | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
 
   const [mounted, setMounted] = useState(false);
@@ -82,7 +85,12 @@ export default function LocalPage() {
     if (!confirm('Delete this local tracking record?')) return;
     const res = await fetch(`/api/v1/locals/${id}`, { method: 'DELETE' });
     const j = await res.json();
-    if (j.ok) { load(); loadStats(); } else alert(j.error?.message ?? 'Delete failed');
+    if (!j.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: j.error?.message || 'This tracking record could not be deleted.' });
+      return;
+    }
+    setResult({ status: 'success', title: 'Deleted', message: 'The local tracking record has been deleted.' });
+    load(); loadStats();
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -123,7 +131,7 @@ export default function LocalPage() {
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
           <span className="font-semibold text-slate-800 dark:text-slate-200">Locals List</span>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input className="input pl-9 text-sm w-64" placeholder="Search reference, horse, transporter, client…"
               value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
@@ -138,11 +146,11 @@ export default function LocalPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && (<tr><td colSpan={9} className="text-center text-slate-500 py-8">Loading…</td></tr>)}
-              {!loading && items.length === 0 && (<tr><td colSpan={9} className="text-center text-slate-500 py-8">No local records found.</td></tr>)}
+              {loading && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
+              {!loading && items.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No local records found.</td></tr>)}
               {!loading && items.map((r, idx) => (
                 <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                  <td className="text-slate-500 font-medium">{startIndex + idx + 1}</td>
+                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
                   <td className="font-medium">{r.client_name || 'N/A'}</td>
                   <td>{r.location_name || 'N/A'}</td>
                   <td className="font-mono">{r.mca_lt_reference || '—'}</td>
@@ -152,9 +160,9 @@ export default function LocalPage() {
                   <td>{fmtDate(r.arrival_date)}</td>
                   <td>
                     <div className="inline-flex items-center gap-1 justify-center">
-                      <button type="button" onClick={() => openView(r.id)} title="View" className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-slate-600 hover:bg-slate-700 text-white"><Eye className="h-3.5 w-3.5" /></button>
-                      <Link href={`/local/${r.id}`} title="Edit" className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 hover:bg-primary-700 text-white"><Edit2 className="h-3.5 w-3.5" /></Link>
-                      <button type="button" onClick={() => del(r.id)} title="Delete" className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-red-600 hover:bg-red-700 text-white"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => openView(r.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
+                      <Link href={`/local/${r.id}`} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
+                      <button type="button" onClick={() => del(r.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -188,13 +196,13 @@ export default function LocalPage() {
                   ['Gov Docs Complete', Ddate('gov_docs_complete_date')], ['Disp Date', Ddate('disp_date')], ['End of Formalities', Ddate('end_of_formalities')],
                 ] as Array<[string, string]>).map(([k, v]) => (
                   <div key={k}>
-                    <dt className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">{k}</dt>
+                    <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{k}</dt>
                     <dd className="text-slate-800 dark:text-slate-100">{v}</dd>
                   </div>
                 ))}
               </dl>
               <div className="mt-4">
-                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">Remarks</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Remarks</div>
                 <div className="rounded-md bg-slate-50 dark:bg-slate-800/40 p-2 text-sm whitespace-pre-wrap">{D('remarks')}</div>
               </div>
             </div>
@@ -205,6 +213,8 @@ export default function LocalPage() {
           </div>
         </div>
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }

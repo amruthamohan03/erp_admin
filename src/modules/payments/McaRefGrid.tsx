@@ -215,7 +215,7 @@ export default function McaRefGrid({
     const v = verdicts[up];
     if (!v) {
       return checking
-        ? { icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, text: 'Checking…', cls: 'text-slate-500' }
+        ? { icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, text: 'Checking…', cls: 'text-muted-foreground' }
         : null;
     }
     if (v.valid) {
