@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { getSession, AuthPayload } from '@/lib/auth';
 import { checkPermission, PermissionAction } from '@/lib/auth/permissions';
 import { AppError } from '@/lib/errors';
+import { messageForPgError, summarizeZodError } from '@/lib/validation/messages';
 
 // Response envelope per root CLAUDE.md §4.4.
 //   success: { ok: true,  data: T, meta?: {...} }
@@ -83,18 +84,30 @@ export function isResponse(x: unknown): x is NextResponse {
 // Maps a thrown value to the envelope. Used by withErrorHandler.
 // Handled cases:
 //   - AppError subclasses (typed errors from @/lib/errors) → use their status/code/details
-//   - ZodError → 422 with flattened field errors under details
-//   - pg unique violation (23505) → generic 409
-//   - pg foreign key violation (23503) → generic 400
+//   - ZodError → 422, message names the offending field(s) (§4.23)
+//   - pg length/range/not-null/check violations → 422, also named
+//   - pg unique violation (23505) → 409
+//   - pg foreign key violation (23503) → 400
 //   - everything else → 500 (logged)
+//
+// The message is what every client renders, so it is written for an operator
+// rather than a developer. `details.fields` carries the per-field messages the
+// form uses to mark inputs (§4.18); `details.errors` keeps Zod's flatten()
+// shape for the callers that already read it.
 function mapError(err: unknown): NextResponse {
   if (err instanceof AppError) {
     return fail(err.message, err.status, { code: err.code, ...(err.details ?? {}) });
   }
   if (err instanceof ZodError) {
-    return fail('Invalid input', 422, { errors: err.flatten() });
+    const { message, fields } = summarizeZodError(err);
+    return fail(message, 422, { fields, errors: err.flatten() });
   }
-  const e = err as { code?: string; message?: string };
+  const e = err as { code?: string; message?: string; column?: string; constraint?: string; detail?: string };
+
+  const constraintMessage = e?.code ? messageForPgError(e) : null;
+  if (constraintMessage) {
+    return fail(constraintMessage.message, constraintMessage.status);
+  }
   if (e?.code === '23505') return fail('Resource already exists', 409);
   if (e?.code === '23503') return fail('Referenced resource not found', 400);
   console.error('[withErrorHandler]', err);

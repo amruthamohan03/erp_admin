@@ -4,14 +4,30 @@ import BrandingProvider from '@/components/providers/BrandingProvider';
 import ThemeProvider from '@/components/providers/ThemeProvider';
 import TranslateProvider from '@/components/providers/TranslateProvider';
 import { loadBranding } from '@/db/queries/branding';
-import { brandingCssVars } from '@/lib/branding';
+import { BRANDING_DEFAULTS, brandingCssVars } from '@/lib/branding';
 import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'ERP Admin',
-  description: 'Modular ERP admin dashboard',
-};
+// Tab title and favicon come from the branding row, not from a constant — the
+// two fields exist on /settings/application precisely so an operator can change
+// them, and a hardcoded `metadata` meant the uploaded favicon was stored and
+// then never rendered by anything.
+//
+// Browsers cache a favicon aggressively, so the upload path deliberately writes
+// a fresh filename per upload rather than overwriting one — the URL changing is
+// what makes the new icon appear without a hard reload.
+export async function generateMetadata(): Promise<Metadata> {
+  const branding = await loadBranding();
+  const icon = branding.favicon_url?.trim();
+
+  return {
+    title: branding.app_title || BRANDING_DEFAULTS.app_title,
+    description: branding.tagline || 'Modular ERP admin dashboard',
+    ...(icon
+      ? { icons: { icon: [{ url: icon }], shortcut: [{ url: icon }], apple: [{ url: icon }] } }
+      : {}),
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const store = await cookies();

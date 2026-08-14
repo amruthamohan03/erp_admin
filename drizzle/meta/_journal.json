@@ -358,6 +358,13 @@
       "when": 1784660519385,
       "tag": "0050_done_by_company_row",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1784660519386,
+      "tag": "0051_align_application_settings_columns",
+      "breakpoints": true
     }
   ]
 }

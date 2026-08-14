@@ -384,6 +384,50 @@ Rules that follow:
 
 This exists because the two prior patterns both failed the operator: master screens threw a native `alert('Failed')` that named neither the record nor the reason, while transaction pages silently redirected on success and dropped a line of red text into the action bar on failure — so a save that worked and a save that did nothing looked nearly identical.
 
+### 4.23 A rejected input always says which field and why
+
+**Every validation message names the thing that is wrong and what would make it right.** `"Invalid input"`, `"Save failed"`, `"Error"`, `"Bad request"` and a bare status code are all defects — they tell an operator that something is broken and leave them to find it by trial and error on a form with thirty fields.
+
+A message that reaches a user has to answer three questions:
+
+| Question | Bad | Good |
+| --- | --- | --- |
+| **Which field?** | `Invalid input` | `Tagline must be 255 characters or fewer.` |
+| **What is wrong with it?** | `Validation failed` | `Favicon must be .ico, .png or .svg — this file is .bmp.` |
+| **What do I do?** | `File too large` | `Logo is 3.4 MB — the limit is 1 MB. Choose a smaller file.` |
+
+**One generator, used on both sides.** [src/lib/validation/messages.ts](src/lib/validation/messages.ts) turns a `ZodError` into `{ message, fields }` — a sentence for the dialog and per-field messages for the inputs. Do not write a second one, and do not hand-format a Zod issue at a call site.
+
+- **Server** — `withErrorHandler` already runs every `ZodError` through `summarizeZodError`, so **a route gets this for free by throwing or parsing as usual**. The envelope carries the sentence as `error.message` and the per-field bag as `error.details.fields`. Postgres constraint failures that are really validation problems (22001 length, 22003 range, 22P02 format, 23502 not-null, 23514 check) map to a 422 with a named field too, instead of the 500 they used to produce.
+- **Client** — `safeFetchJson` lifts `details.fields` into `res.fieldMessages` and the first offending path into `res.field`. Mark the input with `aria-invalid` and print its own sentence beneath it (§4.18), then report the outcome through `<ResultDialog>` (§4.22).
+- **Before the round trip** — a page that already holds the request schema runs `schema.safeParse()` and formats the failure through the *same* `summarizeZodError`, so the wording an operator sees does not change depending on whether the check happened in the browser or on the server. `/settings/application` is the reference.
+
+**Write the sentence in the schema, not in the handler.** Zod's defaults describe the type system (`Expected string, received null`); the generator rewrites the common ones into plain English, and an explicit message always wins:
+
+```ts
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 6-digit hex color (e.g. #2563eb)');
+z.string().min(1).max(100)   // → "Project Name is required." / "Project Name must be 100 characters or fewer."
+```
+
+Rules that follow:
+
+- **Name the field the way the user sees it.** Paths are humanized (`favicon_url` → `Favicon`), so a field whose key reads badly gets an explicit message rather than a special case in the renderer.
+- **Quantities go in the message.** "3.4 MB, limit 1 MB" — not "too large". "at least 3 characters" — not "too short".
+- **Never leak a raw error object into the UI.** A stringified `{"fieldErrors":{…}}`, a pg driver message, or a stack trace is not a validation message. `safeFetchJson` deliberately renders `details.fields` as prose and never prints the machine keys.
+- **A 500 is not a validation outcome.** If a save is rejected because of what the user typed, it is a 4xx with a sentence. A "Server error" for a value that is three characters too long is a bug in the mapping, not in the input.
+- **File uploads validate content, not the filename.** The browser's `File.type` is unreliable (a `.ico` arrives as `image/x-icon`, `image/vnd.microsoft.icon`, or `''` depending on the machine). [saveUploadedImage](src/lib/storage.ts) sniffs magic bytes, falls back to the extension only when the browser declared nothing, and names both the accepted formats and the rejected one. Pass `label` so the message says "Favicon", not "File".
+
+### 4.24 An uploaded file is not saved until the row points at it
+
+Branding assets, avatars, signatures and document attachments are **a file on disk plus a row that names it**. Neither half is the record. Two failure modes follow, and both have bitten this project:
+
+1. **The row is written and the file is not.** `saveUploadedImage` stats the file after writing and throws if the byte count disagrees — a URL is only returned once the bytes are on disk.
+2. **The file is written and the row is not.** Write the new URL *first*, and only delete the previous file after the UPDATE returns a row. The reverse order leaves the operator with no logo and a row naming a deleted file; this order orphans an upload instead, which is invisible and recoverable.
+
+**A row can also outlive its file** — `public/uploads/` is not part of a database dump, so a restore carries the URL without the image. The server can tell (`uploadExists`), the browser cannot. Endpoints that serve an asset URL report it in `meta` (`logo_file_missing`), and the UI says *"the stored file is missing from the server, upload it again"* rather than rendering an empty box that claims to hold a logo.
+
+**Anything an operator uploads must actually be rendered somewhere.** `favicon_url` was stored, deleted, replaced and validated for months while the root layout carried a hardcoded `metadata` — so the setting worked perfectly and changed nothing. When adding a configurable asset, wire the consumer in the same change.
+
 ## 5. Directory layout
 
 ```
@@ -543,6 +587,8 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to recolour View / Edit / Delete away from black / blue / red, to leave a delete icon grey until hover, or to put a non-destructive action in the delete hue → no, those three hues are reserved (§4.20).
 - Requests to drop the Cancel button from a modal, or to hide it while editing → no, every modal keeps a labelled way out (§4.21).
 - Requests to report a save/delete with `alert()`, a toast-only, or a silent redirect → no, use `<ResultDialog>` and let OK do the navigating (§4.22).
+- Requests to ship "Invalid input" / "Save failed" / a bare status code as a user-facing message, or to hand-format a Zod issue at a call site → no, name the field and the fix via `summarizeZodError` (§4.23).
+- Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

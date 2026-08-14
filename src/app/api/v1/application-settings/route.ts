@@ -10,6 +10,7 @@ import {
 } from '@/lib/api';
 import { applicationSettingsUpdateSchema } from '@/schemas/application-settings';
 import { brandingFromRow } from '@/db/queries/branding';
+import { uploadExists } from '@/lib/storage';
 
 // Application-wide branding (project name, colors, logo, footer).
 // Singleton row (id=1) seeded on install; the admin UI PUTs the
@@ -60,7 +61,22 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
   if (isResponse(session)) return session;
 
   const row = await loadOrDefault();
-  return ok(toResponse(row));
+
+  // A branding row can outlive its files: the uploads folder is not part of a
+  // database dump, so a restore carries the URL without the PNG. The browser
+  // cannot tell a missing file from a slow one, so the server reports it and the
+  // settings page says "re-upload" instead of showing an empty box (§4.23).
+  const [logoPresent, faviconPresent] = await Promise.all([
+    uploadExists(row.logoUrl),
+    uploadExists(row.faviconUrl),
+  ]);
+
+  return ok(toResponse(row), {
+    meta: {
+      logo_file_missing: !!row.logoUrl && !logoPresent,
+      favicon_file_missing: !!row.faviconUrl && !faviconPresent,
+    },
+  });
 });
 
 export const PUT = withErrorHandler(async (req: NextRequest) => {
