@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, LayoutGrid, X } from 'lucide-react';
 import clsx from 'clsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
 import type { MenuTreeNode } from '@/types/menu';
@@ -148,6 +149,7 @@ export default function Sidebar() {
           </button>
         </div>
 
+        <TooltipProvider delayDuration={0}>
         <nav className="scrollbar-thin flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-3">
           {loading && (
             <div className="space-y-2 px-1 py-2">
@@ -176,36 +178,38 @@ export default function Sidebar() {
             // Leaf top-level item -> simple link
             if (!hasChildren) {
               return (
-                <Link
-                  key={item.id}
-                  href={href}
-                  title={rail ? item.menu_name : undefined}
-                  aria-current={active ? 'page' : undefined}
-                  className={clsx(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                    collapsed && 'lg:justify-center lg:px-0',
-                    active
-                      ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm'
-                      : 'text-sidebar-foreground/75 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground',
-                  )}
-                >
-                  <MenuIcon icon={item.icon} label={item.menu_name} />
-                  <span className={clsx('flex-1 truncate', collapsed && 'lg:hidden')}>
-                    {item.menu_name}
-                  </span>
-                  <Badge text={item.badge} hidden={collapsed} />
-                </Link>
+                <RailTip key={item.id} show={rail} label={item.menu_name}>
+                  <Link
+                    href={href}
+                    aria-label={rail ? item.menu_name : undefined}
+                    aria-current={active ? 'page' : undefined}
+                    className={clsx(
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                      collapsed && 'lg:justify-center lg:px-0',
+                      active
+                        ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm'
+                        : 'text-sidebar-foreground/75 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground',
+                    )}
+                  >
+                    <MenuIcon icon={item.icon} label={item.menu_name} />
+                    <span className={clsx('flex-1 truncate', collapsed && 'lg:hidden')}>
+                      {item.menu_name}
+                    </span>
+                    <Badge text={item.badge} hidden={collapsed} />
+                  </Link>
+                </RailTip>
               );
             }
 
             // Parent with children -> collapsible group
             return (
               <div key={item.id}>
-                <button
+                <RailTip show={rail} label={item.menu_name}>
+                  <button
                   type="button"
                   onClick={() => toggle(item.id)}
                   aria-expanded={isOpen}
-                  title={rail ? item.menu_name : undefined}
+                  aria-label={rail ? item.menu_name : undefined}
                   className={clsx(
                     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                     collapsed && 'lg:justify-center lg:px-0',
@@ -227,6 +231,7 @@ export default function Sidebar() {
                     )}
                   />
                 </button>
+                </RailTip>
 
                 {isOpen && (
                   <div className="ms-3 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-2">
@@ -262,6 +267,7 @@ export default function Sidebar() {
             );
           })}
         </nav>
+        </TooltipProvider>
 
         <div
           className={clsx(
@@ -273,6 +279,28 @@ export default function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+// On a rail the label is display:none, which removes it from the accessible tree
+// as well as from view — so the collapsed item needs BOTH a tooltip a sighted
+// user can hover and an aria-label a screen reader can announce. Expanded, the
+// label is already on screen and a tooltip would only repeat it.
+function RailTip({
+  show,
+  label,
+  children,
+}: {
+  show: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  if (!show) return <>{children}</>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

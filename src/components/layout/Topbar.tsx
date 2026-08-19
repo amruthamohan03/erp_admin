@@ -5,8 +5,6 @@ import Link from 'next/link';
 import {
   LogOut,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   User as UserIcon,
 } from 'lucide-react';
@@ -66,6 +64,7 @@ export default function Topbar() {
           type="button"
           onClick={toggleMobile}
           aria-label="Open navigation"
+          title="Open navigation"
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/15 lg:hidden"
         >
           <Menu className="h-5 w-5" />
@@ -79,11 +78,11 @@ export default function Topbar() {
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/15 lg:inline-flex"
         >
-          {collapsed ? (
-            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
-          ) : (
-            <PanelLeftClose className="h-5 w-5 rtl:-scale-x-100" />
-          )}
+          {/* One hamburger for both states — the icon is the handle for the
+              navigation, and swapping the glyph on toggle made it read as two
+              different controls. Which state it is in is carried by the sidebar
+              itself, plus aria-pressed and the tooltip. */}
+          <Menu className="h-5 w-5" />
         </button>
 
         {/* The sidebar carries the identity from `lg` up, so the header only needs
