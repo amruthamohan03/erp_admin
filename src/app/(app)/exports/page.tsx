@@ -30,6 +30,7 @@ import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
@@ -49,10 +50,7 @@ interface ExportRow {
   clearing_status_name: string | null;
 }
 
-interface Option {
-  id: number;
-  label: string;
-}
+type Option = MasterOption;
 
 interface Stats {
   total_count: number;
@@ -104,7 +102,7 @@ const CARD_GRADIENT = 'from-indigo-500 to-purple-600';
 
 function fmtCount(n: number): string {
   return n.toLocaleString();
-}
+}
 function fmtNum(v: string | null | undefined): string {
   if (v == null || v === '') return '';
   const n = Number(v);
@@ -116,30 +114,7 @@ function fmtNum(v: string | null | undefined): string {
     : String(v);
 }
 
-async function fetchOptions(
-  source: string,
-  labelKey: string,
-): Promise<Option[]> {
-  try {
-    // pageSize=100 is the universal cap the list-query schemas accept; a larger
-    // value throws Zod validation (422) and leaves the dropdown empty.
-    const r = await fetch(`/api/v1/${source}?pageSize=100`);
-    const j = await r.json();
-    const list: Record<string, unknown>[] = Array.isArray(j?.data)
-      ? j.data
-      : Array.isArray(j?.data?.items)
-        ? j.data.items
-        : [];
-    return list
-      .map((row) => ({
-        id: row.id as number,
-        label: String(row[labelKey] ?? row.id),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
-  } catch {
-    return [];
-  }
-}
+
 
 export default function ExportsListPage() {
   const [items, setItems] = useState<ExportRow[]>([]);

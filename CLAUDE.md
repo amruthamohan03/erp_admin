@@ -204,9 +204,29 @@ Notes that catch people out:
 - **`emptyLabel` vs `placeholder`.** `emptyLabel` adds a selectable "none" row inside the list; `placeholder` is only the closed-state text. A filter usually wants both; a required field wants `placeholder` alone.
 - **No `disabled` on individual options.** Withhold the option instead — see the seal status field, where "Damaged" is dropped rather than greyed out.
 - **`size="sm"`** for inline filter bars and table footers; the default suits form fields.
-- Options are sorted A→Z (numeric-aware) by the component. Don't pre-sort at the call site.
 
 Radio groups remain fine for two or three mutually exclusive choices rendered inline. Boolean on/off is a `<Toggle>` (§4.11), not a two-option dropdown.
+
+**Every dropdown renders in id order, never alphabetically.** `orderOptions` in [src/lib/selectOptions.ts](src/lib/selectOptions.ts) is the one place that decides this, and `<SearchableSelect>` applies it to every list it is given. **Do not sort options at a call site** — a pre-sort is either redundant or it is fighting the rule.
+
+```ts
+// The component does this for you. Hand it the options in whatever order they arrived.
+<SearchableSelect options={clients.map((c) => ({ value: String(c.id), label: c.short_name }))} … />
+```
+
+The rule has two branches, decided once per list rather than per comparison — a comparator that sorts some pairs and not others is inconsistent, and the result of an inconsistent comparator is undefined:
+
+- **Every value is numeric** → ascending id. An entity-backed dropdown carries the row id as its `value`, so this is creation order: the order operators already know a master by, and the order the master's own screen lists it in.
+- **Anything else** (status codes, `'Y'`/`'N'`, workflow stages) → the supplied order, untouched. There is no id to sort by, and that order is authored — usually a meaningful sequence.
+
+Alphabetical order was wrong for both. For entity lists it made the picker unstable: adding a client called "AAA Depot" moved every other option down, so a dropdown an operator had learned by position changed under them for reasons unrelated to their work. For authored lists it destroyed a deliberate sequence — a workflow's stages came back as Approved, Draft, Paid.
+
+Two consequences to respect:
+
+- **The order comes from the endpoint, so the endpoint's `ORDER BY` matters.** It does not have to be ascending — the component re-orders — but a source that cannot supply ids (a computed or grouped list) will render in whatever order it arrives.
+- **A master with its own ordering column is not covered by this.** No `options_source` currently points at a table carrying `display_order` / `sort_order`. If one is added, that column is the intended order and `orderOptions` would override it — extend the shared helper to honour it rather than sorting at the call site.
+
+Fetching options is shared too: `fetchMasterOptions(source, labelField)` from the same module handles the `pageSize=100` cap and both response envelope shapes. Three list pages each carried a byte-identical private copy and two of them missed the paginated shape, so the same dropdown was populated on one screen and empty on another (§4.10).
 
 ### 4.17 One save per transaction page, not one per accordion
 
@@ -678,6 +698,8 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to add an `<input type="checkbox">` for a boolean setting, or a second toggle/switch component → no, use `<Toggle>` (§4.11).
 - Requests to label a client dropdown with `company_name` → no, pickers show `short_name` via the shared resolver (§4.15).
 - Requests to add a raw `<select>` ("it's only a few options") → no, use `<SearchableSelect>` (§4.16).
+- Requests to sort a dropdown's options alphabetically, or to pre-sort them at the call site → no, options render in id order via `orderOptions` (§4.16).
+- Requests to write another private `fetchOptions` helper on a page → no, use `fetchMasterOptions` (§4.16, §4.10).
 - Requests to put a save button on an individual accordion → no, a transaction page has one page-level Save (§4.17).
 - Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
 - Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).

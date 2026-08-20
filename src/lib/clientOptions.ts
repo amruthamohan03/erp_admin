@@ -9,6 +9,8 @@
 // `company_name`. Everything that lists clients for selection now goes through here,
 // so the rule holds in one place (§4.10).
 
+import { optionRows } from '@/lib/selectOptions';
+
 /** The column the master-driven page runtime must use for `options_source: 'clients'`. */
 export const CLIENT_OPTION_LABEL_FIELD = 'short_name';
 
@@ -42,15 +44,11 @@ export function clientOptionLabel(row: Record<string, unknown>): string {
  * entities onto a server-side searchable select.
  */
 export async function fetchClientOptions(): Promise<ClientOption[]> {
+  // Envelope handling is shared (§4.10); only the labelling rule is ours. Order
+  // is SearchableSelect's — options render by id (§4.16), so nothing sorts here.
   const res = await fetch('/api/v1/clients?pageSize=100');
-  const json = await res.json();
-  if (!json?.ok) return [];
-
-  const list: Record<string, unknown>[] = Array.isArray(json.data)
-    ? json.data
-    : Array.isArray(json.data?.items)
-      ? json.data.items
-      : [];
-
-  return list.map((row) => ({ value: String(row.id), label: clientOptionLabel(row) }));
+  return optionRows(await res.json()).map((row) => ({
+    value: String(row.id),
+    label: clientOptionLabel(row),
+  }));
 }
