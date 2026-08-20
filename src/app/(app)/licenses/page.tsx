@@ -23,6 +23,7 @@ import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
@@ -106,10 +107,7 @@ const EMPTY_FILTERS: FilterState = {
   end_date: '',
 };
 
-interface Option {
-  id: number;
-  label: string;
-}
+type Option = MasterOption;
 
 
 // Stat value backing a card. The seed stores the exact stats key in the
@@ -118,27 +116,7 @@ function statKeyFor(card: DashboardCard): string {
   return card.data_source?.split('#')[1] ?? `${card.card_content_id}_count`;
 }
 
-// Fetch a master endpoint as {id,label} options. Restructure masters return the
-// `{ ok, data: [...] }` envelope.
-async function fetchOptions(source: string, labelKey: string): Promise<Option[]> {
-  try {
-    // pageSize=100 is the universal cap the list-query schemas accept; a larger
-    // value throws Zod validation (422) and leaves the dropdown empty.
-    const r = await fetch(`/api/v1/${source}?pageSize=100`);
-    const j = await r.json();
-    const list: Array<Record<string, unknown>> = Array.isArray(j?.data)
-      ? j.data
-      : [];
-    return list
-      .map((row) => ({
-        id: row.id as number,
-        label: String(row[labelKey] ?? row.id),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
-  } catch {
-    return [];
-  }
-}
+
 
 function buildParams(f: FilterState): URLSearchParams {
   const p = new URLSearchParams();

@@ -516,10 +516,10 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     };
   }, [source, labelField, labelTemplate, paramQuery]);
 
-  // All dropdowns render their options in ascending (A→Z, numeric-aware) order.
-  const options = (source ? dynamic : staticOptions.map((o) => ({ value: o.value, label: o.label })))
-    .slice()
-    .sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: 'base' }));
+  // Order is SearchableSelect's job (§4.16) — id order for entity-backed lists,
+  // authored order for static ones. Pre-sorting here is what used to alphabetise
+  // a static option list whose sequence was deliberate.
+  const options = source ? dynamic : staticOptions.map((o) => ({ value: o.value, label: o.label }));
 
   const select = (
     <SearchableSelect
@@ -727,12 +727,12 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
     try {
       const j = await fetch(`/api/v1/partielle-options?license_id=${licenseId}`).then((r) => r.json());
       if (j?.ok && Array.isArray(j.data)) {
+        // Unsorted on purpose — SearchableSelect puts them in id order (§4.16).
         setOptions(
-          j.data
-            .map((o: { id: unknown; label: unknown }) => ({ value: String(o.id), label: String(o.label) }))
-            .sort((a: { label: string }, b: { label: string }) =>
-              a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }),
-            ),
+          j.data.map((o: { id: unknown; label: unknown }) => ({
+            value: String(o.id),
+            label: String(o.label),
+          })),
         );
       }
     } catch {

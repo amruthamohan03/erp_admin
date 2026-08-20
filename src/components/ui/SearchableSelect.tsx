@@ -4,13 +4,15 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { orderOptions, type SelectOption } from '@/lib/selectOptions';
 
 // The project's single dropdown control (§4.16). Every pick-one list uses this —
 // a native <select> gives no type-ahead beyond first-letter matching, which is
 // unusable once a list passes a couple of dozen rows (clients, licenses, HS codes).
 //
 // Styled from design tokens so it follows the configured brand and stays legible in
-// dark mode. Options always render A→Z (numeric-aware) regardless of fetch order.
+// dark mode. Options always render in id order regardless of fetch order — see
+// orderOptions() in @/lib/selectOptions.
 //
 // The panel renders in a portal on `position: fixed`, not as an absolutely
 // positioned child. An in-flow panel is clipped by the first ancestor with a
@@ -38,10 +40,8 @@ interface PanelPosition {
   maxList: number;
 }
 
-export interface SearchableSelectOption {
-  value: string;
-  label: string;
-}
+/** Kept as an alias so the many existing imports of this name still resolve. */
+export type SearchableSelectOption = SelectOption;
 
 interface SearchableSelectProps {
   value: string;
@@ -98,13 +98,10 @@ export default function SearchableSelect({
   );
 
   const filtered = useMemo(() => {
-    // All dropdowns render their options in ascending (A→Z, numeric-aware) order.
-    const sorted = options
-      .slice()
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+    const ordered = orderOptions(options);
     const q = query.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((o) => o.label.toLowerCase().includes(q));
+    if (!q) return ordered;
+    return ordered.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
 
   // Measure the trigger and decide where the panel goes. Called before the panel
