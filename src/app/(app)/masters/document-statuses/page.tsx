@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -50,12 +50,6 @@ export default function DocumentStatusesPage() {
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -95,9 +89,6 @@ export default function DocumentStatusesPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -107,109 +98,35 @@ export default function DocumentStatusesPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="relative max-w-sm flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search status..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <SearchableSelect
-            className="max-w-[200px]"
-            aria-label="Filter by type"
-            value={typeFilter}
-            emptyLabel="All Types"
-            placeholder="All Types"
-            options={TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-            onChange={(v) => {
-              setTypeFilter(v as '' | DocumentStatusType);
-              setPage(1);
-            }}
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Status</th>
-                <th className="w-32">Type</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    No document statuses found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{item.document_status}</td>
-                    <td>
-                      <span
+      <DataTable<DocumentStatusRow>
+        rows={items}
+        loading={loading}
+        rowKey={(item) => item.id}
+        searchPlaceholder="Search status..."
+        emptyMessage="No document statuss yet — create the first one."
+        columns={[
+        { key: 'document_status', header: 'Status', sortable: true, className: 'font-medium' },
+        { key: '5', header: 'Type', render: (item: DocumentStatusRow) => (
+            <>
+            <span
                         className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${TYPE_BADGE_STYLE[item.type]}`}
                       >
                         {TYPE_LABEL[item.type]}
                       </span>
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(item)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(item) => ({ edit: () => setEditing(item), remove: () => handleDelete(item.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <DocumentStatusFormModal

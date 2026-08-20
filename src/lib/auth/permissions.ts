@@ -5,14 +5,48 @@ import { AuthPayload } from '@/lib/auth';
 
 // Permission backend per root CLAUDE.md §4.7.
 //
-// The codebase already stores role-scoped permissions in role_menu_mapping_t
-// (role × menu × {can_view, can_add, can_edit, can_delete, can_approve}).
-// `resource` is the menu URL (matches menu_master_t.url, e.g. "/masters/users")
-// and `action` is one of the five flags. This avoids inventing a duplicate
-// master_permission table — see src/modules/masters/CLAUDE.md for the existing
-// `_master_t` naming convention.
+// The codebase stores role-scoped permissions in role_menu_mapping_t
+// (role × menu × can_* flags). `resource` is the menu URL (matches
+// menu_master_t.url, e.g. "/masters/users") and `action` is one of the flags.
+// This avoids inventing a duplicate master_permission table — see
+// src/modules/masters/CLAUDE.md for the existing `_master_t` convention.
+//
+// §4.27 — `delete`, `restore` and `permanentDelete` are deliberately three
+// separate actions rather than one "can destroy things" flag. Hiding a record and
+// destroying it are different decisions with different consequences, so a role
+// that may do the first is not thereby allowed to do the second.
 
-export type PermissionAction = 'view' | 'add' | 'edit' | 'delete' | 'approve';
+export type PermissionAction =
+  | 'view'
+  | 'add'
+  | 'edit'
+  | 'delete'
+  | 'approve'
+  | 'restore'
+  | 'permanentDelete'
+  | 'export'
+  | 'import'
+  | 'print'
+  | 'viewAudit'
+  | 'exportAudit'
+  | 'manageSettings';
+
+/** Column per action — one place to look when adding a flag. */
+const COLUMN = {
+  view: roleMenuMapping.canView,
+  add: roleMenuMapping.canAdd,
+  edit: roleMenuMapping.canEdit,
+  delete: roleMenuMapping.canDelete,
+  approve: roleMenuMapping.canApprove,
+  restore: roleMenuMapping.canRestore,
+  permanentDelete: roleMenuMapping.canPermanentDelete,
+  export: roleMenuMapping.canExport,
+  import: roleMenuMapping.canImport,
+  print: roleMenuMapping.canPrint,
+  viewAudit: roleMenuMapping.canViewAudit,
+  exportAudit: roleMenuMapping.canExportAudit,
+  manageSettings: roleMenuMapping.canManageSettings,
+} as const satisfies Record<PermissionAction, unknown>;
 
 export async function checkPermission(
   user: AuthPayload,
@@ -20,12 +54,45 @@ export async function checkPermission(
   action: PermissionAction,
 ): Promise<boolean> {
   const [row] = await db
+    .select({ allowed: COLUMN[action] })
+    .from(roleMenuMapping)
+    .innerJoin(menuMaster, eq(menuMaster.id, roleMenuMapping.menuId))
+    .where(
+      and(
+        eq(roleMenuMapping.roleId, user.role_id),
+        eq(menuMaster.url, resource),
+      ),
+    )
+    .limit(1);
+
+  // No mapping row means the role was never granted this menu at all — denied
+  // rather than defaulted, so adding a screen does not silently expose it.
+  return row?.allowed ?? false;
+}
+
+/**
+ * Every flag for one role+menu in a single query — for a UI that needs to decide
+ * which buttons to render, rather than asking N times.
+ */
+export async function permissionsFor(
+  user: AuthPayload,
+  resource: string,
+): Promise<Record<PermissionAction, boolean>> {
+  const [row] = await db
     .select({
-      canView: roleMenuMapping.canView,
-      canAdd: roleMenuMapping.canAdd,
-      canEdit: roleMenuMapping.canEdit,
-      canDelete: roleMenuMapping.canDelete,
-      canApprove: roleMenuMapping.canApprove,
+      view: roleMenuMapping.canView,
+      add: roleMenuMapping.canAdd,
+      edit: roleMenuMapping.canEdit,
+      delete: roleMenuMapping.canDelete,
+      approve: roleMenuMapping.canApprove,
+      restore: roleMenuMapping.canRestore,
+      permanentDelete: roleMenuMapping.canPermanentDelete,
+      export: roleMenuMapping.canExport,
+      import: roleMenuMapping.canImport,
+      print: roleMenuMapping.canPrint,
+      viewAudit: roleMenuMapping.canViewAudit,
+      exportAudit: roleMenuMapping.canExportAudit,
+      manageSettings: roleMenuMapping.canManageSettings,
     })
     .from(roleMenuMapping)
     .innerJoin(menuMaster, eq(menuMaster.id, roleMenuMapping.menuId))
@@ -37,12 +104,9 @@ export async function checkPermission(
     )
     .limit(1);
 
-  if (!row) return false;
-  switch (action) {
-    case 'view':    return row.canView;
-    case 'add':     return row.canAdd;
-    case 'edit':    return row.canEdit;
-    case 'delete':  return row.canDelete;
-    case 'approve': return row.canApprove;
-  }
+  const denied = Object.fromEntries(
+    (Object.keys(COLUMN) as PermissionAction[]).map((k) => [k, false]),
+  ) as Record<PermissionAction, boolean>;
+
+  return row ? { ...denied, ...row } : denied;
 }

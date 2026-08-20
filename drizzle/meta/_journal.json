@@ -365,6 +365,41 @@
       "when": 1784660519386,
       "tag": "0051_align_application_settings_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1784660519387,
+      "tag": "0051_action_style_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1784660519388,
+      "tag": "0052_delete_restore_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1784660519389,
+      "tag": "0053_recycle_bin_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1784660519390,
+      "tag": "0054_audit_log_coverage",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1784660519391,
+      "tag": "0055_audit_log_menu",
+      "breakpoints": true
     }
   ]
 }

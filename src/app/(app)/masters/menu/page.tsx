@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, Trash2, Edit2, X, Eye, EyeOff } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
-import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MenuItem } from '@/types/menu';
 
 interface MenuRow extends MenuItem {
@@ -15,7 +14,6 @@ interface MenuRow extends MenuItem {
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuRow[]>([]);
-  const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -47,30 +45,6 @@ export default function MenuPage() {
     () => items.filter((m) => (m.menu_level ?? 0) === 0),
     [items],
   );
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (m) =>
-        m.menu_name?.toLowerCase().includes(q) ||
-        m.url?.toLowerCase().includes(q) ||
-        m.parent_name?.toLowerCase().includes(q),
-    );
-  }, [items, search]);
-
-  const {
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-    totalRows,
-    totalPages,
-    startIndex,
-    paged,
-    mounted,
-    resetPage,
-  } = usePagedList(filtered);
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this menu? Children must be disabled first.')) return;
@@ -113,155 +87,101 @@ export default function MenuPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search name, url, parent..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetPage();
-              }}
-            />
-          </div>
-          <Toggle
-            checked={showHidden}
-            onChange={(v) => {
-              setShowHidden(v);
-              resetPage();
-            }}
-            label="Show disabled"
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Menu Name</th>
-                <th>Parent</th>
-                <th>Level</th>
-                <th>Order</th>
-                <th>URL</th>
-                <th>Icon</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={9} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && paged.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="text-center text-muted-foreground py-8">
-                    No menus found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                paged.map((m, idx) => {
-                  const isParent = (m.menu_level ?? 0) === 0;
-                  const serial = startIndex + idx + 1;
-                  return (
-                    <tr key={m.id} className="hover:bg-slate-50">
-                      <td className="text-muted-foreground font-medium">{serial}</td>
-                      <td>
-                        <span className={isParent ? 'font-semibold' : 'pl-4'}>
-                          {!isParent && <span className="text-muted-foreground">└ </span>}
-                          {m.menu_name}
-                        </span>
-                      </td>
-                      <td className="text-slate-600">{m.parent_name || '—'}</td>
-                      <td>
-                        <span
-                          className={
-                            isParent
-                              ? 'inline-block rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700'
-                              : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600'
-                          }
-                        >
-                          {isParent ? 'Parent' : 'Child'}
-                        </span>
-                      </td>
-                      <td>{m.menu_order}</td>
-                      <td>
-                        <code className="text-xs text-slate-600">{m.url || '—'}</code>
-                      </td>
-                      <td>
-                        {m.icon ? (
-                          <span className="inline-flex items-center gap-1 text-xs">
-                            <i className={m.icon} />
-                            <code className="text-muted-foreground">{m.icon}</code>
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            m.display === 'Y'
-                              ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
-                              : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
-                          }
-                        >
-                          {m.display === 'Y' ? 'Active' : 'Disabled'}
-                        </span>
-                      </td>
-                      <td className="text-right whitespace-nowrap">
-                        <button
-                          onClick={() => toggleVisibility(m)}
-                          className="text-muted-foreground hover:text-amber-600 p-1"
-                          title={m.display === 'Y' ? 'Disable' : 'Enable'}
-                        >
-                          {m.display === 'Y' ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setEditing(m)}
-                          className="ico-edit ml-1"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(m.id)}
-                          className="ico-delete ml-1"
-                          title="Disable"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          totalRows={totalRows}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<MenuRow>
+        rows={items}
+        loading={loading}
+        rowKey={(m) => m.id}
+        searchPlaceholder="Search name, url, parent..."
+        emptyMessage="No menus yet — create the first one."
+        filters={
+          <Toggle checked={showHidden} onChange={setShowHidden} label="Show disabled" />
+        }
+        columns={[
+          {
+            key: 'menu_name',
+            header: 'Menu Name',
+            sortable: true,
+            render: (m) => {
+              const isParent = (m.menu_level ?? 0) === 0;
+              return (
+                <span className={isParent ? 'font-semibold' : 'pl-4'}>
+                  {!isParent && <span className="text-muted-foreground">└ </span>}
+                  {m.menu_name}
+                </span>
+              );
+            },
+          },
+          { key: 'parent_name', header: 'Parent', sortable: true },
+          {
+            key: 'menu_level',
+            header: 'Level',
+            sortable: true,
+            render: (m) => {
+              const isParent = (m.menu_level ?? 0) === 0;
+              return (
+                <span
+                  className={
+                    isParent
+                      ? 'inline-block rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700'
+                      : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600'
+                  }
+                >
+                  {isParent ? 'Parent' : 'Child'}
+                </span>
+              );
+            },
+          },
+          { key: 'menu_order', header: 'Order', sortable: true },
+          {
+            key: 'url',
+            header: 'URL',
+            render: (m) => <code className="text-xs text-slate-600">{m.url || '—'}</code>,
+          },
+          {
+            key: 'icon',
+            header: 'Icon',
+            render: (m) =>
+              m.icon ? (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <i className={m.icon} />
+                  <code className="text-muted-foreground">{m.icon}</code>
+                </span>
+              ) : (
+                '—'
+              ),
+          },
+          {
+            key: 'display',
+            header: 'Status',
+            sortable: true,
+            render: (m) => (
+              <span
+                className={
+                  m.display === 'Y'
+                    ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
+                    : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
+                }
+              >
+                {m.display === 'Y' ? 'Active' : 'Disabled'}
+              </span>
+            ),
+          },
+        ]}
+        actions={(m) => ({
+          edit: () => setEditing(m),
+          remove: () => handleDelete(m.id),
+          // Visibility is neither view/edit/delete, so it keeps its own hue (§4.20).
+          extra: (
+            <button
+              onClick={() => toggleVisibility(m)}
+              className="ico ms-1 text-amber-600 hover:bg-accent"
+              title={m.display === 'Y' ? 'Disable' : 'Enable'}
+            >
+              {m.display === 'Y' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          ),
+        })}
+      />
 
       {showCreate && (
         <MenuFormModal

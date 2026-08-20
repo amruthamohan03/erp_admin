@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Plus, Trash2, Edit2, Copy, Save, X, FileText, Boxes, Send, Layers, CalendarClock, Search, ChevronDown,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { clientOptionLabel } from '@/lib/clientOptions';
 import { formatDate } from '@/lib/formatDate';
-import { usePagedList } from '@/lib/hooks/usePagedList';
 
 interface Opt { id: number; label: string }
 interface Category { id: number; category_name: string; category_header: string | null; display_order: number; is_customs: boolean }
@@ -192,7 +191,6 @@ export default function QuotationsPage() {
     if (!q) return list;
     return list.filter((r) => (r.quotation_ref ?? '').toLowerCase().includes(q) || (r.client_name ?? '').toLowerCase().includes(q));
   }, [list, search]);
-  const { page, setPage, pageSize, setPageSize, totalRows, totalPages, startIndex, paged, mounted, resetPage } = usePagedList(filteredList);
 
   // ----- ref auto-generate -----
   const quotationRef = useMemo(() => {
@@ -367,7 +365,7 @@ export default function QuotationsPage() {
             const gradient = (card.card_color && COLOR_GRADIENTS[card.card_color]) || COLOR_GRADIENTS.primary;
             const active = activeCard === key;
             return (
-              <button key={card.id} type="button" onClick={() => { setActiveCard(key); resetPage(); }}
+              <button key={card.id} type="button" onClick={() => setActiveCard(key)}
                 className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
                 <div className="absolute right-2 top-2 opacity-30"><Icon className="h-5 w-5" /></div>
                 <div className="text-2xl font-bold leading-none">{stats[key] ?? 0}</div>
@@ -566,47 +564,65 @@ export default function QuotationsPage() {
       </div>
 
       {/* list */}
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /> Quotations List</span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input className="input pl-9 text-sm w-64" placeholder="Search ref or client..." value={search} onChange={(e) => { setSearch(e.target.value); resetPage(); }} />
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-12">#</th><th>Ref</th><th>Client</th><th>Date</th><th>Kind</th>
-                <th className="text-right">Total USD</th><th className="text-right">Total CDF</th><th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paged.length === 0 && (<tr><td colSpan={8} className="text-center text-muted-foreground py-8">No quotations found.</td></tr>)}
-              {paged.map((r, idx) => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
-                  <td className="font-medium text-primary-700">{r.quotation_ref}</td>
-                  <td>{r.client_name || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-xs text-slate-600">{formatDate(r.quotation_date, '')}</td>
-                  <td>{r.kind_name ? <span className="inline-block rounded bg-cyan-100 text-cyan-800 px-2 py-0.5 text-[11px]">{r.kind_name}</span> : '—'}</td>
-                  <td className="text-right font-semibold text-primary-700">{r.total_amount ? `${money(Number(r.total_amount))} USD` : '—'}</td>
-                  <td className="text-right text-emerald-700">{r.total_amount_cdf && Number(r.total_amount_cdf) > 0 ? `${money(Number(r.total_amount_cdf))} CDF` : '—'}</td>
-                  <td>
-                    <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                      <button type="button" onClick={() => loadForEdit(r.id)} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => loadForEdit(r.id, true)} title="Copy" className="inline-flex items-center justify-center w-7 h-7 bg-sky-600 hover:bg-sky-700 text-white"><Copy className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => del(r.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <PaginationFooter page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} totalRows={totalRows} totalPages={totalPages} startIndex={startIndex} mounted={mounted} />
-      </div>
+      <DataTable<QuotationListRow>
+        rows={filteredList}
+        rowKey={(r) => r.id}
+        title="Quotations"
+        searchPlaceholder="Search ref, client, kind..."
+        emptyMessage="No quotations yet — build the first one above."
+        columns={[
+          { key: 'quotation_ref', header: 'Ref', sortable: true, className: 'font-medium text-primary-700' },
+          { key: 'client_name', header: 'Client', sortable: true },
+          {
+            key: 'quotation_date',
+            header: 'Date',
+            sortable: true,
+            className: 'text-xs',
+            render: (r: QuotationListRow) => formatDate(r.quotation_date, ''),
+          },
+          {
+            key: 'kind_name',
+            header: 'Kind',
+            sortable: true,
+            render: (r: QuotationListRow) =>
+              r.kind_name ? (
+                <span className="inline-block rounded bg-cyan-100 text-cyan-800 px-2 py-0.5 text-[11px]">{r.kind_name}</span>
+              ) : (
+                '—'
+              ),
+          },
+          {
+            key: 'total_amount',
+            header: 'Total USD',
+            align: 'right',
+            sortable: true,
+            className: 'font-semibold text-primary-700',
+            render: (r: QuotationListRow) => (r.total_amount ? `${money(Number(r.total_amount))} USD` : '—'),
+          },
+          {
+            key: 'total_amount_cdf',
+            header: 'Total CDF',
+            align: 'right',
+            className: 'text-emerald-700',
+            render: (r: QuotationListRow) =>
+              r.total_amount_cdf && Number(r.total_amount_cdf) > 0 ? `${money(Number(r.total_amount_cdf))} CDF` : '—',
+          },
+        ]}
+        actions={(r) => ({
+          edit: () => loadForEdit(r.id),
+          remove: () => del(r.id),
+          extra: (
+            <button
+              type="button"
+              onClick={() => loadForEdit(r.id, true)}
+              title="Copy"
+              className="btn-icon ms-1 bg-sky-600 text-white shadow-sm hover:bg-sky-700"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          ),
+        })}
+      />
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>

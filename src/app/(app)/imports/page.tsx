@@ -27,7 +27,7 @@ import {
   Eye,
   FileSpreadsheet,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import BulkUpdateModal from '@/modules/imports/BulkUpdateModal';
 import { isPendingFilter } from '@/lib/imports/bulkFields';
@@ -215,12 +215,6 @@ export default function ImportsListPage() {
       .catch(() => {});
   }, []);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   // CSV/XLSX exports: a plain navigation the server answers with an
   // attachment. export-all carries the current advanced filters + search.
   function exportOne(id: number): void {
@@ -337,9 +331,6 @@ export default function ImportsListPage() {
     }
     setPage(1);
   }
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
 
   return (
     <>
@@ -522,189 +513,86 @@ export default function ImportsListPage() {
       </div>
 
       {/* ---- List card ---- */}
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <Truck className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold text-slate-800">Imports List</span>
-          {activeFilters.map((key) => (
-            <span
-              key={key}
-              className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5"
+      <DataTable<ImportRow>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title="Import List"
+        searchPlaceholder="Search MCA ref, client, license, invoice..."
+        emptyMessage="No import files match these filters — clear them, or create one."
+        columns={[
+          {
+            key: 'mca_ref',
+            header: 'MCA Ref',
+            render: (r: ImportRow) =>
+              r.mca_ref ? (
+                <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
+                  {r.mca_ref}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+          { key: 'client_name', header: 'Client', className: 'font-medium' },
+          { key: 'license_number', header: 'License', className: 'font-mono text-xs' },
+          { key: 'invoice', header: 'Invoice', className: 'text-xs' },
+          {
+            key: 'pre_alert_date',
+            header: 'Pre-Alert Date',
+            className: 'text-xs',
+            render: (r: ImportRow) => fmtDate(r.pre_alert_date) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'weight',
+            header: 'Weight',
+            align: 'right',
+            className: 'text-xs',
+            render: (r: ImportRow) => (r.weight ? `${fmtNum(r.weight)} KG` : <span className="text-muted-foreground">—</span>),
+          },
+          {
+            key: 'fob',
+            header: 'FOB',
+            align: 'right',
+            className: 'text-xs',
+            render: (r: ImportRow) => fmtNum(r.fob) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'clearing_status_name',
+            header: 'Clearing Status',
+            render: (r: ImportRow) =>
+              r.clearing_status_name ? (
+                <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+                  {r.clearing_status_name}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+        ]}
+        actions={(r) => ({
+          view: () => setViewId(r.id),
+          edit: `/imports/${r.id}`,
+          extra: (
+            <button
+              type="button"
+              onClick={() => exportOne(r.id)}
+              title="Export to Excel"
+              className="btn-excel btn-icon ms-1"
             >
-              {cards.find((c) => c.card_content_id === key)?.card_title ?? key}
-            </span>
-          ))}
-        </div>
-
-        {/* Toolbar */}
-        <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            <SearchableSelect
-              size="sm"
-              className="w-24"
-              aria-label="Imports per page"
-              value={String(pageSize)}
-              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
-              onChange={(v) => {
-                setPageSize(Number(v));
-                setPage(1);
-              }}
-            />
-            <span className="text-muted-foreground">imports per page</span>
-            {pendingActive.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setBulkOpen(true)}
-                title="Bulk-edit the fields for the active pending filters"
-                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-sm font-medium transition"
-              >
-                <ClipboardCheck className="h-4 w-4" /> Bulk Update ({pendingActive.length})
-              </button>
-            )}
-          </div>
-          <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9 text-sm w-64"
-              placeholder="Search MCA ref, client, invoice..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-12">#</th>
-                <th>MCA Ref</th>
-                <th>Client</th>
-                <th>License</th>
-                <th>Invoice</th>
-                <th>Pre-Alert Date</th>
-                <th className="text-right">Weight</th>
-                <th className="text-right">FOB</th>
-                <th>Clearing Status</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    No imports found — click <strong>New Import</strong> to
-                    create one.
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td>
-                      {r.mca_ref ? (
-                        <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
-                          {r.mca_ref}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="font-medium">
-                      {r.client_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="font-mono text-xs">
-                      {r.license_number || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {r.invoice || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {fmtDate(r.pre_alert_date) || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-right text-slate-700 text-xs">
-                      {r.weight ? (
-                        `${fmtNum(r.weight)} KG`
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-right text-slate-700 text-xs">
-                      {fmtNum(r.fob) || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td>
-                      {r.clearing_status_name ? (
-                        <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
-                          {r.clearing_status_name}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewId(r.id)}
-                          title="View details"
-                          className="btn-view btn-icon"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <Link
-                          href={`/imports/${r.id}`}
-                          title="Edit"
-                          className="btn-edit btn-icon"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => exportOne(r.id)}
-                          title="Export to Excel"
-                          className="btn-excel btn-icon transition"
-                        >
-                          <FileSpreadsheet className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            </button>
+          ),
+        })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {viewId !== null && (
         <RecordViewModal

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 
 interface Row {
   id: number;
@@ -58,12 +58,6 @@ export default function BankExchangeRatesPage() {
 
   const [banks, setBanks] = useState<BankOption[]>([]);
   const [currencies, setCurrencies] = useState<CurrencyOption[]>([]);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   // Picker data — banks scoped to for_exchange=Y since that's the
   // only valid source for a rate entry.
@@ -142,9 +136,6 @@ export default function BankExchangeRatesPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -162,125 +153,22 @@ export default function BankExchangeRatesPage() {
         </div>
       )}
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="relative max-w-sm flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search bank, currency..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <input
-            type="date"
-            className="input max-w-[180px]"
-            value={dateFilter}
-            onChange={(e) => {
-              setDateFilter(e.target.value);
-              setPage(1);
-            }}
-          />
-          {dateFilter && (
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setDateFilter('');
-                setPage(1);
-              }}
-            >
-              Clear date
-            </button>
-          )}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Date</th>
-                <th>Bank</th>
-                <th>Currency</th>
-                <th className="text-right">BCC Rate</th>
-                <th className="text-right">Bank Rate</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-8">
-                    No exchange rates found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                filtered.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-mono text-sm">{r.exchange_date}</td>
-                    <td className="font-medium">
-                      {r.bank_name || `#${r.bank_id}`}
-                    </td>
-                    <td>
-                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
-                        {r.currency_short_name}
-                      </span>
-                    </td>
-                    <td className="text-right font-mono">
-                      {formatRate(r.bcc_rate)}
-                    </td>
-                    <td className="text-right font-mono">
-                      {formatRate(r.bank_rate)}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(r)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="ico-delete ml-1"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title="Exchange Rates"
+        searchPlaceholder="Search bank, currency..."
+        emptyMessage="No exchange rates yet — add the first one."
+        columns={[
+          { key: 'exchange_date', header: 'Date', sortable: true, className: 'font-mono text-sm' },
+          { key: 'bank_name', header: 'Bank', sortable: true, className: 'font-medium' },
+          { key: 'currency_short_name', header: 'Currency', sortable: true },
+          { key: 'bcc_rate', header: 'BCC Rate', align: 'right', className: 'font-mono', render: (r: Row) => formatRate(r.bcc_rate) },
+          { key: 'bank_rate', header: 'Bank Rate', align: 'right', className: 'font-mono', render: (r: Row) => formatRate(r.bank_rate) },
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+      />
 
       {showCreate && (
         <BankExchangeRateFormModal

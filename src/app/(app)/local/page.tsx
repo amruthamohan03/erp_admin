@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Eye, Edit2, Trash2, Truck, MapPin, X } from 'lucide-react';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import { formatDate as fmtDate } from '@/lib/formatDate';
 
 // Local Tracking list. The create/edit form is a transaction-page
@@ -47,12 +47,6 @@ export default function LocalPage() {
   const [result, setResult] = useState<SaveResult | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   const [view, setView] = useState<Record<string, unknown> | null>(null);
 
   const load = useCallback(async () => {
@@ -93,9 +87,6 @@ export default function LocalPage() {
     load(); loadStats();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   const D = (k: string) => { const v = view?.[k]; return v === null || v === undefined || v === '' ? '—' : String(v); };
   const Ddate = (k: string) => fmtDate((view?.[k] as string) ?? null);
 
@@ -127,54 +118,37 @@ export default function LocalPage() {
         ))}
       </div>
 
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 dark:text-slate-200">Locals List</span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input className="input pl-9 text-sm w-64" placeholder="Search reference, horse, transporter, client…"
-              value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base whitespace-nowrap">
-            <thead>
-              <tr>
-                <th className="w-12">#</th><th>Client</th><th>Location</th><th>MCA LT Reference</th>
-                <th>Lot Num</th><th>Horse</th><th>Transporter</th><th>Arrival</th><th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
-              {!loading && items.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No local records found.</td></tr>)}
-              {!loading && items.map((r, idx) => (
-                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
-                  <td className="font-medium">{r.client_name || 'N/A'}</td>
-                  <td>{r.location_name || 'N/A'}</td>
-                  <td className="font-mono">{r.mca_lt_reference || '—'}</td>
-                  <td>{r.lot_num || '—'}</td>
-                  <td>{r.horse || '—'}</td>
-                  <td>{r.transporter || '—'}</td>
-                  <td>{fmtDate(r.arrival_date)}</td>
-                  <td>
-                    <div className="inline-flex items-center gap-1 justify-center">
-                      <button type="button" onClick={() => openView(r.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
-                      <Link href={`/local/${r.id}`} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
-                      <button type="button" onClick={() => del(r.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter page={page} setPage={setPage} pageSize={pageSize}
-          setPageSize={(n) => { setPageSize(n); setPage(1); }}
-          totalRows={total} totalPages={totalPages} startIndex={startIndex} mounted={mounted} />
-      </div>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title="Locals List"
+        searchPlaceholder="Search reference, horse, transporter, client…"
+        emptyMessage="No local tracking records yet — create the first one."
+        columns={[
+          { key: 'client_name', header: 'Client', className: 'font-medium' },
+          { key: 'location_name', header: 'Location' },
+          { key: 'mca_lt_reference', header: 'MCA LT Reference', className: 'font-mono' },
+          { key: 'lot_num', header: 'Lot Num' },
+          { key: 'horse', header: 'Horse' },
+          { key: 'transporter', header: 'Transporter' },
+          { key: 'arrival_date', header: 'Arrival', render: (r: Row) => fmtDate(r.arrival_date) },
+        ]}
+        actions={(r) => ({
+          view: () => openView(r.id),
+          edit: `/local/${r.id}`,
+          remove: () => del(r.id),
+        })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {/* View modal */}
       {view && (

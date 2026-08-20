@@ -428,6 +428,105 @@ Branding assets, avatars, signatures and document attachments are **a file on di
 
 **Anything an operator uploads must actually be rendered somewhere.** `favicon_url` was stored, deleted, replaced and validated for months while the root layout carried a hardcoded `metadata` — so the setting worked perfectly and changed nothing. When adding a configurable asset, wire the consumer in the same change.
 
+### 4.25 One DataTable for every list of records
+
+**Every screen that lists records renders the same `<DataTable>`.** There are 66 list pages in this app and they were each hand-built, which is why search, pagination, action placement, empty states and loading states all drifted. A new list page must not hand-roll `<table>` markup.
+
+The standard behaviour a list page gets for free, and must never re-implement:
+
+| | |
+| --- | --- |
+| Search | above the table, placeholder naming the searched fields, resets to page 1 |
+| Sorting | click a column header; the sorted column is marked |
+| Filtering | declarative filter descriptors, rendered as `<SearchableSelect>` (§4.16) |
+| Pagination | `usePagedList` + `<PaginationFooter>` (§4.9), with page-size selection |
+| Row actions | View / Edit / Delete in the reserved hues (§4.20), in the LAST column, right-aligned |
+| Excel export | `btn-excel` in the toolbar wherever the module has an export endpoint (§4.20) |
+| Loading | skeleton rows, never a bare "Loading…" that collapses the layout |
+| Empty state | a sentence naming what is missing and the action that fixes it — never just "No data" |
+| Serial column | `#` from `startIndex + idx + 1`, never the raw primary key (§4.9) |
+| Themes | light and dark, from tokens only (§4.20) |
+
+Columns are declared as data, not markup, so every table shares one rendering path:
+
+```tsx
+<DataTable
+  rows={items}
+  loading={loading}
+  columns={[
+    { key: 'company_name', header: 'Company', sortable: true },
+    { key: 'amount', header: 'Amount', align: 'right', render: (r) => money(r.amount) },
+  ]}
+  actions={(row) => ({ view: () => setViewId(row.id), edit: `/masters/clients/${row.id}` })}
+  emptyMessage="No clients yet — create the first one."
+/>
+```
+
+Do not add a prop for a one-off visual tweak on a single screen. If two pages genuinely need different behaviour, that is a signal the shared component needs a considered option, not that the page needs its own table.
+
+### 4.26 Action colour and icon are configuration, not code
+
+**The colour and icon of every action come from `action_style_master_t`, edited under Settings → Application.** An operator changes how Delete looks across the whole ERP with a row edit and a refresh — no deploy, no source change (§4.1).
+
+The sixteen configured actions: `create`, `save`, `update`, `edit`, `view`, `delete`, `cancel`, `approve`, `reject`, `submit`, `export`, `import`, `download`, `print`, `restore`, `permanent_delete`.
+
+Each row carries a hex colour and a [lucide](https://lucide.dev) icon name. The server turns them into CSS variables alongside the brand palette, and the `btn-*` / `ico-*` classes read those variables — so **every existing call site follows the configuration with no change**, because they already go through the shared classes rather than inlining a colour (§4.20).
+
+```tsx
+<ActionButton action="export" onClick={run}>Export</ActionButton>   {/* colour + icon from config */}
+<ActionIcon action="delete" />                                      {/* just the glyph */}
+```
+
+Rules that follow:
+
+- **One icon library.** Icon names are validated against the lucide set the app bundles; an unknown name falls back to that action's default rather than rendering nothing.
+- **Defaults must be sensible on their own.** A fresh install looks right without anyone opening Settings: view near-black, edit blue, delete red, export green, approve green, reject red, print red.
+- **Readable in both themes.** A configured hex is used as-is in light mode and lightened for dark; the settings screen previews the pair rather than letting an operator pick an unreadable one.
+- **Never hardcode an action colour or icon again**, including "just this one screen". If an action is missing from the table, add the row — do not inline it.
+
+### 4.27 Soft delete, restore, and permanent delete are three different things
+
+**Normal deletion never removes a row.** 74 of the 85 tables already carry a `display` flag; deleting sets `display = 'N'` and nothing else. Lists show `display = 'Y'` by default.
+
+| Operation | What it does | Permission |
+| --- | --- | --- |
+| Delete | `display = 'N'`, row kept in full | `can_delete` |
+| Restore | `display = 'Y'` | `can_restore` |
+| Permanent Delete | a real `DELETE`, last resort | `can_permanent_delete` |
+
+- **Three separate permissions**, never one. A user who may hide a record is not thereby allowed to destroy it.
+- **Permanent delete asks twice** — a confirmation naming the record, then a typed confirmation — and is the only path that may lose data.
+- **A Recycle Bin screen** per module lists soft-deleted rows and offers Restore and, where permitted, Permanent Delete.
+- **Soft-deleted rows stay readable to history.** A report over past months must still resolve the name of a deleted client.
+- **Related rows are handled explicitly.** Deleting a parent must not orphan children silently — either cascade the soft delete or refuse with a message naming what still references it (§4.23).
+
+### 4.28 What the audit log must capture
+
+**Every consequential action is written to `audit_log` through `recordAudit`**, inside the same transaction as the change it describes (§7.3). Nothing writes that table directly.
+
+Logged: login, logout, failed login, create, view, update, soft delete, restore, permanent delete, approve, reject, submit, cancel, export, import, download, print, status change, role change, permission change, user change, application-settings change.
+
+Each entry captures, where applicable: actor id, actor role, module, action, record reference, timestamp, before value, after value, IP address, and user agent (device / browser). An update must carry a per-field **before → after** diff, not just two snapshots.
+
+- **Read-only, always.** No UI edits an audit row, and none permanently deletes one.
+- **Exporting the audit log is itself logged.**
+- **Viewing audit logs is its own permission**, separate from exporting them.
+- Secrets never reach the table — `redact` strips password and token fields before the snapshot is stored.
+
+### 4.29 Every major module has a dashboard driven by its own data
+
+A module dashboard answers "what needs attention today" before the operator opens the list. KPI values are computed in SQL over live rows — never hardcoded, and never derived client-side from one page of results.
+
+Each dashboard carries KPI cards, the relevant charts, status summaries and a trend over time. What counts as relevant is per module: licences track expiry and import-versus-export; tracking tracks the pending stages and average processing time; finance tracks approval stages and cash-versus-bank; clients track activity and top clients.
+
+Charts use the same tokens as everything else (§4.20) so they survive a theme switch, and every figure is reachable — clicking a KPI card filters that module's DataTable to exactly the rows it counted.
+
+### 4.30 Typography carries the hierarchy
+
+One scale, used everywhere: page title, section heading, field label, value, supporting text. Headings and labels are semibold or bold; values are regular weight; supporting text is `text-muted-foreground` (§4.20) one step smaller. A screen must read as a hierarchy without colour — if two levels are distinguishable only by hue, the weight is wrong.
+
+Do not introduce a new font size at a call site. If the scale is missing a step, add it once in globals.css.
+
 ## 5. Directory layout
 
 ```
@@ -589,6 +688,12 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to report a save/delete with `alert()`, a toast-only, or a silent redirect → no, use `<ResultDialog>` and let OK do the navigating (§4.22).
 - Requests to ship "Invalid input" / "Save failed" / a bare status code as a user-facing message, or to hand-format a Zod issue at a call site → no, name the field and the fix via `summarizeZodError` (§4.23).
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
+- Requests to hand-roll a `<table>` for a new list screen → no, use `<DataTable>` (§4.25).
+- Requests to hardcode an action colour or icon "just on this screen" → no, it is a row in `action_style_master_t` (§4.26).
+- Requests to hard-delete a record on the normal Delete action, or to gate restore/permanent-delete behind `can_delete` → no, three operations, three permissions (§4.27).
+- Requests to skip the audit entry "because it is only a read/export/print" → no, those are logged too (§4.28).
+- Requests to hardcode a dashboard KPI, or to compute one from the current page of rows → no, it is a SQL aggregate over live data (§4.29).
+- Requests to introduce a new font size at a call site → no, extend the scale in globals.css (§4.30).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

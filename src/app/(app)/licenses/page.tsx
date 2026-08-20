@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Plus,
-  Search,
   Edit2,
   Filter,
   Check,
@@ -20,7 +19,7 @@ import {
   Eye,
   FileSpreadsheet,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
@@ -111,7 +110,7 @@ interface Option {
   id: number;
   label: string;
 }
-
+
 
 // Stat value backing a card. The seed stores the exact stats key in the
 // data_source fragment (e.g. '/api/v1/licenses/stats#total_count').
@@ -167,12 +166,6 @@ export default function LicensesListPage() {
 
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   // Read-only details modal — null when closed, else the row id to view.
   const [viewId, setViewId] = useState<number | null>(null);
@@ -274,9 +267,6 @@ export default function LicensesListPage() {
     setActiveCard('all');
     setPage(1);
   }
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
 
   return (
     <>
@@ -420,176 +410,78 @@ export default function LicensesListPage() {
       </Link>
 
       {/* ---- List card ---- */}
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold text-slate-800">License List</span>
-          {activeCard !== 'all' && (
-            <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">
-              {cards.find((c) => c.card_content_id === activeCard)?.card_title ??
-                activeCard}
-            </span>
-          )}
-        </div>
-
-        {/* Toolbar: page-size + search */}
-        <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            <SearchableSelect
-              size="sm"
-              className="w-24"
-              aria-label="Entries per page"
-              value={String(pageSize)}
-              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
-              onChange={(v) => {
-                setPageSize(Number(v));
-                setPage(1);
-              }}
-            />
-            <span className="text-muted-foreground">entries per page</span>
-          </div>
-
-          <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9 text-sm w-64"
-              placeholder="Search license, client, bank, invoice..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>License Number</th>
-                <th>Client</th>
-                <th>Kind</th>
-                <th>Bank</th>
-                <th>Transport</th>
-                <th>Invoice #</th>
-                <th>Applied</th>
-                <th>Expiry</th>
-                <th>Status</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={11} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="text-center text-muted-foreground py-8">
-                    No licenses found — click <strong>New License</strong> to
-                    create one.
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((l, idx) => (
-                  <tr key={l.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-mono text-xs font-medium">
-                      {l.license_number || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="font-medium">
-                      {l.client_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {l.kind_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {l.bank_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {l.transport_mode_name || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {l.invoice_number || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {fmtDate(l.license_applied_date) || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {fmtDate(l.license_expiry_date) || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${STATUS_BADGE[l.status] ?? STATUS_BADGE.INACTIVE}`}
-                      >
-                        {l.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewId(l.id)}
-                          title="View details"
-                          className="btn-view btn-icon"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <Link
-                          href={`/licenses/${l.id}`}
-                          title="Edit"
-                          className="btn-edit btn-icon"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => exportOne(l.id)}
-                          title="Export to Excel"
-                          className="btn-excel btn-icon transition"
-                        >
-                          <FileSpreadsheet className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<LicenseRow>
+        rows={items}
+        loading={loading}
+        rowKey={(l) => l.id}
+        title={
+          <span className="inline-flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            License List
+            {activeCard !== 'all' && (
+              <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">
+                {cards.find((c) => c.card_content_id === activeCard)?.card_title ?? activeCard}
+              </span>
+            )}
+          </span>
+        }
+        searchPlaceholder="Search license, client, bank, invoice..."
+        emptyMessage="No licences match these filters — clear them, or create one."
+        columns={[
+          { key: 'license_number', header: 'License Number', className: 'font-mono text-xs font-medium' },
+          { key: 'client_name', header: 'Client', className: 'font-medium' },
+          { key: 'kind_name', header: 'Kind', className: 'text-xs' },
+          { key: 'bank_name', header: 'Bank', className: 'text-xs' },
+          { key: 'transport_mode_name', header: 'Transport', className: 'text-xs' },
+          { key: 'invoice_number', header: 'Invoice #', className: 'text-xs' },
+          {
+            key: 'license_applied_date',
+            header: 'Applied',
+            className: 'text-xs',
+            render: (l: LicenseRow) => fmtDate(l.license_applied_date) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'license_expiry_date',
+            header: 'Expiry',
+            className: 'text-xs',
+            render: (l: LicenseRow) => fmtDate(l.license_expiry_date) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (l: LicenseRow) => (
+              <span
+                className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${STATUS_BADGE[l.status] ?? STATUS_BADGE.INACTIVE}`}
+              >
+                {l.status}
+              </span>
+            ),
+          },
+        ]}
+        actions={(l) => ({
+          view: () => setViewId(l.id),
+          edit: `/licenses/${l.id}`,
+          extra: (
+            <button
+              type="button"
+              onClick={() => exportOne(l.id)}
+              title="Export to Excel"
+              className="btn-excel btn-icon ms-1"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            </button>
+          ),
+        })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {viewId !== null && (
         <RecordViewModal

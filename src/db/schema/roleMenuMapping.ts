@@ -26,6 +26,20 @@ export const roleMenuMapping = pgTable(
     canEdit: boolean('can_edit').notNull().default(false),
     canDelete: boolean('can_delete').notNull().default(false),
     canApprove: boolean('can_approve').notNull().default(false),
+    // §4.27 — three distinct operations, three distinct grants. can_delete only
+    // hides a row; undoing that and destroying it are separate decisions.
+    canRestore: boolean('can_restore').notNull().default(false),
+    canPermanentDelete: boolean('can_permanent_delete').notNull().default(false),
+
+    // §4.14 — the remaining action grants. Export/import/print gate the document
+    // buttons; the audit pair is separate because reading the log and taking a
+    // copy of it away are different levels of trust (§4.28).
+    canExport: boolean('can_export').notNull().default(false),
+    canImport: boolean('can_import').notNull().default(false),
+    canPrint: boolean('can_print').notNull().default(false),
+    canViewAudit: boolean('can_view_audit').notNull().default(false),
+    canExportAudit: boolean('can_export_audit').notNull().default(false),
+    canManageSettings: boolean('can_manage_settings').notNull().default(false),
     createdBy: integer('created_by').references(() => usersT.id, {
       onDelete: 'set null',
     }),

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Edit2, Trash2, CheckCircle2, FileText, Layers, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 
 type Kind = 'export' | 'import';
 
@@ -61,12 +61,6 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
   const [confirm, setConfirm] = useState<{ row: Row; action: 'validate' | 'dgi' | 'delete' } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,132 +166,80 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
         })}
       </div>
 
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-muted-foreground" /> List of {title}
-          </span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9 text-sm w-64"
-              placeholder="Search ref, client…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base whitespace-nowrap">
-            <thead>
-              <tr>
-                <th className="w-12">#</th>
-                <th>Invoice Ref</th>
-                <th>Client</th>
-                {kind === 'export' && <th>Invoice Date</th>}
-                <th className="text-right">Total (USD)</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-8">
-                    Loading…
-                  </td>
-                </tr>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title={`${kind === 'export' ? 'Export' : 'Import'} Invoices`}
+        searchPlaceholder="Search invoice ref, client..."
+        emptyMessage="No invoices yet — create the first one."
+        columns={[
+          { key: 'invoice_ref', header: 'Invoice Ref', className: 'font-medium' },
+          { key: 'client_name', header: 'Client' },
+          // Only the export list carries a separate invoice date.
+          ...(kind === 'export'
+            ? [{ key: 'invoice_date', header: 'Invoice Date' } as DataTableColumn<Row>]
+            : []),
+          {
+            key: 'total_usd',
+            header: 'Total (USD)',
+            align: 'right',
+            className: 'tabular-nums font-semibold',
+            render: (r: Row) => fmt(r.total_usd),
+          },
+          {
+            key: 'validated',
+            header: 'Status',
+            value: (r: Row) => statusOf(r.validated).label,
+            render: (r: Row) => {
+              const st = statusOf(r.validated);
+              return (
+                <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
+                  {st.label}
+                </span>
+              );
+            },
+          },
+          { key: 'created_at', header: 'Created' },
+        ]}
+        actions={(r) => ({
+          edit: `/${kind}-invoices/${r.id}`,
+          remove: r.validated === 0 ? () => setConfirm({ row: r, action: 'delete' }) : undefined,
+          extra: (
+            <>
+              {r.validated === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirm({ row: r, action: 'validate' })}
+                  title="Validate"
+                  className="btn-approve btn-sm ms-1 h-7 px-2 text-[11px]"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Validate
+                </button>
               )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-8">
-                    No invoices found.
-                  </td>
-                </tr>
+              {r.validated === 1 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirm({ row: r, action: 'dgi' })}
+                  title="Mark DGI verified"
+                  className="btn-sm ms-1 h-7 rounded-md bg-cyan-600 px-2 text-[11px] font-medium text-white hover:bg-cyan-700"
+                >
+                  DGI
+                </button>
               )}
-              {!loading &&
-                items.map((r, idx) => {
-                  const st = statusOf(r.validated);
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                      <td className="text-muted-foreground">{startIndex + idx + 1}</td>
-                      <td className="font-medium">{r.invoice_ref || '—'}</td>
-                      <td>{r.client_name || 'N/A'}</td>
-                      {kind === 'export' && <td className="text-slate-600">{r.invoice_date || '—'}</td>}
-                      <td className="text-right tabular-nums font-semibold">{fmt(r.total_usd)}</td>
-                      <td>
-                        <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="text-slate-600">{r.created_at}</td>
-                      <td>
-                        <div className="inline-flex items-center gap-1 justify-center">
-                          <Link
-                            href={`/${kind}-invoices/${r.id}`}
-                            title="Edit"
-                            className="btn-edit btn-icon"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Link>
-                          {r.validated === 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirm({ row: r, action: 'validate' })}
-                              title="Validate"
-                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-2 h-7 text-[11px] font-medium"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Validate
-                            </button>
-                          )}
-                          {r.validated === 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirm({ row: r, action: 'dgi' })}
-                              title="Mark DGI verified"
-                              className="inline-flex items-center gap-1 rounded-md bg-cyan-600 hover:bg-cyan-700 text-white px-2 h-7 text-[11px] font-medium"
-                            >
-                              DGI
-                            </button>
-                          )}
-                          {r.validated === 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirm({ row: r, action: 'delete' })}
-                              title="Delete"
-                              className="btn-delete btn-icon"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ),
+        })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {confirm && (
         <div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Edit2,
   Eye,
@@ -13,9 +13,8 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
-import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { MenuItem } from '@/types/menu';
 
 interface CardRow {
@@ -51,7 +50,6 @@ const CATEGORY_OPTIONS = ['general', 'import', 'export', 'finance', 'admin'];
 export default function DashboardCardsPage() {
   const [items, setItems] = useState<CardRow[]>([]);
   const [menus, setMenus] = useState<MenuItem[]>([]);
-  const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -87,31 +85,6 @@ export default function DashboardCardsPage() {
       .catch(() => {});
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (m) =>
-        m.card_title?.toLowerCase().includes(q) ||
-        m.card_key?.toLowerCase().includes(q) ||
-        m.card_subtitle?.toLowerCase().includes(q) ||
-        m.card_category?.toLowerCase().includes(q) ||
-        m.menu_name?.toLowerCase().includes(q),
-    );
-  }, [items, search]);
-
-  const {
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-    totalRows,
-    totalPages,
-    startIndex,
-    paged,
-    mounted,
-    resetPage,
-  } = usePagedList(filtered);
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this dashboard card?')) return;
@@ -158,161 +131,96 @@ export default function DashboardCardsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search title, key, subtitle, category, menu..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetPage();
-              }}
-            />
-          </div>
-          <Toggle
-            checked={showHidden}
-            onChange={(v) => {
-              setShowHidden(v);
-              resetPage();
-            }}
-            label="Show disabled"
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Title</th>
-                <th>Key</th>
-                <th>Category</th>
-                <th>Color</th>
-                <th>Icon</th>
-                <th>Menu</th>
-                <th>Order</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && paged.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    No cards found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                paged.map((m, idx) => (
-                  <tr key={m.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td>
-                      <div className="font-medium">{m.card_title}</div>
-                      {m.card_subtitle && (
-                        <div className="text-xs text-muted-foreground">
-                          {m.card_subtitle}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <code className="text-xs text-slate-600">
-                        {m.card_key}
-                      </code>
-                    </td>
-                    <td>
-                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                        {m.card_category || '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs text-white ${colorClass(m.card_color)}`}
-                      >
-                        {m.card_color || '—'}
-                      </span>
-                    </td>
-                    <td>
-                      {m.card_icon ? (
-                        <span className="inline-flex items-center gap-1 text-xs">
-                          <i className={`bi ${m.card_icon}`} />
-                          <code className="text-muted-foreground">{m.card_icon}</code>
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="text-slate-600 text-sm">
-                      {m.menu_name || '—'}
-                    </td>
-                    <td>{m.card_order}</td>
-                    <td>
-                      <span
-                        className={
-                          m.display === 'Y'
-                            ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
-                            : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
-                        }
-                      >
-                        {m.display === 'Y' ? 'Active' : 'Disabled'}
-                      </span>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      <button
-                        onClick={() => toggleVisibility(m)}
-                        className="text-muted-foreground hover:text-amber-600 p-1"
-                        title={m.display === 'Y' ? 'Disable' : 'Enable'}
-                      >
-                        {m.display === 'Y' ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setEditing(m)}
-                        className="ico-edit ml-1"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(m.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          totalRows={totalRows}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<CardRow>
+        rows={items}
+        loading={loading}
+        rowKey={(m) => m.id}
+        searchPlaceholder="Search title, key, category..."
+        emptyMessage="No dashboard cards yet — create the first one."
+        columns={[
+          {
+            key: 'card_title',
+            header: 'Title',
+            sortable: true,
+            render: (m: CardRow) => (
+              <>
+                <div className="font-medium">{m.card_title}</div>
+                {m.card_subtitle && <div className="text-xs text-muted-foreground">{m.card_subtitle}</div>}
+              </>
+            ),
+          },
+          {
+            key: 'card_key',
+            header: 'Key',
+            sortable: true,
+            render: (m: CardRow) => <code className="text-xs text-muted-foreground">{m.card_key}</code>,
+          },
+          {
+            key: 'card_category',
+            header: 'Category',
+            sortable: true,
+            render: (m: CardRow) => (
+              <span className="inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground">
+                {m.card_category || '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'card_color',
+            header: 'Color',
+            render: (m: CardRow) => (
+              <span className={`inline-block rounded px-2 py-0.5 text-xs text-white ${colorClass(m.card_color)}`}>
+                {m.card_color || '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'card_icon',
+            header: 'Icon',
+            render: (m: CardRow) =>
+              m.card_icon ? (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <i className={`bi ${m.card_icon}`} />
+                  <code className="text-muted-foreground">{m.card_icon}</code>
+                </span>
+              ) : (
+                '—'
+              ),
+          },
+          { key: 'menu_name', header: 'Menu', className: 'text-sm' },
+          { key: 'card_order', header: 'Order', sortable: true },
+          {
+            key: 'display',
+            header: 'Status',
+            sortable: true,
+            render: (m: CardRow) => (
+              <span
+                className={
+                  m.display === 'Y'
+                    ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
+                    : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
+                }
+              >
+                {m.display === 'Y' ? 'Active' : 'Disabled'}
+              </span>
+            ),
+          },
+        ]}
+        actions={(m) => ({
+          edit: () => setEditing(m),
+          remove: () => handleDelete(m.id),
+          // Visibility is neither view/edit/delete, so it keeps its own hue (§4.20).
+          extra: (
+            <button
+              onClick={() => toggleVisibility(m)}
+              className="ico ms-1 text-amber-600 hover:bg-accent"
+              title={m.display === 'Y' ? 'Disable' : 'Enable'}
+            >
+              {m.display === 'Y' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          ),
+        })}
+      />
 
       {showCreate && (
         <CardFormModal

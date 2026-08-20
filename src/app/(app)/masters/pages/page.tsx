@@ -1,13 +1,12 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
-import { usePagedList } from '@/lib/hooks/usePagedList';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
 
@@ -40,7 +39,6 @@ export default function MasterPagesListPage() {
 
 function MasterPagesList() {
   const [items, setItems] = useState<MasterPage[]>([]);
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -78,29 +76,7 @@ function MasterPagesList() {
     load();
   }, [load]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (i) =>
-        i.slug?.toLowerCase().includes(q) ||
-        i.title?.toLowerCase().includes(q) ||
-        i.target_table?.toLowerCase().includes(q),
-    );
-  }, [items, search]);
 
-  const {
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-    totalRows,
-    totalPages,
-    startIndex,
-    paged,
-    mounted,
-    resetPage,
-  } = usePagedList(filtered);
 
   async function handleDelete(id: number) {
     if (
@@ -139,60 +115,20 @@ function MasterPagesList() {
         </div>
       )}
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search slug, title, target table..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetPage();
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Slug</th>
-                <th>Title</th>
-                <th>Route</th>
-                <th>Target Table</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && paged.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-8">
-                    No pages found — click <strong>New Page</strong>.
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                paged.map((i, idx) => (
-                  <tr key={i.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
-                    <td className="font-mono text-xs">{i.slug}</td>
-                    <td className="font-medium">{i.title}</td>
-                    <td className="font-mono text-xs">{i.route}</td>
-                    <td className="font-mono text-xs">{i.target_table}</td>
-                    <td>
-                      <span
+      <DataTable<MasterPage>
+        rows={items}
+        loading={loading}
+        rowKey={(i) => i.id}
+        searchPlaceholder="Search slug, title, target table..."
+        emptyMessage="No record yet — create the first one."
+        columns={[
+        { key: 'slug', header: 'Slug', sortable: true, className: 'font-mono text-xs' },
+        { key: 'title', header: 'Title', sortable: true, className: 'font-medium' },
+        { key: 'route', header: 'Route', sortable: true, className: 'font-mono text-xs' },
+        { key: 'target_table', header: 'Target Table', sortable: true, className: 'font-mono text-xs' },
+        { key: '5', header: 'Status', render: (i: MasterPage) => (
+            <>
+            <span
                         className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
                           i.display === 'Y'
                             ? 'bg-emerald-50 text-emerald-700'
@@ -201,40 +137,11 @@ function MasterPagesList() {
                       >
                         {i.display === 'Y' ? 'Active' : 'Inactive'}
                       </span>
-                    </td>
-                    <td className="text-right">
-                      <Link
-                        href={`/masters/pages/${i.id}${editSuffix}`}
-                        className="ico-edit"
-                        title="Configure"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(i.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          totalRows={totalRows}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(i) => ({ edit: `/masters/pages/${i.id}${editSuffix}`, remove: () => handleDelete(i.id) })}
+      />
 
       {showCreate && (
         <CreatePageModal

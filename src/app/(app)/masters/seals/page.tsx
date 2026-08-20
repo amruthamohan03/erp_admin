@@ -6,9 +6,8 @@ import {
   FileSpreadsheet, ListOrdered, X, Save, ChevronDown,
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
-import { usePagedList } from '@/lib/hooks/usePagedList';
 import { formatDate } from '@/lib/formatDate';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
@@ -93,13 +92,11 @@ export default function SealsPage() {
   const [masterStatus, setMasterStatus] = useState<'' | 'Used' | 'Damaged'>('');
   const [masterLocation, setMasterLocation] = useState(0);
   const [activeCard, setActiveCard] = useState('all');
-  const [masterSearch, setMasterSearch] = useState('');
 
   // numbers tracker + filters
   const [numbers, setNumbers] = useState<SealNumberRow[]>([]);
   const [numStatus, setNumStatus] = useState<'' | SealStatus>('');
   const [numLocation, setNumLocation] = useState(0);
-  const [numSearch, setNumSearch] = useState('');
 
   // form
   const [formOpen, setFormOpen] = useState(false);
@@ -192,20 +189,8 @@ export default function SealsPage() {
   }
 
   // ---- masters table ----
-  const mastersFiltered = useMemo(() => {
-    const q = masterSearch.trim().toLowerCase();
-    if (!q) return masters;
-    return masters.filter((m) => (m.location_name ?? '').toLowerCase().includes(q) || (m.sub_office_code ?? '').toLowerCase().includes(q) || String(m.id).includes(q));
-  }, [masters, masterSearch]);
-  const mp = usePagedList(mastersFiltered, { initialPageSize: 25 });
 
   // ---- numbers table ----
-  const numbersFiltered = useMemo(() => {
-    const q = numSearch.trim().toLowerCase();
-    if (!q) return numbers;
-    return numbers.filter((n) => n.seal_number.toLowerCase().includes(q) || (n.location ?? '').toLowerCase().includes(q) || (n.notes ?? '').toLowerCase().includes(q));
-  }, [numbers, numSearch]);
-  const np = usePagedList(numbersFiltered, { initialPageSize: 25 });
 
   // ---- form ----
   function resetForm() {
@@ -382,88 +367,143 @@ export default function SealsPage() {
           <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Masters List
             {(masterStatus || masterLocation) ? <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">filtered</span> : null}
           </span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input className="input pl-9 text-sm w-56" placeholder="Search location, sub office..." value={masterSearch} onChange={(e) => { setMasterSearch(e.target.value); mp.resetPage(); }} />
-          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr><th className="w-12">#</th><th>Office Location</th><th>Sub Office</th><th>Purchase Date</th><th className="text-right">Total Amount</th><th className="text-right">Total Seal</th><th className="text-center">Added</th><th>Display</th><th className="text-center">Actions</th></tr>
-            </thead>
-            <tbody>
-              {mp.paged.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No seals found.</td></tr>)}
-              {mp.paged.map((m, idx) => (
-                <tr key={m.id} className="hover:bg-slate-50">
-                  <td className="text-muted-foreground font-medium">{mp.startIndex + idx + 1}</td>
-                  <td className="font-medium">{m.location_name || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{m.sub_office_code || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{fmtDate(m.purchase_date)}</td>
-                  <td className="text-right text-slate-700 text-xs">${Number(m.total_amount ?? 0).toFixed(2)}</td>
-                  <td className="text-right text-slate-700 text-xs">{m.total_seal}</td>
-                  <td className="text-center">
-                    <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${m.added_seals >= m.total_seal && m.total_seal > 0 ? 'bg-emerald-100 text-emerald-700' : m.added_seals > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-muted-foreground'}`}>{m.added_seals}</span>
-                  </td>
-                  <td>{m.display === 'Y' ? <span className="text-emerald-600 text-xs font-medium">Yes</span> : <span className="text-red-500 text-xs font-medium">No</span>}</td>
-                  <td>
-                    <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                      <button type="button" onClick={() => setManageFor(m)} title="Manage Seal Numbers" className="inline-flex items-center justify-center w-7 h-7 bg-fuchsia-600 hover:bg-fuchsia-700 text-white"><ListOrdered className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => openView(m.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => loadForEdit(m.id)} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => { window.location.href = `/api/v1/seals/${m.id}/export`; }} title="Export" className="btn-excel btn-icon"><FileSpreadsheet className="h-3.5 w-3.5" /></button>
-                      <button type="button" onClick={() => deleteMaster(m.id)} title="Delete" className="btn-delete btn-icon"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <PaginationFooter page={mp.page} setPage={mp.setPage} pageSize={mp.pageSize} setPageSize={mp.setPageSize} totalRows={mp.totalRows} totalPages={mp.totalPages} startIndex={mp.startIndex} mounted={mp.mounted} />
+        <DataTable<SealMasterRow>
+          rows={masters}
+          rowKey={(m) => m.id}
+          searchPlaceholder="Search location, sub office..."
+          emptyMessage="No seal batches yet — add the first one."
+          columns={[
+            { key: 'location_name', header: 'Office Location', sortable: true, className: 'font-medium' },
+            { key: 'sub_office_code', header: 'Sub Office', className: 'text-xs' },
+            {
+              key: 'purchase_date',
+              header: 'Purchase Date',
+              sortable: true,
+              className: 'text-xs',
+              render: (m: SealMasterRow) => fmtDate(m.purchase_date),
+            },
+            {
+              key: 'total_amount',
+              header: 'Total Amount',
+              align: 'right',
+              sortable: true,
+              className: 'text-xs',
+              render: (m: SealMasterRow) => `$${Number(m.total_amount ?? 0).toFixed(2)}`,
+            },
+            { key: 'total_seal', header: 'Total Seal', align: 'right', sortable: true, className: 'text-xs' },
+            {
+              key: 'added_seals',
+              header: 'Added',
+              align: 'center',
+              sortable: true,
+              render: (m: SealMasterRow) => (
+                <span
+                  className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${
+                    m.added_seals >= m.total_seal && m.total_seal > 0
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : m.added_seals > 0
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-muted-foreground'
+                  }`}
+                >
+                  {m.added_seals}
+                </span>
+              ),
+            },
+            {
+              key: 'display',
+              header: 'Display',
+              render: (m: SealMasterRow) =>
+                m.display === 'Y' ? (
+                  <span className="text-emerald-600 text-xs font-medium">Yes</span>
+                ) : (
+                  <span className="text-red-500 text-xs font-medium">No</span>
+                ),
+            },
+          ]}
+          actions={(m) => ({
+            view: () => openView(m.id),
+            edit: () => loadForEdit(m.id),
+            remove: () => deleteMaster(m.id),
+            extra: (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setManageFor(m)}
+                  title="Manage Seal Numbers"
+                  className="btn-icon ms-1 bg-fuchsia-600 text-white shadow-sm hover:bg-fuchsia-700"
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                </button>
+                <a
+                  href={`/api/v1/seals/${m.id}/export`}
+                  title="Export"
+                  className="btn-excel btn-icon ms-1"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                </a>
+              </>
+            ),
+          })}
+        />
       </div>
 
       {/* ---- individual seal numbers tracker ---- */}
       <div className="card">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
           <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Numbers — Usage Tracker</span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input className="input pl-9 text-sm w-56" placeholder="Search seal number, location..." value={numSearch} onChange={(e) => { setNumSearch(e.target.value); np.resetPage(); }} />
-          </div>
         </div>
         <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2">
           {([['', 'All'], ['Available', 'Available'], ['Used', 'Used'], ['Damaged', 'Damaged']] as Array<['' | SealStatus, string]>).map(([val, lbl]) => (
-            <button key={lbl} type="button" onClick={() => { setNumStatus(val); setNumLocation(0); np.resetPage(); }}
+            <button key={lbl} type="button" onClick={() => { setNumStatus(val); setNumLocation(0); }}
               className={`px-3 py-1.5 rounded-md text-sm font-medium border ${numStatus === val && numLocation === 0 ? 'bg-primary-600 text-white border-primary-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>{lbl}</button>
           ))}
           {offices.map((o) => (
-            <button key={o.id} type="button" onClick={() => { setNumLocation(o.id); setNumStatus(''); np.resetPage(); }}
+            <button key={o.id} type="button" onClick={() => { setNumLocation(o.id); setNumStatus(''); }}
               className={`px-3 py-1.5 rounded-md text-sm font-medium border inline-flex items-center gap-1 ${numLocation === o.id ? 'bg-primary-600 text-white border-primary-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}><MapPin className="h-3.5 w-3.5" /> {o.label}</button>
           ))}
         </div>
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr><th className="w-12">#</th><th>Seal Number</th><th>Status</th><th>Location</th><th>Purchase Date</th><th>Notes</th><th>Created</th></tr>
-            </thead>
-            <tbody>
-              {np.paged.length === 0 && (<tr><td colSpan={7} className="text-center text-muted-foreground py-8">No seal numbers found.</td></tr>)}
-              {np.paged.map((nrow, idx) => (
-                <tr key={nrow.id} className="hover:bg-slate-50">
-                  <td className="text-muted-foreground font-medium">{np.startIndex + idx + 1}</td>
-                  <td className="font-mono font-semibold">{nrow.seal_number}</td>
-                  <td><span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(nrow.status)}`}>{nrow.status}</span></td>
-                  <td className="text-slate-700 text-xs">{nrow.location || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{nrow.purchase_date ? fmtDate(nrow.purchase_date) : <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{nrow.notes || <span className="text-slate-300">No notes</span>}</td>
-                  <td className="text-slate-600 text-xs">{nrow.created_at ? fmtDate(nrow.created_at) : <span className="text-slate-300">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <PaginationFooter page={np.page} setPage={np.setPage} pageSize={np.pageSize} setPageSize={np.setPageSize} totalRows={np.totalRows} totalPages={np.totalPages} startIndex={np.startIndex} mounted={np.mounted} />
+        <DataTable<SealNumberRow>
+          rows={numbers}
+          rowKey={(n) => n.id}
+          searchPlaceholder="Search seal number, notes..."
+          emptyMessage="No seal numbers recorded yet."
+          columns={[
+            { key: 'seal_number', header: 'Seal Number', sortable: true, className: 'font-mono font-semibold' },
+            {
+              key: 'status',
+              header: 'Status',
+              sortable: true,
+              render: (n: SealNumberRow) => (
+                <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(n.status)}`}>
+                  {n.status}
+                </span>
+              ),
+            },
+            { key: 'location', header: 'Location', sortable: true, className: 'text-xs' },
+            {
+              key: 'purchase_date',
+              header: 'Purchase Date',
+              sortable: true,
+              className: 'text-xs',
+              render: (n: SealNumberRow) => (n.purchase_date ? fmtDate(n.purchase_date) : <span className="text-muted-foreground">—</span>),
+            },
+            {
+              key: 'notes',
+              header: 'Notes',
+              className: 'text-xs',
+              render: (n: SealNumberRow) => n.notes || <span className="text-muted-foreground">No notes</span>,
+            },
+            {
+              key: 'created_at',
+              header: 'Created',
+              sortable: true,
+              className: 'text-xs',
+              render: (n: SealNumberRow) => (n.created_at ? fmtDate(n.created_at) : <span className="text-muted-foreground">—</span>),
+            },
+          ]}
+        />
       </div>
 
       {manageFor && (

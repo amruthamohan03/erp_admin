@@ -6,15 +6,35 @@ import { sql } from 'drizzle-orm';
 import type { Database, Transaction } from '@/lib/db';
 import { auditLog } from '@/db/schema';
 import { redact } from './redact';
+import { requestContext } from './requestContext';
 
+// §4.28 — everything consequential is logged, so the union covers the whole
+// list rather than the handful that happened to exist first. Keep in step with
+// the CHECK constraint in the schema.
 export type AuditAction =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'transition'
   | 'login'
   | 'logout'
-  | 'permission_change';
+  | 'failed_login'
+  | 'create'
+  | 'view'
+  | 'update'
+  | 'delete'
+  | 'restore'
+  | 'permanent_delete'
+  | 'approve'
+  | 'reject'
+  | 'submit'
+  | 'cancel'
+  | 'export'
+  | 'import'
+  | 'download'
+  | 'print'
+  | 'status_change'
+  | 'role_change'
+  | 'permission_change'
+  | 'user_change'
+  | 'settings_change'
+  | 'transition';
 
 export type AuditActorType = 'user' | 'system' | 'api';
 
@@ -27,6 +47,10 @@ export interface RecordAuditArgs {
   before?: unknown;
   after?: unknown;
   metadata?: Record<string, unknown>;
+  /** Role the actor held. Omit and it is read from the session. */
+  actorRole?: string | null;
+  /** Defaults to the entity type's own prefix — see moduleFor(). */
+  module?: string | null;
 }
 
 /**
@@ -67,6 +91,24 @@ function asSnapshot(v: unknown): Record<string, unknown> | null {
  * Returns the inserted row id. audit_log_t is append-only; never UPDATE or
  * DELETE the row from app code.
  */
+/**
+ * The module an entity belongs to, for the module-wise views of the audit
+ * dashboard. Derived rather than demanded, so no call site has to remember it.
+ *
+ *   'page:license'        → 'license'      (the module IS the page)
+ *   'recycle-bin:origins' → 'recycle-bin'  (the module IS the bin; origins is the record)
+ *   'client_master'       → 'client_master'
+ *
+ * MUST match the backfill in migration 0054 — if the two disagree, the same
+ * module shows up as two separate buckets either side of the migration.
+ */
+function moduleFor(entityType: string): string {
+  if (entityType.startsWith('page:')) return entityType.slice('page:'.length) || 'page';
+  if (entityType.startsWith('recycle-bin:')) return 'recycle-bin';
+  if (entityType.startsWith('application-settings')) return 'settings';
+  return entityType;
+}
+
 export async function recordAudit(
   tx: Database | Transaction,
   args: RecordAuditArgs,
@@ -74,6 +116,9 @@ export async function recordAudit(
   const before = asSnapshot(args.before);
   const after = asSnapshot(args.after);
   const diff = computeDiff(before, after);
+  // Read from the request rather than asked for: every existing call site gains
+  // IP and device with no change, and a caller cannot forget to pass them.
+  const context = await requestContext();
 
   const [row] = await tx
     .insert(auditLog)
@@ -83,6 +128,10 @@ export async function recordAudit(
       action: args.action,
       entityType: args.entityType,
       entityId: String(args.entityId),
+      actorRole: args.actorRole ?? context.actorRole,
+      module: args.module ?? moduleFor(args.entityType),
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
       before,
       after,
       diff,

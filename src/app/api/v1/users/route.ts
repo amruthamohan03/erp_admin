@@ -5,6 +5,7 @@ import { usersT, roleMaster } from '@/db/schema';
 import { hashPassword } from '@/lib/auth';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, ConflictError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit/recordAudit';
 import { userCreateSchema } from '@/schemas';
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -71,32 +72,47 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const hashed = await hashPassword(data.password);
 
   try {
-    const [row] = await db
-      .insert(usersT)
-      .values({
-        username: data.username,
-        password: hashed,
-        email: data.email,
-        mobile: data.mobile ?? null,
-        fullName: data.full_name,
-        roleId: data.role_id,
-        locationId: data.location_id ?? null,
-        deptId: data.dept_id ?? null,
-        createdBy: session.uid,
-        updatedBy: session.uid,
-      })
-      .returning({
-        id: usersT.id,
-        username: usersT.username,
-        email: usersT.email,
-        full_name: usersT.fullName,
-        role_id: usersT.roleId,
-        mobile: usersT.mobile,
-        location_id: usersT.locationId,
-        dept_id: usersT.deptId,
-        display: usersT.display,
-        created_at: usersT.createdAt,
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(usersT)
+        .values({
+          username: data.username,
+          password: hashed,
+          email: data.email,
+          mobile: data.mobile ?? null,
+          fullName: data.full_name,
+          roleId: data.role_id,
+          locationId: data.location_id ?? null,
+          deptId: data.dept_id ?? null,
+          createdBy: session.uid,
+          updatedBy: session.uid,
+        })
+        .returning({
+          id: usersT.id,
+          username: usersT.username,
+          email: usersT.email,
+          full_name: usersT.fullName,
+          role_id: usersT.roleId,
+          mobile: usersT.mobile,
+          location_id: usersT.locationId,
+          dept_id: usersT.deptId,
+          display: usersT.display,
+          created_at: usersT.createdAt,
+        });
+
+      // §4.28 — creating an account is a logged change, in the same transaction.
+      // The returned row carries no password column, so the snapshot cannot.
+      await recordAudit(tx, {
+        actorId: session.uid,
+        action: 'create',
+        entityType: 'user',
+        entityId: String(created.id),
+        module: 'users',
+        after: created,
       });
+
+      return created;
+    });
 
     return ok(row, 201);
   } catch (err: unknown) {

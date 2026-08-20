@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -46,12 +46,6 @@ export default function HscodesPage() {
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -88,9 +82,6 @@ export default function HscodesPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -100,108 +91,33 @@ export default function HscodesPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search HS code number..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>HS Code</th>
-                {RATE_FIELDS.map((f) => (
-                  <th key={f.key} className="text-right">
-                    {f.label} (%)
-                  </th>
-                ))}
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={3 + RATE_FIELDS.length}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={3 + RATE_FIELDS.length}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    No HS codes found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((i, idx) => (
-                  <tr key={i.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-mono">{i.hscode_number}</td>
-                    {RATE_FIELDS.map((f) => (
-                      <td
-                        key={f.key}
-                        className="text-right font-mono text-xs"
-                      >
-                        {fmt(i[f.key as RateKey])}
-                      </td>
-                    ))}
-                    <td className="text-right whitespace-nowrap">
-                      <button
-                        onClick={() => setEditing(i)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(i.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search HS code..."
+        emptyMessage="No HS codes yet — create the first one."
+        columns={[
+          { key: 'hscode_number', header: 'HS Code', sortable: true, className: 'font-mono' },
+          ...RATE_FIELDS.map((f) => ({
+            key: f.key,
+            header: `${f.label} (%)`,
+            align: 'right' as const,
+            className: 'font-mono text-xs',
+            render: (r: Row) => fmt(r[f.key as RateKey]),
+          })),
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <FormModal

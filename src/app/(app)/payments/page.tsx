@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Plus, Search, Eye, Edit2, Check, X, Receipt, Wallet, Layers,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import { formatDate as fmtDate } from '@/lib/formatDate';
 
 // Payment Request — multi-stage approval workflow list. The form (create/edit)
@@ -77,12 +77,6 @@ export default function PaymentsPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [perms, setPerms] = useState<{ stages: Stage[] }>({ stages: [] });
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   const [view, setView] = useState<Record<string, unknown> | null>(null);
   const [act, setAct] = useState<{ row: Row; stage: Stage } | null>(null);
   const [reason, setReason] = useState('');
@@ -152,8 +146,6 @@ export default function PaymentsPage() {
     } finally { setBusy(false); }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
   const canStage = useMemo(() => new Set(perms.stages), [perms.stages]);
   const mcaLines = (view?.mca_data as Array<{ mca_ref: string; amount: number }> | undefined) ?? [];
 
@@ -187,73 +179,105 @@ export default function PaymentsPage() {
         })}
       </div>
 
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2"><Layers className="h-4 w-4 text-muted-foreground" /> List of Payment Requests</span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input className="input pl-9 text-sm w-64" placeholder="Search requestee, beneficiary, client…"
-              value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base whitespace-nowrap">
-            <thead>
-              <tr>
-                <th className="w-12">#</th><th>Requestee</th><th>Beneficiary</th><th>Client</th>
-                <th>For</th><th>Type</th><th>Currency</th><th>Expense</th>
-                <th className="text-right">Amount</th><th className="text-center">Refs</th>
-                <th>Status</th><th>Date</th><th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (<tr><td colSpan={13} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
-              {!loading && items.length === 0 && (<tr><td colSpan={13} className="text-center text-muted-foreground py-8">No payment requests found.</td></tr>)}
-              {!loading && items.map((r) => {
-                const st = statusOf(r);
-                const canAct = st.stage != null && canStage.has(st.stage);
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
-                    <td className="font-mono font-semibold">#{r.id}</td>
-                    <td className="font-medium">{r.requestee}</td>
-                    <td>{r.beneficiary || '—'}</td>
-                    <td>{r.client_name || 'N/A'}</td>
-                    <td>{r.pay_for != null ? PAY_FOR[r.pay_for] ?? '—' : '—'}</td>
-                    <td>{r.payment_type || '—'}</td>
-                    <td>{r.currency_short_name || '—'}</td>
-                    <td className="max-w-[10rem] truncate" title={r.expense_type_name ?? ''}>{r.expense_type_name || '—'}</td>
-                    <td className="text-right tabular-nums font-semibold">{fmt(r.amount)}</td>
-                    <td className="text-center">
-                      {r.mca_count > 0
-                        ? <span className="inline-flex min-w-[1.5rem] justify-center rounded-full bg-slate-200 text-slate-700 px-1.5 py-0.5 dark:bg-slate-700 dark:text-slate-200">{r.mca_count}</span>
-                        : <span className="text-slate-300">0</span>}
-                    </td>
-                    <td><span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>{st.label}</span></td>
-                    <td className="text-slate-600">{fmtDate(r.created_at)}</td>
-                    <td>
-                      <div className="inline-flex items-center gap-1 justify-center">
-                        <button type="button" onClick={() => openView(r.id)} title="View" className="btn-view btn-icon"><Eye className="h-3.5 w-3.5" /></button>
-                        <Link href={`/payments/${r.id}`} title="Edit" className="btn-edit btn-icon"><Edit2 className="h-3.5 w-3.5" /></Link>
-                        {canAct && st.stage && (
-                          <button type="button" onClick={() => openAction(r, st.stage as Stage)} title={`Act: ${st.label}`}
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-2 h-7 text-[11px] font-medium">
-                            <Check className="h-3.5 w-3.5" /> Act
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter page={page} setPage={setPage} pageSize={pageSize}
-          setPageSize={(n) => { setPageSize(n); setPage(1); }}
-          totalRows={total} totalPages={totalPages} startIndex={startIndex} mounted={mounted} />
-      </div>
+      {/* serial={false}: the request number IS the reference operators quote,
+          so it stands in for the running serial rather than sitting beside it. */}
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title="List of Payment Requests"
+        searchPlaceholder="Search requestee, beneficiary, client…"
+        emptyMessage="No payment requests yet — raise the first one."
+        serial={false}
+        columns={[
+          { key: 'id', header: '#', className: 'font-mono font-semibold', render: (r: Row) => `#${r.id}` },
+          { key: 'requestee', header: 'Requestee', sortable: true, className: 'font-medium' },
+          { key: 'beneficiary', header: 'Beneficiary', sortable: true },
+          { key: 'client_name', header: 'Client', sortable: true },
+          {
+            key: 'pay_for',
+            header: 'For',
+            render: (r: Row) => (r.pay_for != null ? PAY_FOR[r.pay_for] ?? '—' : '—'),
+          },
+          { key: 'payment_type', header: 'Type', sortable: true },
+          { key: 'currency_short_name', header: 'Currency' },
+          {
+            key: 'expense_type_name',
+            header: 'Expense',
+            className: 'max-w-[10rem] truncate',
+          },
+          {
+            key: 'amount',
+            header: 'Amount',
+            align: 'right',
+            sortable: true,
+            className: 'tabular-nums font-semibold',
+            render: (r: Row) => fmt(r.amount),
+          },
+          {
+            key: 'mca_count',
+            header: 'Refs',
+            align: 'center',
+            render: (r: Row) =>
+              r.mca_count > 0 ? (
+                <span className="inline-flex min-w-[1.5rem] justify-center rounded-full bg-muted px-1.5 py-0.5 text-foreground">
+                  {r.mca_count}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">0</span>
+              ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            value: (r: Row) => statusOf(r).label,
+            render: (r: Row) => {
+              const st = statusOf(r);
+              return (
+                <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
+                  {st.label}
+                </span>
+              );
+            },
+          },
+          {
+            key: 'created_at',
+            header: 'Date',
+            sortable: true,
+            render: (r: Row) => fmtDate(r.created_at),
+          },
+        ]}
+        actions={(r) => {
+          const st = statusOf(r);
+          const canAct = st.stage != null && canStage.has(st.stage);
+          return {
+            view: () => openView(r.id),
+            edit: `/payments/${r.id}`,
+            // The one stage this row is actually waiting on — an approval, so it
+            // wears the approve colour (§4.26).
+            extra:
+              canAct && st.stage ? (
+                <button
+                  type="button"
+                  onClick={() => openAction(r, st.stage as Stage)}
+                  title={`Act: ${st.label}`}
+                  className="btn-approve btn-sm ms-1 h-7 px-2 text-[11px]"
+                >
+                  <Check className="h-3.5 w-3.5" /> Act
+                </button>
+              ) : null,
+          };
+        }}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {/* View modal */}
       {view && (

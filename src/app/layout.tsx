@@ -5,6 +5,8 @@ import ThemeProvider from '@/components/providers/ThemeProvider';
 import TranslateProvider from '@/components/providers/TranslateProvider';
 import { loadBranding } from '@/db/queries/branding';
 import { BRANDING_DEFAULTS, brandingCssVars } from '@/lib/branding';
+import { loadActionStyles } from '@/db/queries/actionStyles';
+import { actionStyleCssVars } from '@/lib/actionStyles';
 import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import './globals.css';
 
@@ -37,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // Resolved server-side so the configured palette is in the first HTML response —
   // a client-side apply would flash the default brand on every navigation.
-  const branding = await loadBranding();
+  const [branding, actionStyles] = await Promise.all([loadBranding(), loadActionStyles()]);
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
@@ -55,6 +57,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <style
           id="brand-tokens"
           dangerouslySetInnerHTML={{ __html: brandingCssVars(branding) }}
+        />
+        {/* §4.26 — per-action colour, inlined before first paint for the same
+            reason as the brand palette: the shared action classes read these
+            variables, so they must exist before anything renders. */}
+        <style
+          id="action-tokens"
+          dangerouslySetInnerHTML={{ __html: actionStyleCssVars(actionStyles) }}
         />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">

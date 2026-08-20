@@ -7,18 +7,15 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
+import { PERMISSION_FLAGS, type PermissionFlagKey } from '@/schemas/role-menu-mapping';
 
-type PermKey = 'can_view' | 'can_add' | 'can_edit' | 'can_delete' | 'can_approve';
+// §4.14 — columns come from the single flag list in the schema, so a new
+// permission appears here, in the Zod shape and in the save predicate at once.
+type PermKey = PermissionFlagKey;
 
-const PERM_COLUMNS: { key: PermKey; label: string }[] = [
-  { key: 'can_view', label: 'View' },
-  { key: 'can_add', label: 'Add' },
-  { key: 'can_edit', label: 'Edit' },
-  { key: 'can_delete', label: 'Delete' },
-  { key: 'can_approve', label: 'Approve' },
-];
+const PERM_COLUMNS = PERMISSION_FLAGS;
 
-interface MappingRow {
+type MappingRow = {
   menu_id: number;
   menu_parent_id: number | null;
   menu_name: string;
@@ -27,12 +24,7 @@ interface MappingRow {
   url: string | null;
   icon: string | null;
   parent_name: string | null;
-  can_view: boolean;
-  can_add: boolean;
-  can_edit: boolean;
-  can_delete: boolean;
-  can_approve: boolean;
-}
+} & Record<PermKey, boolean>;
 
 export default function RoleToMenuPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -107,14 +99,7 @@ export default function RoleToMenuPage() {
     setRows((prev) =>
       prev.map((r) =>
         r.menu_id === menuId
-          ? {
-              ...r,
-              can_view: on,
-              can_add: on,
-              can_edit: on,
-              can_delete: on,
-              can_approve: on,
-            }
+          ? { ...r, ...(Object.fromEntries(PERM_COLUMNS.map((c) => [c.key, on])) as Record<PermKey, boolean>) }
           : r,
       ),
     );
@@ -162,13 +147,9 @@ export default function RoleToMenuPage() {
 
   // Column "select all" applies to the filtered set so the user can scope it
   // with the search box — clicking "View ✓" while filtered toggles every match.
-  const columnAllOn: Record<PermKey, boolean> = {
-    can_view: false,
-    can_add: false,
-    can_edit: false,
-    can_delete: false,
-    can_approve: false,
-  };
+  const columnAllOn = Object.fromEntries(
+    PERM_COLUMNS.map((c) => [c.key, false]),
+  ) as Record<PermKey, boolean>;
   if (filtered.length > 0) {
     for (const c of PERM_COLUMNS) {
       columnAllOn[c.key] = filtered.every((r) => r[c.key]);

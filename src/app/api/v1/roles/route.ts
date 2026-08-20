@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { roleMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit/recordAudit';
 import { roleCreateSchema } from '@/schemas';
 
 export const GET = withErrorHandler(async () => {
@@ -41,29 +42,43 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const d = roleCreateSchema.parse(await req.json());
 
   try {
-    const [row] = await db
-      .insert(roleMaster)
-      .values({
-        roleName: d.role_name,
-        parentRoleId: d.parent_role_id ?? null,
-        approvalLevel: d.approval_level ?? null,
-        department: d.department,
-        management: d.management,
-        finance: d.finance,
-        createdBy: session.uid,
-        updatedBy: session.uid,
-      })
-      .returning({
-        id: roleMaster.id,
-        role_name: roleMaster.roleName,
-        parent_role_id: roleMaster.parentRoleId,
-        approval_level: roleMaster.approvalLevel,
-        department: roleMaster.department,
-        management: roleMaster.management,
-        finance: roleMaster.finance,
-        display: roleMaster.display,
-        created_at: roleMaster.createdAt,
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(roleMaster)
+        .values({
+          roleName: d.role_name,
+          parentRoleId: d.parent_role_id ?? null,
+          approvalLevel: d.approval_level ?? null,
+          department: d.department,
+          management: d.management,
+          finance: d.finance,
+          createdBy: session.uid,
+          updatedBy: session.uid,
+        })
+        .returning({
+          id: roleMaster.id,
+          role_name: roleMaster.roleName,
+          parent_role_id: roleMaster.parentRoleId,
+          approval_level: roleMaster.approvalLevel,
+          department: roleMaster.department,
+          management: roleMaster.management,
+          finance: roleMaster.finance,
+          display: roleMaster.display,
+          created_at: roleMaster.createdAt,
+        });
+
+      // §4.28 — a new role defines what a set of people will be able to do.
+      await recordAudit(tx, {
+        actorId: session.uid,
+        action: 'create',
+        entityType: 'role',
+        entityId: String(created.id),
+        module: 'roles',
+        after: created,
       });
+
+      return created;
+    });
 
     return ok(row, 201);
   } catch (err: unknown) {

@@ -1,3 +1,4 @@
+export * from './action-styles';
 // Zod schemas authored at API boundaries per root CLAUDE.md §4.4.
 // These are the single source of truth — routes import them, the UI imports
 // them for client-side form validation, and they'll feed openapi generation
@@ -65,3 +66,4 @@ export * from './bivac';
 export * from './payments';
 export * from './locals';
 export * from './imkpi';
+export * from './audit-log';

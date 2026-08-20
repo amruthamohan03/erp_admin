@@ -930,7 +930,39 @@
                   "type": "boolean",
                   "default": false
                 },
+                "can_restore": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_permanent_delete": {
+                  "type": "boolean",
+                  "default": false
+                },
                 "can_approve": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_export": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_import": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_print": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_view_audit": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_export_audit": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "can_manage_settings": {
                   "type": "boolean",
                   "default": false
                 }
@@ -998,7 +1030,31 @@
                 "can_delete": {
                   "type": "boolean"
                 },
+                "can_restore": {
+                  "type": "boolean"
+                },
+                "can_permanent_delete": {
+                  "type": "boolean"
+                },
                 "can_approve": {
+                  "type": "boolean"
+                },
+                "can_export": {
+                  "type": "boolean"
+                },
+                "can_import": {
+                  "type": "boolean"
+                },
+                "can_print": {
+                  "type": "boolean"
+                },
+                "can_view_audit": {
+                  "type": "boolean"
+                },
+                "can_export_audit": {
+                  "type": "boolean"
+                },
+                "can_manage_settings": {
                   "type": "boolean"
                 }
               },
@@ -1015,7 +1071,15 @@
                 "can_add",
                 "can_edit",
                 "can_delete",
-                "can_approve"
+                "can_restore",
+                "can_permanent_delete",
+                "can_approve",
+                "can_export",
+                "can_import",
+                "can_print",
+                "can_view_audit",
+                "can_export_audit",
+                "can_manage_settings"
               ]
             }
           }
@@ -8499,7 +8563,31 @@
                               "can_delete": {
                                 "type": "boolean"
                               },
+                              "can_restore": {
+                                "type": "boolean"
+                              },
+                              "can_permanent_delete": {
+                                "type": "boolean"
+                              },
                               "can_approve": {
+                                "type": "boolean"
+                              },
+                              "can_export": {
+                                "type": "boolean"
+                              },
+                              "can_import": {
+                                "type": "boolean"
+                              },
+                              "can_print": {
+                                "type": "boolean"
+                              },
+                              "can_view_audit": {
+                                "type": "boolean"
+                              },
+                              "can_export_audit": {
+                                "type": "boolean"
+                              },
+                              "can_manage_settings": {
                                 "type": "boolean"
                               }
                             },
@@ -8516,7 +8604,15 @@
                               "can_add",
                               "can_edit",
                               "can_delete",
-                              "can_approve"
+                              "can_restore",
+                              "can_permanent_delete",
+                              "can_approve",
+                              "can_export",
+                              "can_import",
+                              "can_print",
+                              "can_view_audit",
+                              "can_export_audit",
+                              "can_manage_settings"
                             ]
                           }
                         }
@@ -8706,7 +8802,39 @@
                           "type": "boolean",
                           "default": false
                         },
+                        "can_restore": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_permanent_delete": {
+                          "type": "boolean",
+                          "default": false
+                        },
                         "can_approve": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_export": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_import": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_print": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_view_audit": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_export_audit": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "can_manage_settings": {
                           "type": "boolean",
                           "default": false
                         }

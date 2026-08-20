@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 
 interface UnitRow {
@@ -25,12 +25,6 @@ export default function UnitsPage() {
   const [editing, setEditing] = useState<UnitRow | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,9 +62,6 @@ export default function UnitsPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -80,99 +71,37 @@ export default function UnitsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search unit name, code..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Unit Name</th>
-                <th className="w-32">Code</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    No units found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((u, idx) => (
-                  <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{u.unit_name}</td>
-                    <td>
-                      {u.unit_code ? (
+      <DataTable<UnitRow>
+        rows={items}
+        loading={loading}
+        rowKey={(u) => u.id}
+        searchPlaceholder="Search unit name, code..."
+        emptyMessage="No units yet — create the first one."
+        columns={[
+        { key: 'unit_name', header: 'Unit Name', sortable: true, className: 'font-medium' },
+        { key: 'unit_code', header: 'Code', className: 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono', render: (u: UnitRow) => (
+            <>
+            {u.unit_code ? (
                         <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
                           {u.unit_code}
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(u)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(u.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(u) => ({ edit: () => setEditing(u), remove: () => handleDelete(u.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <UnitFormModal

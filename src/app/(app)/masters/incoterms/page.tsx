@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -27,12 +27,6 @@ export default function IncotermsPage() {
   const [editing, setEditing] = useState<Row | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,9 +64,6 @@ export default function IncotermsPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -82,95 +73,27 @@ export default function IncotermsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search code or description..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th className="w-24">Code</th>
-                <th>Description</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    No incoterms found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium align-top">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-mono font-medium align-top">
-                      {r.incoterm_short_name}
-                    </td>
-                    <td className="text-sm text-slate-700">
-                      {r.incoterm_full_name}
-                    </td>
-                    <td className="text-right align-top">
-                      <button
-                        onClick={() => setEditing(r)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search code or description..."
+        emptyMessage="No incoterms yet — create the first one."
+        columns={[
+        { key: 'incoterm_short_name', header: 'Code', sortable: true, className: 'font-mono font-medium align-top' },
+        { key: 'incoterm_full_name', header: 'Description', sortable: true, className: 'text-sm text-slate-700' },
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <FormModal

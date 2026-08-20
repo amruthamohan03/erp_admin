@@ -5,7 +5,19 @@ import { db } from '@/lib/db';
 import { menuMaster, roleMaster, roleMenuMapping } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
-import { roleMenuMappingPutSchema } from '@/schemas';
+import { roleMenuMappingPutSchema, PERMISSION_FLAG_KEYS, grantsNothing } from '@/schemas';
+import { recordAudit } from '@/lib/audit/recordAudit';
+
+// §4.28 — a permission change is one of the events an investigation cares most
+// about, and a 13-flag × N-menu matrix is unreadable as two raw snapshots. Each
+// menu is collapsed to the grants it holds, so the diff reads
+// `Clients: view, add → view, add, edit`.
+function grantSummary(row: Record<string, unknown>): string {
+  const held = PERMISSION_FLAG_KEYS.filter((k) => row[k] === true).map((k) =>
+    k.replace(/^can_/u, '').replace(/_/gu, ' '),
+  );
+  return held.length > 0 ? held.join(', ') : 'none';
+}
 
 // GET /api/v1/role-menu-mapping?role_id=N
 // Returns every active menu row joined with its (possibly absent) mapping for the role.
@@ -45,7 +57,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       can_add: roleMenuMapping.canAdd,
       can_edit: roleMenuMapping.canEdit,
       can_delete: roleMenuMapping.canDelete,
+      can_restore: roleMenuMapping.canRestore,
+      can_permanent_delete: roleMenuMapping.canPermanentDelete,
       can_approve: roleMenuMapping.canApprove,
+      can_export: roleMenuMapping.canExport,
+      can_import: roleMenuMapping.canImport,
+      can_print: roleMenuMapping.canPrint,
+      can_view_audit: roleMenuMapping.canViewAudit,
+      can_export_audit: roleMenuMapping.canExportAudit,
+      can_manage_settings: roleMenuMapping.canManageSettings,
     })
     .from(menuMaster)
     .leftJoin(parent, eq(parent.id, menuMaster.menuId))
@@ -59,14 +79,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .where(eq(menuMaster.display, 'Y'))
     .orderBy(asc(menuMaster.menuOrder), asc(menuMaster.id));
 
-  const data = rows.map((r) => ({
-    ...r,
-    can_view: r.can_view ?? false,
-    can_add: r.can_add ?? false,
-    can_edit: r.can_edit ?? false,
-    can_delete: r.can_delete ?? false,
-    can_approve: r.can_approve ?? false,
-  }));
+  // A menu with no mapping row for this role left-joins to nulls; the matrix
+  // wants explicit falses. Derived from PERMISSION_FLAG_KEYS so a new flag needs
+  // no edit here.
+  const data = rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    const flags = Object.fromEntries(
+      PERMISSION_FLAG_KEYS.map((k) => [k, row[k] ?? false]),
+    );
+    return { ...r, ...flags };
+  });
 
   return ok({ role_id: roleId, menus: data });
 });
@@ -87,20 +109,58 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
     .limit(1);
   if (!role) throw new NotFoundError('Role not found');
 
-  const grant = mappings.filter(
-    (m) =>
-      m.can_view || m.can_add || m.can_edit || m.can_delete || m.can_approve,
+  // A row granting nothing is deleted rather than stored, so the table holds no
+  // all-false junk. Both sides read one predicate — listing the flags by hand is
+  // how a new flag silently fails to save.
+  const grant = mappings.filter((m) => !grantsNothing(m));
+  const revoke = mappings.filter((m) => grantsNothing(m)).map((m) => m.menu_id);
+
+  // Read the role's current grants before the write — afterwards there is
+  // nothing left to compare against. Selected under the snake_case flag names so
+  // one grantSummary() reads both the stored row and the submitted payload.
+  const existing = await db
+    .select({
+      menu_id: roleMenuMapping.menuId,
+      can_view: roleMenuMapping.canView,
+      can_add: roleMenuMapping.canAdd,
+      can_edit: roleMenuMapping.canEdit,
+      can_delete: roleMenuMapping.canDelete,
+      can_restore: roleMenuMapping.canRestore,
+      can_permanent_delete: roleMenuMapping.canPermanentDelete,
+      can_approve: roleMenuMapping.canApprove,
+      can_export: roleMenuMapping.canExport,
+      can_import: roleMenuMapping.canImport,
+      can_print: roleMenuMapping.canPrint,
+      can_view_audit: roleMenuMapping.canViewAudit,
+      can_export_audit: roleMenuMapping.canExportAudit,
+      can_manage_settings: roleMenuMapping.canManageSettings,
+    })
+    .from(roleMenuMapping)
+    .where(eq(roleMenuMapping.roleId, role_id));
+
+  const menuNames = new Map(
+    (await db.select({ id: menuMaster.id, name: menuMaster.menuName }).from(menuMaster)).map(
+      (m) => [m.id, m.name] as const,
+    ),
   );
-  const revoke = mappings
-    .filter(
-      (m) =>
-        !m.can_view &&
-        !m.can_add &&
-        !m.can_edit &&
-        !m.can_delete &&
-        !m.can_approve,
-    )
-    .map((m) => m.menu_id);
+
+  const beforeByMenu = new Map(existing.map((e) => [e.menu_id, grantSummary(e)]));
+  const afterByMenu = new Map(
+    mappings.map((m) => [m.menu_id, grantSummary(m as Record<string, unknown>)]),
+  );
+
+  // Only the menus that actually moved go into the snapshot — a full matrix on
+  // every save would bury the one row that changed.
+  const before: Record<string, string> = {};
+  const after: Record<string, string> = {};
+  for (const menuId of new Set([...beforeByMenu.keys(), ...afterByMenu.keys()])) {
+    const was = beforeByMenu.get(menuId) ?? 'none';
+    const now = afterByMenu.get(menuId) ?? was;
+    if (was === now) continue;
+    const name = menuNames.get(menuId) ?? `Menu #${menuId}`;
+    before[name] = was;
+    after[name] = now;
+  }
 
   try {
     await db.transaction(async (tx) => {
@@ -115,6 +175,22 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
           );
       }
 
+      // §4.28 — in the same transaction as the change it describes. A save that
+      // moved nothing is not logged: it is not a change, and an entry per
+      // idle visit to the matrix would bury the ones that matter.
+      if (Object.keys(before).length > 0) {
+        await recordAudit(tx, {
+          actorId: session.uid,
+          action: 'permission_change',
+          entityType: 'role-menu-mapping',
+          entityId: String(role_id),
+          module: 'permissions',
+          before,
+          after,
+          metadata: { role_id, menus_changed: Object.keys(before).length },
+        });
+      }
+
       if (grant.length === 0) return;
 
       const values = grant.map((m) => ({
@@ -124,7 +200,15 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
         canAdd: m.can_add,
         canEdit: m.can_edit,
         canDelete: m.can_delete,
+        canRestore: m.can_restore,
+        canPermanentDelete: m.can_permanent_delete,
         canApprove: m.can_approve,
+        canExport: m.can_export,
+        canImport: m.can_import,
+        canPrint: m.can_print,
+        canViewAudit: m.can_view_audit,
+        canExportAudit: m.can_export_audit,
+        canManageSettings: m.can_manage_settings,
         createdBy: session.uid,
         updatedBy: session.uid,
       }));
@@ -139,7 +223,15 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
             canAdd: sql`excluded.can_add`,
             canEdit: sql`excluded.can_edit`,
             canDelete: sql`excluded.can_delete`,
+            canRestore: sql`excluded.can_restore`,
+            canPermanentDelete: sql`excluded.can_permanent_delete`,
             canApprove: sql`excluded.can_approve`,
+            canExport: sql`excluded.can_export`,
+            canImport: sql`excluded.can_import`,
+            canPrint: sql`excluded.can_print`,
+            canViewAudit: sql`excluded.can_view_audit`,
+            canExportAudit: sql`excluded.can_export_audit`,
+            canManageSettings: sql`excluded.can_manage_settings`,
             updatedBy: session.uid,
             updatedAt: sql`now()`,
           },

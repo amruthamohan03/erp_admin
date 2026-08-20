@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 
 interface ItemRow {
@@ -54,12 +54,6 @@ export default function ItemsPage() {
   const [editing, setEditing] = useState<ItemRow | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   // Categories for the picker — small list, fetch once.
   useEffect(() => {
@@ -121,9 +115,6 @@ export default function ItemsPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -133,135 +124,49 @@ export default function ItemsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="relative max-w-sm flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search item name or code..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <SearchableSelect
-            className="max-w-[200px]"
-            aria-label="Filter by category"
-            value={categoryFilter}
-            emptyLabel="All Categories"
-            placeholder="All Categories"
-            options={categories.map((c) => ({ value: String(c.id), label: c.category_name }))}
-            onChange={(v) => {
-              setCategoryFilter(v);
-              setPage(1);
-            }}
-          />
-          <SearchableSelect
-            className="max-w-[200px]"
-            aria-label="Filter by type"
-            value={typeFilter}
-            emptyLabel="All Types"
-            placeholder="All Types"
-            options={ITEM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-            onChange={(v) => {
-              setTypeFilter(v);
-              setPage(1);
-            }}
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Item Name</th>
-                <th className="w-24">Code</th>
-                <th className="w-48">Category</th>
-                <th className="w-40">Type</th>
-                <th className="w-20 text-center">Tax Class</th>
-                <th className="w-20 text-right">%</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-8">
-                    No items found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{r.item_name}</td>
-                    <td className="text-slate-600 text-xs">
-                      {r.item_code || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {r.category_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td>
-                      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700">
+      <DataTable<ItemRow>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search item name or code..."
+        emptyMessage="No items yet — create the first one."
+        columns={[
+        { key: 'item_name', header: 'Item Name', sortable: true, className: 'font-medium' },
+        { key: 'item_code', header: 'Code', className: 'text-slate-600 text-xs', render: (r: ItemRow) => (
+            <>
+            {r.item_code || <span className="text-slate-300">—</span>}
+            </>
+          ) },
+        { key: 'category_name', header: 'Category', className: 'text-slate-700 text-xs', render: (r: ItemRow) => (
+            <>
+            {r.category_name || <span className="text-slate-300">—</span>}
+            </>
+          ) },
+        { key: '5', header: 'Type', className: 'inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700', render: (r: ItemRow) => (
+            <>
+            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700">
                         {ITEM_TYPE_LABEL[r.item_type] ?? r.item_type}
                       </span>
-                    </td>
-                    <td className="text-center text-slate-700 text-xs font-mono">
-                      {r.tax_not_tax}
-                    </td>
-                    <td className="text-right text-slate-700 text-xs">
-                      {r.percentage != null ? Number(r.percentage).toFixed(2) : '0.00'}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(r)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        { key: 'tax_not_tax', header: 'Tax Class', sortable: true, align: 'center', className: 'text-slate-700 text-xs font-mono' },
+        { key: 'percentage', header: '%', align: 'right', className: 'text-slate-700 text-xs', render: (r: ItemRow) => (
+            <>
+            {r.percentage != null ? Number(r.percentage).toFixed(2) : '0.00'}
+            </>
+          ) },
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <ItemFormModal

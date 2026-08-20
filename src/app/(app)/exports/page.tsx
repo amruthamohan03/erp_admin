@@ -26,7 +26,7 @@ import {
   Hash,
   type LucideIcon,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
@@ -162,12 +162,6 @@ export default function ExportsListPage() {
   // View-details modal (per-row eye action) — null when closed, else row id.
   const [viewId, setViewId] = useState<number | null>(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -254,9 +248,6 @@ export default function ExportsListPage() {
     setApplied(EMPTY_FILTERS);
     setPage(1);
   }
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
 
   return (
     <>
@@ -417,169 +408,85 @@ export default function ExportsListPage() {
       )}
 
       {/* ---- List card ---- */}
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-          <Truck className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold text-slate-800">Exports List</span>
-        </div>
-
-        <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            <SearchableSelect
-              size="sm"
-              className="w-24"
-              aria-label="Exports per page"
-              value={String(pageSize)}
-              options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
-              onChange={(v) => {
-                setPageSize(Number(v));
-                setPage(1);
-              }}
-            />
-            <span className="text-muted-foreground">exports per page</span>
-          </div>
-          <div className="relative ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9 text-sm w-64"
-              placeholder="Search MCA ref, client, invoice, buyer..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-12">#</th>
-                <th>MCA Ref</th>
-                <th>Client</th>
-                <th>License</th>
-                <th>Invoice</th>
-                <th>Loading Date</th>
-                <th className="text-right">Weight (MT)</th>
-                <th className="text-right">FOB</th>
-                <th>Clearing Status</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
-                    No exports found — click <strong>New Export</strong> to
-                    create one.
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td>
-                      {r.mca_ref ? (
-                        <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
-                          {r.mca_ref}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="font-medium">
-                      {r.client_name || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="font-mono text-xs">
-                      {r.license_number || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {r.invoice || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="text-slate-700 text-xs">
-                      {fmtDate(r.loading_date) || (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-right text-slate-700 text-xs">
-                      {r.weight ? (
-                        `${fmtNum(r.weight)} MT`
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="text-right text-slate-700 text-xs">
-                      {fmtNum(r.fob) || <span className="text-slate-300">—</span>}
-                    </td>
-                    <td>
-                      {r.clearing_status_name ? (
-                        <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
-                          {r.clearing_status_name}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="inline-flex rounded-md shadow-sm overflow-hidden w-full justify-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewId(r.id)}
-                          title="View details"
-                          className="btn-view btn-icon"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <Link
-                          href={`/exports/${r.id}`}
-                          title="Edit"
-                          className="btn-edit btn-icon"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Link>
-                        <a
-                          href={`/api/v1/exports/${r.id}/export`}
-                          title="Export to Excel"
-                          className="btn-excel btn-icon transition"
-                        >
-                          <FileSpreadsheet className="h-3.5 w-3.5" />
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<ExportRow>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        title="Export List"
+        searchPlaceholder="Search MCA ref, client, license, invoice..."
+        emptyMessage="No export files match these filters — clear them, or create one."
+        columns={[
+          {
+            key: 'mca_ref',
+            header: 'MCA Ref',
+            render: (r: ExportRow) =>
+              r.mca_ref ? (
+                <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
+                  {r.mca_ref}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+          { key: 'client_name', header: 'Client', className: 'font-medium' },
+          { key: 'license_number', header: 'License', className: 'font-mono text-xs' },
+          { key: 'invoice', header: 'Invoice', className: 'text-xs' },
+          {
+            key: 'loading_date',
+            header: 'Loading Date',
+            className: 'text-xs',
+            render: (r: ExportRow) => fmtDate(r.loading_date) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'weight',
+            header: 'Weight (MT)',
+            align: 'right',
+            className: 'text-xs',
+            render: (r: ExportRow) => (r.weight ? `${fmtNum(r.weight)}` : <span className="text-muted-foreground">—</span>),
+          },
+          {
+            key: 'fob',
+            header: 'FOB',
+            align: 'right',
+            className: 'text-xs',
+            render: (r: ExportRow) => fmtNum(r.fob) || <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'clearing_status_name',
+            header: 'Clearing Status',
+            render: (r: ExportRow) =>
+              r.clearing_status_name ? (
+                <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+                  {r.clearing_status_name}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+        ]}
+        actions={(r) => ({
+          view: () => setViewId(r.id),
+          edit: `/exports/${r.id}`,
+          extra: (
+            <a
+              href={`/api/v1/exports/${r.id}/export`}
+              title="Export to Excel"
+              className="btn-excel btn-icon ms-1"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            </a>
+          ),
+        })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {viewId !== null && (
         <RecordViewModal
