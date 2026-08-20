@@ -198,26 +198,47 @@
   .btn-secondary { @apply btn border border-border bg-secondary text-secondary-foreground hover:bg-accent; }
   .btn-danger { @apply btn bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90; }
 
-  /* §4.20 — an action button is coloured by WHAT IT PRODUCES, not by the page it
-     happens to sit on. Before these existed every screen hand-rolled the same
-     class string, and the same action drifted: "Export All to Excel" was emerald
-     on the licence list but amber on the invoice list, and print was rose in one
-     place and slate in another. Colour is a signal operators learn once. */
-  .btn-pdf { @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-700; }
-  .btn-excel { @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700; }
+  /* §4.20 / §4.26 — an action button is coloured by WHAT IT PRODUCES, and that
+     colour is configuration: every class below reads --action-<key>, which the
+     root layout inlines from action_style_master_t. Changing a colour under
+     Settings → Application therefore reaches every call site without any of them
+     changing, precisely because none of them names a palette colour itself.
+
+     Before these existed every screen hand-rolled the same class string and the
+     same action drifted: "Export All to Excel" was emerald on the licence list,
+     amber on the invoice list and sky on the client dashboard; print was violet,
+     rose AND red within one row of buttons. */
+  .btn-action {
+    @apply btn shadow-sm;
+    background-color: hsl(var(--action-base));
+    color: hsl(var(--action-fg));
+  }
+  .btn-action:hover { background-color: hsl(var(--action-hover)); }
+
+  .btn-create { @apply btn-action; --action-base: var(--action-create); --action-hover: var(--action-create-hover); --action-fg: var(--action-create-fg); }
+  .btn-save { @apply btn-action; --action-base: var(--action-save); --action-hover: var(--action-save-hover); --action-fg: var(--action-save-fg); }
+  .btn-update { @apply btn-action; --action-base: var(--action-update); --action-hover: var(--action-update-hover); --action-fg: var(--action-update-fg); }
+  .btn-edit { @apply btn-action; --action-base: var(--action-edit); --action-hover: var(--action-edit-hover); --action-fg: var(--action-edit-fg); }
+  .btn-view { @apply btn-action; --action-base: var(--action-view); --action-hover: var(--action-view-hover); --action-fg: var(--action-view-fg); }
+  .btn-delete { @apply btn-action; --action-base: var(--action-delete); --action-hover: var(--action-delete-hover); --action-fg: var(--action-delete-fg); }
+  .btn-approve { @apply btn-action; --action-base: var(--action-approve); --action-hover: var(--action-approve-hover); --action-fg: var(--action-approve-fg); }
+  .btn-reject { @apply btn-action; --action-base: var(--action-reject); --action-hover: var(--action-reject-hover); --action-fg: var(--action-reject-fg); }
+  .btn-submit { @apply btn-action; --action-base: var(--action-submit); --action-hover: var(--action-submit-hover); --action-fg: var(--action-submit-fg); }
+  .btn-import { @apply btn-action; --action-base: var(--action-import); --action-hover: var(--action-import-hover); --action-fg: var(--action-import-fg); }
+  .btn-download { @apply btn-action; --action-base: var(--action-download); --action-hover: var(--action-download-hover); --action-fg: var(--action-download-fg); }
+  .btn-restore { @apply btn-action; --action-base: var(--action-restore); --action-hover: var(--action-restore-hover); --action-fg: var(--action-restore-fg); }
+  .btn-permanent-delete { @apply btn-action; --action-base: var(--action-permanent_delete); --action-hover: var(--action-permanent_delete-hover); --action-fg: var(--action-permanent_delete-fg); }
+
+  /* Kept under their producing-artifact names because ~20 call sites use them:
+     a spreadsheet export is the `export` action, print/PDF is `print`. */
+  .btn-excel { @apply btn-action; --action-base: var(--action-export); --action-hover: var(--action-export-hover); --action-fg: var(--action-export-fg); }
+  .btn-pdf { @apply btn-action; --action-base: var(--action-print); --action-hover: var(--action-print-hover); --action-fg: var(--action-print-fg); }
+
   /* Neutral is a real choice, not an absence of one: it marks an action that
-     neither produces a document nor changes data (View, Reset filters). */
+     neither produces a document nor changes data (Reset filters). */
   .btn-neutral { @apply btn bg-slate-600 text-white shadow-sm hover:bg-slate-700; }
 
-  /* §4.20 — row actions. The three that appear in almost every table get a
-     reserved hue, so a column of glyphs is readable without stopping to read the
-     tooltips: view is near-black, edit is blue, delete is red. Filled variant,
-     for tables whose action column uses solid buttons. */
-  .btn-view { @apply btn bg-slate-900 text-white shadow-sm hover:bg-slate-800; }
-  .btn-edit { @apply btn bg-blue-600 text-white shadow-sm hover:bg-blue-700; }
-  .btn-delete { @apply btn bg-red-600 text-white shadow-sm hover:bg-red-700; }
-
-  /* Same three meanings, unfilled, for tables that use bare glyphs (the master
+  /* Same meanings, unfilled, for tables that use bare glyphs (the master
      screens). Coloured AT REST, not only on hover: an all-grey row of icons that
      reveals which one deletes only once the pointer is on it makes the operator
      hunt for the most dangerous control on the page. */
@@ -225,9 +246,11 @@
     @apply inline-flex items-center justify-center rounded-md p-1 transition-colors
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
-  .ico-view { @apply ico text-foreground hover:bg-accent; }
-  .ico-edit { @apply ico text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10; }
-  .ico-delete { @apply ico text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10; }
+  .ico-view { @apply ico; color: hsl(var(--action-view)); }
+  .ico-edit { @apply ico; color: hsl(var(--action-edit)); }
+  .ico-delete { @apply ico; color: hsl(var(--action-delete)); }
+  .ico-restore { @apply ico; color: hsl(var(--action-restore)); }
+  .ico-view:hover, .ico-edit:hover, .ico-delete:hover, .ico-restore:hover { @apply bg-accent; }
 
   /* Size variants. Declared AFTER the colour classes so their padding wins —
      both are single-class selectors, so source order is what decides. */

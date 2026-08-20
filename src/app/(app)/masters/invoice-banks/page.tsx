@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -30,12 +30,6 @@ export default function InvoiceBanksPage() {
   const [editing, setEditing] = useState<Row | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,9 +69,6 @@ export default function InvoiceBanksPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -87,99 +78,33 @@ export default function InvoiceBanksPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search bank, account, SWIFT..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Bank</th>
-                <th>Account Name</th>
-                <th>Account Number</th>
-                <th>SWIFT</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted-foreground py-8">
-                    No invoice banks found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{r.invoice_bank_name}</td>
-                    <td>{r.invoice_bank_account_name}</td>
-                    <td className="font-mono text-xs">
-                      {r.invoice_bank_account_number}
-                    </td>
-                    <td className="font-mono text-xs">
-                      {r.invoice_bank_swift || '—'}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(r)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+      <DataTable<Row>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search bank, account, SWIFT..."
+        emptyMessage="No invoice banks yet — create the first one."
+        columns={[
+        { key: 'invoice_bank_name', header: 'Bank', sortable: true, className: 'font-medium' },
+        { key: 'invoice_bank_account_name', header: 'Account Name', sortable: true },
+        { key: 'invoice_bank_account_number', header: 'Account Number', sortable: true, className: 'font-mono text-xs' },
+        { key: 'invoice_bank_swift', header: 'SWIFT', className: 'font-mono text-xs', render: (r: Row) => (
+            <>
+            {r.invoice_bank_swift || '—'}
+            </>
+          ) },
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <FormModal

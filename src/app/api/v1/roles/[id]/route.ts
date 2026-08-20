@@ -5,7 +5,20 @@ import { db } from '@/lib/db';
 import { roleMaster, usersT, type RoleMasterInsert } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit/recordAudit';
 import { roleUpdateSchema } from '@/schemas';
+
+// §4.28 — the role as the audit trail records it, so a create, a change and a
+// disable all describe the same shape.
+const AUDIT_FIELDS = {
+  role_name: roleMaster.roleName,
+  parent_role_id: roleMaster.parentRoleId,
+  approval_level: roleMaster.approvalLevel,
+  department: roleMaster.department,
+  management: roleMaster.management,
+  finance: roleMaster.finance,
+  display: roleMaster.display,
+} as const;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -67,14 +80,41 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
   try {
-    const [row] = await db
-      .update(roleMaster)
-      .set(patch)
-      .where(eq(roleMaster.id, id))
-      .returning({ id: roleMaster.id });
+    const updatedId = await db.transaction(async (tx) => {
+      const [before] = await tx
+        .select(AUDIT_FIELDS)
+        .from(roleMaster)
+        .where(eq(roleMaster.id, id))
+        .limit(1);
+      if (!before) throw new NotFoundError();
 
-    if (!row) throw new NotFoundError();
-    return ok({ id: row.id });
+      const [row] = await tx
+        .update(roleMaster)
+        .set(patch)
+        .where(eq(roleMaster.id, id))
+        .returning({ id: roleMaster.id });
+      if (!row) throw new NotFoundError();
+
+      const [after] = await tx
+        .select(AUDIT_FIELDS)
+        .from(roleMaster)
+        .where(eq(roleMaster.id, id))
+        .limit(1);
+
+      await recordAudit(tx, {
+        actorId: session.uid,
+        action: 'role_change',
+        entityType: 'role',
+        entityId: String(id),
+        module: 'roles',
+        before,
+        after,
+      });
+
+      return row.id;
+    });
+
+    return ok({ id: updatedId });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === '23503') {
       throw new BadRequestError('Invalid parent_role_id');
@@ -97,16 +137,39 @@ export const DELETE = withErrorHandler(async (_req: NextRequest, { params }: Ctx
     .where(and(eq(usersT.roleId, id), eq(usersT.display, 'Y')));
   if (usage.count > 0) throw new BadRequestError('Role is in use by active users');
 
-  const [row] = await db
-    .update(roleMaster)
-    .set({
-      display: 'N',
-      updatedBy: session.uid,
-      updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
-    })
-    .where(eq(roleMaster.id, id))
-    .returning({ id: roleMaster.id });
+  const deletedId = await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select(AUDIT_FIELDS)
+      .from(roleMaster)
+      .where(eq(roleMaster.id, id))
+      .limit(1);
+    if (!before) throw new NotFoundError();
 
-  if (!row) throw new NotFoundError();
-  return ok({ id: row.id });
+    const [row] = await tx
+      .update(roleMaster)
+      .set({
+        display: 'N',
+        updatedBy: session.uid,
+        updatedAt: sql`CURRENT_TIMESTAMP` as unknown as Date,
+      })
+      .where(eq(roleMaster.id, id))
+      .returning({ id: roleMaster.id });
+    if (!row) throw new NotFoundError();
+
+    // §4.27 — the role is hidden, not destroyed, so history can still resolve it.
+    await recordAudit(tx, {
+      actorId: session.uid,
+      action: 'delete',
+      entityType: 'role',
+      entityId: String(id),
+      module: 'roles',
+      before,
+      after: { ...before, display: 'N' },
+      metadata: { role_name: before.role_name },
+    });
+
+    return row.id;
+  });
+
+  return ok({ id: deletedId });
 });

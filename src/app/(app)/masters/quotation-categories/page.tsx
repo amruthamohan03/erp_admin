@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import Toggle from '@/components/ui/Toggle';
 
@@ -28,12 +28,6 @@ export default function QuotationCategoriesPage() {
   const [editing, setEditing] = useState<QuotationCategoryRow | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,9 +67,6 @@ export default function QuotationCategoriesPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -87,109 +78,45 @@ export default function QuotationCategoriesPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="relative max-w-sm flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search category name..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Category</th>
-                <th>Section Header</th>
-                <th className="w-20 text-center">Order</th>
-                <th className="w-24 text-center">Customs</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted-foreground py-8">
-                    No categories found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{r.category_name}</td>
-                    <td className="text-slate-600 text-xs">
-                      {r.category_header || (
+      <DataTable<QuotationCategoryRow>
+        rows={items}
+        loading={loading}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search category name..."
+        emptyMessage="No quotation categorys yet — create the first one."
+        columns={[
+        { key: 'category_name', header: 'Category', sortable: true, className: 'font-medium' },
+        { key: 'category_header', header: 'Section Header', className: 'text-slate-600 text-xs', render: (r: QuotationCategoryRow) => (
+            <>
+            {r.category_header || (
                         <span className="text-slate-300">—</span>
                       )}
-                    </td>
-                    <td className="text-center text-slate-600">
-                      {r.display_order}
-                    </td>
-                    <td className="text-center">
-                      {r.is_customs ? (
+            </>
+          ) },
+        { key: 'display_order', header: 'Order', sortable: true, align: 'center', className: 'text-slate-600' },
+        { key: 'is_customs', header: 'Customs', align: 'center', render: (r: QuotationCategoryRow) => (
+            <>
+            {r.is_customs ? (
                         <span className="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
                           Customs
                         </span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(r)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <QuotationCategoryFormModal

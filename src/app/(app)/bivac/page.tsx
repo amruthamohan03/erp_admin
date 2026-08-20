@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Layers, Search, Filter, Eye, Edit2, X, Check, FileText, FileSpreadsheet, Info,
 } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { clientOptionLabel } from '@/lib/clientOptions';
 import { formatDate } from '@/lib/formatDate';
@@ -70,7 +70,7 @@ function fmt(n: number | string | null | undefined): string {
   return (Number.isFinite(v) ? (v as number) : 0).toLocaleString('en-US', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
-}
+}
 
 export default function BivacPage() {
   // ---- Licences table (server-side) ----
@@ -82,12 +82,6 @@ export default function BivacPage() {
   const [clientFilter, setClientFilter] = useState('0');
   const [clientOpts, setClientOpts] = useState<Array<{ id: number; short_name: string | null }>>([]);
   const [loading, setLoading] = useState(false);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   // ---- Drill-downs ----
   const [viewLicense, setViewLicense] = useState<LicenseRow | null>(null);
@@ -203,9 +197,6 @@ export default function BivacPage() {
     return t;
   }, [partials]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   // Live edit calculations.
   const licW = edit && viewLicense ? viewLicense.weight : 0;
   const licF = edit && viewLicense ? viewLicense.fob_declared : 0;
@@ -236,101 +227,71 @@ export default function BivacPage() {
       </div>
 
       {/* Filter + list */}
-      <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-primary-600" />
-            <label htmlFor="clientFilter" className="text-sm font-medium text-slate-700 dark:text-slate-300">Client</label>
-            {/* Options labelled by short code, per the client label rule (§4.15). */}
-            <SearchableSelect
-              id="clientFilter"
-              size="sm"
-              className="w-52"
-              value={clientFilter}
-              placeholder="All Clients"
-              options={[
-                { value: '0', label: 'All Clients' },
-                ...clientOpts.map((c) => ({ value: String(c.id), label: clientOptionLabel(c) })),
-              ]}
-              onChange={(v) => { setClientFilter(v); setPage(1); }}
-            />
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9 text-sm w-64"
-              placeholder="Search licence, CRF, client, currency, goods…"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base whitespace-nowrap">
-            <thead>
-              <tr>
-                <th className="w-12">#</th>
-                <th>Licence #</th>
-                <th>CRF</th>
-                <th className="text-center">PARTIELLE</th>
-                <th>Client</th>
-                <th>Currency</th>
-                <th>Type of Goods</th>
-                <th className="text-right">FOB</th>
-                <th className="text-right">Freight</th>
-                <th className="text-right">Insurance</th>
-                <th className="text-right">Other</th>
-                <th className="text-right">Weight</th>
-                <th className="text-right">Bal. Wt</th>
-                <th className="text-right">Bal. FOB</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (<tr><td colSpan={14} className="text-center text-muted-foreground py-8">Loading…</td></tr>)}
-              {!loading && items.length === 0 && (
-                <tr><td colSpan={14} className="text-center text-muted-foreground py-8">No import licences found.</td></tr>
-              )}
-              {!loading && items.map((l, idx) => (
-                <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="text-muted-foreground font-medium">{startIndex + idx + 1}</td>
-                  <td className="font-mono text-xs font-medium">{l.license_number || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{l.ref_cod || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-center">
-                    {l.partielle_count > 0 ? (
-                      <button
-                        type="button" onClick={() => openPartials(l)}
-                        title="View PARTIELLE"
-                        className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold text-white ${HERO} hover:brightness-110`}
-                      >
-                        {l.partielle_count}
-                      </button>
-                    ) : (
-                      <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold bg-slate-100 text-muted-foreground dark:bg-slate-800">0</span>
-                    )}
-                  </td>
-                  <td className="font-medium">{l.client_name || <span className="text-slate-300">—</span>}</td>
-                  <td className="text-slate-600 text-xs">{l.currency_name || '—'}</td>
-                  <td className="text-slate-600 text-xs">{l.type_of_goods_name || '—'}</td>
-                  <td className="text-right tabular-nums text-xs">{fmt(l.fob_declared)}</td>
-                  <td className="text-right tabular-nums text-xs">{fmt(l.freight)}</td>
-                  <td className="text-right tabular-nums text-xs">{fmt(l.insurance)}</td>
-                  <td className="text-right tabular-nums text-xs">{fmt(l.other_costs)}</td>
-                  <td className="text-right tabular-nums text-xs">{fmt(l.weight)} KG</td>
-                  <td className="text-right tabular-nums text-xs font-semibold text-emerald-700 dark:text-emerald-400">{fmt(l.balance_weight)} KG</td>
-                  <td className="text-right tabular-nums text-xs font-semibold text-emerald-700 dark:text-emerald-400">{fmt(l.balance_fob)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page} setPage={setPage} pageSize={pageSize}
-          setPageSize={(n) => { setPageSize(n); setPage(1); }}
-          totalRows={total} totalPages={totalPages} startIndex={startIndex} mounted={mounted}
-        />
-      </div>
+      <DataTable<LicenseRow>
+        rows={items}
+        loading={loading}
+        rowKey={(l) => l.id}
+        title="Import Licences (BIVAC)"
+        searchPlaceholder="Search licence, CRF, client…"
+        emptyMessage="No import licences match this filter."
+        columns={[
+          { key: 'license_number', header: 'Licence #', className: 'font-mono text-xs font-medium' },
+          { key: 'ref_cod', header: 'CRF', className: 'text-xs' },
+          {
+            key: 'partielle_count',
+            header: 'PARTIELLE',
+            align: 'center',
+            // The count is the control: clicking it opens that licence's
+            // allotments. Zero stays inert rather than looking clickable.
+            render: (l: LicenseRow) =>
+              l.partielle_count > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => openPartials(l)}
+                  title="View PARTIELLE"
+                  className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold text-white ${HERO} hover:brightness-110`}
+                >
+                  {l.partielle_count}
+                </button>
+              ) : (
+                <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                  0
+                </span>
+              ),
+          },
+          { key: 'client_name', header: 'Client', className: 'font-medium' },
+          { key: 'currency_name', header: 'Currency', className: 'text-xs' },
+          { key: 'type_of_goods_name', header: 'Type of Goods', className: 'text-xs' },
+          { key: 'fob_declared', header: 'FOB', align: 'right' as const, className: 'tabular-nums text-xs', render: (l: LicenseRow) => fmt(l.fob_declared) },
+          { key: 'freight', header: 'Freight', align: 'right' as const, className: 'tabular-nums text-xs', render: (l: LicenseRow) => fmt(l.freight) },
+          { key: 'insurance', header: 'Insurance', align: 'right' as const, className: 'tabular-nums text-xs', render: (l: LicenseRow) => fmt(l.insurance) },
+          { key: 'other_costs', header: 'Other', align: 'right' as const, className: 'tabular-nums text-xs', render: (l: LicenseRow) => fmt(l.other_costs) },
+          { key: 'weight', header: 'Weight', align: 'right' as const, className: 'tabular-nums text-xs', render: (l: LicenseRow) => `${fmt(l.weight)} KG` },
+          {
+            key: 'balance_weight',
+            header: 'Bal. Wt',
+            align: 'right',
+            className: 'tabular-nums text-xs font-semibold text-emerald-700 dark:text-emerald-400',
+            render: (l: LicenseRow) => `${fmt(l.balance_weight)} KG`,
+          },
+          {
+            key: 'balance_fob',
+            header: 'Bal. FOB',
+            align: 'right',
+            className: 'tabular-nums text-xs font-semibold text-emerald-700 dark:text-emerald-400',
+            render: (l: LicenseRow) => fmt(l.balance_fob),
+          },
+        ]}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {/* ---- PARTIELLE drill-down ---- */}
       {viewLicense && (

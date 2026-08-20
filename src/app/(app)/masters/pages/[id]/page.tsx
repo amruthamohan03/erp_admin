@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Edit2, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 
@@ -308,78 +309,40 @@ function AccordionsTab({ pageId }: { pageId: number }) {
           <Plus className="h-4 w-4" /> Add Accordion
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th className="w-16">Order</th>
-              <th>Slug</th>
-              <th>Title</th>
-              <th>Icon</th>
-              <th>Status</th>
-              <th className="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted-foreground py-6">
-                  Loading...
-                </td>
-              </tr>
-            )}
-            {!loading && items.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted-foreground py-6">
-                  No accordions yet
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              items.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="text-muted-foreground font-medium">{a.display_order}</td>
-                  <td className="font-mono text-xs">{a.slug}</td>
-                  <td className="font-medium">{a.title}</td>
-                  <td className="text-xs">
-                    {a.icon ? (
-                      <code className="font-mono">{a.icon}</code>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
-                        a.display === 'Y'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-slate-100 text-muted-foreground'
-                      }`}
-                    >
-                      {a.display === 'Y' ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <button
-                      onClick={() => setEditing(a)}
-                      className="ico-edit"
-                      title="Edit"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(a.id)}
-                      className="ico-delete ml-1"
-                      title="Disable"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<MasterPageAccordion>
+        rows={items}
+        loading={loading}
+        rowKey={(a) => a.id}
+        searchable={false}
+        serial={false}
+        emptyMessage="No accordions yet — add the first section."
+        columns={[
+          { key: 'display_order', header: 'Order', className: 'font-medium text-muted-foreground' },
+          { key: 'slug', header: 'Slug', className: 'font-mono text-xs' },
+          { key: 'title', header: 'Title', className: 'font-medium' },
+          {
+            key: 'icon',
+            header: 'Icon',
+            className: 'text-xs',
+            render: (a: MasterPageAccordion) =>
+              a.icon ? <code className="font-mono">{a.icon}</code> : <span className="text-muted-foreground">—</span>,
+          },
+          {
+            key: 'display',
+            header: 'Status',
+            render: (a: MasterPageAccordion) => (
+              <span
+                className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
+                  a.display === 'Y' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-muted-foreground'
+                }`}
+              >
+                {a.display === 'Y' ? 'Active' : 'Inactive'}
+              </span>
+            ),
+          },
+        ]}
+        actions={(a) => ({ edit: () => setEditing(a), remove: () => handleDelete(a.id) })}
+      />
 
       {creating && (
         <AccordionFormModal
@@ -942,94 +905,65 @@ function FieldsTab({ pageId }: { pageId: number }) {
         </p>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th className="w-16">Order</th>
-              <th>Name (column)</th>
-              <th>Label</th>
-              <th>Type</th>
-              <th className="w-16">Required</th>
-              <th>Options Source</th>
-              {showAccess && <th className="w-40">Access</th>}
-              <th className="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={colCount} className="text-center text-muted-foreground py-6">
-                  Loading...
-                </td>
-              </tr>
-            )}
-            {!loading && fields.length === 0 && (
-              <tr>
-                <td colSpan={colCount} className="text-center text-muted-foreground py-6">
-                  No fields on this accordion yet
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              fields.map((f) => {
-                const cur = overrides[f.id] ?? 'inherit';
-                return (
-                  <tr key={f.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">{f.display_order}</td>
-                    <td className="font-mono text-xs">{f.name}</td>
-                    <td>{f.label}</td>
-                    <td>
-                      <code className="font-mono text-xs">{f.field_type}</code>
-                    </td>
-                    <td className="text-center">
-                      {f.required ? (
-                        <Check className="h-4 w-4 text-emerald-600 inline" />
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="font-mono text-xs">
-                      {f.options_source ?? <span className="text-muted-foreground">—</span>}
-                    </td>
-                    {showAccess && (
-                      <td>
-                        <SearchableSelect
-                          size="sm"
-                          aria-label={`Access override for ${f.label}`}
-                          value={cur}
-                          options={[
-                            { value: 'inherit', label: 'Inherit' },
-                            { value: 'view', label: 'View (read-only)' },
-                            { value: 'edit', label: 'Edit' },
-                            { value: 'hidden', label: 'Hidden' },
-                          ]}
-                          onChange={(v) => setOverride(f.id, v as FieldOverride | 'inherit')}
-                        />
-                      </td>
-                    )}
-                    <td className="text-right">
-                      <button
-                        onClick={() => setEditing(f)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(f.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<MasterPageField>
+        rows={fields}
+        loading={loading}
+        rowKey={(f) => f.id}
+        searchable={false}
+        serial={false}
+        emptyMessage="No fields on this accordion yet — add the first one."
+        columns={[
+          { key: 'display_order', header: 'Order', className: 'font-medium text-muted-foreground' },
+          { key: 'name', header: 'Name (column)', className: 'font-mono text-xs' },
+          { key: 'label', header: 'Label' },
+          {
+            key: 'field_type',
+            header: 'Type',
+            render: (f: MasterPageField) => <code className="font-mono text-xs">{f.field_type}</code>,
+          },
+          {
+            key: 'required',
+            header: 'Required',
+            align: 'center',
+            render: (f: MasterPageField) =>
+              f.required ? (
+                <Check className="h-4 w-4 text-emerald-600 inline" />
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+          {
+            key: 'options_source',
+            header: 'Options Source',
+            className: 'font-mono text-xs',
+            render: (f: MasterPageField) => f.options_source ?? <span className="text-muted-foreground">—</span>,
+          },
+          // §4.14 — the per-field grant column only appears once a role is chosen.
+          ...(showAccess
+            ? [
+                {
+                  key: 'access',
+                  header: 'Access',
+                  render: (f: MasterPageField) => (
+                    <SearchableSelect
+                      size="sm"
+                      aria-label={`Access override for ${f.label}`}
+                      value={overrides[f.id] ?? 'inherit'}
+                      options={[
+                        { value: 'inherit', label: 'Inherit' },
+                        { value: 'view', label: 'View (read-only)' },
+                        { value: 'edit', label: 'Edit' },
+                        { value: 'hidden', label: 'Hidden' },
+                      ]}
+                      onChange={(v) => setOverride(f.id, v as FieldOverride | 'inherit')}
+                    />
+                  ),
+                } as DataTableColumn<MasterPageField>,
+              ]
+            : []),
+        ]}
+        actions={(f) => ({ edit: () => setEditing(f), remove: () => handleDelete(f.id) })}
+      />
 
       {creating && accordionId !== null && (
         <FieldFormModal

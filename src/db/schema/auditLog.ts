@@ -41,6 +41,14 @@ export const auditLog = pgTable(
     // transactional-page edits.
     entityType: text('entity_type').notNull(),
     entityId: text('entity_id').notNull(),
+    // §4.28 — captured per action rather than resolved later. actorRole is
+    // deliberately denormalised: it records the role the actor HELD at the time,
+    // which a join to users_t could no longer answer once their role changes.
+    actorRole: varchar('actor_role', { length: 100 }),
+    /** Which part of the app the action happened in — drives the module views. */
+    module: varchar('module', { length: 100 }),
+    ipAddress: varchar('ip_address', { length: 45 }),
+    userAgent: text('user_agent'),
     before: jsonb('before'),
     after: jsonb('after'),
     diff: jsonb('diff'),
@@ -51,6 +59,8 @@ export const auditLog = pgTable(
   },
   (t) => ({
     entityIdx: index('idx_audit_log_t_entity').on(t.entityType, t.entityId),
+    moduleIdx: index('idx_audit_log_t_module').on(t.module),
+    actionIdx: index('idx_audit_log_t_action').on(t.action),
     actorIdx: index('idx_audit_log_t_actor').on(t.actorId),
     createdAtIdx: index('idx_audit_log_t_created_at').on(t.createdAt),
     actorTypeCheck: check(
@@ -59,7 +69,15 @@ export const auditLog = pgTable(
     ),
     actionCheck: check(
       'audit_log_t_action_check',
-      sql`${t.action} IN ('create', 'update', 'delete', 'transition', 'login', 'logout', 'permission_change')`,
+      sql`${t.action} IN (
+        'login', 'logout', 'failed_login',
+        'create', 'view', 'update',
+        'delete', 'restore', 'permanent_delete',
+        'approve', 'reject', 'submit', 'cancel',
+        'export', 'import', 'download', 'print',
+        'status_change', 'role_change', 'permission_change', 'user_change',
+        'settings_change', 'transition'
+      )`,
     ),
   }),
 );

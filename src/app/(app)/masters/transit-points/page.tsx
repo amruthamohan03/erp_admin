@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
@@ -58,12 +58,6 @@ export default function TransitPointsPage() {
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -103,9 +97,6 @@ export default function TransitPointsPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -115,68 +106,17 @@ export default function TransitPointsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="relative max-w-sm flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search transit point name..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <SearchableSelect
-            className="max-w-[200px]"
-            aria-label="Filter by flag"
-            value={capabilityFilter}
-            emptyLabel="All Flags"
-            placeholder="All Flags"
-            options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
-            onChange={(v) => {
-              setCapabilityFilter(v);
-              setPage(1);
-            }}
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Transit Point</th>
-                <th>Flags</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted-foreground py-8">
-                    No transit points found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((t, idx) => (
-                  <tr key={t.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{t.transit_point_name}</td>
-                    <td>
-                      <div className="flex flex-wrap gap-1">
+      <DataTable<TransitPointRow>
+        rows={items}
+        loading={loading}
+        rowKey={(t) => t.id}
+        searchPlaceholder="Search transit point name..."
+        emptyMessage="No transit points yet — create the first one."
+        columns={[
+        { key: 'transit_point_name', header: 'Transit Point', sortable: true, className: 'font-medium' },
+        { key: 'filter', header: 'Flags', className: 'flex flex-wrap gap-1', render: (t: TransitPointRow) => (
+            <>
+            <div className="flex flex-wrap gap-1">
                         {FLAGS.filter((f) => t[f.key]).map((f) => (
                           <span
                             key={f.key}
@@ -189,43 +129,20 @@ export default function TransitPointsPage() {
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      <button
-                        onClick={() => setEditing(t)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(t) => ({ edit: () => setEditing(t), remove: () => handleDelete(t.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <TransitPointFormModal

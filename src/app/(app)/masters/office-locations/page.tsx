@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { MapPin, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
-import PaginationFooter from '@/components/ui/PaginationFooter';
+import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
@@ -35,12 +35,6 @@ export default function OfficeLocationsPage() {
   const [editing, setEditing] = useState<OfficeLocationRow | null>(null);
   // §4.22 — the acknowledged outcome of a create / update / delete.
   const [result, setResult] = useState<SaveResult | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,9 +92,6 @@ export default function OfficeLocationsPage() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -119,58 +110,22 @@ export default function OfficeLocationsPage() {
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              className="input pl-9"
-              placeholder="Search location or province..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16">#</th>
-                <th>Office Location</th>
-                <th>Province</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={5} className="text-center text-muted-foreground py-8">
-                    Loading...
-                  </td>
-                </tr>
-              )}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center text-muted-foreground py-8">
-                    No office locations found
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                items.map((o, idx) => (
-                  <tr key={o.id} className="hover:bg-slate-50">
-                    <td className="text-muted-foreground font-medium">
-                      {startIndex + idx + 1}
-                    </td>
-                    <td className="font-medium">{o.location_name}</td>
-                    <td className="text-slate-700">{o.province_name ?? '—'}</td>
-                    <td>
-                      <span
+      <DataTable<OfficeLocationRow>
+        rows={items}
+        loading={loading}
+        rowKey={(o) => o.id}
+        searchPlaceholder="Search location or province..."
+        emptyMessage="No office locations yet — create the first one."
+        columns={[
+        { key: 'location_name', header: 'Office Location', sortable: true, className: 'font-medium' },
+        { key: 'province_name', header: 'Province', className: 'text-slate-700', render: (o: OfficeLocationRow) => (
+            <>
+            {o.province_name ?? '—'}
+            </>
+          ) },
+        { key: 'display', header: 'Status', render: (o: OfficeLocationRow) => (
+            <>
+            <span
                         className={
                           o.display === 'Y'
                             ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
@@ -179,43 +134,20 @@ export default function OfficeLocationsPage() {
                       >
                         {o.display === 'Y' ? 'Active' : 'Disabled'}
                       </span>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      <button
-                        onClick={() => setEditing(o)}
-                        className="ico-edit"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(o.id)}
-                        className="ico-delete ml-1"
-                        title="Disable"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationFooter
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-          totalRows={total}
-          totalPages={totalPages}
-          startIndex={startIndex}
-          mounted={mounted}
-        />
-      </div>
+            </>
+          ) },
+        ]}
+        actions={(o) => ({ edit: () => setEditing(o), remove: () => handleDelete(o.id) })}
+        server={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => { setPageSize(n); setPage(1); },
+          search,
+          onSearchChange: (q) => { setSearch(q); setPage(1); },
+        }}
+      />
 
       {showCreate && (
         <OfficeLocationFormModal

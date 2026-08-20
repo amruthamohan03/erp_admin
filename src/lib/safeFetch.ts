@@ -11,7 +11,17 @@
 //   { ok: false, error: { code, message, details? } }
 
 export type FetchResult<T> =
-  | { ok: true; data: T }
+  | {
+      ok: true;
+      data: T;
+      /**
+       * The envelope's `meta` (§4.4) — pagination totals and the like. Exposed
+       * because a paginated list needs `meta.total` alongside `data`, and
+       * without it every such caller falls back to a raw fetch and re-implements
+       * the parsing this helper exists to own.
+       */
+      meta?: Record<string, unknown>;
+    }
   | {
       ok: false;
       status: number;
@@ -77,6 +87,7 @@ export async function safeFetchJson<T = unknown>(
   let json: {
     ok?: boolean;
     data?: T;
+    meta?: Record<string, unknown>;
     error?: { code?: string; message?: string; details?: unknown };
   };
   try {
@@ -126,7 +137,7 @@ export async function safeFetchJson<T = unknown>(
     };
   }
 
-  return { ok: true, data: json.data as T };
+  return { ok: true, data: json.data as T, meta: json.meta };
 }
 
 /** `details.fields` → `{ path: [message, …] }`, ignoring anything mis-shaped. */

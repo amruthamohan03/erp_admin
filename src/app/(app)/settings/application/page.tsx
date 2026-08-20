@@ -15,6 +15,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { summarizeZodError } from '@/lib/validation/messages';
 import { applicationSettingsUpdateSchema } from '@/schemas/application-settings';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActionStyleSettings from './ActionStyleSettings';
 
 interface SettingsForm {
   project_name: string;
@@ -387,6 +388,12 @@ export default function ApplicationSettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* Its own form and its own Save: an action tweak must not require
+          re-submitting the branding palette above, and vice versa. */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <ActionStyleSettings />
+      </div>
 
       <ResultDialog result={result} onDismiss={dismissResult} />
     </>
