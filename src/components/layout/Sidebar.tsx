@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, LayoutGrid, X } from 'lucide-react';
+import BrandMark from '@/components/ui/BrandMark';
 import clsx from 'clsx';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/components/layout/SidebarProvider';
@@ -122,7 +123,9 @@ export default function Sidebar() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={branding.logo_url} alt="" className="h-full w-full object-contain" />
             ) : (
-              <LayoutGrid className="h-5 w-5" />
+              // The project's own mark, not a generic icon — the name sits beside
+              // it, so it is decorative here.
+              <BrandMark className="h-full w-full" title="" />
             )}
           </span>
 

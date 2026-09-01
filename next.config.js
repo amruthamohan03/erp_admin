@@ -21,6 +21,19 @@ const nextConfig = {
       { protocol: 'http', hostname: 'localhost' },
     ],
   },
+  async rewrites() {
+    return {
+      // `beforeFiles` on purpose: this must win over the static handler in BOTH
+      // dev and production. Next only serves files that were in public/ when the
+      // build ran, so an upload written at request time 404s once built — while
+      // `next dev` serves it happily from disk. Routing every /uploads request
+      // through the handler removes that dev/prod split rather than papering
+      // over it, so what an operator sees locally is what they get deployed.
+      beforeFiles: [{ source: '/uploads/:path*', destination: '/api/v1/uploads/:path*' }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 module.exports = nextConfig;

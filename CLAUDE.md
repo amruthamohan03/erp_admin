@@ -448,6 +448,24 @@ Branding assets, avatars, signatures and document attachments are **a file on di
 
 **Anything an operator uploads must actually be rendered somewhere.** `favicon_url` was stored, deleted, replaced and validated for months while the root layout carried a hardcoded `metadata` — so the setting worked perfectly and changed nothing. When adding a configurable asset, wire the consumer in the same change.
 
+**Uploads are served by a route handler, never by `public/`.** Next.js only serves files that were in `public/` *when the build ran*:
+
+> Only assets that are in the public directory at build time will be served by Next.js. Files added at request time won't be available.
+
+Every upload in this app is written at request time, so in a built deployment (`next build && next start`) all of them 404 — avatars, signatures, attachments and branding alike — while `next dev` serves them happily from disk. That split is the whole bug: it cannot be reproduced locally, and it presents as a *corrupt file* rather than a missing one, because the server correctly reports the bytes on disk while the browser's `<img>` receives an HTML 404 body and fires `onError`.
+
+So `/uploads/:path*` is rewritten to [src/app/api/v1/uploads/[...path]/route.ts](src/app/api/v1/uploads/[...path]/route.ts) in `next.config.js`, under **`beforeFiles`** so the handler wins in dev too — identical behaviour in both is the point. Stored URLs are unchanged; nothing in the database moved.
+
+Three things to keep if you touch this:
+
+- **One containment check.** `resolveUploadPath` in [src/lib/storage.ts](src/lib/storage.ts) is the only place an untrusted path becomes a filesystem location, shared by the serving route, `uploadExists` and `deleteUploadIfLocal`. It rejects traversal, absolute paths, embedded NUL bytes, and sibling directories that merely share the root's prefix. Do not hand-roll a second `startsWith(UPLOADS_ROOT)` check.
+- **Only known image types are served**, by extension — anything else on disk is a 404 rather than a guess.
+- **An uploaded SVG is executable markup.** The response carries `Content-Security-Policy: default-src 'none'; … sandbox` and `X-Content-Type-Options: nosniff`, so a script inside an uploaded logo cannot run on this origin.
+
+Access is unauthenticated, matching what `public/` gave before — the login screen renders the branding logo with no session. Narrowing the other buckets to a session is worth doing, but it also affects the server-side print/PDF builders, so it is a deliberate separate change rather than a side effect of this one.
+
+**The app ships its own logo and favicon**, so a fresh install has an identity before anyone uploads anything. [BrandMark](src/components/ui/BrandMark.tsx) is the in-app mark and draws from `--brand-from` / `--brand-to`, so it follows the operator's configured palette (§4.20); [public/brand/erp-admin-mark.svg](public/brand/erp-admin-mark.svg) is its static twin with the default palette baked in, because a favicon file cannot read CSS variables. `src/app/{icon.svg,apple-icon.png,favicon.ico}` are generated from that file by `node scripts/generate-icons.js` and committed — regenerate and commit after editing the mark. Next's file conventions apply only when `generateMetadata` supplies no `icons`, which is exactly the layering wanted: an uploaded favicon wins, these are the default.
+
 ### 4.25 One DataTable for every list of records
 
 **Every screen that lists records renders the same `<DataTable>`.** There are 66 list pages in this app and they were each hand-built, which is why search, pagination, action placement, empty states and loading states all drifted. A new list page must not hand-roll `<table>` markup.
@@ -710,6 +728,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to report a save/delete with `alert()`, a toast-only, or a silent redirect → no, use `<ResultDialog>` and let OK do the navigating (§4.22).
 - Requests to ship "Invalid input" / "Save failed" / a bare status code as a user-facing message, or to hand-format a Zod issue at a call site → no, name the field and the fix via `summarizeZodError` (§4.23).
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
+- Requests to let `public/` serve uploads directly ("it works locally") → no, Next only serves what was there at build time; uploads go through the route handler (§4.24).
 - Requests to hand-roll a `<table>` for a new list screen → no, use `<DataTable>` (§4.25).
 - Requests to hardcode an action colour or icon "just on this screen" → no, it is a row in `action_style_master_t` (§4.26).
 - Requests to hard-delete a record on the normal Delete action, or to gate restore/permanent-delete behind `can_delete` → no, three operations, three permissions (§4.27).

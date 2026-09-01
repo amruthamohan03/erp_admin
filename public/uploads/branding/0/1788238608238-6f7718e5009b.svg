@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="erp-admin-mark-title">
+  <title id="erp-admin-mark-title">ERP Admin</title>
+  <!--
+    The static twin of src/components/ui/BrandMark.tsx. Same geometry, but the
+    default palette is baked in: a favicon file cannot read CSS variables, so
+    this cannot follow the operator's configured colours the way the in-app mark
+    does. The hexes are BRANDING_DEFAULTS.primary_color / accent_color.
+    Regenerate the icons with `node scripts/generate-icons.js` after editing.
+  -->
+  <defs>
+    <linearGradient id="erp-admin-mark-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#erp-admin-mark-gradient)"/>
+  <g fill="#ffffff">
+    <rect x="18" y="16" width="8" height="32" rx="4"/>
+    <rect x="18" y="16" width="28" height="8" rx="4"/>
+    <rect x="18" y="28" width="20" height="8" rx="4"/>
+    <rect x="18" y="40" width="28" height="8" rx="4"/>
+  </g>
+</svg>
