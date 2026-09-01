@@ -55,6 +55,8 @@ export type FieldType =
   | 'checkbox-group'
   | 'file'
   | 'seal-picker'
+  /** A dated remarks log — many {date, remark} entries, stored as JSONB. */
+  | 'remark-log'
   | 'partielle-picker'
   | 'mca-grid';
 

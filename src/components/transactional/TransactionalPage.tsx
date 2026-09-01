@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Save } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
-import { parseDerive, isPureDerive, computePureDerive, deriveTriggers } from '@/lib/pages/derive';
+import { parseDerive, isPureDerive, computePureDerive, deriveTriggers, INIT_TRIGGER } from '@/lib/pages/derive';
 import { parentListRoute } from '@/lib/pages/listRoute';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion, { type ResolvedField } from './Accordion';
@@ -106,6 +106,23 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     },
     [slug],
   );
+
+  // §4.12 — prefill derives (INIT_TRIGGER) have no triggering field: they fire
+  // once, when a NEW record's form opens. Only for a new record — re-running it
+  // on an existing one would overwrite a stored verifier with whoever happened
+  // to open the page.
+  const initRan = useRef(false);
+  useEffect(() => {
+    if (!page || entityId !== 'new' || initRan.current) return;
+    if (!asyncTriggers.has(INIT_TRIGGER)) return;
+    // The ref guard is what makes this once-only, so depending on `values` is
+    // safe — and reading them directly avoids setting state inside the effect.
+    initRan.current = true;
+    // The state write happens after the fetch resolves, not during this effect,
+    // and the ref guard makes it once-only.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void runAsyncDerive(INIT_TRIGGER, values);
+  }, [page, entityId, asyncTriggers, runAsyncDerive, values]);
 
   const handleFieldChange = useCallback((fieldName: string, value: unknown) => {
     setDirty(true);
@@ -311,6 +328,20 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
                 {!saveError && !savedAt && dirty && (
                   <span className="flex-1 text-xs text-muted-foreground dark:text-muted-foreground">Unsaved changes</span>
                 )}
+                {/* §4.21 — a labelled way out, beside Save rather than only the
+                    browser's back button. Confirms first when there is work to
+                    lose; leaving a clean form needs no ceremony. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dirty && !confirm('Discard your unsaved changes?')) return;
+                    router.push(listRoute);
+                  }}
+                  disabled={saving}
+                  className="btn-secondary sm:w-auto"
+                >
+                  Cancel
+                </button>
                 <button type="submit" disabled={saving} className="btn-primary sm:w-auto">
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving…' : entityId === 'new' ? 'Create' : 'Save'}

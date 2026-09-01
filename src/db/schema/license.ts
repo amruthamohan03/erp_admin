@@ -38,6 +38,7 @@ import { currencyMaster } from './currencyMaster';
 import { kindMaster } from './kindMaster';
 import { originMaster } from './originMaster';
 import { paymentTypeMaster } from './paymentTypeMaster';
+import { paymentMethodMaster } from './paymentMethodMaster';
 import { paymentSubtypeMaster } from './paymentSubtypeMaster';
 
 export const licenseT = pgTable(
@@ -75,10 +76,15 @@ export const licenseT = pgTable(
     licenseFile: varchar('license_file', { length: 255 }),
 
     kindId: integer('kind_id').references(() => kindMaster.id),
-    // payment_method_id stores a payment_type_master_t id (the "Payment Method"
-    // select is backed by IMPORT/EXPORT payment types in the source).
-    paymentMethodId: integer('payment_method_id').references(() => paymentTypeMaster.id),
+    // Migration 0056 repointed this at the real Payment Method master. It used to
+    // reference payment_type_master_t, which holds only EXPORT and IMPORT — those
+    // scope the customs payment SUBtypes and are not payment methods, which is why
+    // the License form offered "EXPORT"/"IMPORT" here.
+    paymentMethodId: integer('payment_method_id').references(() => paymentMethodMaster.id),
     paymentSubtypeId: integer('payment_subtype_id').references(() => paymentSubtypeMaster.id),
+    // The MCA reference lives here so Import Tracking can narrow
+    // Client → MCA Reference → License without a join table.
+    mcaRef: varchar('mca_ref', { length: 100 }),
     destinationId: integer('destination_id').references(() => originMaster.id),
 
     fsi: varchar('fsi', { length: 100 }),

@@ -63,6 +63,19 @@ export function formatDateTime(value: unknown, fallback: string = NO_DATE): stri
 }
 
 /**
+ * Today as `YYYY-MM-DD` in the *local* calendar, for seeding a date input.
+ *
+ * `new Date().toISOString().slice(0,10)` is the tempting one-liner and it is
+ * wrong east of Greenwich after 00:00 UTC and west of it before — it returns the
+ * UTC day, so a form opened at 09:00 in Kinshasa on the 2nd would default to the
+ * 1st. Reading the local components avoids that (§4.19's timezone rule).
+ */
+export function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
  * `YYYY-MM-DD` for `<input type="date">`, whose value attribute is ISO by spec and
  * must never be localised. Use this when seeding a date input from stored data.
  */

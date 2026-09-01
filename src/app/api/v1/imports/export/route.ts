@@ -1,38 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  and,
-  desc,
-  eq,
-  gte,
-  ilike,
-  lte,
-  or,
-  type SQL,
-} from 'drizzle-orm';
+import { and, eq, gte, ilike, inArray, lte, or, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import {
-  importT,
-  clientMaster,
-  licenseT,
-  clearingStatusMaster,
-  documentStatusMaster,
-  regimeMaster,
-  transportModeMaster,
-  commodityMaster,
-  currencyMaster,
-} from '@/db/schema';
+import { importT, clientMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { importListQuerySchema } from '@/schemas/imports';
+import { buildPageExportSheet } from '@/db/queries/pageExport';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
 
 // GET /api/v1/imports/export
-// Filtered XLSX download of the imports list. Honours the same
-// filters as GET /api/v1/imports so "Export" downloads exactly the
-// scope the operator is currently viewing.
 //
-// No pagination — exports the entire matched set. For large queries
-// (>50k rows) this can balloon memory; a future slice may add a
-// streaming variant.
+// Filtered XLSX download of the imports list. Honours the same filters as
+// GET /api/v1/imports, so "Export" downloads exactly the scope on screen.
+//
+// The columns come from the page definition (see pageExport.ts) rather than a
+// list maintained here: this route used to emit 20 columns for a form with 90
+// fields, and a hand-kept list will always drift behind the form it describes.
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -49,112 +31,42 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     pre_alert_from: searchParams.get('pre_alert_from') ?? undefined,
     pre_alert_to: searchParams.get('pre_alert_to') ?? undefined,
     page: '1',
-    pageSize: '100', // ignored — we don't paginate exports
+    pageSize: '100', // ignored — exports are not paginated
   });
 
-  const conds: SQL[] = [eq(importT.display, 'Y')];
+  // `display = 'Y'` is applied by the export builder, so it is not repeated here.
+  const conds: SQL[] = [];
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
+    // The client-name term is a subquery rather than a join: the export selects
+    // from one table so its columns line up with the page definition, and a join
+    // would put the filter on a table that is not in that projection.
+    const clientIds = db
+      .select({ id: clientMaster.id })
+      .from(clientMaster)
+      .where(ilike(clientMaster.companyName, like));
     const orClause = or(
       ilike(importT.mcaRef, like),
       ilike(importT.invoice, like),
       ilike(importT.supplier, like),
-      ilike(clientMaster.companyName, like),
+      inArray(importT.clientId, clientIds),
     );
     if (orClause) conds.push(orClause);
   }
   if (q.client_id) conds.push(eq(importT.clientId, q.client_id));
   if (q.license_id) conds.push(eq(importT.licenseId, q.license_id));
-  if (q.clearing_status_id) {
-    conds.push(eq(importT.clearingStatus, q.clearing_status_id));
-  }
-  if (q.document_status_id) {
-    conds.push(eq(importT.documentStatus, q.document_status_id));
-  }
+  if (q.clearing_status_id) conds.push(eq(importT.clearingStatus, q.clearing_status_id));
+  if (q.document_status_id) conds.push(eq(importT.documentStatus, q.document_status_id));
   if (q.regime_id) conds.push(eq(importT.regime, q.regime_id));
-  if (q.pre_alert_from) {
-    conds.push(gte(importT.preAlertDate, q.pre_alert_from));
-  }
-  if (q.pre_alert_to) {
-    conds.push(lte(importT.preAlertDate, q.pre_alert_to));
-  }
-  const where = and(...conds);
+  if (q.pre_alert_from) conds.push(gte(importT.preAlertDate, q.pre_alert_from));
+  if (q.pre_alert_to) conds.push(lte(importT.preAlertDate, q.pre_alert_to));
 
-  const rows = await db
-    .select({
-      id: importT.id,
-      mca_ref: importT.mcaRef,
-      invoice: importT.invoice,
-      supplier: importT.supplier,
-      pre_alert_date: importT.preAlertDate,
-      client_code: clientMaster.shortName,
-      client_name: clientMaster.companyName,
-      license_no: licenseT.licenseNumber,
-      regime: regimeMaster.regimeName,
-      transport_mode: transportModeMaster.transportModeName,
-      commodity: commodityMaster.commodityName,
-      currency: currencyMaster.currencyShortName,
-      fob: importT.fob,
-      weight: importT.weight,
-      m3: importT.m3,
-      document_status: documentStatusMaster.documentStatus,
-      clearing_status: clearingStatusMaster.clearingStatus,
-      dgda_in_date: importT.dgdaInDate,
-      dgda_out_date: importT.dgdaOutDate,
-      created_at: importT.createdAt,
-    })
-    .from(importT)
-    .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
-    .leftJoin(licenseT, eq(licenseT.id, importT.licenseId))
-    .leftJoin(regimeMaster, eq(regimeMaster.id, importT.regime))
-    .leftJoin(
-      transportModeMaster,
-      eq(transportModeMaster.id, importT.transportMode),
-    )
-    .leftJoin(commodityMaster, eq(commodityMaster.id, importT.commodity))
-    .leftJoin(currencyMaster, eq(currencyMaster.id, importT.currency))
-    .leftJoin(
-      clearingStatusMaster,
-      eq(clearingStatusMaster.id, importT.clearingStatus),
-    )
-    .leftJoin(
-      documentStatusMaster,
-      eq(documentStatusMaster.id, importT.documentStatus),
-    )
-    .where(where)
-    .orderBy(desc(importT.id));
+  const sheet = await buildPageExportSheet('import', {
+    where: conds.length > 0 ? and(...conds) : undefined,
+    sheetName: 'Import Tracking',
+  });
 
-  const buf = await buildXlsx([
-    {
-      name: 'Imports',
-      columns: [
-        { key: 'id', header: 'ID', width: 6 },
-        { key: 'mca_ref', header: 'MCA Ref', width: 18 },
-        { key: 'invoice', header: 'Invoice', width: 18 },
-        { key: 'supplier', header: 'Supplier', width: 24 },
-        { key: 'pre_alert_date', header: 'Pre-alert', width: 12 },
-        { key: 'client_code', header: 'Client Code', width: 14 },
-        { key: 'client_name', header: 'Client', width: 24 },
-        { key: 'license_no', header: 'License #', width: 16 },
-        { key: 'regime', header: 'Regime', width: 16 },
-        { key: 'transport_mode', header: 'Transport', width: 14 },
-        { key: 'commodity', header: 'Commodity', width: 20 },
-        { key: 'currency', header: 'CCY', width: 8 },
-        { key: 'fob', header: 'FOB', width: 14 },
-        { key: 'weight', header: 'Weight', width: 12 },
-        { key: 'm3', header: 'M3', width: 10 },
-        { key: 'document_status', header: 'Doc Status', width: 18 },
-        { key: 'clearing_status', header: 'Clearing Status', width: 18 },
-        { key: 'dgda_in_date', header: 'DGDA In', width: 12 },
-        { key: 'dgda_out_date', header: 'DGDA Out', width: 12 },
-        { key: 'created_at', header: 'Created', width: 18 },
-      ],
-      rows,
-    },
-  ]);
-
+  const buf = await buildXlsx([sheet]);
   const res = xlsxResponse(buf, `imports-${dateStamp()}.xlsx`);
-  // withErrorHandler wraps a NextResponse contract — wrap our raw
-  // Response to keep types consistent through the wrapper.
   return new NextResponse(res.body, { status: res.status, headers: res.headers });
 });

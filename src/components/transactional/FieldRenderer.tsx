@@ -5,7 +5,8 @@ import { Check, FileText, Plus, Settings, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/modules/imports/PartielleManageModal';
 import McaRefGrid from '@/modules/payments/McaRefGrid';
-import type { McaLine } from '@/db/schema';
+import type { McaLine, RemarkLine } from '@/db/schema';
+import RemarkLog from '@/components/transactional/RemarkLog';
 import SealPickerControl from '@/components/ui/SealPickerControl';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
@@ -245,6 +246,17 @@ export default function FieldRenderer({
           expenseType={toId(values?.['expense_type'])}
           locationId={toId(values?.['location_id'])}
           paymentId={entityId && entityId !== 'new' ? Number(entityId) : null}
+        />
+      );
+
+    case 'remark-log':
+      return (
+        <RemarkLog
+          value={Array.isArray(value) ? (value as RemarkLine[]) : []}
+          onChange={(lines) => onChange(lines)}
+          readonly={readonly}
+          invalid={invalid}
+          fieldLabel={field.label}
         />
       );
 
@@ -651,7 +663,9 @@ function QuickAddSelect({
             title={config.title ?? 'Add a new option'}
             aria-label={config.title ?? 'Add a new option'}
             onClick={() => setAdding((v) => !v)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+            // §4.26 — the create hue is configured, not inlined. This was a
+            // hardcoded emerald that ignored Settings → Application.
+            className="btn-create h-9 w-9 shrink-0 justify-center p-0"
           >
             <Plus className="h-4 w-4" />
           </button>

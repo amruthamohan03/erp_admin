@@ -67,3 +67,6 @@ export * from './payments';
 export * from './locals';
 export * from './imkpi';
 export * from './audit-log';
+export * from './payment-methods';
+export * from './payment-terms';
+export * from './clearing-bases';

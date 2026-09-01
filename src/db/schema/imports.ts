@@ -17,6 +17,7 @@ import {
   pgTable,
   serial,
   varchar,
+  jsonb,
   text,
   integer,
   date,
@@ -43,6 +44,15 @@ import { commodityMaster } from './commodityMaster';
 import { transitPointMaster } from './transitPointMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
+import { clearingBasisMaster } from './clearingBasisMaster';
+import { truckStatusMaster } from './truckStatusMaster';
+
+/** One entry in a consignment's dated remarks log (the `remarks` column). */
+export interface RemarkLine {
+  /** ISO YYYY-MM-DD — the business date of the remark, not when it was typed. */
+  date: string;
+  remark: string;
+}
 
 export const importT = pgTable(
   'imports_t',
@@ -89,7 +99,7 @@ export const importT = pgTable(
     // ── CRF & Declaration ──
     crfReference: varchar('crf_reference', { length: 100 }),
     crfReceivedDate: date('crf_received_date'),
-    clearingBasedOn: varchar('clearing_based_on', { length: 50 }),
+    clearingBasisId: integer('clearing_basis_id').references(() => clearingBasisMaster.id),
     adDate: date('ad_date'),
     inspectionReports: varchar('inspection_reports', { length: 100 }),
     archiveReference: varchar('archive_reference', { length: 100 }),
@@ -151,7 +161,7 @@ export const importT = pgTable(
     borderWarehouseId: integer('border_warehouse_id').references((): AnyPgColumn => transitPointMaster.id),
     entryCoupon: varchar('entry_coupon', { length: 100 }),
     bondedWarehouseId: integer('bonded_warehouse_id').references((): AnyPgColumn => transitPointMaster.id),
-    truckStatus: varchar('truck_status', { length: 100 }),
+    truckStatusId: integer('truck_status_id').references(() => truckStatusMaster.id),
 
     // ── Status & Remarks ──
     // Nullable + no default: the §4.12 runtime creates a row from a single
@@ -162,8 +172,11 @@ export const importT = pgTable(
     clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
     invExportDisabled: boolean('inv_export_disabled').notNull().default(false),
     invExportDisabledRemark: varchar('inv_export_disabled_remark', { length: 500 }),
-    // JSON array of remarks (kept as text to mirror the source column type).
-    remarks: text('remarks'),
+    // A dated remarks log — many entries, each with its own date and text.
+    // Migration 0059 converted this from text to jsonb, which is what the column
+    // was always documented to hold. Any free text already stored became the
+    // first entry rather than being discarded.
+    remarks: jsonb('remarks').$type<RemarkLine[]>().default([]),
 
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references((): AnyPgColumn => usersT.id),

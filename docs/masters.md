@@ -11,6 +11,9 @@ These existed before the §4 architecture work. They back the auth, navigation, 
 | `role_master_t` | [src/db/schema/roles.ts](../src/db/schema/roles.ts) | `0000_…` (initial) | Roles. Parent-role hierarchy + department/management/finance scope flags. |
 | `menu_master_t` | [src/db/schema/menus.ts](../src/db/schema/menus.ts) | `0000_…` (initial) | Sidebar menus. Max 2 levels — `menu_level` + self-referencing `menu_id`. URLs double as permission resources. |
 | `dashboard_card_master_t` | [src/db/schema/dashboardCards.ts](../src/db/schema/dashboardCards.ts) | [0001_add_dashboard_cards.sql](../drizzle/0001_add_dashboard_cards.sql) | Dashboard cards. Per-role visibility via `role_dashboard_card_mapping_t`. |
+| `payment_method_master_t` | [src/db/schema/paymentMethodMaster.ts](../src/db/schema/paymentMethodMaster.ts) | `0056_client_license_import_masters` | How a licence is paid for. The License form previously read `payment_type_master_t`, which holds only EXPORT/IMPORT. |
+| `payment_term_master_t` | [src/db/schema/paymentTermMaster.ts](../src/db/schema/paymentTermMaster.ts) | `0056_client_license_import_masters` | Client settlement terms. Promoted out of five hardcoded `options_static` entries on the Clients page. |
+| `clearing_basis_master_t` | [src/db/schema/clearingBasisMaster.ts](../src/db/schema/clearingBasisMaster.ts) | `0056_client_license_import_masters` | What an import is cleared on the basis of. Ships with no rows — the values are the operator's. |
 
 ## Architectural masters (§4 metadata layer)
 

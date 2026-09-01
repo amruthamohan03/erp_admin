@@ -30,7 +30,7 @@ interface RecordViewModalProps {
   onExport?: () => void;
   onClose: () => void;
 }
-
+
 
 function getString(props: Record<string, unknown> | null, key: string): string | undefined {
   const v = props?.[key];
@@ -38,7 +38,7 @@ function getString(props: Record<string, unknown> | null, key: string): string |
 }
 
 // Field types that hold long text and read better spanning the full row.
-const WIDE_TYPES = new Set(['textarea', 'seal-picker', 'checkbox-group']);
+const WIDE_TYPES = new Set(['textarea', 'seal-picker', 'checkbox-group', 'remark-log']);
 
 export default function RecordViewModal({
   slug,
@@ -176,6 +176,21 @@ export default function RecordViewModal({
         const picked = opts.filter((o) => set.has(o.value)).map((o) => o.label);
         return picked.length ? picked.join(', ') : <span className="text-slate-300">—</span>;
       }
+      // A dated log reads as a list, not as one run-on line.
+      case 'remark-log': {
+        const lines = Array.isArray(v) ? (v as Array<{ date?: string; remark?: string }>) : [];
+        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        return (
+          <ul className="space-y-1">
+            {lines.map((line, i) => (
+              <li key={`${line.date ?? ''}-${i}`} className="flex gap-2">
+                <span className="shrink-0 font-medium text-muted-foreground">{fmtDate(String(line.date ?? ''))}</span>
+                <span className="whitespace-pre-wrap break-words">{line.remark ?? ''}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      }
       case 'textarea':
         return <span className="whitespace-pre-wrap">{String(v)}</span>;
       default:
@@ -247,10 +262,10 @@ export default function RecordViewModal({
                               key={f.id}
                               className={WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''}
                             >
-                              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              <dt className="text-[11px] font-bold uppercase tracking-wide text-foreground">
                                 {f.label}
                               </dt>
-                              <dd className="mt-0.5 text-sm text-slate-800 break-words dark:text-slate-100">
+                              <dd className="mt-0.5 break-words text-sm text-foreground">
                                 {renderValue(f)}
                               </dd>
                             </div>
@@ -266,7 +281,7 @@ export default function RecordViewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           {editHref && (
             <Link
               href={editHref}
