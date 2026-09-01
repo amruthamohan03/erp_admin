@@ -183,12 +183,44 @@ export async function saveUploadedImage(file: File, opts: SaveOptions): Promise<
   return { url, absolutePath, size: buf.length, mime };
 }
 
+/**
+ * Absolute path for a stored upload, or null if it escapes the uploads root.
+ *
+ * The one place that turns an untrusted path into a filesystem location. It is
+ * shared by the existence check, the delete and the serving route so a traversal
+ * (`../../.env`) is rejected identically by all three — three private copies of
+ * this check is three chances for one of them to be subtly weaker.
+ *
+ * Takes either a stored public URL (`/uploads/branding/0/x.png`) or the path
+ * segments from the serving route.
+ */
+export function resolveUploadPath(publicUrlOrSegments: string | string[]): string | null {
+  const rel = Array.isArray(publicUrlOrSegments)
+    ? publicUrlOrSegments.join('/')
+    : publicUrlOrSegments.replace(/^\/?uploads\//, '');
+  // A NUL byte truncates the path at the syscall boundary, so a name like
+  // "a.png\0../../.env" would pass a string check and open a different file.
+  if (rel.includes('\0')) return null;
+
+  const resolved = path.resolve(UPLOADS_ROOT, rel);
+  // path.relative is the reliable containment test: a plain startsWith would
+  // also accept a sibling directory whose name merely begins with "uploads".
+  const inside = path.relative(UPLOADS_ROOT, resolved);
+  if (inside === '' || inside.startsWith('..') || path.isAbsolute(inside)) return null;
+  return resolved;
+}
+
+/** Content type for a stored upload, from its extension. */
+export function uploadMimeFor(filePath: string): string | null {
+  return EXT_MIME[path.extname(filePath).toLowerCase()] ?? null;
+}
+
 /** True when a stored `/uploads/...` URL still has its file on disk. */
 export async function uploadExists(publicUrl: string | null | undefined): Promise<boolean> {
   if (!publicUrl) return false;
   if (!publicUrl.startsWith('/uploads/')) return true; // external URL — not ours to judge
-  const resolved = path.resolve(path.join(PUBLIC_DIR, publicUrl.replace(/^\//, '')));
-  if (!resolved.startsWith(UPLOADS_ROOT)) return false;
+  const resolved = resolveUploadPath(publicUrl);
+  if (!resolved) return false;
   try {
     const stat = await fs.stat(resolved);
     return stat.isFile() && stat.size > 0;
@@ -200,11 +232,8 @@ export async function uploadExists(publicUrl: string | null | undefined): Promis
 export async function deleteUploadIfLocal(publicUrl: string | null | undefined): Promise<void> {
   if (!publicUrl) return;
   if (!publicUrl.startsWith('/uploads/')) return;
-  const rel = publicUrl.replace(/^\//, '');
-  const abs = path.join(PUBLIC_DIR, rel);
-  // Defensive: ensure resolved path stays inside uploads root.
-  const resolved = path.resolve(abs);
-  if (!resolved.startsWith(UPLOADS_ROOT)) return;
+  const resolved = resolveUploadPath(publicUrl);
+  if (!resolved) return;
   try {
     await fs.unlink(resolved);
   } catch {

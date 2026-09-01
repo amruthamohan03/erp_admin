@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Toggle from '@/components/ui/Toggle';
+import BrandMark from '@/components/ui/BrandMark';
 import { useBranding } from '@/lib/hooks/useBranding';
 
 function LoginForm() {
@@ -54,14 +55,7 @@ function LoginForm() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={branding.logo_url} alt={branding.project_name} className="h-10 w-auto object-contain" />
             ) : (
-              <svg
-                viewBox="0 0 64 24"
-                className="h-8 w-auto text-primary-600"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M2 6c4-6 10-6 14 0s10 6 14 0v6c-4 6-10 6-14 0S6 6 2 12V6z" />
-              </svg>
+              <BrandMark className="h-10 w-10" title={branding.project_name} />
             )}
           </div>
 
