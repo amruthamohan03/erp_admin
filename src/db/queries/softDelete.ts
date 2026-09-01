@@ -13,6 +13,9 @@ import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import { type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import {
+  paymentMethodMaster,
+  paymentTermMaster,
+  clearingBasisMaster,
   banklistMaster,
   clearanceMaster,
   clearingStatusMaster,
@@ -160,6 +163,24 @@ export const SOFT_DELETE_RESOURCES: Record<string, SoftDeleteResource> = {
     label: 'Items', menu: '/masters/items', table: itemMaster,
     idColumn: itemMaster.id, displayColumn: itemMaster.display,
     labelColumn: itemMaster.itemName,
+  },
+  // The three masters added for the client / license / import corrections.
+  // Every one carries a `display` flag, so §4.27 puts them in the Recycle Bin
+  // alongside the rest.
+  'payment-methods': {
+    label: 'Payment Methods', menu: '/masters/payment-methods', table: paymentMethodMaster,
+    idColumn: paymentMethodMaster.id, displayColumn: paymentMethodMaster.display,
+    labelColumn: paymentMethodMaster.paymentMethodName,
+  },
+  'payment-terms': {
+    label: 'Payment Terms', menu: '/masters/payment-terms', table: paymentTermMaster,
+    idColumn: paymentTermMaster.id, displayColumn: paymentTermMaster.display,
+    labelColumn: paymentTermMaster.paymentTermName,
+  },
+  'clearing-bases': {
+    label: 'Clearing Bases', menu: '/masters/clearing-bases', table: clearingBasisMaster,
+    idColumn: clearingBasisMaster.id, displayColumn: clearingBasisMaster.display,
+    labelColumn: clearingBasisMaster.clearingBasisName,
   },
   kinds: {
     label: 'Kinds', menu: '/masters/kinds', table: kindMaster,

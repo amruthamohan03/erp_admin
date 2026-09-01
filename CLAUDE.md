@@ -93,6 +93,19 @@ Cross-field validation isn't handled by `validation_json` — wire those through
 
 React renderer: `<DynamicForm>` in [src/engine/forms/DynamicForm.tsx](src/engine/forms/DynamicForm.tsx) maps each supported `field_type` to a UI primitive (Input/Textarea/Toggle/SearchableSelect) and runs `buildFormZodSchema` client-side before submit. Server `createCase` re-validates with the same schema — single source of truth on both sides.
 
+**A repeating group of rows is a JSONB column, not a child table.** The payment request's tracking references (`mca_data` + the `mca-grid` field type) and Import Tracking's dated remarks log (`remarks` + `remark-log`) both work this way, and a new one should follow them.
+
+The reason is §4.17: a transaction page saves every accordion in **one** transaction, and a child table would sit outside it — needing its own routes, its own ordering, and a second write that can fail after the parent succeeded. As a column the rows are written with everything else, and a partly-saved record becomes impossible rather than merely unlikely.
+
+What a new repeating field needs:
+
+1. A `jsonb('col').$type<Line[]>().default([])` column, with the `Line` interface exported beside the table.
+2. A `field_type` added to `FieldType` in [src/types/index.ts](src/types/index.ts) **and** to the `master_page_accordion_field_t_field_type_check` constraint — a CHECK cannot be extended in place, so the migration restates the whole list (see `0048`, `0059`).
+3. A case in [FieldRenderer](src/components/transactional/FieldRenderer.tsx), a read-only rendering in [RecordViewModal](src/components/transactional/RecordViewModal.tsx), and the type added to its `WIDE_TYPES` if the rows need the full width.
+4. A Zod array schema at the boundary, with a per-entry message (§4.23) — "A remark cannot be empty", not "Invalid input".
+
+Reach for a real child table only when the rows must be queried, filtered or reported on independently of their parent. Notes, reference lines and log entries are read with the record, not searched across it.
+
 ### 4.6 Configurable workflow
 Workflow transitions live in `workflow_master_t` + `workflow_transition_master_t`. Approvals (including the multi-stage **Payment Request** chain), notifications, and side effects are attached as actions on transitions, not coded into handlers.
 

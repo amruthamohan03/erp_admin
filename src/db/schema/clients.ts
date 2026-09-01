@@ -15,6 +15,8 @@ import { groupCompanyMaster } from './groupCompanyMaster';
 import { industryMaster } from './industryMaster';
 import { refererMaster } from './refererMaster';
 import { officeLocationMaster } from './officeLocationMaster';
+import { mainOfficeMaster } from './mainOfficeMaster';
+import { paymentTermMaster } from './paymentTermMaster';
 import { phaseMaster } from './phaseMaster';
 import { doneByMaster } from './doneByMaster';
 import { filesT } from './files';
@@ -50,8 +52,10 @@ export const clientMaster = pgTable(
     ),
     // Referrer master — note source DB misspells "referrer" as "refferer".
     referredById: integer('referred_by_id').references(() => refererMaster.id),
+    // "Location" on the client form reads the MAIN OFFICE master (migration 0056
+    // retargeted it). The column name is unchanged so nothing else had to move.
     officeLocationId: integer('office_location_id').references(
-      () => officeLocationMaster.id,
+      () => mainOfficeMaster.id,
     ),
 
     address: text('address'),
@@ -95,8 +99,10 @@ export const clientMaster = pgTable(
 
     paymentContactEmail: varchar('payment_contact_email', { length: 100 }),
     paymentContactPhone: varchar('payment_contact_phone', { length: 20 }),
-    // CHECK constraint in migration restricts to: ADVANCE | 15days | 30days | 45days | 60days
+    // Legacy free text, kept because the clients dashboard still groups by it.
+    // New saves write paymentTermId; read the master through the join.
     paymentTerm: varchar('payment_term', { length: 50 }),
+    paymentTermId: integer('payment_term_id').references(() => paymentTermMaster.id),
     // CHECK constraint in migration: 0 <= credit_term <= 365
     creditTerm: integer('credit_term').default(0),
 
@@ -176,9 +182,13 @@ export const clientMasterRelations = relations(clientMaster, ({ one }) => ({
     fields: [clientMaster.referredById],
     references: [refererMaster.id],
   }),
-  officeLocation: one(officeLocationMaster, {
+  officeLocation: one(mainOfficeMaster, {
     fields: [clientMaster.officeLocationId],
-    references: [officeLocationMaster.id],
+    references: [mainOfficeMaster.id],
+  }),
+  paymentTermRef: one(paymentTermMaster, {
+    fields: [clientMaster.paymentTermId],
+    references: [paymentTermMaster.id],
   }),
   phase: one(phaseMaster, {
     fields: [clientMaster.phaseId],

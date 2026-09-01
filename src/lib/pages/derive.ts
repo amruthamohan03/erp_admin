@@ -126,6 +126,18 @@ export function isAsyncDerive(spec: DeriveSpec | null): spec is FromRelatedDeriv
 }
 
 /** The trigger field names for an async derive (normalizes single → list). */
+/**
+ * Reserved trigger name for a derive that fires once when a NEW record's form
+ * opens, rather than in response to the user changing some other field.
+ *
+ * That is what a prefill needs — "Verified By defaults to whoever is signed in"
+ * has no triggering field. Reusing the trigger mechanism keeps it a config value
+ * (§4.1) and needs no new derive kind: the client posts this name on mount and
+ * the derive route matches it like any other trigger. It is deliberately not a
+ * legal column name, so it can never collide with a real field.
+ */
+export const INIT_TRIGGER = '@init';
+
 export function deriveTriggers(spec: DeriveSpec | null): string[] {
   if (!isAsyncDerive(spec)) return [];
   return Array.isArray(spec.trigger) ? spec.trigger : [spec.trigger];

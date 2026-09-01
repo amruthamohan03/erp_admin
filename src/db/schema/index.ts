@@ -83,3 +83,6 @@ export * from './masterPageAccordionField';
 export * from './masterPageAccordionRole';
 export * from './masterPageAccordionFieldRole';
 export * from './masterBulkFilter';
+export * from './paymentMethodMaster';
+export * from './paymentTermMaster';
+export * from './clearingBasisMaster';

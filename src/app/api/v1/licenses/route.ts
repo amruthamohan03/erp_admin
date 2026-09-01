@@ -19,6 +19,8 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 const querySchema = z.object({
   q: z.string().optional(),
   client_id: z.coerce.number().int().positive().optional(),
+  // Import Tracking narrows Client → MCA Reference → License (§ import cascade).
+  mca_ref: z.string().max(100).optional(),
   kind_id: z.coerce.number().int().positive().optional(),
   transport_mode_id: z.coerce.number().int().positive().optional(),
   // Status enum from the licenses model: ACTIVE / INACTIVE /
@@ -68,6 +70,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const q = querySchema.parse({
     q: searchParams.get('q') ?? undefined,
     client_id: searchParams.get('client_id') ?? undefined,
+    mca_ref: searchParams.get('mca_ref') || undefined,
     kind_id: searchParams.get('kind_id') ?? undefined,
     transport_mode_id: searchParams.get('transport_mode_id') ?? undefined,
     status: searchParams.get('status') ?? undefined,
@@ -92,6 +95,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     if (orClause) conds.push(orClause);
   }
   if (q.client_id) conds.push(eq(licenseT.clientId, q.client_id));
+  if (q.mca_ref) conds.push(eq(licenseT.mcaRef, q.mca_ref));
   if (q.kind_id) conds.push(eq(licenseT.kindId, q.kind_id));
   if (q.transport_mode_id) conds.push(eq(licenseT.transportModeId, q.transport_mode_id));
   if (q.status) conds.push(eq(licenseT.status, q.status));
@@ -115,6 +119,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       id: licenseT.id,
       license_number: licenseT.licenseNumber,
       client_id: licenseT.clientId,
+      mca_ref: licenseT.mcaRef,
       client_name: clientMaster.companyName,
       kind_name: kindMaster.kindName,
       bank_name: banklistMaster.bankName,

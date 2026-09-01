@@ -14,6 +14,7 @@
 
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 type Values = Record<string, unknown>;
 type Row = Record<string, unknown>;
@@ -53,6 +54,31 @@ const SOURCES: Record<string, DeriveSource> = {
         WHERE l.id = ${id}
         LIMIT 1
       `);
+    },
+  },
+
+  // The signed-in user, for prefill derives that have no triggering field —
+  // Verified By / Approved By default to whoever is filling the form in, and
+  // their dates to today. Paired with INIT_TRIGGER so they resolve once when a
+  // new record opens.
+  //
+  // Deliberately editable at the config level: this is a convenience, not an
+  // attribution lock. Who actually saved the record is the audit log's job
+  // (§4.28), and that cannot be typed over.
+  session: {
+    async resolve() {
+      const auth = await getSession().catch(() => null);
+      if (!auth) return null;
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return {
+        user_id: auth.uid,
+        username: auth.username,
+        role_id: auth.role_id,
+        // ISO, because that is what a date column and <input type="date"> both
+        // expect — display formatting happens in the UI (§4.19).
+        today: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+      };
     },
   },
 

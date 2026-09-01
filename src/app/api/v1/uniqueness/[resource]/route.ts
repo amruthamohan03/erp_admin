@@ -3,6 +3,9 @@ import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import {
+  paymentMethodMaster,
+  paymentTermMaster,
+  clearingBasisMaster,
   banklistMaster,
   kindMaster,
   currencyMaster,
@@ -308,6 +311,25 @@ const RESOURCES: Record<string, ResourceConfig> = {
     idColumn: paymentSubtypeMaster.id,
     displayColumn: paymentSubtypeMaster.display,
     scopeColumn: paymentSubtypeMaster.paymentTypeId,
+  },
+  // The three masters added for the client / license / import corrections.
+  'payment-methods': {
+    table: paymentMethodMaster,
+    nameColumn: paymentMethodMaster.paymentMethodName,
+    idColumn: paymentMethodMaster.id,
+    displayColumn: paymentMethodMaster.display,
+  },
+  'payment-terms': {
+    table: paymentTermMaster,
+    nameColumn: paymentTermMaster.paymentTermName,
+    idColumn: paymentTermMaster.id,
+    displayColumn: paymentTermMaster.display,
+  },
+  'clearing-bases': {
+    table: clearingBasisMaster,
+    nameColumn: clearingBasisMaster.clearingBasisName,
+    idColumn: clearingBasisMaster.id,
+    displayColumn: clearingBasisMaster.display,
   },
   departments: {
     table: departmentMaster,

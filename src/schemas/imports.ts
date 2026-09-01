@@ -81,7 +81,7 @@ export const importBodySchema = z.object({
   // ── CRF & Declaration ──
   crf_reference: shortText(100),
   crf_received_date: dateOnly,
-  clearing_based_on: shortText(50),
+  clearing_basis_id: intIdNullable,
   ad_date: dateOnly,
   inspection_reports: shortText(100),
   archive_reference: shortText(100),
@@ -143,13 +143,27 @@ export const importBodySchema = z.object({
   border_warehouse_id: intIdNullable,
   entry_coupon: shortText(100),
   bonded_warehouse_id: intIdNullable,
-  truck_status: shortText(100),
+  truck_status_id: intIdNullable,
 
   // ── Status & Remarks ──
   clearing_status_id: intIdNullable,
   inv_export_disabled: z.boolean().optional(),
   inv_export_disabled_remark: shortText(500),
-  remarks: z.string().nullable().optional(),
+  // A dated log, not a paragraph. Each entry carries its own date so the
+  // sequence of what happened to a consignment is readable (§4.23 messages name
+  // the offending entry rather than 'remarks').
+  remarks: z
+    .array(
+      z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Each remark needs a date in YYYY-MM-DD format.'),
+        remark: z.string().min(1, 'A remark cannot be empty.').max(2000),
+      }),
+    )
+    .max(200, 'A consignment can hold at most 200 remarks.')
+    .nullable()
+    .optional(),
 });
 export type ImportBody = z.infer<typeof importBodySchema>;
 

@@ -99,7 +99,7 @@ export const GET = withErrorHandler(
         // CRF
         crf_reference: importT.crfReference,
         crf_received_date: importT.crfReceivedDate,
-        clearing_based_on: importT.clearingBasedOn,
+        clearing_basis_id: importT.clearingBasisId,
         ad_date: importT.adDate,
         inspection_reports: importT.inspectionReports,
         archive_reference: importT.archiveReference,
@@ -158,7 +158,7 @@ export const GET = withErrorHandler(
         border_warehouse_id: importT.borderWarehouseId,
         entry_coupon: importT.entryCoupon,
         bonded_warehouse_id: importT.bondedWarehouseId,
-        truck_status: importT.truckStatus,
+        truck_status_id: importT.truckStatusId,
         // Status & remarks
         clearing_status_id: importT.clearingStatus,
         clearing_status_name: clearingStatusMaster.clearingStatus,
