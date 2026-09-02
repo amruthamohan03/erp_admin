@@ -216,6 +216,20 @@ export default function SearchableSelect({
 
   const display = selected?.label ?? '';
 
+  // The field holds something, but nothing in the list carries that value — so
+  // the label cannot be resolved and `display` is empty.
+  //
+  // Falling through to the placeholder here made the control lie: a populated
+  // field looked exactly like an empty one. It surfaced on Export Tracking,
+  // where Kind is sourced from `kinds?group=export` while the licence supplies
+  // whatever kind IT carries — an export against an import licence set the field
+  // to a kind the list does not offer, and the screen showed a blank box, so the
+  // autofill looked broken when it had in fact worked.
+  //
+  // Say so instead. The operator needs to know the field is not empty, and that
+  // what it holds is not something this list can offer.
+  const unresolved = !selected && value !== '';
+
   return (
     <div ref={rootRef} className={cn('relative', className)}>
       {/* Hidden field so form `required` validation still works */}
@@ -251,9 +265,17 @@ export default function SearchableSelect({
           size === 'sm' && 'px-2 py-1 text-sm',
           disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
           display ? 'text-foreground' : 'text-muted-foreground',
+          unresolved && 'text-amber-700 dark:text-amber-400',
         )}
+        title={
+          unresolved
+            ? `This field holds "${value}", which is not one of the options offered here. Pick a value from the list, or correct the record it was copied from.`
+            : undefined
+        }
       >
-        <span className="truncate">{display || placeholder}</span>
+        <span className="truncate">
+          {display || (unresolved ? `Not in this list (${value})` : placeholder)}
+        </span>
         <ChevronDown
           className={cn(
             'ms-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform',

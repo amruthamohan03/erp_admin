@@ -47,11 +47,11 @@ export const exportsBulkCreateSchema = z.object({
   common: z.object({
     client_id: intId,
     license_id: intId,
-    // Prefix used to auto-generate mca_ref per row as `{prefix}-NNNN`
-    // (sequential, 4-digit zero-pad). Keeping the prefix in `common`
-    // rather than requiring the operator to type an mca_ref per row —
-    // the UI only exposes the prefix.
-    mca_ref_prefix: z.string().min(1).max(80),
+    // No mca_ref here, and no prefix either. §4.33 — every reference is built
+    // server-side from the format configured under Developer Options, numbered
+    // on from the highest already issued for these codes. An operator typing a
+    // prefix was a second, competing definition of what a reference looks like,
+    // and it did not follow the configured one.
     // Optional shared masters — applied to every row.
     kind_id: intIdOptional,
     transport_mode_id: intIdOptional,
