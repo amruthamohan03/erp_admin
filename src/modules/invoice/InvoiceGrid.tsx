@@ -232,7 +232,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
   }
   if (error) {
     return (
-      <div className="card mt-6 p-4 text-sm text-red-700 border border-red-200 bg-red-50">
+      <div className="card mt-6 p-4 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
         Grid unavailable: {error}
       </div>
     );
@@ -242,18 +242,18 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
   return (
     <div className="mt-6 space-y-6">
       {readonly && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           This invoice is validated and is read-only.
         </div>
       )}
       {notice && (
-        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">{notice}</div>
+        <div className="rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3 text-sm text-sky-800 dark:text-sky-300">{notice}</div>
       )}
 
       {/* MCA references */}
       <div className="card p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">MCA References</h2>
+          <h2 className="text-lg font-semibold text-foreground">MCA References</h2>
           {!readonly && (
             <div className="flex items-center gap-2">
               <div className="w-72">
@@ -346,7 +346,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
                   )}
                   {!readonly && (
                     <td>
-                      <button type="button" onClick={() => removeMca(idx)} className="text-red-600 hover:text-red-800">
+                      <button type="button" onClick={() => removeMca(idx)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -361,7 +361,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
       {/* Line items */}
       <div className="card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Invoice Items</h2>
+          <h2 className="text-lg font-semibold text-foreground">Invoice Items</h2>
           {!readonly && (
             <div className="flex items-center gap-2">
               <div className="w-64">
@@ -432,7 +432,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
                   <td className="text-right font-medium tabular-nums">{money(it.total_usd)}</td>
                   {!readonly && (
                     <td>
-                      <button type="button" onClick={() => removeItem(idx)} className="text-red-600 hover:text-red-800">
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -441,7 +441,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-200 font-semibold">
+              <tr className="border-t-2 border-border font-semibold">
                 <td colSpan={6} className="text-right">Totals (USD)</td>
                 <td className="text-right tabular-nums">{money(totals.subtotal)}</td>
                 <td className="text-right tabular-nums">{money(totals.tva)}</td>

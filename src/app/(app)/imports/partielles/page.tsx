@@ -121,15 +121,15 @@ export default function PartiellesPage() {
   return (
     <>
       <div className="card p-4 mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <PieChart className="h-5 w-5 text-primary-600" /> PARTIELLE Allocation
         </h1>
-        <Link href="/imports" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/imports" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to Imports
         </Link>
       </div>
 
-      {notice && <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 mb-4">{notice}</div>}
+      {notice && <div className="rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3 text-sm text-sky-800 dark:text-sky-300 mb-4">{notice}</div>}
 
       <div className="card p-4 mb-4">
         <label className="label">Licence</label>
@@ -140,9 +140,9 @@ export default function PartiellesPage() {
 
       {licenseId && (
         <div className="card">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-slate-800">Allotments</span>
+            <span className="font-semibold text-foreground">Allotments</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -170,7 +170,7 @@ export default function PartiellesPage() {
                 {!loading && rows.map((r, idx) => {
                   const editing = edit?.id === r.id;
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50">
+                    <tr key={r.id} className="hover:bg-muted/50">
                       <td className="text-muted-foreground">{idx + 1}</td>
                       <td className="font-mono text-xs">{r.partial_name}</td>
                       <td className="text-right">
@@ -179,8 +179,8 @@ export default function PartiellesPage() {
                             onChange={(e) => setEdit({ ...edit, weight: e.target.value })} className="input w-28 text-right" />
                         ) : money(r.partial_weight)}
                       </td>
-                      <td className="text-right text-slate-600">{money(r.weight_used)}</td>
-                      <td className={`text-right font-medium tabular-nums ${r.remaining_weight < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      <td className="text-right text-muted-foreground">{money(r.weight_used)}</td>
+                      <td className={`text-right font-medium tabular-nums ${r.remaining_weight < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {money(r.remaining_weight)}
                       </td>
                       <td className="text-right">
@@ -189,8 +189,8 @@ export default function PartiellesPage() {
                             onChange={(e) => setEdit({ ...edit, fob: e.target.value })} className="input w-28 text-right" />
                         ) : money(r.partial_fob)}
                       </td>
-                      <td className="text-right text-slate-600">{money(r.fob_used)}</td>
-                      <td className={`text-right font-medium tabular-nums ${r.remaining_fob < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      <td className="text-right text-muted-foreground">{money(r.fob_used)}</td>
+                      <td className={`text-right font-medium tabular-nums ${r.remaining_fob < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {money(r.remaining_fob)}
                       </td>
                       <td className="text-center">
@@ -211,7 +211,7 @@ export default function PartiellesPage() {
               </tbody>
               {rows.length > 0 && (
                 <tfoot>
-                  <tr className="border-t-2 border-slate-200 font-semibold">
+                  <tr className="border-t-2 border-border font-semibold">
                     <td colSpan={2} className="text-right">Totals</td>
                     <td className="text-right tabular-nums">{money(totals.w)}</td>
                     <td className="text-right tabular-nums">{money(totals.wu)}</td>
@@ -226,7 +226,7 @@ export default function PartiellesPage() {
           </div>
 
           {/* Create allotment */}
-          <div className="px-4 py-3 border-t border-slate-200 flex flex-wrap items-end gap-3">
+          <div className="px-4 py-3 border-t border-border flex flex-wrap items-end gap-3">
             <div>
               <label className="label">Allotment Name</label>
               <input className="input w-56" placeholder="e.g. CRF123-0001" value={form.partial_name}

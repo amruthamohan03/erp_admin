@@ -100,7 +100,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
   return (
     <>
       <div className="card p-4 mb-4">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <FileSpreadsheet className="h-5 w-5 text-primary-600" /> Sydonia {label} — Bulk Update
         </h1>
       </div>
@@ -110,7 +110,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }} />
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center gap-2">
+          <div className="mb-4 rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
           </div>
         )}
@@ -123,10 +123,10 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
             onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void handleFile(f); }}
-            className={`w-full rounded-xl border-[3px] border-dashed py-14 px-6 text-center transition ${dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-slate-50 hover:border-primary-500 hover:bg-primary-50/40'}`}
+            className={`w-full rounded-xl border-[3px] border-dashed py-14 px-6 text-center transition ${dragOver ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-border bg-muted/50 hover:border-primary-500 hover:bg-primary-50/40'}`}
           >
             <UploadCloud className="h-12 w-12 mx-auto text-primary-500 mb-3" />
-            <div className="text-lg font-semibold text-slate-800">Drag &amp; drop the Excel file here</div>
+            <div className="text-lg font-semibold text-foreground">Drag &amp; drop the Excel file here</div>
             <div className="text-sm text-muted-foreground mt-1">or click to browse</div>
             <div className="mt-4 inline-block text-left text-xs text-muted-foreground leading-relaxed">
               <strong>Excel format:</strong><br />
@@ -148,18 +148,18 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
         {/* Preview */}
         {(phase === 'preview' || phase === 'saving') && (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-2 mb-3">
-              <div className="text-sm text-sky-900">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 px-4 py-2 mb-3">
+              <div className="text-sm text-sky-900 dark:text-sky-200">
                 <strong>Validation complete:</strong>
-                <span className="ml-2 inline-block rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold">{validCount} valid</span>
-                <span className="ml-2 inline-block rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs font-semibold">{invalidCount} invalid</span>
+                <span className="ml-2 inline-block rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 text-xs font-semibold">{validCount} valid</span>
+                <span className="ml-2 inline-block rounded-full bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 px-2 py-0.5 text-xs font-semibold">{invalidCount} invalid</span>
               </div>
               <button type="button" onClick={reset} className="btn-secondary inline-flex items-center gap-1.5 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" /> Upload another file
               </button>
             </div>
 
-            <div className="overflow-auto rounded-lg border border-slate-200 max-h-[520px]">
+            <div className="overflow-auto rounded-lg border border-border max-h-[520px]">
               <table className="table-base whitespace-nowrap text-xs">
                 <thead className="sticky top-0">
                   <tr>
@@ -177,7 +177,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
                 </thead>
                 <tbody>
                   {rows.map((r, i) => (
-                    <tr key={i} className={r.valid ? 'bg-emerald-50' : 'bg-red-50'}>
+                    <tr key={i} className={r.valid ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-red-50 dark:bg-red-500/10'}>
                       <td className="text-muted-foreground">{i + 1}</td>
                       <td className="font-mono font-semibold">{r.mca_ref}</td>
                       <td>{r.declaration_reference || '—'}</td>
@@ -189,9 +189,9 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
                       <td className="text-right tabular-nums">{r.liquidation_amount || '—'}</td>
                       <td className="text-center">
                         {r.valid ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-semibold"><CheckCircle2 className="h-3 w-3" /> Found</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-semibold"><CheckCircle2 className="h-3 w-3" /> Found</span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-[10px] font-semibold"><XCircle className="h-3 w-3" /> Not found</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 px-2 py-0.5 text-[10px] font-semibold"><XCircle className="h-3 w-3" /> Not found</span>
                         )}
                       </td>
                     </tr>
@@ -215,15 +215,15 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
         {phase === 'done' && result && (
           <div className="py-10 text-center">
             <CheckCircle2 className="h-14 w-14 mx-auto text-emerald-500 mb-3" />
-            <h2 className="text-lg font-bold text-slate-900">Update complete</h2>
-            <p className="text-slate-600 mt-1">
+            <h2 className="text-lg font-bold text-foreground">Update complete</h2>
+            <p className="text-muted-foreground mt-1">
               Successfully updated <strong>{result.updated}</strong> record{result.updated === 1 ? '' : 's'}.
               {result.failed > 0 && (
-                <span className="text-amber-600"><br />{result.failed} record{result.failed === 1 ? '' : 's'} failed / unchanged.</span>
+                <span className="text-amber-600 dark:text-amber-400"><br />{result.failed} record{result.failed === 1 ? '' : 's'} failed / unchanged.</span>
               )}
             </p>
             {result.errors.length > 0 && (
-              <ul className="mt-3 mx-auto max-w-md text-left text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 max-h-40 overflow-auto">
+              <ul className="mt-3 mx-auto max-w-md text-left text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-md p-3 max-h-40 overflow-auto">
                 {result.errors.map((e, i) => <li key={i}>• {e}</li>)}
               </ul>
             )}

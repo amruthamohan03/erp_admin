@@ -351,7 +351,7 @@ export default function QuotationsPage() {
   return (
     <>
       <div className="card p-4 mb-4 flex items-center gap-2">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary-600" /> Quotations Management
         </h1>
       </div>
@@ -366,7 +366,7 @@ export default function QuotationsPage() {
             const active = activeCard === key;
             return (
               <button key={card.id} type="button" onClick={() => setActiveCard(key)}
-                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
+                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}>
                 <div className="absolute right-2 top-2 opacity-30"><Icon className="h-5 w-5" /></div>
                 <div className="text-2xl font-bold leading-none">{stats[key] ?? 0}</div>
                 <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.card_title}</div>
@@ -377,7 +377,7 @@ export default function QuotationsPage() {
       )}
 
       {/* form accordion */}
-      <div className="rounded-xl overflow-hidden mb-4 shadow-sm border border-slate-200">
+      <div className="rounded-xl overflow-hidden mb-4 shadow-sm border border-border">
         <button type="button" onClick={() => setFormOpen((v) => !v)}
           className="w-full flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <span className="font-semibold flex items-center gap-2">
@@ -386,9 +386,9 @@ export default function QuotationsPage() {
           <ChevronDown className={`h-5 w-5 transition-transform ${formOpen ? 'rotate-180' : ''}`} />
         </button>
         {formOpen && (
-        <div className="p-4 bg-white">
-          {err && <div className="rounded-md bg-red-50 p-2 mb-3 text-sm text-red-700 border border-red-200">{err}</div>}
-          {msg && <div className="rounded-md bg-emerald-50 p-2 mb-3 text-sm text-emerald-700 border border-emerald-200">{msg}</div>}
+        <div className="p-4 bg-card">
+          {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 mb-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">{err}</div>}
+          {msg && <div className="rounded-md bg-emerald-50 dark:bg-emerald-500/10 p-2 mb-3 text-sm text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">{msg}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-3">
             <div>
@@ -400,7 +400,7 @@ export default function QuotationsPage() {
             </div>
             <div>
               <label className="label required">Quotation Ref</label>
-              <input className="input bg-indigo-50 font-semibold text-indigo-700 text-center" value={quotationRef} readOnly placeholder="Auto-generated" />
+              <input className="input bg-indigo-50 dark:bg-indigo-500/10 font-semibold text-indigo-700 dark:text-indigo-300 text-center" value={quotationRef} readOnly placeholder="Auto-generated" />
             </div>
             <div>
               <label className="label required">Date</label>
@@ -434,7 +434,7 @@ export default function QuotationsPage() {
 
           {/* category sections — only after Client + Kind + Transport + Type of Goods */}
           {!headerComplete && (
-            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-muted-foreground mb-4">
+            <div className="rounded-md border border-dashed border-border bg-muted/50 p-6 text-center text-sm text-muted-foreground mb-4">
               Select <strong>Client</strong>, <strong>Kind</strong>, <strong>Transport</strong> and <strong>Type of Goods</strong> to add quotation items.
             </div>
           )}
@@ -444,12 +444,12 @@ export default function QuotationsPage() {
             const catRows = rows[cat.id] ?? [];
             return (
               <div key={cat.id} className="mb-4">
-                <div className="rounded-md bg-slate-700 text-white px-3 py-2 text-sm font-semibold uppercase tracking-wide">
+                <div className="rounded-md bg-secondary text-secondary-foreground px-3 py-2 text-sm font-semibold uppercase tracking-wide">
                   {cat.category_header || cat.category_name}
                 </div>
-                <div className="overflow-x-auto border border-slate-200 rounded-b-md">
+                <div className="overflow-x-auto border border-border rounded-b-md">
                   <table className="w-full text-xs">
-                    <thead className="bg-slate-50 text-slate-600">
+                    <thead className="bg-muted/50 text-muted-foreground">
                       <tr>
                         <th className="px-2 py-2 text-left min-w-[180px]">DESCRIPTION</th>
                         <th className="px-2 py-2 min-w-[80px]">UNIT</th>
@@ -484,7 +484,7 @@ export default function QuotationsPage() {
                       {catRows.map((r) => {
                         const t = rowTotals(r, cat.is_customs);
                         return (
-                          <tr key={r.uid} className="border-t border-slate-100">
+                          <tr key={r.uid} className="border-t border-border">
                             <td className="px-2 py-1">
                               <SearchableSelect size="sm" aria-label="Description" value={r.item_id} placeholder="Select Description"
                                 options={opts.map((o) => ({ value: String(o.id), label: o.name }))}
@@ -499,19 +499,19 @@ export default function QuotationsPage() {
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.cif_split} onChange={(e) => setRow(cat.id, r.uid, { cif_split: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1"><input type="number" step="0.0001" className="input py-1 text-xs text-right" value={r.percentage} onChange={(e) => setRow(cat.id, r.uid, { percentage: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.rate_cdf} onChange={(e) => setRow(cat.id, r.uid, { rate_cdf: e.target.value })} placeholder="0.00" /></td>
-                              <td className="px-2 py-1 text-right text-slate-600">{money(t.vatCdf)}</td>
-                              <td className="px-2 py-1 text-right font-semibold text-emerald-700">{money(t.totalCdf)}</td>
+                              <td className="px-2 py-1 text-right text-muted-foreground">{money(t.vatCdf)}</td>
+                              <td className="px-2 py-1 text-right font-semibold text-emerald-700 dark:text-emerald-300">{money(t.totalCdf)}</td>
                             </>) : isED ? (<>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.cost_usd} onChange={(e) => setRow(cat.id, r.uid, { cost_usd: e.target.value })} placeholder="0.00" /></td>
-                              <td className="px-2 py-1 text-right text-slate-600">{money(t.subtotal)}</td>
+                              <td className="px-2 py-1 text-right text-muted-foreground">{money(t.subtotal)}</td>
                               <td className="px-2 py-1">
                                 <SearchableSelect size="sm" aria-label="Currency" value={r.currency_id} placeholder="CUR"
                                   options={currencies.map((o) => ({ value: String(o.id), label: o.label }))}
                                   onChange={(v) => setRow(cat.id, r.uid, { currency_id: v })} />
                               </td>
                               <td className="px-2 py-1 text-center"><Toggle size="sm" checked={r.has_tva} onChange={(v) => setRow(cat.id, r.uid, { has_tva: v })} /></td>
-                              <td className="px-2 py-1 text-right text-slate-600">{money(t.tva)}</td>
-                              <td className="px-2 py-1 text-right font-semibold text-amber-700">{money(t.total)}</td>
+                              <td className="px-2 py-1 text-right text-muted-foreground">{money(t.tva)}</td>
+                              <td className="px-2 py-1 text-right font-semibold text-amber-700 dark:text-amber-300">{money(t.total)}</td>
                             </>) : (<>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.quantity} onChange={(e) => setRow(cat.id, r.uid, { quantity: e.target.value })} placeholder="0.00" /></td>
                               <td className="px-2 py-1"><input type="number" step="0.01" className="input py-1 text-xs text-right" value={r.taux_usd} onChange={(e) => setRow(cat.id, r.uid, { taux_usd: e.target.value })} placeholder="0.00" /></td>
@@ -521,11 +521,11 @@ export default function QuotationsPage() {
                                   onChange={(v) => setRow(cat.id, r.uid, { currency_id: v })} />
                               </td>
                               <td className="px-2 py-1 text-center"><Toggle size="sm" checked={r.has_tva} onChange={(v) => setRow(cat.id, r.uid, { has_tva: v })} /></td>
-                              <td className="px-2 py-1 text-right text-slate-600">{money(t.tva)}</td>
-                              <td className="px-2 py-1 text-right font-semibold text-amber-700">{money(t.total)}</td>
+                              <td className="px-2 py-1 text-right text-muted-foreground">{money(t.tva)}</td>
+                              <td className="px-2 py-1 text-right font-semibold text-amber-700 dark:text-amber-300">{money(t.total)}</td>
                             </>)}
                             <td className="px-2 py-1 text-center">
-                              <button type="button" onClick={() => removeRow(cat.id, r.uid)} className="text-red-500 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+                              <button type="button" onClick={() => removeRow(cat.id, r.uid)} className="text-red-500 hover:text-red-700 dark:hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
                             </td>
                           </tr>
                         );
@@ -541,16 +541,16 @@ export default function QuotationsPage() {
           })}
 
           {/* summary */}
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 mt-2">
+          <div className="rounded-lg bg-muted/50 border border-border p-4 mt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm max-w-xl ml-auto">
-              <span className="text-slate-600">Sub-Total (USD)</span><span className="text-right font-semibold">{money(summary.subUsd)}</span>
-              <span className="text-slate-600">VAT (16%)</span><span className="text-right font-semibold">{money(summary.vatUsd)}</span>
-              <span className="text-slate-600">ARSP (1.2%)</span><span className="text-right font-semibold">{money(summary.arspAmount)}</span>
+              <span className="text-muted-foreground">Sub-Total (USD)</span><span className="text-right font-semibold">{money(summary.subUsd)}</span>
+              <span className="text-muted-foreground">VAT (16%)</span><span className="text-right font-semibold">{money(summary.vatUsd)}</span>
+              <span className="text-muted-foreground">ARSP (1.2%)</span><span className="text-right font-semibold">{money(summary.arspAmount)}</span>
               <span className="text-primary-700 font-semibold">TOTAL EN USD</span><span className="text-right font-bold text-primary-700">{money(summary.totalUsd)}</span>
               {isImportDefinitive && (<>
-                <span className="text-slate-600 pt-2 border-t border-slate-200 mt-1">Sub-Total (CDF)</span><span className="text-right font-semibold pt-2 border-t border-slate-200 mt-1">{money(summary.subCdf)}</span>
-                <span className="text-slate-600">VAT (CDF)</span><span className="text-right font-semibold">{money(summary.vatCdf)}</span>
-                <span className="text-emerald-700 font-semibold">TOTAL EN CDF</span><span className="text-right font-bold text-emerald-700">{money(summary.totalCdf)}</span>
+                <span className="text-muted-foreground pt-2 border-t border-border mt-1">Sub-Total (CDF)</span><span className="text-right font-semibold pt-2 border-t border-border mt-1">{money(summary.subCdf)}</span>
+                <span className="text-muted-foreground">VAT (CDF)</span><span className="text-right font-semibold">{money(summary.vatCdf)}</span>
+                <span className="text-emerald-700 dark:text-emerald-300 font-semibold">TOTAL EN CDF</span><span className="text-right font-bold text-emerald-700 dark:text-emerald-300">{money(summary.totalCdf)}</span>
               </>)}
             </div>
           </div>
@@ -586,7 +586,7 @@ export default function QuotationsPage() {
             sortable: true,
             render: (r: QuotationListRow) =>
               r.kind_name ? (
-                <span className="inline-block rounded bg-cyan-100 text-cyan-800 px-2 py-0.5 text-[11px]">{r.kind_name}</span>
+                <span className="inline-block rounded bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 px-2 py-0.5 text-[11px]">{r.kind_name}</span>
               ) : (
                 '—'
               ),
@@ -603,7 +603,7 @@ export default function QuotationsPage() {
             key: 'total_amount_cdf',
             header: 'Total CDF',
             align: 'right',
-            className: 'text-emerald-700',
+            className: 'text-emerald-700 dark:text-emerald-300',
             render: (r: QuotationListRow) =>
               r.total_amount_cdf && Number(r.total_amount_cdf) > 0 ? `${money(Number(r.total_amount_cdf))} CDF` : '—',
           },

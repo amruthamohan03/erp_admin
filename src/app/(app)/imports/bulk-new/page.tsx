@@ -221,7 +221,7 @@ export default function BulkNewImportsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Layers className="h-6 w-6 text-primary-600" />
           Bulk create imports
         </h1>
@@ -250,7 +250,7 @@ export default function BulkNewImportsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 flex items-start gap-2">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           {error}
         </div>
@@ -293,44 +293,44 @@ export default function BulkNewImportsPage() {
         </div>
 
         {usage && (
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div className="mt-4 rounded-md border border-border bg-muted/50 p-3 text-sm">
             {usageLoading ? (
               <span className="text-muted-foreground">Loading license usage…</span>
             ) : (
               <div className="flex flex-wrap gap-x-6 gap-y-1">
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                   License cap:{' '}
                   <span className="font-mono">{fmtMoney(usage.amount)}</span>
                 </span>
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                   Already used:{' '}
                   <span className="font-mono">
                     {fmtMoney(usage.used_fob_total)}
                   </span>
                 </span>
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                   Remaining:{' '}
                   <span
                     className={`font-mono ${
                       usage.remaining_fob != null && usage.remaining_fob < batchFob
-                        ? 'text-red-600 font-semibold'
-                        : 'text-emerald-700'
+                        ? 'text-red-600 dark:text-red-400 font-semibold'
+                        : 'text-emerald-700 dark:text-emerald-300'
                     }`}
                   >
                     {fmtMoney(usage.remaining_fob)}
                   </span>
                 </span>
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                   This batch:{' '}
                   <span
                     className={`font-mono ${
-                      capExceeded ? 'text-red-600 font-semibold' : ''
+                      capExceeded ? 'text-red-600 dark:text-red-400 font-semibold' : ''
                     }`}
                   >
                     {fmtMoney(batchFob)}
                   </span>
                 </span>
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                   Batch weight:{' '}
                   <span className="font-mono">
                     {batchWeight.toLocaleString()}
@@ -478,7 +478,7 @@ export default function BulkNewImportsPage() {
             </tbody>
           </table>
         </div>
-        <div className="p-3 border-t border-slate-200 flex justify-between items-center">
+        <div className="p-3 border-t border-border flex justify-between items-center">
           <button
             type="button"
             onClick={addRow}

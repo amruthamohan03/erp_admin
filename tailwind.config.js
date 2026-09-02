@@ -11,6 +11,31 @@ module.exports = {
       screens: { '2xl': '1400px' },
     },
     extend: {
+      // §4.31 — `font-sans` / `font-mono` resolve to the webfonts loaded by
+      // next/font in the root layout, with a system stack behind them so a page
+      // rendered before the font arrives (or with it blocked) still reads right.
+      fontFamily: {
+        sans: [
+          'var(--font-sans)',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif',
+        ],
+        mono: [
+          'var(--font-mono)',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Consolas',
+          'Liberation Mono',
+          'monospace',
+        ],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

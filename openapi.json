@@ -8479,6 +8479,419 @@
         }
       }
     },
+    "/mca-ref-formats": {
+      "get": {
+        "summary": "All six reference formats. A missing or deactivated row is returned as its shipped default, flagged is_default.",
+        "tags": [
+          "mca-ref-formats"
+        ],
+        "responses": {
+          "200": {
+            "description": "Reference formats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "target_key": {
+                            "type": "string",
+                            "enum": [
+                              "import",
+                              "export",
+                              "license",
+                              "local",
+                              "export-invoice",
+                              "import-invoice"
+                            ]
+                          },
+                          "format_name": {
+                            "type": "string"
+                          },
+                          "segments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true
+                              }
+                            }
+                          },
+                          "display": {
+                            "type": "string",
+                            "enum": [
+                              "Y",
+                              "N"
+                            ]
+                          },
+                          "is_default": {
+                            "type": "boolean"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "target_key",
+                          "format_name",
+                          "segments",
+                          "display",
+                          "is_default",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Upsert one or more formats in a single transaction. Applies to records created afterwards; references already issued are untouched.",
+        "tags": [
+          "mca-ref-formats"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "formats": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "target_key": {
+                          "type": "string",
+                          "enum": [
+                            "import",
+                            "export",
+                            "license",
+                            "local",
+                            "export-invoice",
+                            "import-invoice"
+                          ]
+                        },
+                        "format_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "segments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "client",
+                                  "kind",
+                                  "goods",
+                                  "transport",
+                                  "office",
+                                  "year",
+                                  "literal",
+                                  "sequence"
+                                ]
+                              },
+                              "separator": {
+                                "type": "string",
+                                "maxLength": 5
+                              },
+                              "value": {
+                                "type": "string",
+                                "maxLength": 20
+                              },
+                              "width": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              },
+                              "digits": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [
+                                      2
+                                    ]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [
+                                      4
+                                    ]
+                                  }
+                                ]
+                              },
+                              "letters": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 12
+                        },
+                        "display": {
+                          "type": "string",
+                          "enum": [
+                            "Y",
+                            "N"
+                          ],
+                          "default": "Y"
+                        }
+                      },
+                      "required": [
+                        "target_key",
+                        "format_name",
+                        "segments"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "formats"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Formats persisted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "target_key": {
+                            "type": "string",
+                            "enum": [
+                              "import",
+                              "export",
+                              "license",
+                              "local",
+                              "export-invoice",
+                              "import-invoice"
+                            ]
+                          },
+                          "format_name": {
+                            "type": "string"
+                          },
+                          "segments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true
+                              }
+                            }
+                          },
+                          "display": {
+                            "type": "string",
+                            "enum": [
+                              "Y",
+                              "N"
+                            ]
+                          },
+                          "is_default": {
+                            "type": "boolean"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "target_key",
+                          "format_name",
+                          "segments",
+                          "display",
+                          "is_default",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown reference, unresolvable segment, or more than one number segment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/role-menu-mapping": {
       "get": {
         "summary": "All active menus joined with the queried role mapping",

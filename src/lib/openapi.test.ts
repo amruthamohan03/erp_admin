@@ -25,6 +25,9 @@ const EXPECTED_PATHS: Record<string, ReadonlyArray<string>> = {
   '/translate': ['post'],
   '/role-menu-mapping': ['get', 'put'],
   '/role-dashboard-card-mapping': ['get', 'put'],
+  // §4.33 — the six reference formats. No post/delete: the set of references is
+  // fixed by code, so this endpoint edits them and cannot add or remove one.
+  '/mca-ref-formats': ['get', 'put'],
   '/forms/{formKey}': ['get'],
   '/cases/{templateKey}': ['get', 'post'],
   '/cases/{templateKey}/{caseId}': ['get'],

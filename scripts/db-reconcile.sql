@@ -107,7 +107,11 @@ UPDATE master_page_accordion_field_t f
     AND a.page_id = (SELECT id FROM master_page_t WHERE slug = 'license')
     AND f.name = 'license_cleared_by';
 UPDATE master_page_accordion_field_t f
-  SET derive = '{"kind":"template","trigger":["client_id","kind_id","type_of_goods_id","transport_mode_id"],"source":"license_mca","template":"{client_short}-{kind_short}-{goods_short}-{transport_letter}","when":{"in":[5,6,7],"field":"kind_id"},"editable":true}'::jsonb
+  -- `{ref}`: the source returns the finished number, assembled from the segments
+  -- in mca_ref_format_master_t (§4.33). Restating the arrangement here would give
+  -- it a second, silently winning definition — and this script may run after the
+  -- migration that repointed it.
+  SET derive = '{"kind":"template","trigger":["client_id","kind_id","type_of_goods_id","transport_mode_id"],"source":"license_mca","template":"{ref}","when":{"in":[5,6,7],"field":"kind_id"},"editable":true}'::jsonb
   FROM master_page_accordion_t a
   WHERE f.accordion_id = a.id
     AND a.page_id = (SELECT id FROM master_page_t WHERE slug = 'license')

@@ -198,7 +198,7 @@ export default function RoleToMenuPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-primary-600" />
             Role &rarr; Menu Mapping
           </h1>
@@ -235,19 +235,19 @@ export default function RoleToMenuPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 border border-emerald-200">
+        <div className="mb-4 rounded-md bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
           {notice}
         </div>
       )}
 
       {roleId && (
         <div className="card">
-          <div className="p-4 border-b border-slate-200">
+          <div className="p-4 border-b border-border">
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -321,7 +321,7 @@ export default function RoleToMenuPage() {
                       r.can_delete &&
                       r.can_approve;
                     return (
-                      <tr key={r.menu_id} className="hover:bg-slate-50">
+                      <tr key={r.menu_id} className="hover:bg-muted/50">
                         <td className="text-muted-foreground font-medium">
                           {startIndex + idx + 1}
                         </td>

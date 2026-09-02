@@ -147,7 +147,7 @@ export default function DashboardCardsGrid({
 
   if (cards.length === 0) {
     return (
-      <div className="card p-6 text-sm text-slate-600">
+      <div className="card p-6 text-sm text-muted-foreground">
         {emptyMessage ?? (
           <>
             No dashboard cards for this section are assigned to your role
@@ -182,7 +182,7 @@ export default function DashboardCardsGrid({
       {cards.map((c) => {
         const body =
           variant === 'flat' ? (
-            <div className="rounded-xl bg-sky-50/60 border border-slate-200 p-5 h-full flex items-center gap-4 shadow-sm hover:bg-sky-50 transition-colors">
+            <div className="rounded-xl bg-sky-50/60 border border-border p-5 h-full flex items-center gap-4 shadow-sm hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors">
               <div
                 className={`h-12 w-12 rounded-lg ${flatIconBg(c.card_color)} flex items-center justify-center text-white shrink-0`}
               >
@@ -192,7 +192,7 @@ export default function DashboardCardsGrid({
                 <div className="text-sm text-muted-foreground truncate">
                   {c.card_title}
                 </div>
-                <div className="text-2xl font-bold text-slate-900 truncate">
+                <div className="text-2xl font-bold text-foreground truncate">
                   {formatCardValue(values[c.card_key]) ?? '—'}
                 </div>
                 {c.card_subtitle && (

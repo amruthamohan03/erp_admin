@@ -72,7 +72,7 @@ export default function Accordion({
     <div
       className={clsx(
         'card mb-4 overflow-hidden transition-shadow',
-        open ? 'shadow-md ring-1 ring-slate-200/70 dark:ring-slate-700/60' : 'hover:shadow-sm',
+        open ? 'shadow-md ring-1 ring-border/70' : 'hover:shadow-sm',
       )}
     >
       {/* Accent bar — a thin gradient strip that ties each section to its colour. */}
@@ -84,7 +84,7 @@ export default function Accordion({
         aria-expanded={open}
         className={clsx(
           'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors',
-          open ? accent.tint : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60',
+          open ? accent.tint : 'bg-card hover:bg-muted/50',
         )}
       >
         {/* Icon chip — gradient square carrying the Tabler `ti ti-*` glyph. */}
@@ -98,10 +98,10 @@ export default function Accordion({
         </span>
 
         <span className="flex-1 min-w-0">
-          <span className={clsx('block font-semibold truncate', open ? accent.title : 'text-slate-900 dark:text-slate-100')}>
+          <span className={clsx('block font-semibold truncate', open ? accent.title : 'text-foreground')}>
             {accordion.title}
           </span>
-          <span className="block text-xs text-muted-foreground dark:text-muted-foreground">
+          <span className="block text-xs text-muted-foreground">
             {visibleFields.length} field{visibleFields.length === 1 ? '' : 's'}
           </span>
         </span>
@@ -115,7 +115,7 @@ export default function Accordion({
         )}
 
         {readonly && (
-          <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 dark:bg-slate-800 dark:text-slate-300">
+          <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full bg-muted text-muted-foreground px-2 py-0.5">
             read-only
           </span>
         )}
@@ -128,7 +128,7 @@ export default function Accordion({
       </button>
 
       {open && (
-        <div className="p-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-4 pt-4 border-t border-border">
           <div className="flex flex-wrap -mx-2">
             {visibleFields.map(({ field, state }) => (
               <div key={field.id} className={`${colClassFor(field.props)} mb-3`}>

@@ -314,27 +314,27 @@ export default function BulkEditPage() {
   }
   if (targetsError) {
     return (
-      <div className="card p-6 text-sm text-red-700">{targetsError}</div>
+      <div className="card p-6 text-sm text-red-700 dark:text-red-300">{targetsError}</div>
     );
   }
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Database className="h-6 w-6 text-primary-600" />
           Bulk edit (per row)
         </h1>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 flex items-start gap-2">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 border border-emerald-200">
+        <div className="mb-4 rounded-md bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
           {notice}
         </div>
       )}
@@ -353,7 +353,7 @@ export default function BulkEditPage() {
       {selectedTarget && (
         <section className="card p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-slate-700">
+            <h2 className="text-sm font-semibold text-foreground">
               Filter — join with AND
             </h2>
             <button
@@ -408,7 +408,7 @@ export default function BulkEditPage() {
                   <button
                     type="button"
                     onClick={() => removeFilter(f._id)}
-                    className="text-muted-foreground hover:text-red-600 p-1 col-span-1 justify-self-end"
+                    className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 p-1 col-span-1 justify-self-end"
                     title="Remove filter"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -440,14 +440,14 @@ export default function BulkEditPage() {
 
       {rowsPayload && selectedTarget && (
         <section className="card">
-          <div className="flex items-center justify-between p-4 border-b border-slate-200">
-            <div className="text-sm text-slate-700">
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="text-sm text-foreground">
               <span className="font-semibold">
                 {rowsPayload.total.toLocaleString()}
               </span>{' '}
               matching row{rowsPayload.total === 1 ? '' : 's'}
               {editedCount > 0 && (
-                <span className="ml-2 text-amber-700">
+                <span className="ml-2 text-amber-700 dark:text-amber-300">
                   · {editedCount} pending edit{editedCount === 1 ? '' : 's'}
                 </span>
               )}
@@ -492,11 +492,11 @@ export default function BulkEditPage() {
                   const id = Number(row.id);
                   const rowEdits = edits[id] ?? {};
                   return (
-                    <tr key={id} className="hover:bg-slate-50">
+                    <tr key={id} className="hover:bg-muted/50">
                       <td className="text-muted-foreground text-xs">
                         {startIndex + idx + 1}
                       </td>
-                      <td className="font-mono text-xs text-slate-700">
+                      <td className="font-mono text-xs text-foreground">
                         #{id}
                       </td>
                       {selectedTarget.editable_columns.map((c) => {

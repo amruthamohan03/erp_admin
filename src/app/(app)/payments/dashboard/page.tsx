@@ -21,13 +21,13 @@ const num = (n: number) => (n ?? 0).toLocaleString();
 const money = (n: number) => (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const STATUS_CLS: Record<string, string> = {
-  Paid: 'bg-emerald-100 text-emerald-800',
-  Rejected: 'bg-rose-100 text-rose-800',
-  'Under Process': 'bg-sky-100 text-sky-800',
-  'Pending Payment': 'bg-orange-100 text-orange-800',
-  'Pending Mgmt': 'bg-violet-100 text-violet-800',
-  'Pending Finance': 'bg-cyan-100 text-cyan-800',
-  'Pending Dept': 'bg-amber-100 text-amber-800',
+  Paid: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300',
+  Rejected: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300',
+  'Under Process': 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300',
+  'Pending Payment': 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300',
+  'Pending Mgmt': 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300',
+  'Pending Finance': 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300',
+  'Pending Dept': 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300',
 };
 
 export default function PaymentDashboardPage() {
@@ -64,7 +64,7 @@ export default function PaymentDashboardPage() {
         <div className="flex items-center gap-3">
           <span className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white"><BarChart3 className="h-6 w-6" /></span>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Payment Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Payment Dashboard</h1>
             <p className="text-sm text-muted-foreground">Real-time payment insights</p>
           </div>
         </div>
@@ -93,15 +93,15 @@ export default function PaymentDashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
             {/* Monthly revenue */}
             <div className="card p-4 lg:col-span-2">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Monthly Revenue</h3>
+              <h3 className="font-semibold text-foreground mb-3">Monthly Revenue</h3>
               {d.monthly.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
               ) : (
                 <div className="flex items-end gap-2 h-48">
                   {d.monthly.map((m) => (
                     <div key={m.month_name} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                      <div className="text-[10px] text-slate-600 dark:text-muted-foreground tabular-nums">{money(m.revenue)}</div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t flex items-end" style={{ height: '100%' }}>
+                      <div className="text-[10px] text-muted-foreground tabular-nums">{money(m.revenue)}</div>
+                      <div className="w-full bg-muted rounded-t flex items-end" style={{ height: '100%' }}>
                         <div className="w-full bg-gradient-to-t from-indigo-500 to-violet-400 rounded-t" style={{ height: `${(m.revenue / maxRev) * 100}%` }} title={`${m.month_name}: ${money(m.revenue)}`} />
                       </div>
                       <div className="text-[10px] text-muted-foreground truncate w-full text-center">{m.month_name}</div>
@@ -113,15 +113,15 @@ export default function PaymentDashboardPage() {
 
             {/* Status breakdown */}
             <div className="card p-4">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Status Overview</h3>
+              <h3 className="font-semibold text-foreground mb-3">Status Overview</h3>
               {d.status_cards.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
               ) : (
                 <div className="space-y-2">
                   {d.status_cards.map((s) => (
                     <div key={s.status_name} className="flex items-center justify-between">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLS[s.status_name] ?? 'bg-slate-100 text-slate-700'}`}>{s.status_name}</span>
-                      <span className="font-bold tabular-nums text-slate-800 dark:text-slate-100">{s.count}</span>
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLS[s.status_name] ?? 'bg-muted text-foreground'}`}>{s.status_name}</span>
+                      <span className="font-bold tabular-nums text-foreground">{s.count}</span>
                     </div>
                   ))}
                 </div>
@@ -131,14 +131,14 @@ export default function PaymentDashboardPage() {
 
           {/* Top clients */}
           <div className="card">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 font-semibold text-slate-800 dark:text-slate-200">Top Clients by Volume</div>
+            <div className="px-4 py-3 border-b border-border font-semibold text-foreground">Top Clients by Volume</div>
             <div className="overflow-x-auto">
               <table className="table-base">
                 <thead><tr><th className="w-12">#</th><th>Client</th><th className="text-right">Requests</th><th className="text-right">Total Amount</th></tr></thead>
                 <tbody>
                   {d.top_clients.length === 0 && (<tr><td colSpan={4} className="text-center text-muted-foreground py-6">No data</td></tr>)}
                   {d.top_clients.map((c, i) => (
-                    <tr key={c.company_name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <tr key={c.company_name} className="hover:bg-muted/50">
                       <td className="text-muted-foreground font-medium">{i + 1}</td>
                       <td className="font-medium">{c.company_name}</td>
                       <td className="text-right tabular-nums">{num(c.total)}</td>

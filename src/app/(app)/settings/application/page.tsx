@@ -477,7 +477,7 @@ function ColorField({
       <div className="flex items-center gap-2">
         <input
           type="color"
-          className="h-10 w-12 rounded border border-input bg-white p-1"
+          className="h-10 w-12 rounded border border-input bg-card p-1"
           value={swatch}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}

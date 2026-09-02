@@ -67,7 +67,7 @@ export default function MainOfficesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Building className="h-6 w-6 text-primary-600" />
             Main Offices
           </h1>
@@ -99,8 +99,8 @@ export default function MainOfficesPage() {
             <span
                         className={
                           o.display === 'Y'
-                            ? 'inline-block rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700'
-                            : 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground'
+                            ? 'inline-block rounded bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300'
+                            : 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'
                         }
                       >
                         {o.display === 'Y' ? 'Active' : 'Disabled'}
@@ -204,17 +204,17 @@ function MainOfficeFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Main Office' : 'Create Main Office'}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

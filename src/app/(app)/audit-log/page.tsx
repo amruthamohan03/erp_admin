@@ -67,10 +67,10 @@ function humanize(value: string): string {
   return value.replace(/[_-]/gu, ' ').replace(/\b\w/gu, (c) => c.toUpperCase());
 }
 
-/** DD/MM for the daily strip — the year is implied by the 30-day window. */
+/** DD-MM for the daily strip — the year is implied by the 30-day window (§4.19). */
 function dayLabel(iso: string): string {
   const [, m, d] = iso.split('-');
-  return d && m ? `${d}/${m}` : iso;
+  return d && m ? `${d}-${m}` : iso;
 }
 
 export default function AuditLogPage() {

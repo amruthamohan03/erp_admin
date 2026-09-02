@@ -122,12 +122,12 @@ export default function FileUpload({
   return (
     <div>
       {label && (
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-muted-foreground mb-1">
           {label}
         </label>
       )}
       {value ? (
-        <div className="flex items-center gap-2 p-2 border border-slate-200 rounded-md bg-slate-50">
+        <div className="flex items-center gap-2 p-2 border border-border rounded-md bg-muted/50">
           <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="min-w-0 flex-1">
             <a
@@ -153,7 +153,7 @@ export default function FileUpload({
             type="button"
             onClick={handleRemove}
             disabled={uploading || disabled}
-            className="p-1 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+            className="p-1 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
             title="Remove"
           >
             {uploading ? (
@@ -195,7 +195,7 @@ export default function FileUpload({
         </div>
       )}
       {error && (
-        <div className="text-xs text-red-600 mt-1">{error}</div>
+        <div className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</div>
       )}
     </div>
   );

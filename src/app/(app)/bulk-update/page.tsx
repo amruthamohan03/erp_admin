@@ -290,7 +290,7 @@ export default function BulkUpdatePage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Database className="h-6 w-6 text-primary-600" />
             Bulk Update
           </h1>
@@ -303,17 +303,17 @@ export default function BulkUpdatePage() {
       </div>
 
       {targetsError && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {targetsError}
         </div>
       )}
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 border border-emerald-200">
+        <div className="mb-4 rounded-md bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
           {notice}
         </div>
       )}
@@ -337,7 +337,7 @@ export default function BulkUpdatePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Filters (WHERE) */}
           <div className="card">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <div className="font-medium">Filter rows</div>
                 <div className="text-xs text-muted-foreground">
@@ -347,7 +347,7 @@ export default function BulkUpdatePage() {
               </div>
               <button
                 onClick={addFilter}
-                className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"
+                className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/50 inline-flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" /> Add filter
               </button>
@@ -436,7 +436,7 @@ export default function BulkUpdatePage() {
 
           {/* Patch (SET) */}
           <div className="card">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <div className="font-medium">Set fields</div>
                 <div className="text-xs text-muted-foreground">
@@ -446,7 +446,7 @@ export default function BulkUpdatePage() {
               </div>
               <button
                 onClick={addPatch}
-                className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"
+                className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/50 inline-flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" /> Add field
               </button>
@@ -514,7 +514,7 @@ export default function BulkUpdatePage() {
                   Apply
                 </button>
                 {matchedCount == null && filters.length > 0 && (
-                  <span className="ml-3 text-xs text-amber-700 inline-flex items-center gap-1">
+                  <span className="ml-3 text-xs text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     Run preview before applying.
                   </span>

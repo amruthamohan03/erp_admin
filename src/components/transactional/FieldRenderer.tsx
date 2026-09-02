@@ -284,7 +284,7 @@ export default function FieldRenderer({
       );
 
     default:
-      return <span className="text-xs text-amber-600">Unsupported field_type: {String(field.field_type)}</span>;
+      return <span className="text-xs text-amber-600 dark:text-amber-400">Unsupported field_type: {String(field.field_type)}</span>;
   }
 }
 
@@ -332,7 +332,7 @@ function TextField({ field, value, readonly, onChange, requiredOverride, entityI
               ? 'text-red-600 dark:text-red-400'
               : status === 'available'
                 ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-muted-foreground dark:text-muted-foreground'
+                : 'text-muted-foreground'
           }`}
         >
           {message}
@@ -404,7 +404,7 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
             <FileText className="h-4 w-4" /> View File
           </a>
           {!readonly && (
-            <button type="button" onClick={() => onChange(null)} className="text-xs text-red-600 hover:text-red-700">
+            <button type="button" onClick={() => onChange(null)} className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">
               Remove
             </button>
           )}
@@ -422,7 +422,7 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
         />
       )}
       {uploading && <p className="text-xs text-muted-foreground mt-1">Uploading…</p>}
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
     </div>
   );
 }

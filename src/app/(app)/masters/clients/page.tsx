@@ -22,9 +22,9 @@ interface ClientRow {
 }
 
 const TYPE_BADGE = {
-  I: { label: 'Import', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
-  E: { label: 'Export', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
-  L: { label: 'Local', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  I: { label: 'Import', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30' },
+  E: { label: 'Export', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30' },
+  L: { label: 'Local', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30' },
 } as const;
 
 export default function ClientsPage() {
@@ -86,7 +86,7 @@ export default function ClientsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Users className="h-6 w-6 text-primary-600" />
           Clients
         </h1>

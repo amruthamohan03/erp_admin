@@ -142,7 +142,7 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
   if (loading) return <div className="card mt-6 p-6 text-center text-muted-foreground">Loading references…</div>;
   if (error) {
     return (
-      <div className="card mt-6 p-4 text-sm text-red-700 border border-red-200 bg-red-50">
+      <div className="card mt-6 p-4 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
         References unavailable: {error}
       </div>
     );
@@ -155,16 +155,16 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
   return (
     <div className="mt-6 space-y-4">
       {readonly && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           This request is in the approval chain and its references are read-only.
         </div>
       )}
-      {notice && <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">{notice}</div>}
+      {notice && <div className="rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3 text-sm text-sky-800 dark:text-sky-300">{notice}</div>}
 
       <div className="card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">MCA References</h2>
+            <h2 className="text-lg font-semibold text-foreground">MCA References</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Payment for <span className="font-medium">{payForLabel}</span>
               {skipsTracking && ' — references are auto-generated and not checked against a tracking table.'}
@@ -232,13 +232,13 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
                   </td>
                   <td>
                     {l.valid === undefined ? (
-                      <span className="text-slate-300 text-xs">—</span>
+                      <span className="text-muted-foreground text-xs">—</span>
                     ) : l.valid ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-600 text-xs">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
                         <CheckCircle2 className="h-3.5 w-3.5" /> Valid
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-amber-600 text-xs">
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
                         <AlertTriangle className="h-3.5 w-3.5" />
                         {!l.exists ? 'Not found' : `Used by #${l.duplicate}`}
                       </span>
@@ -246,7 +246,7 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
                   </td>
                   {!readonly && (
                     <td>
-                      <button type="button" onClick={() => remove(idx)} className="text-red-600 hover:text-red-800">
+                      <button type="button" onClick={() => remove(idx)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -255,13 +255,13 @@ export default function PaymentMcaGrid({ paymentId }: { paymentId: number }) {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-200 font-semibold">
+              <tr className="border-t-2 border-border font-semibold">
                 <td colSpan={2} className="text-right">
                   References total
                 </td>
                 <td className="text-right tabular-nums">{money(total)}</td>
                 <td colSpan={readonly ? 1 : 2}>
-                  <span className={`text-xs ${matches ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <span className={`text-xs ${matches ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                     {matches ? 'matches header amount' : `header amount ${money(headerAmount)} — will be updated on save`}
                   </span>
                 </td>

@@ -147,7 +147,7 @@ export default function RecordViewModal({
   function renderValue(f: PageFieldDef): React.ReactNode {
     const v = values[f.name];
     if (v === null || v === undefined || v === '') {
-      return <span className="text-slate-300">—</span>;
+      return <span className="text-muted-foreground">—</span>;
     }
 
     switch (f.field_type) {
@@ -174,7 +174,7 @@ export default function RecordViewModal({
         const joinChar = getString(f.props, 'joinChar') ?? '';
         const set = new Set(String(v).split(joinChar).filter(Boolean));
         const picked = opts.filter((o) => set.has(o.value)).map((o) => o.label);
-        return picked.length ? picked.join(', ') : <span className="text-slate-300">—</span>;
+        return picked.length ? picked.join(', ') : <span className="text-muted-foreground">—</span>;
       }
       // A dated log reads as a list, not as one run-on line.
       case 'remark-log': {
@@ -200,7 +200,7 @@ export default function RecordViewModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -229,7 +229,7 @@ export default function RecordViewModal({
           )}
 
           {!loading && error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}
@@ -241,7 +241,7 @@ export default function RecordViewModal({
                 return (
                   <section
                     key={acc.id}
-                    className="rounded-xl border border-slate-200 overflow-hidden dark:border-slate-700"
+                    className="rounded-xl border border-border overflow-hidden"
                   >
                     <div className={`h-1 w-full bg-gradient-to-r ${accent.bar}`} />
                     <div className={`flex items-center gap-2.5 px-4 py-2.5 ${accent.tint}`}>

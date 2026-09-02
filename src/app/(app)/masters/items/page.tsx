@@ -118,7 +118,7 @@ export default function ItemsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Items</h1>
+        <h1 className="text-2xl font-bold text-foreground">Items</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Item
         </button>
@@ -132,25 +132,25 @@ export default function ItemsPage() {
         emptyMessage="No items yet — create the first one."
         columns={[
         { key: 'item_name', header: 'Item Name', sortable: true, className: 'font-medium' },
-        { key: 'item_code', header: 'Code', className: 'text-slate-600 text-xs', render: (r: ItemRow) => (
+        { key: 'item_code', header: 'Code', className: 'text-muted-foreground text-xs', render: (r: ItemRow) => (
             <>
-            {r.item_code || <span className="text-slate-300">—</span>}
+            {r.item_code || <span className="text-muted-foreground">—</span>}
             </>
           ) },
-        { key: 'category_name', header: 'Category', className: 'text-slate-700 text-xs', render: (r: ItemRow) => (
+        { key: 'category_name', header: 'Category', className: 'text-foreground text-xs', render: (r: ItemRow) => (
             <>
-            {r.category_name || <span className="text-slate-300">—</span>}
+            {r.category_name || <span className="text-muted-foreground">—</span>}
             </>
           ) },
-        { key: '5', header: 'Type', className: 'inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700', render: (r: ItemRow) => (
+        { key: '5', header: 'Type', className: 'inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-foreground', render: (r: ItemRow) => (
             <>
-            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700">
+            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-foreground">
                         {ITEM_TYPE_LABEL[r.item_type] ?? r.item_type}
                       </span>
             </>
           ) },
-        { key: 'tax_not_tax', header: 'Tax Class', sortable: true, align: 'center', className: 'text-slate-700 text-xs font-mono' },
-        { key: 'percentage', header: '%', align: 'right', className: 'text-slate-700 text-xs', render: (r: ItemRow) => (
+        { key: 'tax_not_tax', header: 'Tax Class', sortable: true, align: 'center', className: 'text-foreground text-xs font-mono' },
+        { key: 'percentage', header: '%', align: 'right', className: 'text-foreground text-xs', render: (r: ItemRow) => (
             <>
             {r.percentage != null ? Number(r.percentage).toFixed(2) : '0.00'}
             </>
@@ -256,15 +256,15 @@ function ItemFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-lg">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">{isEdit ? 'Edit Item' : 'Create Item'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

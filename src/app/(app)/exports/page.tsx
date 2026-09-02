@@ -228,7 +228,7 @@ export default function ExportsListPage() {
     <>
       {/* ---- Header ---- */}
       <div className="card p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Truck className="h-5 w-5 text-primary-600" /> Export Management
         </h1>
         <a
@@ -254,11 +254,11 @@ export default function ExportsListPage() {
               type="button"
               onClick={() => toggleCard(card.key)}
               title={`Filter: ${card.label}`}
-              className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
+              className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}
             >
               <div className="absolute right-2 top-2">
                 {active ? (
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-slate-900 shadow">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-card text-foreground shadow">
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   </span>
                 ) : (
@@ -274,9 +274,9 @@ export default function ExportsListPage() {
 
       {/* ---- Advanced Filters ---- */}
       <div className="card p-4 mb-4">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
           <Filter className="h-4 w-4 text-primary-600" />
-          <span className="font-semibold text-slate-800">Advanced Filters</span>
+          <span className="font-semibold text-foreground">Advanced Filters</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
@@ -341,7 +341,7 @@ export default function ExportsListPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-500 hover:bg-slate-600 text-white px-3 py-1.5 text-sm font-medium transition"
+                className="btn-neutral btn-sm"
               >
                 <X className="h-4 w-4" /> Reset All Filters
               </button>
@@ -356,7 +356,7 @@ export default function ExportsListPage() {
           href="/exports/new"
           className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
         >
-          <span className="flex items-center gap-2 text-slate-800 font-medium">
+          <span className="flex items-center gap-2 text-foreground font-medium">
             <Truck className="h-4 w-4 text-primary-600" /> Export Tracking
           </span>
           <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
@@ -365,19 +365,19 @@ export default function ExportsListPage() {
         </Link>
         <Link
           href="/exports/bulk-new"
-          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-amber-300 hover:shadow-sm transition group"
+          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-amber-300 dark:hover:border-amber-500/40 hover:shadow-sm transition group"
         >
-          <span className="flex items-center gap-2 text-slate-800 font-medium">
-            <Layers className="h-4 w-4 text-amber-600" /> Bulk Create
+          <span className="flex items-center gap-2 text-foreground font-medium">
+            <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Bulk Create
           </span>
-          <span className="flex items-center gap-1 text-xs text-amber-600 group-hover:text-amber-700">
+          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300">
             <Plus className="h-3.5 w-3.5" /> Many against one license
           </span>
         </Link>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
@@ -396,7 +396,7 @@ export default function ExportsListPage() {
             header: 'MCA Ref',
             render: (r: ExportRow) =>
               r.mca_ref ? (
-                <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
+                <span className="inline-block rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 text-[11px] font-mono font-medium">
                   {r.mca_ref}
                 </span>
               ) : (
@@ -431,7 +431,7 @@ export default function ExportsListPage() {
             header: 'Clearing Status',
             render: (r: ExportRow) =>
               r.clearing_status_name ? (
-                <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+                <span className="inline-block rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-medium uppercase">
                   {r.clearing_status_name}
                 </span>
               ) : (

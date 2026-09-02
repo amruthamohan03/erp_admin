@@ -30,6 +30,7 @@ import {
   roleDashboardCardMappingPutSchema,
   roleDashboardCardMappingGetResponseSchema,
   profileResponseSchema,
+  mcaRefFormatsUpdateSchema,
 } from '@/schemas';
 
 // OpenAPI generation per root CLAUDE.md §4.4. Schemas are the source of
@@ -736,6 +737,56 @@ function buildRegistry(): OpenAPIRegistry {
 
   const roleIdQuerySchema = z.object({
     role_id: z.string().describe('Positive integer'),
+  });
+
+  // §4.1 — the shape of every auto-generated reference number. Six fixed rows,
+  // so there is no create or delete: a seventh reference would need code that
+  // knows where to read its codes from.
+  const mcaRefFormatResponseSchema = z.object({
+    target_key: z.enum([
+      'import',
+      'export',
+      'license',
+      'local',
+      'export-invoice',
+      'import-invoice',
+    ]),
+    format_name: z.string(),
+    segments: z.array(z.record(z.unknown())),
+    display: z.enum(['Y', 'N']),
+    is_default: z.boolean(),
+    updated_at: z.string().nullable(),
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/mca-ref-formats',
+    summary:
+      'All six reference formats. A missing or deactivated row is returned as its shipped default, flagged is_default.',
+    tags: ['mca-ref-formats'],
+    responses: {
+      200: jsonOk('Reference formats', z.array(mcaRefFormatResponseSchema)),
+      401: jsonError('Unauthorized'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'put',
+    path: '/mca-ref-formats',
+    summary:
+      'Upsert one or more formats in a single transaction. Applies to records created afterwards; references already issued are untouched.',
+    tags: ['mca-ref-formats'],
+    request: {
+      body: {
+        required: true,
+        content: { 'application/json': { schema: mcaRefFormatsUpdateSchema } },
+      },
+    },
+    responses: {
+      200: jsonOk('Formats persisted', z.array(mcaRefFormatResponseSchema)),
+      401: jsonError('Unauthorized'),
+      422: jsonError('Unknown reference, unresolvable segment, or more than one number segment'),
+    },
   });
 
   registry.registerPath({

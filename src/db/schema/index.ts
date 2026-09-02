@@ -62,6 +62,7 @@ export * from './originMaster';
 export * from './provinceMaster';
 export * from './industryMaster';
 export * from './actionStyleMaster';
+export * from './mcaRefFormat';
 export * from './doneByMaster';
 export * from './expenseTypeMaster';
 export * from './hscodeMaster';

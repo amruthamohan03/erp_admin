@@ -70,7 +70,7 @@ export default function ClientsDashboardPage() {
             <BarChart3 className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Client Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Client Dashboard</h1>
             <p className="text-sm text-muted-foreground">Real-time insights and analytics</p>
           </div>
         </div>
@@ -79,7 +79,7 @@ export default function ClientsDashboardPage() {
             type="button"
             title="Toggle theme (placeholder)"
             disabled
-            className="h-9 w-9 rounded-md border border-slate-200 text-muted-foreground inline-flex items-center justify-center"
+            className="h-9 w-9 rounded-md border border-border text-muted-foreground inline-flex items-center justify-center"
           >
             <Sun className="h-4 w-4" />
           </button>
@@ -101,7 +101,7 @@ export default function ClientsDashboardPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-3 mb-4 text-sm text-red-700 border border-red-200 whitespace-pre-wrap">
+        <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-3 mb-4 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 whitespace-pre-wrap">
           {error}
         </div>
       )}
@@ -125,7 +125,7 @@ export default function ClientsDashboardPage() {
           </div>
 
           <div className="card p-4 mb-5">
-            <h3 className="font-semibold text-slate-800 mb-3">Monthly Registration Trend</h3>
+            <h3 className="font-semibold text-foreground mb-3">Monthly Registration Trend</h3>
             <MonthlyTrend data={chartData.monthly_registration_trend} />
           </div>
         </>
@@ -148,7 +148,7 @@ function DonutCard({
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <div className="card p-4">
-      <h3 className="font-semibold text-slate-800 mb-3">{title}</h3>
+      <h3 className="font-semibold text-foreground mb-3">{title}</h3>
       {total === 0 ? (
         <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
       ) : (
@@ -158,7 +158,7 @@ function DonutCard({
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
             {data.map((d, i) => (
-              <div key={d.label} className="inline-flex items-center gap-1 text-xs text-slate-700">
+              <div key={d.label} className="inline-flex items-center gap-1 text-xs text-foreground">
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-full"
                   style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
@@ -256,17 +256,17 @@ function BarCard({
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
     <div className="card p-4">
-      <h3 className="font-semibold text-slate-800 mb-3">{title}</h3>
+      <h3 className="font-semibold text-foreground mb-3">{title}</h3>
       {data.length === 0 ? (
         <p className="text-sm text-muted-foreground py-12 text-center">No data</p>
       ) : (
         <div className="space-y-3">
           {data.map((d, i) => (
             <div key={d.label} className="flex items-center gap-2">
-              <span className="w-28 text-xs text-slate-700 text-right truncate" title={d.label}>
+              <span className="w-28 text-xs text-foreground text-right truncate" title={d.label}>
                 {d.label}
               </span>
-              <div className="flex-1 h-7 bg-slate-100 rounded relative overflow-hidden">
+              <div className="flex-1 h-7 bg-muted rounded relative overflow-hidden">
                 <div
                   className="h-full rounded flex items-center justify-end pr-2 text-xs text-white font-medium"
                   style={{
@@ -299,8 +299,8 @@ function MonthlyTrend({ data }: { data: MonthlyPoint[] }) {
         const monthLabel = d.month.slice(5);
         return (
           <div key={d.month} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-            <div className="text-[10px] text-slate-600">{d.value}</div>
-            <div className="w-full bg-slate-100 rounded-t" style={{ height: '100%' }}>
+            <div className="text-[10px] text-muted-foreground">{d.value}</div>
+            <div className="w-full bg-muted rounded-t" style={{ height: '100%' }}>
               <div
                 className="bg-gradient-to-t from-indigo-500 to-violet-400 rounded-t"
                 style={{ height: `${h}%`, minHeight: d.value > 0 ? '4px' : '0' }}

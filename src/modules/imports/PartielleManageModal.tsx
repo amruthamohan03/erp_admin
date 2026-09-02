@@ -116,7 +116,7 @@ export default function PartielleManageModal({
   const nextRef = `${lic?.ref_cod || ''}-${String((data?.rows.length ?? 0) + 1).padStart(4, '0')}`;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-slate-900/50 p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/50 p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
       <div className="card w-full max-w-5xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-emerald-500 to-green-600">
           <h2 className="font-semibold flex items-center gap-2">
@@ -126,22 +126,22 @@ export default function PartielleManageModal({
         </div>
 
         <div className="p-5 space-y-4 max-h-[75vh] overflow-auto">
-          {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+          {error && <div className="rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</div>}
           {loading && <div className="py-8 text-center text-muted-foreground">Loading…</div>}
 
           {!loading && lic && (
             <>
               {/* Budget + available boxes */}
               <div className="grid sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 space-y-0.5">
+                <div className="rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3 text-sm text-sky-900 dark:text-sky-200 space-y-0.5">
                   <div><span className="font-semibold">Client:</span> {lic.client_name || '—'}</div>
                   <div><span className="font-semibold">REF COD:</span> {lic.ref_cod || '—'}</div>
                   <div><span className="font-semibold">License Weight:</span> {money(lic.license_weight)} KG</div>
                   <div><span className="font-semibold">License FOB:</span> {money(lic.license_fob)}</div>
                 </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 flex flex-col justify-center gap-1">
-                  <div className="font-semibold">Available Weight: <span className={data.available.weight < 0 ? 'text-red-600' : ''}>{money(data.available.weight)} KG</span></div>
-                  <div className="font-semibold">Available FOB: <span className={data.available.fob < 0 ? 'text-red-600' : ''}>{money(data.available.fob)}</span></div>
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-900 dark:text-emerald-200 flex flex-col justify-center gap-1">
+                  <div className="font-semibold">Available Weight: <span className={data.available.weight < 0 ? 'text-red-600 dark:text-red-400' : ''}>{money(data.available.weight)} KG</span></div>
+                  <div className="font-semibold">Available FOB: <span className={data.available.fob < 0 ? 'text-red-600 dark:text-red-400' : ''}>{money(data.available.fob)}</span></div>
                 </div>
               </div>
 
@@ -152,7 +152,7 @@ export default function PartielleManageModal({
                   <Plus className="h-4 w-4" /> Add New PARTIELLE
                 </button>
               ) : (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex flex-wrap items-end gap-3">
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-3 flex flex-wrap items-end gap-3">
                   <div>
                     <label className="label">PARTIELLE Number</label>
                     <input className="input w-48" value={form.name} placeholder={nextRef}
@@ -177,7 +177,7 @@ export default function PartielleManageModal({
               )}
 
               {/* Allotment table */}
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="table-base whitespace-nowrap text-xs">
                   <thead>
                     <tr>
@@ -203,13 +203,13 @@ export default function PartielleManageModal({
                     {data.rows.map((r, idx) => {
                       const editing = edit?.id === r.id;
                       return (
-                        <tr key={r.id} className="hover:bg-slate-50">
+                        <tr key={r.id} className="hover:bg-muted/50">
                           <td className="text-muted-foreground">{idx + 1}</td>
                           <td>{lic.ref_cod}</td>
                           <td className="font-mono">{r.partial_name}</td>
                           <td className="text-right tabular-nums">{money(lic.license_weight)}</td>
                           <td className="text-right tabular-nums">{money(lic.license_fob)}</td>
-                          <td className="text-center"><span className="inline-flex items-center justify-center min-w-[22px] h-5 rounded-full bg-sky-100 text-sky-700 text-[10px] font-semibold px-1.5">{r.no_of_files}</span></td>
+                          <td className="text-center"><span className="inline-flex items-center justify-center min-w-[22px] h-5 rounded-full bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-semibold px-1.5">{r.no_of_files}</span></td>
                           <td className="text-right">
                             {editing ? (
                               <input type="number" step="0.001" className="input w-24 text-right py-1" value={edit.weight}
@@ -222,10 +222,10 @@ export default function PartielleManageModal({
                                 onChange={(e) => setEdit({ ...edit, fob: e.target.value })} />
                             ) : money(r.partial_fob)}
                           </td>
-                          <td className="text-right text-slate-600 tabular-nums">{money(r.weight_used)}</td>
-                          <td className="text-right text-slate-600 tabular-nums">{money(r.fob_used)}</td>
-                          <td className={`text-right tabular-nums font-medium ${r.remaining_weight < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(r.remaining_weight)}</td>
-                          <td className={`text-right tabular-nums font-medium ${r.remaining_fob < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(r.remaining_fob)}</td>
+                          <td className="text-right text-muted-foreground tabular-nums">{money(r.weight_used)}</td>
+                          <td className="text-right text-muted-foreground tabular-nums">{money(r.fob_used)}</td>
+                          <td className={`text-right tabular-nums font-medium ${r.remaining_weight < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.remaining_weight)}</td>
+                          <td className={`text-right tabular-nums font-medium ${r.remaining_fob < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.remaining_fob)}</td>
                           <td className="text-center">
                             {editing ? (
                               <button type="button" onClick={saveEdit} disabled={busy}
@@ -247,7 +247,7 @@ export default function PartielleManageModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary inline-flex items-center gap-1.5"><X className="h-4 w-4" /> Close</button>
         </div>
       </div>

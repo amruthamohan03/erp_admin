@@ -40,9 +40,9 @@ interface SealRow {
 }
 
 const STATUS_STYLES: Record<SealRow['status'], string> = {
-  Available: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Used: 'bg-sky-50 text-sky-700 border-sky-200',
-  Damaged: 'bg-rose-50 text-rose-700 border-rose-200',
+  Available: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+  Used: 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30',
+  Damaged: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
 };
 
 export default function SealBatchDetailPage() {
@@ -231,7 +231,7 @@ export default function SealBatchDetailPage() {
           >
             <ArrowLeft className="h-3 w-3" /> Back to batches
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-primary-600" />
             Seal Batch #{batchId}
           </h1>
@@ -259,12 +259,12 @@ export default function SealBatchDetailPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 border border-emerald-200">
+        <div className="mb-4 rounded-md bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
           {notice}
         </div>
       )}
@@ -279,21 +279,21 @@ export default function SealBatchDetailPage() {
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <dt className="text-muted-foreground">Office</dt>
-                <dd className="text-slate-900">{batch.location_name ?? '—'}</dd>
+                <dd className="text-foreground">{batch.location_name ?? '—'}</dd>
                 <dt className="text-muted-foreground">Sub-office</dt>
-                <dd className="text-slate-900">
+                <dd className="text-foreground">
                   {batch.sub_office_code ?? '—'}
                 </dd>
                 <dt className="text-muted-foreground">Purchase date</dt>
-                <dd className="text-slate-900">{batch.purchase_date ?? '—'}</dd>
+                <dd className="text-foreground">{batch.purchase_date ?? '—'}</dd>
                 <dt className="text-muted-foreground">Total amount</dt>
-                <dd className="text-slate-900 font-mono">
+                <dd className="text-foreground font-mono">
                   {batch.total_amount ?? '0'}
                 </dd>
                 <dt className="text-muted-foreground">Budget (seals)</dt>
-                <dd className="text-slate-900">{batch.total_seal}</dd>
+                <dd className="text-foreground">{batch.total_seal}</dd>
                 <dt className="text-muted-foreground">Added so far</dt>
-                <dd className="text-slate-900">
+                <dd className="text-foreground">
                   {numbers.length} of {batch.total_seal}
                 </dd>
               </dl>
@@ -334,8 +334,8 @@ export default function SealBatchDetailPage() {
         <div className="lg:col-span-2">
           <div className="card">
             {selected.size > 0 && (
-              <div className="p-3 border-b border-slate-200 bg-primary-50/40 flex items-center gap-3 flex-wrap">
-                <div className="text-sm font-medium text-slate-700">
+              <div className="p-3 border-b border-border bg-primary-50/40 flex items-center gap-3 flex-wrap">
+                <div className="text-sm font-medium text-foreground">
                   {selected.size} selected
                 </div>
                 <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ export default function SealBatchDetailPage() {
                 <button
                   onClick={deleteSelected}
                   disabled={busy}
-                  className="btn-secondary text-red-600"
+                  className="btn-secondary text-red-600 dark:text-red-400"
                 >
                   <Trash2 className="h-4 w-4" /> Delete
                 </button>
@@ -418,7 +418,7 @@ export default function SealBatchDetailPage() {
                       <tr
                         key={n.id}
                         className={
-                          'hover:bg-slate-50 ' +
+                          'hover:bg-muted/50 ' +
                           (selected.has(n.id) ? 'bg-primary-50/30' : '')
                         }
                       >

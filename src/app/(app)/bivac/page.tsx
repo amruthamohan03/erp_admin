@@ -213,7 +213,7 @@ export default function BivacPage() {
               <Layers className="h-6 w-6" />
             </span>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">PARTIELLE Management</h1>
+              <h1 className="text-xl font-bold text-foreground">PARTIELLE Management</h1>
               <p className="text-sm text-muted-foreground">Import-licence allocation & usage tracking (Bivac)</p>
             </div>
           </div>
@@ -317,9 +317,9 @@ export default function BivacPage() {
                 ['Lic FOB − ΣAV', fmt(viewLicense.fob_declared - totals.av_f)],
                 ['Files', String(totals.files)],
               ].map(([label, val]) => (
-                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-800/40">
+                <div key={label} className="rounded-lg border border-border bg-muted/50 px-3 py-1.5">
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
-                  <div className="text-sm font-bold text-slate-800 dark:text-slate-100 tabular-nums">{val}</div>
+                  <div className="text-sm font-bold text-foreground tabular-nums">{val}</div>
                 </div>
               ))}
             </div>
@@ -345,7 +345,7 @@ export default function BivacPage() {
                     <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No PARTIELLE for this licence.</td></tr>
                   )}
                   {!partialsLoading && partials?.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <tr key={p.id} className="hover:bg-muted/50">
                       <td className="font-medium">{p.partial_name}</td>
                       <td className="text-right tabular-nums text-xs">{fmt(p.partial_weight)} KG</td>
                       <td className="text-right tabular-nums text-xs">{fmt(p.partial_fob)}</td>
@@ -359,7 +359,7 @@ export default function BivacPage() {
                             className="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold bg-amber-500 text-white hover:bg-amber-600">
                             {p.import_count}
                           </button>
-                        ) : (<span className="text-slate-300 text-xs">0</span>)}
+                        ) : (<span className="text-muted-foreground text-xs">0</span>)}
                       </td>
                       <td className="text-center">
                         <button type="button" onClick={() => openEdit(p)} title="Edit allocation"
@@ -398,7 +398,7 @@ export default function BivacPage() {
                 {filesLoading && (<tr><td colSpan={11} className="text-center text-muted-foreground py-6">Loading…</td></tr>)}
                 {!filesLoading && files?.length === 0 && (<tr><td colSpan={11} className="text-center text-muted-foreground py-6">No import files.</td></tr>)}
                 {!filesLoading && files?.map((f, i) => (
-                  <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
+                  <tr key={f.id} className="hover:bg-muted/50 text-xs">
                     <td className="text-muted-foreground">{i + 1}</td>
                     <td className="font-mono">{f.mca_ref || '—'}</td>
                     <td>{f.inspection_reports || '—'}</td>
@@ -420,7 +420,7 @@ export default function BivacPage() {
 
       {/* ---- Edit modal ---- */}
       {edit && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setEdit(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setEdit(null)}>
           <div className="card w-full max-w-3xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-violet-500 to-purple-600">
               <h2 className="font-semibold flex items-center gap-2"><Edit2 className="h-5 w-5" /> Edit allocation — {edit.partial_name}</h2>
@@ -459,14 +459,14 @@ export default function BivacPage() {
                   ['Lic Wt − AV', `${fmt(licW - avW)} KG`], ['Lic FOB − AV', fmt(licF - avF)],
                   ['AV − Used Wt', `${fmt(avW - edit.used_weight)} KG`], ['AV − Used FOB', fmt(avF - edit.used_fob)],
                 ].map(([label, val]) => (
-                  <div key={label} className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/40">
+                  <div key={label} className="rounded-lg bg-muted/50 px-3 py-2">
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
-                    <div className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">{val}</div>
+                    <div className="font-bold text-foreground tabular-nums">{val}</div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setEdit(null)} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
               <button type="button" onClick={saveEdit} disabled={saving} className="btn-primary">
                 <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Update'}
