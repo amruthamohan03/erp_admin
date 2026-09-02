@@ -7,7 +7,15 @@ import BackButton from '@/components/ui/BackButton';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
-import { parseDerive, isPureDerive, computePureDerive, deriveTriggers, INIT_TRIGGER } from '@/lib/pages/derive';
+import {
+  parseDerive,
+  isPureDerive,
+  isAsyncDerive,
+  isEditableDerive,
+  computePureDerive,
+  deriveTriggers,
+  INIT_TRIGGER,
+} from '@/lib/pages/derive';
 import { parentListRoute } from '@/lib/pages/listRoute';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion, { type ResolvedField } from './Accordion';
@@ -59,8 +67,13 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     }
     setPage(result.data.page);
     setValues(result.data.values ?? {});
-    // Open the first section by default; the rest stay collapsed as before.
-    setOpenSlugs(new Set(result.data.page.accordions.slice(0, 1).map((a) => a.slug)));
+    // §4.34 — every section opens with the page. One save covers the whole form
+    // (§4.17), so a collapsed section is still being submitted; hiding it means
+    // an operator fills in what they can see, saves, and is told a required field
+    // three sections down is empty. Opening everything makes the form's real
+    // extent visible from the start, and the operator collapses what they don't
+    // need rather than hunting for what they do.
+    setOpenSlugs(new Set(result.data.page.accordions.map((a) => a.slug)));
     setDirty(false);
     setInvalidFields(new Set());
     setLoading(false);
@@ -91,20 +104,63 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     return s;
   }, [allFields]);
 
+  // Derived fields the page owns outright — an async derive that did NOT opt into
+  // `editable`, so it renders read-only and mirrors its source. Only these are
+  // safe to backfill on load: the operator cannot have cleared one deliberately,
+  // so an empty one is missing data rather than a choice.
+  const authoritativeFields = useMemo(() => {
+    const s = new Set<string>();
+    for (const f of allFields) {
+      const spec = parseDerive(f.derive);
+      if (isAsyncDerive(spec) && !isEditableDerive(spec)) s.add(f.name);
+    }
+    return s;
+  }, [allFields]);
+
   // §4.12 — resolve async derives on the server and merge the returned values.
+  //
+  // `mode` decides what merging means:
+  //   replace — the user changed the trigger, so the derived values are now
+  //             authoritative and overwrite whatever was there.
+  //   fill    — the page just loaded an existing record; only blanks are filled,
+  //             and never over a value the record already holds.
   const runAsyncDerive = useCallback(
-    async (triggerField: string, current: Record<string, unknown>) => {
+    async (
+      triggerField: string,
+      current: Record<string, unknown>,
+      mode: 'replace' | 'fill' = 'replace',
+    ) => {
       const res = await fetch(`/api/v1/pages/${slug}/derive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger_field: triggerField, values: current }),
       });
       const json: { ok: boolean; data?: { values: Record<string, unknown> } } = await res.json();
-      if (res.ok && json.ok && json.data) {
+      if (!res.ok || !json.ok || !json.data) return;
+
+      if (mode === 'replace') {
         setValues((prev) => ({ ...prev, ...json.data!.values }));
+        return;
       }
+
+      // Compared against the snapshot this fill was started from rather than
+      // against `prev`, so the decision stays a pure calculation outside the
+      // state updater.
+      const empty = (v: unknown) => v === null || v === undefined || v === '';
+      const filled: Record<string, unknown> = {};
+      for (const [name, value] of Object.entries(json.data.values)) {
+        if (empty(value) || !empty(current[name])) continue;
+        if (!authoritativeFields.has(name)) continue;
+        filled[name] = value;
+      }
+      if (Object.keys(filled).length === 0) return;
+
+      setValues((prev) => ({ ...prev, ...filled }));
+      // Say so. These are proposed values, not stored ones — leaving the page
+      // clean would show a completed record that silently reverts on reload.
+      setDirty(true);
     },
-    [slug],
+    [slug, authoritativeFields],
   );
 
   // §4.12 — prefill derives (INIT_TRIGGER) have no triggering field: they fire
@@ -122,6 +178,32 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     // and the ref guard makes it once-only.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void runAsyncDerive(INIT_TRIGGER, values);
+  }, [page, entityId, asyncTriggers, runAsyncDerive, values]);
+
+  // §4.12 — an EXISTING record fills its derived blanks when it opens.
+  //
+  // An async derive fires when its trigger CHANGES, which is exactly what a
+  // create needs and exactly what an update does not: the licence is already
+  // chosen, so nothing changes, so kind / type of goods / transport mode /
+  // currency stay blank on a record that never had them written. Export tracking
+  // shows this plainly — its records are created from the grid, which does not
+  // capture those fields, so every one of them opened with the mirrors empty and
+  // no way to populate them short of re-picking a licence that was already right.
+  //
+  // Only blanks are touched, and only the read-only mirrors (see
+  // `authoritativeFields`), so nothing the record already holds is overwritten.
+  const fillRan = useRef(false);
+  useEffect(() => {
+    if (!page || entityId === 'new' || fillRan.current) return;
+    const ready = [...asyncTriggers].filter(
+      (t) => t !== INIT_TRIGGER && values[t] !== null && values[t] !== undefined && values[t] !== '',
+    );
+    if (ready.length === 0) return;
+    // Once-only via the ref, so depending on `values` is safe even though the
+    // fills below write to it.
+    fillRan.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    for (const trigger of ready) void runAsyncDerive(trigger, values, 'fill');
   }, [page, entityId, asyncTriggers, runAsyncDerive, values]);
 
   const handleFieldChange = useCallback((fieldName: string, value: unknown) => {

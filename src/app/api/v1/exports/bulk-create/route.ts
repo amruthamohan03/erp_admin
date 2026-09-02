@@ -14,6 +14,7 @@ import {
   NotFoundError,
 } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { generateReferences } from '@/db/queries/mcaRefGenerator';
 import { exportsBulkCreateSchema } from '@/schemas/exports-bulk';
 import {
   loadExportChargeRules,
@@ -111,20 +112,37 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  const prefix = common.mca_ref_prefix.trim();
-  if (!prefix) throw new BadRequestError('mca_ref_prefix required');
-
   // Pre-load all charge rules once, before the transaction opens —
   // reads outside the tx keep the transactional lock window as
   // short as possible.
   const chargeRules = await loadExportChargeRules();
 
   const createdIds = await db.transaction(async (tx) => {
+    // §4.33 — references come from the format configured under Developer Options,
+    // via the same generator the single-record form uses. The operator used to
+    // type a prefix here and the route appended `-0001`, which meant an export
+    // created from this screen could be named differently from one created on the
+    // form, and neither followed the configured format.
+    //
+    // Generated inside the transaction and all at once, so the run of numbers is
+    // taken from one consistent view of what has already been issued.
+    const refs = await generateReferences(
+      'export',
+      { client_id: common.client_id, license_id: common.license_id },
+      rows.length,
+      tx,
+    );
+    if (refs.length !== rows.length) {
+      throw new BadRequestError(
+        'The MCA reference could not be built — the licence is missing its kind, type of goods or transport mode, or the client has no short code. Complete the licence and try again.',
+      );
+    }
+
     const ids: number[] = [];
 
     for (let i = 0; i < rows.length; i += 1) {
       const r = rows[i];
-      const mcaRef = `${prefix}-${String(i + 1).padStart(4, '0')}`;
+      const mcaRef = refs[i].ref;
 
       // Pre-check duplicate (partial live index on mca_ref); this
       // gives a nicer error than a Postgres unique-violation on
@@ -135,9 +153,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         .where(and(eq(exportT.mcaRef, mcaRef), eq(exportT.display, 'Y')))
         .limit(1);
       if (dup) {
+        // The generator numbers from the highest already issued, so reaching
+        // here means another batch claimed this reference between the two —
+        // retrying picks up from the new highest.
         throw new ConflictError(
-          `MCA ref "${mcaRef}" already exists — pick a different prefix or ` +
-            `resolve the existing row.`,
+          `MCA ref "${mcaRef}" was taken while this batch was being saved. Nothing was created — submit it again to get the next free references.`,
         );
       }
 

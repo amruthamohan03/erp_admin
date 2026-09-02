@@ -28,6 +28,7 @@ const EXPECTED_PATHS: Record<string, ReadonlyArray<string>> = {
   // §4.33 — the six reference formats. No post/delete: the set of references is
   // fixed by code, so this endpoint edits them and cannot add or remove one.
   '/mca-ref-formats': ['get', 'put'],
+  '/mca-ref-formats/preview': ['get'],
   '/forms/{formKey}': ['get'],
   '/cases/{templateKey}': ['get', 'post'],
   '/cases/{templateKey}/{caseId}': ['get'],

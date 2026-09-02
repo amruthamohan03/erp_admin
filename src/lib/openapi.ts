@@ -791,6 +791,43 @@ function buildRegistry(): OpenAPIRegistry {
 
   registry.registerPath({
     method: 'get',
+    path: '/mca-ref-formats/preview',
+    summary:
+      'The references a create would actually be given — built by the generator that assigns them, not an illustration. Query carries the ids the target resolves from (client_id, license_id, …).',
+    tags: ['mca-ref-formats'],
+    request: {
+      query: z.object({
+        target: z.enum([
+          'import',
+          'export',
+          'license',
+          'local',
+          'export-invoice',
+          'import-invoice',
+        ]),
+        count: z.coerce.number().int().min(1).max(50).optional(),
+        client_id: z.coerce.number().int().positive().optional(),
+        license_id: z.coerce.number().int().positive().optional(),
+      }),
+    },
+    responses: {
+      200: jsonOk(
+        'Next references',
+        z.object({
+          target: z.string(),
+          label: z.string(),
+          refs: z.array(z.string()),
+          /** False when a code the format asks for could not be resolved. */
+          resolved: z.boolean(),
+        }),
+      ),
+      401: jsonError('Unauthorized'),
+      422: jsonError('Unknown reference target'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
     path: '/role-menu-mapping',
     summary: 'All active menus joined with the queried role mapping',
     tags: ['mappings'],

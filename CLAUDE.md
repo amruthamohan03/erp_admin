@@ -680,16 +680,38 @@ The dark side is a **translucent fill of the mid shade** (`-500/10`, `-500/20`) 
 
 Segment types: `client`, `kind`, `goods`, `transport`, `office` (master codes), `year` (2 or 4 digits), `literal` (fixed text), `sequence` (the incrementing number). Code segments take an optional `letters` to keep only the first N — that is how a full office name becomes `KI`.
 
-**Three rules hold this together, and all three are load-bearing:**
+**Four rules hold this together, and all four are load-bearing:**
 
-1. **Config names a reference, never a table.** `target_key` is a closed set that selects an entry in a vetted registry in [deriveSources.ts](src/lib/pages/deriveSources.ts). Adding a seventh reference is a code change, because something has to know where to read its codes from — which is why the setup screen edits the six and offers no create or delete.
-2. **One renderer, both sides.** [src/lib/mcaRefFormat.ts](src/lib/mcaRefFormat.ts) is pure and shared: the setup screen's live preview and the server-side generator call the same `renderMcaRef`, so what an operator sees while editing is what the next consignment is actually called (§4.10). Never format a reference at a call site.
-3. **The counter is found by regex, not by prefix.** `buildSequencePattern` anchors on the resolved value of every *other* segment and captures the digits, so the number can sit anywhere in the reference. The old `LIKE 'prefix%' ORDER BY … DESC` only worked while the sequence was last, which is exactly the constraint this feature removes. It also means the counter is scoped by precisely what the format prints — drop the year segment and numbering stops resetting annually, with nothing else to keep in step. Soft-deleted rows still count: their reference is spent, and the partial unique index does not filter on `display` (§4.27).
+1. **Config names a reference, never a table.** `target_key` is a closed set that selects an entry in a vetted registry in [mcaRefGenerator.ts](src/db/queries/mcaRefGenerator.ts) — that module owns the table/column map *and* the SQL that reads each target's codes. Adding a seventh reference is a code change, because something has to know where to read its codes from — which is why the setup screen edits the six and offers no create or delete.
+2. **One generator, every caller.** `generateReferences(target, values, count)` is the only thing that issues a reference. A field derive asks for one ([deriveSources.ts](src/lib/pages/deriveSources.ts) wires the six sources onto it), a bulk create asks for N consecutive ones, and `GET /api/v1/mca-ref-formats/preview` asks for the same N so a screen can show them before committing. **Never build a reference anywhere else** — export bulk-create used to have the operator type a prefix and appended `-0001` to it, so the same consignment type was named one way from the form and another from the grid, and the grid's way ignored the configured format entirely.
+3. **One renderer, both sides.** [src/lib/mcaRefFormat.ts](src/lib/mcaRefFormat.ts) is pure and shared: the setup screen's live preview and the server-side generator call the same `renderMcaRef`, so what an operator sees while editing is what the next consignment is actually called (§4.10). Never format a reference at a call site.
+4. **The counter is found by regex, not by prefix.** `buildSequencePattern` anchors on the resolved value of every *other* segment and captures the digits, so the number can sit anywhere in the reference. The old `LIKE 'prefix%' ORDER BY … DESC` only worked while the sequence was last, which is exactly the constraint this feature removes. It also means the counter is scoped by precisely what the format prints — drop the year segment and numbering stops resetting annually, with nothing else to keep in step. Soft-deleted rows still count: their reference is spent, and the partial unique index does not filter on `display` (§4.27).
 
 Two behaviours to preserve if you touch the generator:
 
 - **A missing code blanks the whole reference.** `renderMcaRef` returns `null` if any segment cannot resolve, and the field is left empty. A reference with a hole in it is not a shorter reference — it is a different one, and it will collide with a consignment that legitimately has that shape. Blank plus the required check naming the field (§4.18, §4.23) is the correct outcome.
 - **A missing, empty or deactivated config row falls back to `MCA_REF_DEFAULTS`**, which reproduce what the hardcoded resolvers produced. A half-configured table must never stop consignments being created, and must never quietly rename them either.
+
+### 4.34 A transaction page opens with every accordion expanded
+
+**Every section of a transaction page is open when the page loads.** [TransactionalPage](src/components/transactional/TransactionalPage.tsx) seeds `openSlugs` from the full accordion list, so all 16 transaction pages get this from the one shared runtime — never re-decide it per page.
+
+```tsx
+// The whole form is visible from the start.
+setOpenSlugs(new Set(page.accordions.map((a) => a.slug)));
+
+// Not this — it hides most of a form that is saved as a single unit.
+setOpenSlugs(new Set(page.accordions.slice(0, 1).map((a) => a.slug)));
+```
+
+This follows directly from §4.17. One Save covers the *whole* page, so a collapsed section is still being submitted and still being validated. Opening only the first one meant an operator filled in what they could see, pressed Save, and was told a required field three sections down was empty — the form asked for something it had not shown them. Collapsing is for getting a long form out of the way once you know what is in it, not for discovering what it contains.
+
+Consequences worth keeping:
+
+- **Accordions stay collapsible.** The default is open; the operator closes what they don't need. Do not remove the toggle, and do not persist the collapsed state across loads — a fresh page is a fresh look at the whole form.
+- **A failed save still opens the offending section** (§4.17). That path is not redundant: by then the operator may have collapsed it themselves.
+- **Read-only views were never collapsed.** [RecordViewModal](src/components/transactional/RecordViewModal.tsx) renders every section outright, which is the same intent — this rule brings the editable page in line with it.
+- **The sticky action bar keeps its bottom padding.** With everything expanded the page is longer, so the clearance under the last section matters more, not less.
 
 ## 5. Directory layout
 
@@ -845,6 +867,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to sort a dropdown's options alphabetically, or to pre-sort them at the call site → no, options render in id order via `orderOptions` (§4.16).
 - Requests to write another private `fetchOptions` helper on a page → no, use `fetchMasterOptions` (§4.16, §4.10).
 - Requests to put a save button on an individual accordion → no, a transaction page has one page-level Save (§4.17).
+- Requests to open only the first accordion, or to remember which sections were collapsed last time → no, a transaction page opens with every section expanded (§4.34).
 - Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
 - Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).
 - Requests to render a user-visible date with slashes, or in any order but day-month-year → no, it is `DD-MM-YYYY` (§4.19).
@@ -869,6 +892,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to leave the header/footer gradient at its light-mode brightness in dark mode → no, the chrome is capped dark (§4.32).
 - Requests to hardcode a reference-number format, or to restate one as a template string on a field's `derive` row → no, it is segments in `mca_ref_format_master_t` and the field binds `{ref}` (§4.33).
 - Requests to find the next sequence with a `LIKE 'prefix%'` scan → no, that assumes the number is last; use `buildSequencePattern` (§4.33).
+- Requests to let an operator type a reference prefix on a create screen, or to build a reference anywhere but `generateReferences` → no, one generator issues every reference (§4.33).
 - Requests to emit a reference with a missing code left blank → no, blank the whole field rather than issue a reference that will collide (§4.33).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.

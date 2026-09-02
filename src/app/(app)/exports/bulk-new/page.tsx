@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
-  Layers,
+  Truck,
   Loader2,
   Plus,
   Save,
@@ -14,6 +14,7 @@ import {
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import SealPickerControl from '@/components/ui/SealPickerControl';
 import { fetchClientOptions } from '@/lib/clientOptions';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // No. of Seals is derived from the comma-joined seal numbers — same rule the
 // single form applies via its `count` derive on dgda_seal_no.
@@ -26,9 +27,15 @@ const sealCount = (s: string): number =>
 // reservation (see the bulk-create endpoint comment for rationale).
 //
 // Layout:
-//   Header — client + license picker, live usage bar, MCA prefix
+//   Header — client + licence picker, number of entries, live usage bar, and
+//            the MCA references the batch will be given
 //   Grid — one row per export, add/remove, editable inputs
 //   Footer — totals + submit
+//
+// References are NOT typed here. They come from the format configured under
+// Developer Options → Reference Formats, built by the same generator the
+// single-record form uses (§4.33), so an export is named the same way whichever
+// screen created it. The preview shows what they will be before committing.
 //
 // Cap enforcement is done both client-side (row-by-row live sum vs
 // remaining) and server-side (authoritative — the batch fails if
@@ -76,6 +83,12 @@ const EMPTY_ROW: GridRow = {
   number_of_bags: '',
 };
 
+/** Enough for a day's loading; past this the grid stops being usable anyway. */
+const MAX_ENTRIES = 200;
+
+const rowHasData = (r: GridRow): boolean =>
+  Object.values(r).some((v) => String(v ?? '').trim() !== '');
+
 const nonEmpty = (s: string): string | null =>
   s.trim() === '' ? null : s.trim();
 const nonEmptyNum = (s: string): number | undefined =>
@@ -96,8 +109,12 @@ export default function BulkNewExportsPage() {
   const [usage, setUsage] = useState<LicenseUsage | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
 
-  const [mcaPrefix, setMcaPrefix] = useState('');
   const [rows, setRows] = useState<GridRow[]>([{ ...EMPTY_ROW }]);
+  // Held as a string so the field can be empty mid-typing; the grid only
+  // changes when the value is committed (blur or Enter).
+  const [entryCount, setEntryCount] = useState('1');
+  const [previewRefs, setPreviewRefs] = useState<string[]>([]);
+  const [refsLoading, setRefsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,6 +166,32 @@ export default function BulkNewExportsPage() {
     loadUsage(licenseId);
   }, [licenseId, loadUsage]);
 
+  // §4.33 — the references this batch will actually be given, from the same
+  // generator that assigns them. Re-fetched when the licence, the client or the
+  // number of rows changes, since all three move the answer.
+  useEffect(() => {
+    if (!clientId || !licenseId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPreviewRefs([]);
+      return;
+    }
+    let cancelled = false;
+    setRefsLoading(true);
+    const params = new URLSearchParams({
+      target: 'export',
+      client_id: clientId,
+      license_id: licenseId,
+      count: String(Math.min(rows.length, 50)),
+    });
+    (async () => {
+      const res = await safeFetchJson<{ refs: string[] }>(`/api/v1/mca-ref-formats/preview?${params}`);
+      if (cancelled) return;
+      setPreviewRefs(res.ok ? res.data.refs : []);
+      setRefsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [clientId, licenseId, rows.length]);
+
   // Client-side batch total (informational — server re-checks).
   const batchFob = useMemo(
     () =>
@@ -174,15 +217,54 @@ export default function BulkNewExportsPage() {
     setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
+  // Add/remove keep the count field in step, so the header never disagrees with
+  // the grid. Computed from `rows` rather than inside the updater — a state
+  // updater has to stay a pure calculation.
   function addRow() {
-    setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+    const next = [...rows, { ...EMPTY_ROW }];
+    setRows(next);
+    setEntryCount(String(next.length));
   }
   function removeRow(idx: number) {
-    setRows((prev) =>
-      prev.length === 1
-        ? [{ ...EMPTY_ROW }]
-        : prev.filter((_, i) => i !== idx),
-    );
+    const next = rows.length === 1 ? [{ ...EMPTY_ROW }] : rows.filter((_, i) => i !== idx);
+    setRows(next);
+    setEntryCount(String(next.length));
+  }
+
+  /**
+   * Resize the grid to the typed count.
+   *
+   * Shrinking asks first when the rows being dropped hold anything — a typo in a
+   * number field should not silently discard work that is already entered
+   * (§4.22 permits a confirm BEFORE a destructive action).
+   */
+  function applyEntryCount(raw: string) {
+    const n = Math.trunc(Number(raw));
+    if (!Number.isFinite(n) || n < 1) {
+      setEntryCount(String(rows.length));
+      return;
+    }
+    const target = Math.min(n, MAX_ENTRIES);
+    if (target === rows.length) {
+      setEntryCount(String(target));
+      return;
+    }
+    if (target < rows.length) {
+      const dropped = rows.slice(target).filter(rowHasData).length;
+      if (
+        dropped > 0 &&
+        !confirm(
+          `${dropped} of the rows being removed have data entered. Reduce to ${target} entries and discard them?`,
+        )
+      ) {
+        setEntryCount(String(rows.length));
+        return;
+      }
+      setRows((prev) => prev.slice(0, target));
+    } else {
+      setRows((prev) => [...prev, ...Array.from({ length: target - prev.length }, () => ({ ...EMPTY_ROW }))]);
+    }
+    setEntryCount(String(target));
   }
 
   async function submit() {
@@ -190,10 +272,6 @@ export default function BulkNewExportsPage() {
 
     if (!clientId || !licenseId) {
       setError('Client and license are required.');
-      return;
-    }
-    if (!mcaPrefix.trim()) {
-      setError('MCA reference prefix is required.');
       return;
     }
     if (rows.every((r) => (r.fob.trim() === '' ? 0 : Number(r.fob)) <= 0)) {
@@ -205,7 +283,6 @@ export default function BulkNewExportsPage() {
       common: {
         client_id: Number(clientId),
         license_id: Number(licenseId),
-        mca_ref_prefix: mcaPrefix.trim(),
       },
       rows: rows.map((r) => ({
         loading_date: nonEmpty(r.loading_date),
@@ -247,9 +324,12 @@ export default function BulkNewExportsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
+        {/* Not "bulk create" any more — this is simply how an export is created.
+            There is no single-entry screen to contrast it with, so naming it
+            after the contrast would describe a choice that no longer exists. */}
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Layers className="h-6 w-6 text-primary-600" />
-          Bulk create exports
+          <Truck className="h-6 w-6 text-primary-600" />
+          New Export Tracking
         </h1>
         <div className="flex items-center gap-2">
           <button
@@ -305,17 +385,68 @@ export default function BulkNewExportsPage() {
             />
           </div>
           <div>
-            <label className="label required">MCA reference prefix</label>
-            <input required
+            <label className="label required" htmlFor="entry_count">
+              No. of export tracking entries
+            </label>
+            <input
+              id="entry_count"
+              type="number"
+              required
+              min={1}
+              max={MAX_ENTRIES}
               className="input"
-              value={mcaPrefix}
-              onChange={(e) => setMcaPrefix(e.target.value)}
-              placeholder="EXP-2026-BATCH1"
+              value={entryCount}
+              onChange={(e) => setEntryCount(e.target.value)}
+              onBlur={() => applyEntryCount(entryCount)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyEntryCount(entryCount);
+                }
+              }}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Each row gets <code>{`{prefix}-0001, {prefix}-0002…`}</code>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sets how many rows the grid holds. Rows can still be added or removed below.
             </p>
           </div>
+        </div>
+
+        {/* §4.33 — the references these records will be given, from the format
+            configured under Developer Options. This replaces the prefix the
+            operator used to type: the numbering is no longer theirs to invent,
+            but they still get to see it before committing the batch. */}
+        <div className="mt-3 rounded-md border border-border bg-muted/50 p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            MCA references to be assigned
+          </div>
+          {!licenseId ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose a client and licence to see the references.
+            </p>
+          ) : refsLoading ? (
+            <p className="mt-1 text-sm text-muted-foreground">Working them out…</p>
+          ) : previewRefs.length === 0 ? (
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              The reference cannot be built — this licence is missing its kind, type of goods or
+              transport mode, or the client has no short code. Complete the licence first.
+            </p>
+          ) : (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {previewRefs.slice(0, 12).map((ref) => (
+                <span
+                  key={ref}
+                  className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                >
+                  {ref}
+                </span>
+              ))}
+              {previewRefs.length > 12 && (
+                <span className="text-xs text-muted-foreground">
+                  +{previewRefs.length - 12} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {usage && (

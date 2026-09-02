@@ -10,7 +10,6 @@ import {
   Check,
   X,
   Truck,
-  Layers,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -350,28 +349,23 @@ export default function ExportsListPage() {
         </div>
       </div>
 
-      {/* ---- Create tiles ---- */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      {/* ---- Create ----
+          One action, not a choice between "single" and "bulk". An export is
+          created against a licence, and the grid handles one row as readily as
+          twenty — so making the operator decide up front how many they were
+          about to enter asked a question the screen could answer itself, and
+          sent whoever guessed wrong back to the list to start again. Editing an
+          existing export stays the single-record page at /exports/[id]. */}
+      <div className="mb-4">
         <Link
-          href="/exports/new"
-          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
+          href="/exports/bulk-new"
+          className="card p-4 flex items-center justify-between transition hover:border-primary-300 hover:shadow-sm group"
         >
-          <span className="flex items-center gap-2 text-foreground font-medium">
+          <span className="flex items-center gap-2 font-medium text-foreground">
             <Truck className="h-4 w-4 text-primary-600" /> Export Tracking
           </span>
           <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
             <Plus className="h-3.5 w-3.5" /> New Export
-          </span>
-        </Link>
-        <Link
-          href="/exports/bulk-new"
-          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-amber-300 dark:hover:border-amber-500/40 hover:shadow-sm transition group"
-        >
-          <span className="flex items-center gap-2 text-foreground font-medium">
-            <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Bulk Create
-          </span>
-          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300">
-            <Plus className="h-3.5 w-3.5" /> Many against one license
           </span>
         </Link>
       </div>
