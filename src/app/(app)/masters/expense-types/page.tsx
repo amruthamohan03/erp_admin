@@ -35,11 +35,11 @@ const CATEGORIES: {
   short: string;
   badgeClass: string;
 }[] = [
-  { key: 'is_import', label: 'Import', short: 'IMP', badgeClass: 'bg-blue-100 text-blue-700' },
-  { key: 'is_export', label: 'Export', short: 'EXP', badgeClass: 'bg-emerald-100 text-emerald-700' },
-  { key: 'is_local', label: 'Local', short: 'LOC', badgeClass: 'bg-amber-100 text-amber-700' },
-  { key: 'is_advance', label: 'Advance', short: 'ADV', badgeClass: 'bg-violet-100 text-violet-700' },
-  { key: 'is_other', label: 'Other', short: 'OTH', badgeClass: 'bg-slate-200 text-slate-700' },
+  { key: 'is_import', label: 'Import', short: 'IMP', badgeClass: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' },
+  { key: 'is_export', label: 'Export', short: 'EXP', badgeClass: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
+  { key: 'is_local', label: 'Local', short: 'LOC', badgeClass: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' },
+  { key: 'is_advance', label: 'Advance', short: 'ADV', badgeClass: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300' },
+  { key: 'is_other', label: 'Other', short: 'OTH', badgeClass: 'bg-muted text-foreground' },
 ];
 
 export default function ExpenseTypesPage() {
@@ -97,7 +97,7 @@ export default function ExpenseTypesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Expense Types</h1>
+        <h1 className="text-2xl font-bold text-foreground">Expense Types</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Expense Type
         </button>
@@ -236,20 +236,20 @@ function FormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Expense Type' : 'Create Expense Type'}
           </h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-slate-900"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-4">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

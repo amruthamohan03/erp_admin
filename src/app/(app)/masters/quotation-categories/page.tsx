@@ -70,7 +70,7 @@ export default function QuotationCategoriesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Quotation Categories
         </h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
@@ -86,22 +86,22 @@ export default function QuotationCategoriesPage() {
         emptyMessage="No quotation categorys yet — create the first one."
         columns={[
         { key: 'category_name', header: 'Category', sortable: true, className: 'font-medium' },
-        { key: 'category_header', header: 'Section Header', className: 'text-slate-600 text-xs', render: (r: QuotationCategoryRow) => (
+        { key: 'category_header', header: 'Section Header', className: 'text-muted-foreground text-xs', render: (r: QuotationCategoryRow) => (
             <>
             {r.category_header || (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
             </>
           ) },
-        { key: 'display_order', header: 'Order', sortable: true, align: 'center', className: 'text-slate-600' },
+        { key: 'display_order', header: 'Order', sortable: true, align: 'center', className: 'text-muted-foreground' },
         { key: 'is_customs', header: 'Customs', align: 'center', render: (r: QuotationCategoryRow) => (
             <>
             {r.is_customs ? (
-                        <span className="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
+                        <span className="inline-block rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-xs font-medium">
                           Customs
                         </span>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
             </>
           ) },
@@ -202,17 +202,17 @@ function QuotationCategoryFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Category' : 'Create Category'}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

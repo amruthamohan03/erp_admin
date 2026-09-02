@@ -275,7 +275,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
         <BackButton fallback={listRoute} />
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold text-foreground">
           {page?.title ?? 'Loading...'}
           {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-muted-foreground">— New</span>}
         </h1>
@@ -286,7 +286,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       )}
 
       {!loading && error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
@@ -326,7 +326,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
                   </span>
                 )}
                 {!saveError && !savedAt && dirty && (
-                  <span className="flex-1 text-xs text-muted-foreground dark:text-muted-foreground">Unsaved changes</span>
+                  <span className="flex-1 text-xs text-muted-foreground">Unsaved changes</span>
                 )}
                 {/* §4.21 — a labelled way out, beside Save rather than only the
                     browser's back button. Confirms first when there is work to

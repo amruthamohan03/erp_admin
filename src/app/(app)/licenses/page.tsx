@@ -58,11 +58,11 @@ interface DashboardCard {
 
 // Status → badge colour. Mirrors main's license statuses.
 const STATUS_BADGE: Record<string, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  INACTIVE: 'bg-slate-100 text-slate-600 border-slate-200',
-  ANNULATED: 'bg-red-100 text-red-800 border-red-200',
-  MODIFIED: 'bg-amber-100 text-amber-800 border-amber-200',
-  PROROGATED: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  ACTIVE: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+  INACTIVE: 'bg-muted text-muted-foreground border-border',
+  ANNULATED: 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-500/30',
+  MODIFIED: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
+  PROROGATED: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30',
 };
 
 // card_color (short semantic name) → Tailwind gradient. Mirrors the /imports page.
@@ -249,7 +249,7 @@ export default function LicensesListPage() {
   return (
     <>
       <div className="card p-4 mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary-600" /> Licenses Management
         </h1>
         <button
@@ -282,7 +282,7 @@ export default function LicensesListPage() {
                   setActiveCard(active ? 'all' : key);
                   setPage(1);
                 }}
-                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
+                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}
                 title={`Filter: ${card.card_title}`}
               >
                 <div className="absolute right-2 top-2 opacity-30">
@@ -300,9 +300,9 @@ export default function LicensesListPage() {
 
       {/* ---- Advanced Filters ---- */}
       <div className="card p-4 mb-4">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
           <Filter className="h-4 w-4 text-primary-600" />
-          <span className="font-semibold text-slate-800">Advanced Filters</span>
+          <span className="font-semibold text-foreground">Advanced Filters</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
           <div>
@@ -363,7 +363,7 @@ export default function LicensesListPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-500 hover:bg-slate-600 text-white px-3 py-1.5 text-sm font-medium transition"
+                className="btn-neutral btn-sm"
               >
                 <X className="h-4 w-4" /> Clear
               </button>
@@ -377,7 +377,7 @@ export default function LicensesListPage() {
         href="/licenses/new"
         className="card p-4 mb-4 flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
       >
-        <span className="flex items-center gap-2 text-slate-800 font-medium">
+        <span className="flex items-center gap-2 text-foreground font-medium">
           <FileText className="h-4 w-4 text-primary-600" />
           Create License
         </span>

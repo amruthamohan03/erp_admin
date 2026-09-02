@@ -58,7 +58,7 @@ export default function ResultDialog({ result, onDismiss, okLabel = 'OK' }: Resu
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
       onClick={onDismiss}
       role="presentation"
     >

@@ -19,12 +19,12 @@ export default function UniquenessIndicator({
   if (status === 'idle') return null;
   const tone =
     status === 'available'
-      ? 'text-emerald-700'
+      ? 'text-emerald-700 dark:text-emerald-300'
       : status === 'taken'
-        ? 'text-red-700'
+        ? 'text-red-700 dark:text-red-300'
         : status === 'checking'
           ? 'text-muted-foreground'
-          : 'text-amber-700';
+          : 'text-amber-700 dark:text-amber-300';
   return (
     <span className={`inline-flex items-center gap-1 text-xs ${tone}`}>
       {status === 'checking' && <Loader2 className="h-3 w-3 animate-spin" />}

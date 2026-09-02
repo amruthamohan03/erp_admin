@@ -97,13 +97,13 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
       <div className="mb-4">
         <Link
           href="/masters/pages"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-slate-900"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Pages
         </Link>
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-foreground">
           {loading ? 'Loading...' : page?.title || 'Page'}
         </h1>
         {page && (
@@ -113,7 +113,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
         )}
       </div>
 
-      <div className="border-b border-slate-200 mb-4 flex gap-1">
+      <div className="border-b border-border mb-4 flex gap-1">
         {(['general', 'accordions', 'roles', 'fields'] as Tab[]).map((t) => (
           <button
             key={t}
@@ -121,7 +121,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
             className={`px-4 py-2 text-sm border-b-2 transition-colors ${
               tab === t
                 ? 'border-primary-600 text-primary-700 font-medium'
-                : 'border-transparent text-muted-foreground hover:text-slate-900'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t === 'general' && 'General'}
@@ -182,7 +182,7 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
   return (
     <form onSubmit={submit} className="card p-5 max-w-2xl space-y-3">
       {error && (
-        <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+        <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
@@ -303,7 +303,7 @@ function AccordionsTab({ pageId }: { pageId: number }) {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="font-semibold">Accordions on this page</h2>
         <button onClick={() => setCreating(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> Add Accordion
@@ -333,7 +333,7 @@ function AccordionsTab({ pageId }: { pageId: number }) {
             render: (a: MasterPageAccordion) => (
               <span
                 className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
-                  a.display === 'Y' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-muted-foreground'
+                  a.display === 'Y' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {a.display === 'Y' ? 'Active' : 'Inactive'}
@@ -424,15 +424,15 @@ function AccordionFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">{isEdit ? 'Edit Accordion' : 'New Accordion'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}
@@ -616,7 +616,7 @@ function RolesTab({ pageId }: { pageId: number }) {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div>
           <h2 className="font-semibold">Role × Accordion access</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -638,7 +638,7 @@ function RolesTab({ pageId }: { pageId: number }) {
             />
           </div>
           {savedAt && !dirty && !saving && (
-            <span className="text-xs text-emerald-600">Saved {savedAt.toLocaleTimeString()}</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved {savedAt.toLocaleTimeString()}</span>
           )}
           <button onClick={save} disabled={!dirty || saving} className="btn-primary">
             <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Matrix'}
@@ -647,7 +647,7 @@ function RolesTab({ pageId }: { pageId: number }) {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-2 mx-4 mt-3 text-sm text-red-700 border border-red-200">
+        <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 mx-4 mt-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
         </div>
       )}
@@ -843,10 +843,10 @@ function FieldsTab({ pageId }: { pageId: number }) {
 
   return (
     <div className="card">
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-200">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-border">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600">Accordion:</label>
+            <label className="text-sm text-muted-foreground">Accordion:</label>
             <SearchableSelect
               className="max-w-xs"
               aria-label="Accordion"
@@ -858,7 +858,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
           </div>
           {/* §4.14 — pick a role to manage per-field access. */}
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600">Role access:</label>
+            <label className="text-sm text-muted-foreground">Role access:</label>
             <SearchableSelect
               className="max-w-xs"
               aria-label="Role access"
@@ -872,7 +872,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
         </div>
         <div className="flex items-center gap-3">
           {showAccess && grantSavedAt && !grantDirty && !grantSaving && (
-            <span className="text-xs text-emerald-600">
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">
               Saved {grantSavedAt.toLocaleTimeString()}
             </span>
           )}
@@ -927,7 +927,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
             align: 'center',
             render: (f: MasterPageField) =>
               f.required ? (
-                <Check className="h-4 w-4 text-emerald-600 inline" />
+                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 inline" />
               ) : (
                 <span className="text-muted-foreground">—</span>
               ),
@@ -1089,15 +1089,15 @@ function FieldFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card z-10">
           <h2 className="font-semibold">{isEdit ? 'Edit Field' : 'New Field'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}
@@ -1168,7 +1168,7 @@ function FieldFormModal({
             )}
           </div>
 
-          <div className="border-t border-slate-100 pt-3">
+          <div className="border-t border-border pt-3">
             <p className="text-xs text-muted-foreground mb-2">
               For <code className="font-mono">select</code> fields with dynamic options:
             </p>

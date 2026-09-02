@@ -34,6 +34,7 @@ import { seedReportDefinitions } from './reportDefinitions';
 import { seedMenus } from './menus';
 import { seedDashboardCards } from './dashboardCards';
 import { seedApplicationSettings } from './applicationSettings';
+import { seedMcaRefFormats } from './mcaRefFormats';
 import { seedSampleClients } from './sampleClients';
 import { seedSampleImports } from './sampleImports';
 import { seedSampleExports } from './sampleExports';
@@ -140,6 +141,12 @@ export async function seedMasters(db: Database): Promise<void> {
   // theme provider read on mount. ON CONFLICT DO NOTHING so re-seeding
   // never clobbers operator-edited branding.
   await seedApplicationSettings(db);
+
+  // --- Reference-number formats (§4.1) --------------------------------
+  // How the MCA references, licence number, LT reference and invoice refs
+  // are assembled. Seeded to what the hardcoded resolvers used to produce,
+  // ON CONFLICT DO NOTHING so an operator's rearrangement survives a re-seed.
+  await seedMcaRefFormats(db);
 
   // --- Sidebar + role grants ------------------------------------------
   // Single authoritative seed that reconstructs the parent-child menu

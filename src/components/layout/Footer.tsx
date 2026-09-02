@@ -13,10 +13,12 @@ export default function Footer() {
   const custom = renderFooterText(branding.footer_text, year);
 
   return (
+    // Same brand tokens as the header (§4.32), so the two bookends darken together
+    // when the theme flips and follow the configured palette when it changes.
     <footer className="mt-auto">
       {/* Thin accent line echoing the header gradient. */}
       <div className="bg-brand-gradient h-0.5 w-full" />
-      <div className="bg-brand-gradient flex flex-col items-center justify-between gap-2 px-4 py-3 text-center text-white sm:flex-row sm:px-6 sm:text-start">
+      <div className="bg-brand-gradient flex flex-col items-center justify-between gap-2 border-t border-black/10 px-4 py-3 text-center text-white dark:border-white/10 sm:flex-row sm:px-6 sm:text-start">
         <span className="text-xs text-white/90">
           {custom ?? (
             <>

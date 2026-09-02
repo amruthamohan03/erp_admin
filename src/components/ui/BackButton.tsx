@@ -36,7 +36,7 @@ export default function BackButton({
       type="button"
       onClick={go}
       title="Back"
-      className="inline-flex items-center gap-1 rounded-md border border-slate-200 text-slate-600 hover:text-primary-700 hover:border-primary-300 hover:bg-primary-50 px-2 py-1 text-sm transition"
+      className="inline-flex items-center gap-1 rounded-md border border-border text-muted-foreground hover:text-primary-700 hover:border-primary-300 hover:bg-primary-50 px-2 py-1 text-sm transition"
     >
       <ArrowLeft className="h-4 w-4" />
       {label && <span>{label}</span>}

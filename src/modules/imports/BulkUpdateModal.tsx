@@ -115,7 +115,7 @@ export default function BulkUpdateModal({
   }, [data, visibleRows, edits, onSaved]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
       <div className="card w-full max-w-6xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <h2 className="font-semibold">Bulk Update — {statusFilters.length} filter(s)</h2>
@@ -124,7 +124,7 @@ export default function BulkUpdateModal({
           </button>
         </div>
 
-        <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -140,12 +140,12 @@ export default function BulkUpdateModal({
         </div>
 
         {error && (
-          <div className="mx-5 mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex items-start gap-2">
+          <div className="mx-5 mt-3 rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> {error}
           </div>
         )}
         {data?.truncated && (
-          <div className="mx-5 mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          <div className="mx-5 mt-3 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
             Showing the first 2000 matching files — narrow the dashboard filters to edit the rest.
           </div>
         )}
@@ -177,7 +177,7 @@ export default function BulkUpdateModal({
                   {visibleRows.map((row, idx) => {
                     const id = row.id as number;
                     return (
-                      <tr key={id} className="hover:bg-slate-50">
+                      <tr key={id} className="hover:bg-muted/50">
                         <td className="text-muted-foreground">{idx + 1}</td>
                         <td className="font-mono">{String(row.mca_ref ?? '—')}</td>
                         <td>{String(row.client_name ?? '—')}</td>
@@ -204,7 +204,7 @@ export default function BulkUpdateModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           <button
             type="button"

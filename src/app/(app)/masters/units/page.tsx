@@ -65,7 +65,7 @@ export default function UnitsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Units</h1>
+        <h1 className="text-2xl font-bold text-foreground">Units</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Unit
         </button>
@@ -79,10 +79,10 @@ export default function UnitsPage() {
         emptyMessage="No units yet — create the first one."
         columns={[
         { key: 'unit_name', header: 'Unit Name', sortable: true, className: 'font-medium' },
-        { key: 'unit_code', header: 'Code', className: 'inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono', render: (u: UnitRow) => (
+        { key: 'unit_code', header: 'Code', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (u: UnitRow) => (
             <>
             {u.unit_code ? (
-                        <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-mono">
+                        <span className="inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono">
                           {u.unit_code}
                         </span>
                       ) : (
@@ -179,15 +179,15 @@ function UnitFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">{isEdit ? 'Edit Unit' : 'Create Unit'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

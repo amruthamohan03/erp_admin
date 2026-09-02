@@ -1,10 +1,15 @@
-// §4.19 — the one date formatter. Everything the user reads renders day/month/year.
+// §4.19 — the one date formatter. Everything the user reads renders `DD-MM-YYYY`.
 //
 // Before this module there were twelve local `fmtDate` helpers producing five
 // different formats — `DD-MM-YYYY`, `DD/MM/YYYY`, `MMM D, YYYY`, and a bare
 // `toLocaleDateString()` that followed the *server or browser* locale and so showed
 // `MM/DD/YYYY` on a US-configured machine. For a DRC customs operation that is not a
 // cosmetic difference: 03/04 is either March or April depending on who rendered it.
+//
+// The separator is a hyphen, not a slash. A slashed date is exactly the shape both
+// day-first and month-first readers expect to be *their* convention, so `03/04/2026`
+// is silently misread; `03-04-2026` is the house format and is never confused with a
+// US-style date the way the slashed form is.
 //
 // Formatting is deliberately NOT locale-aware. The business format is fixed, so the
 // output must not change with the machine's regional settings.
@@ -49,17 +54,17 @@ function parts(value: unknown): { d: string; m: string; y: string; time?: string
   };
 }
 
-/** `DD/MM/YYYY`. Returns `fallback` for null/empty/unparseable input. */
+/** `DD-MM-YYYY`. Returns `fallback` for null/empty/unparseable input. */
 export function formatDate(value: unknown, fallback: string = NO_DATE): string {
   const p = parts(value);
-  return p ? `${p.d}/${p.m}/${p.y}` : fallback;
+  return p ? `${p.d}-${p.m}-${p.y}` : fallback;
 }
 
-/** `DD/MM/YYYY HH:mm` — for timestamps (audit trails, activity feeds). */
+/** `DD-MM-YYYY HH:mm` — for timestamps (audit trails, activity feeds). */
 export function formatDateTime(value: unknown, fallback: string = NO_DATE): string {
   const p = parts(value);
   if (!p) return fallback;
-  return p.time ? `${p.d}/${p.m}/${p.y} ${p.time}` : `${p.d}/${p.m}/${p.y}`;
+  return p.time ? `${p.d}-${p.m}-${p.y} ${p.time}` : `${p.d}-${p.m}-${p.y}`;
 }
 
 /**

@@ -23,9 +23,9 @@ const TYPE_LABEL: Record<RegimeType, string> = {
 };
 
 const TYPE_BADGE_STYLE: Record<RegimeType, string> = {
-  I: 'bg-blue-100 text-blue-700',
-  E: 'bg-emerald-100 text-emerald-700',
-  IE: 'bg-violet-100 text-violet-700',
+  I: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300',
+  E: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+  IE: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300',
 };
 
 interface RegimeRow {
@@ -90,7 +90,7 @@ export default function RegimesPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Regimes</h1>
+        <h1 className="text-2xl font-bold text-foreground">Regimes</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Regime
         </button>
@@ -210,17 +210,17 @@ function RegimeFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Regime' : 'Create Regime'}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-slate-900">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

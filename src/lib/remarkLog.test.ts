@@ -68,6 +68,6 @@ describe('todayIso', () => {
     const iso = todayIso();
     expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
     const [y, m, d] = iso.split('-');
-    expect(formatDate(iso)).toBe(`${d}/${m}/${y}`);
+    expect(formatDate(iso)).toBe(`${d}-${m}-${y}`);
   });
 });

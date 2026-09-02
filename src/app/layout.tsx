@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import BrandingProvider from '@/components/providers/BrandingProvider';
 import ThemeProvider from '@/components/providers/ThemeProvider';
 import TranslateProvider from '@/components/providers/TranslateProvider';
@@ -9,6 +10,32 @@ import { loadActionStyles } from '@/db/queries/actionStyles';
 import { actionStyleCssVars } from '@/lib/actionStyles';
 import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import './globals.css';
+
+// §4.31 — the app's type. Loaded through `next/font`, which downloads the files at
+// BUILD time and serves them from our own origin: no request to a third party at
+// runtime, no flash of unstyled text, and a fallback whose metrics are adjusted to
+// match so swapping it in shifts nothing on the page.
+//
+// Inter is drawn for screen UI at small sizes — tall x-height, unambiguous 1/l/I and
+// 0/O, and real tabular figures, which is what a screen full of licence numbers,
+// tonnages and amounts needs. `cv05`/`cv08` are the single-storey `l` and upright `t`
+// alternates; `tnum` keeps every digit the same width so a column of figures lines up
+// without each call site remembering `tabular-nums`.
+const sans = Inter({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-sans',
+  axes: ['opsz'],
+});
+
+// Reference numbers, DDU/BL codes and IDs render in mono all over this app (~100
+// call sites). Left to the system stack that means Courier New on Windows, which
+// sits badly beside a modern sans — so the mono half of the pairing is chosen too.
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+});
 
 // Tab title and favicon come from the branding row, not from a constant — the
 // two fields exist on /settings/application precisely so an operator can change
@@ -42,7 +69,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const [branding, actionStyles] = await Promise.all([loadBranding(), loadActionStyles()]);
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={dir}
+      className={`${sans.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* Tabler Icons webfont - powers the `ti ti-*` icon classes from menu_master_t */}
         <link

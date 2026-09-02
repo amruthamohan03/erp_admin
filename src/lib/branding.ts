@@ -145,8 +145,13 @@ export function brandingCssVars(branding: Branding): string {
   // Dark theme: brand surfaces get *deeper* (a bright gradient bar is glare at night)
   // while brand *text and pills* get lighter so they stay readable on dark cards.
   const darkPrimary = forDarkSurface(primaryRaw);
-  const darkFrom = shiftLightness(primary, -16);
-  const darkTo = shiftLightness(gradientTo, -20);
+  // The gradient chrome is a *ceiling* in dark mode, not a nudge. A bright brand
+  // shifted down by a fixed amount is still bright, and the header and footer
+  // strips are the largest painted areas on the screen — at night they become the
+  // glare source, and the app stops reading as dark at all. Capping the lightness
+  // makes the result the same depth whatever the operator configured.
+  const darkFrom = withLightness(primary, Math.min(primary.l - 16, 30));
+  const darkTo = withLightness(gradientTo, Math.min(gradientTo.l - 20, 25));
   const darkSidebarBg = shiftLightness(sidebarBg, sidebarDark ? -3 : -70);
 
   const dark = [

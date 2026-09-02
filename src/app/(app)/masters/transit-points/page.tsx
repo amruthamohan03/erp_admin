@@ -37,12 +37,12 @@ const FLAGS: {
   short: string;
   badgeClass: string;
 }[] = [
-  { key: 'entry_point', label: 'Entry Point', short: 'ENT', badgeClass: 'bg-blue-100 text-blue-700' },
-  { key: 'exit_point', label: 'Exit Point', short: 'EXT', badgeClass: 'bg-cyan-100 text-cyan-700' },
-  { key: 'loading', label: 'Loading', short: 'LOAD', badgeClass: 'bg-emerald-100 text-emerald-700' },
-  { key: 'destination', label: 'Destination', short: 'DEST', badgeClass: 'bg-amber-100 text-amber-700' },
-  { key: 'warehouse', label: 'Warehouse', short: 'WH', badgeClass: 'bg-violet-100 text-violet-700' },
-  { key: 'location', label: 'Location', short: 'LOC', badgeClass: 'bg-rose-100 text-rose-700' },
+  { key: 'entry_point', label: 'Entry Point', short: 'ENT', badgeClass: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' },
+  { key: 'exit_point', label: 'Exit Point', short: 'EXT', badgeClass: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300' },
+  { key: 'loading', label: 'Loading', short: 'LOAD', badgeClass: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
+  { key: 'destination', label: 'Destination', short: 'DEST', badgeClass: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' },
+  { key: 'warehouse', label: 'Warehouse', short: 'WH', badgeClass: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300' },
+  { key: 'location', label: 'Location', short: 'LOC', badgeClass: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300' },
 ];
 
 export default function TransitPointsPage() {
@@ -100,7 +100,7 @@ export default function TransitPointsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Transit Points</h1>
+        <h1 className="text-2xl font-bold text-foreground">Transit Points</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> New Transit Point
         </button>
@@ -243,20 +243,20 @@ function TransitPointFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">
             {isEdit ? 'Edit Transit Point' : 'Create Transit Point'}
           </h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-slate-900"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={submit} className="p-4 space-y-4">
           {error && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">
+            <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
               {error}
             </div>
           )}

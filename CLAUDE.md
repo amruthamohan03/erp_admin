@@ -290,32 +290,37 @@ The rule is `label.required::after` in globals.css, matched on the element rathe
 
 For the metadata-driven pages this is config, not code: `master_page_accordion_field_t.required` drives both the star and the attribute through [Accordion](src/components/transactional/Accordion.tsx) and [FieldRenderer](src/components/transactional/FieldRenderer.tsx). Don't special-case a field in the renderer.
 
-### 4.19 Dates display as day/month/year
+### 4.19 Dates display as `DD-MM-YYYY`
 
-**Every date a user reads renders `DD/MM/YYYY`**, through [src/lib/formatDate.ts](src/lib/formatDate.ts). Never hand-roll a date string and never call `toLocaleDateString()`.
+**Every date a user reads renders `DD-MM-YYYY`** — day, month, year, separated by hyphens — through [src/lib/formatDate.ts](src/lib/formatDate.ts). Never hand-roll a date string and never call `toLocaleDateString()`.
 
 ```ts
 import { formatDate, formatDateTime, toDateInputValue } from '@/lib/formatDate';
 
-formatDate('2026-08-03')                 // '03/08/2026'
+formatDate('2026-08-03')                 // '03-08-2026'
 formatDate(null)                         // '—'   (NO_DATE; pass a second arg to override)
-formatDateTime('2026-08-03T14:30:00Z')   // '03/08/2026 14:30'  — audit trails, activity feeds
+formatDateTime('2026-08-03T14:30:00Z')   // '03-08-2026 14:30'  — audit trails, activity feeds
 toDateInputValue(row.expiry)             // '2026-08-03'  — for <input type="date">
 ```
 
-Three things this exists to prevent, all of which were live in the codebase:
+**The separator is a hyphen, and that is part of the rule.** A slashed date is exactly the shape both day-first and month-first readers expect to be *their* convention, so `03/04/2026` is read as 3 April by one operator and 4 March by another with nothing on screen to signal the disagreement. `03-04-2026` is the house format: it is not the shape of a US date, so it is read as the house format or queried, never silently misread. Anywhere a shortened date appears (the audit-log daily strip, chart axes), it is `DD-MM` for the same reason.
 
-1. **Locale drift.** `toLocaleDateString()` follows the *machine's* regional settings, so the same row renders `03/08/2026` on one box and `08/03/2026` on another. For a customs operation that is a date being read as March instead of August. Formatting here is deliberately **not** locale-aware — the business format is fixed.
-2. **Timezone shift.** `new Date('2026-01-01')` is UTC midnight, which renders as *31/12/2025* west of Greenwich. `formatDate` reads a `YYYY-MM-DD` string textually and only uses the `Date` API for real timestamps.
-3. **Drift between screens.** Twelve local `fmtDate` helpers had produced five different formats. One implementation, one format.
+Four things this exists to prevent, all of which were live in the codebase:
+
+1. **Separator drift.** Both `DD-MM-YYYY` and `DD/MM/YYYY` were in use on adjacent screens. One separator, everywhere.
+2. **Locale drift.** `toLocaleDateString()` follows the *machine's* regional settings, so the same row renders `03/08/2026` on one box and `08/03/2026` on another. For a customs operation that is a date being read as March instead of August. Formatting here is deliberately **not** locale-aware — the business format is fixed.
+3. **Timezone shift.** `new Date('2026-01-01')` is UTC midnight, which renders as *31-12-2025* west of Greenwich. `formatDate` reads a `YYYY-MM-DD` string textually and only uses the `Date` API for real timestamps.
+4. **Drift between screens.** Twelve local `fmtDate` helpers had produced five different formats. One implementation, one format.
 
 **Display only.** Stored values, API payloads and query params stay ISO `YYYY-MM-DD` — that is what Postgres, Zod and the HTML date input all expect. `<input type="date">` must be fed `toDateInputValue()`, never `formatDate()`; a localised value renders the picker blank.
 
 The one sanctioned exception is a **calendar tile** that stacks the day over an abbreviated month (see the holiday chips in [KpiDelayView](src/modules/kpi/KpiDelayView.tsx)). That is still day-before-month, so the rule's intent holds; pin the locale (`'en'`) and timezone explicitly.
 
+**Filenames are not display.** An export or a generated document names itself with the sortable `YYYYMMDD` form (`src/lib/csv.ts`, `src/lib/xlsx.ts`) so a directory listing sorts chronologically. That is not a date a user reads *in the app*, and it stays as it is.
+
 ### 4.20 Colour comes from tokens, and an action button is coloured by what it produces
 
-**Never hardcode a text or border colour on a Tailwind palette class.** `text-slate-500`, `text-slate-400` and friends bypass the theme entirely: they are a fixed grey that cannot follow light/dark, cannot follow the operator's configured palette, and drift into a washed-out "light black" that is tiring to read. There are zero `text-slate-400` / `text-slate-500` classes in `src/`, and adding one is a defect.
+**Never hardcode a text, surface or border colour on a Tailwind palette class.** `text-slate-500`, `bg-white`, `border-slate-200` and friends bypass the theme entirely: they are a fixed value that cannot follow light/dark, cannot follow the operator's configured palette, and drift into a washed-out "light black" that is tiring to read. There are zero `text-slate-*` / `bg-white` / `border-slate-*` classes in `src/`, and adding one is a defect. **§4.32 has the full mapping** — including what a semantic status colour must do instead, and the short list of fixed colours that are allowed to stay.
 
 Use the tokens in [globals.css](src/app/globals.css):
 
@@ -578,6 +583,114 @@ One scale, used everywhere: page title, section heading, field label, value, sup
 
 Do not introduce a new font size at a call site. If the scale is missing a step, add it once in globals.css.
 
+### 4.31 One typeface, sans-serif, loaded by `next/font`
+
+**The whole app is set in one sans-serif family, and nothing anywhere names a font.** The pairing is declared once, in the root layout, through [`next/font`](https://nextjs.org/docs/app/api-reference/components/font):
+
+| | |
+| --- | --- |
+| **UI — everything** | **Inter**, exposed as `--font-sans` |
+| Reference codes, IDs, amounts in `font-mono` | **JetBrains Mono**, exposed as `--font-mono` |
+
+`next/font` is part of Next — it is **not** a new dependency (§12), and it must stay the loading mechanism. It downloads the files at *build* time and serves them from our own origin, which buys three things a `<link>` to a font CDN does not: no third-party request at runtime, no flash of unstyled text, and a fallback whose metrics are adjusted to match so swapping the real font in shifts nothing on the page.
+
+```tsx
+// src/app/layout.tsx — the only place a font is named.
+const sans = Inter({ subsets: ['latin', 'latin-ext'], display: 'swap', variable: '--font-sans', axes: ['opsz'] });
+const mono = JetBrains_Mono({ subsets: ['latin'], display: 'swap', variable: '--font-mono' });
+
+<html className={`${sans.variable} ${mono.variable}`}>
+```
+
+Everything downstream reads the variables, never the family:
+
+- `html, body` in globals.css sets `font-family: var(--font-sans), <system stack>`, so a page rendered before the webfont arrives — or with it blocked — still reads right.
+- Tailwind's `font-sans` / `font-mono` resolve to the same variables (`tailwind.config.js` → `theme.extend.fontFamily`), so the ~100 existing `font-mono` call sites pick up the pairing with no change.
+- `font-feature-settings` is set once on `body`: `cv05`/`cv08` for the single-storey `l` and upright `t` — the ambiguous pair on a screen full of reference codes — and `tnum` for fixed-width digits, so a column of tonnages and amounts lines up without every call site remembering `tabular-nums`.
+
+Rules that follow:
+
+- **Never write a `font-family` at a call site**, in a component, in an inline style, or in a `<style>` block. If a surface needs different type, it needs a token, not a local declaration.
+- **Serif and display faces are not used in the app.** A generated PDF or printable HTML is a separate document with its own stylesheet and may set its own stack (§6) — that is the one place a font is named outside the layout.
+- **Adding a third family needs a reason and a question first** (§12). Two families is the budget; a heading face that only appears on one screen is drift, not design.
+- Sizes, weights and hierarchy are §4.30's business, not this rule's. This one only fixes *which* letters.
+
+### 4.32 Both themes are first-class, and neither is achieved with a palette colour
+
+**Every surface, every piece of text and every border must be legible in light *and* dark mode, and the way you get that is by naming a token (§4.20) rather than a Tailwind palette shade.** A token already carries both themes; a palette shade carries one and is invisible in the other. `text-slate-800` on a `card` is near-black text on a near-black surface the moment the operator switches to dark.
+
+The theme is a `class` on `<html>`, set by `next-themes` (light / dark / follow the system) and read by `darkMode: 'class'` in the Tailwind config. There are **no** `text-slate-*`, `bg-slate-50/100/200`, `border-slate-*` or bare `bg-white` classes in `src/`, and adding one is a defect.
+
+**Neutrals — always a token, never a shade:**
+
+| Instead of | Use |
+| --- | --- |
+| `text-slate-700/800/900` | `text-foreground` |
+| `text-slate-300/400/500/600` | `text-muted-foreground` |
+| `border-slate-100/200/300` | `border-border` (`border-input` for a control's own edge) |
+| `bg-white` | `bg-card` (or the `card` component class) |
+| `bg-slate-50` / `bg-slate-100` | `bg-muted/50` / `bg-muted` |
+| `hover:bg-slate-50` | `hover:bg-muted/50` |
+| `divide-slate-*`, `ring-slate-200` | `divide-border`, `ring-border` |
+
+**A `dark:` variant is a smell on a neutral.** `text-slate-800 dark:text-slate-200` works, but it re-states in two places what `text-foreground` already knows, and the next person copies the pair to a screen where they forget the second half. 93 such pairs were collapsed into tokens; do not reintroduce them.
+
+**A `dark:` variant is required on a semantic colour.** Status hues (red / emerald / amber / sky / …) have no token, so a badge or alert states both readings explicitly, in this shape:
+
+```tsx
+<span className="bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
+```
+
+The dark side is a **translucent fill of the mid shade** (`-500/10`, `-500/20`) rather than a dark solid, so it tints the card underneath instead of punching a coloured hole in it, and a **light text step** (`-300` / `-400`), because a `-700` text colour on a dark card is unreadable.
+
+**What is allowed to stay a fixed colour, and why:**
+
+- **A scrim.** `bg-black/40` behind a modal is dark on purpose in both themes.
+- **Anything sitting on the brand gradient or a coloured card** — `text-white`, `bg-white/20` glass, `ring-white/40`. The surface under it is already a known colour, so the contrast is fixed regardless of theme.
+- **Solid mid-tone fills** — `bg-emerald-500` on a chart bar, `-500` icon tints. A mid shade reads on either ground.
+- **The switch knob** in [Toggle](src/components/ui/Toggle.tsx), which is white by design in both themes.
+
+**The chrome darkens with the theme.** The header ([Topbar](src/components/layout/Topbar.tsx)) and footer ([Footer](src/components/layout/Footer.tsx)) share `.bg-brand-gradient`, which reads `--brand-from` / `--brand-to` — so they follow the operator's configured palette *and* the active theme from one definition. In dark mode those two tokens are a **ceiling**, not a nudge: [branding.ts](src/lib/branding.ts) caps them at ~30% / ~25% lightness rather than shifting the configured brand down by a fixed amount, because a bright brand shifted down is still bright, and those strips are the largest painted areas on the screen — left bright they are the glare source at night and the app never reads as dark. Both bookends also carry an alpha edge (`border-black/10 dark:border-white/10`), since a drop shadow alone stops separating chrome from content on a dark page.
+
+**Check both themes before calling a UI change done.** Toggle the theme and look at the screen you touched — most of the defects this rule exists for are invisible in whichever mode you happened to be developing in.
+
+### 4.33 A generated reference number is assembled from config, never from a template in code
+
+**Every auto-generated reference — the MCA references, the licence number, the LT reference, the invoice references — is an ordered list of segments in `mca_ref_format_master_t`, edited under Developer Options → Reference Formats.** No source file states what a reference looks like.
+
+| Reference | `target_key` | Written to | Ships as |
+| --- | --- | --- | --- |
+| Import Tracking — MCA Reference | `import` | `imports_t.mca_ref` | `NMI-IDCOR26-0001` |
+| Export Tracking — MCA Reference | `export` | `exports_t.mca_ref` | `NMI-IDCOR26-0001` |
+| License — License Number | `license` | `license_t.license_number` | `NMI-ID-CO-R` |
+| Local Tracking — LT Reference | `local` | `locals_t.mca_lt_reference` | `NMI-LTKI26-0001` |
+| Export Invoice — Invoice Reference | `export-invoice` | `export_invoices_t.invoice_ref` | `2026-NMI-EXP-0001` |
+| Import Invoice — Invoice Reference | `import-invoice` | `import_invoices_t.invoice_ref` | `2026-NMI-0001` |
+
+**A segment carries the separator that goes in FRONT of it**, and `""` glues. That one decision is what makes the arrangement fully configurable: `IDCOR26` is four separate segments with no separators between them, so `NMI-IDCOR26-0001` and `IDCOR26-0001-NMI` are the same six rows in a different order — a change an operator makes in the browser, not a deploy.
+
+```jsonc
+[ { "type": "client" },                                   // NMI
+  { "type": "kind",     "separator": "-" },               // -ID
+  { "type": "goods",    "separator": "" },                //   CO
+  { "type": "transport","separator": "" },                //     R
+  { "type": "year",     "separator": "", "digits": 2 },   //      26
+  { "type": "sequence", "separator": "-", "width": 4 } ]  // -0001
+```
+
+Segment types: `client`, `kind`, `goods`, `transport`, `office` (master codes), `year` (2 or 4 digits), `literal` (fixed text), `sequence` (the incrementing number). Code segments take an optional `letters` to keep only the first N — that is how a full office name becomes `KI`.
+
+**Three rules hold this together, and all three are load-bearing:**
+
+1. **Config names a reference, never a table.** `target_key` is a closed set that selects an entry in a vetted registry in [deriveSources.ts](src/lib/pages/deriveSources.ts). Adding a seventh reference is a code change, because something has to know where to read its codes from — which is why the setup screen edits the six and offers no create or delete.
+2. **One renderer, both sides.** [src/lib/mcaRefFormat.ts](src/lib/mcaRefFormat.ts) is pure and shared: the setup screen's live preview and the server-side generator call the same `renderMcaRef`, so what an operator sees while editing is what the next consignment is actually called (§4.10). Never format a reference at a call site.
+3. **The counter is found by regex, not by prefix.** `buildSequencePattern` anchors on the resolved value of every *other* segment and captures the digits, so the number can sit anywhere in the reference. The old `LIKE 'prefix%' ORDER BY … DESC` only worked while the sequence was last, which is exactly the constraint this feature removes. It also means the counter is scoped by precisely what the format prints — drop the year segment and numbering stops resetting annually, with nothing else to keep in step. Soft-deleted rows still count: their reference is spent, and the partial unique index does not filter on `display` (§4.27).
+
+Two behaviours to preserve if you touch the generator:
+
+- **A missing code blanks the whole reference.** `renderMcaRef` returns `null` if any segment cannot resolve, and the field is left empty. A reference with a hole in it is not a shorter reference — it is a different one, and it will collide with a consignment that legitimately has that shape. Blank plus the required check naming the field (§4.18, §4.23) is the correct outcome.
+- **A missing, empty or deactivated config row falls back to `MCA_REF_DEFAULTS`**, which reproduce what the hardcoded resolvers produced. A half-configured table must never stop consignments being created, and must never quietly rename them either.
+
 ## 5. Directory layout
 
 ```
@@ -734,6 +847,7 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to put a save button on an individual accordion → no, a transaction page has one page-level Save (§4.17).
 - Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
 - Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).
+- Requests to render a user-visible date with slashes, or in any order but day-month-year → no, it is `DD-MM-YYYY` (§4.19).
 - Requests to hardcode `text-slate-400` / `text-slate-500` or any palette colour for text → no, use `text-foreground` / `text-muted-foreground` (§4.20).
 - Requests to hand-roll an export/print button's colours, or to colour the same action differently on two screens → no, use `btn-pdf` / `btn-excel` / `btn-neutral` (§4.20).
 - Requests to recolour View / Edit / Delete away from black / blue / red, to leave a delete icon grey until hover, or to put a non-destructive action in the delete hue → no, those three hues are reserved (§4.20).
@@ -748,6 +862,14 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to skip the audit entry "because it is only a read/export/print" → no, those are logged too (§4.28).
 - Requests to hardcode a dashboard KPI, or to compute one from the current page of rows → no, it is a SQL aggregate over live data (§4.29).
 - Requests to introduce a new font size at a call site → no, extend the scale in globals.css (§4.30).
+- Requests to set a `font-family` in a component, an inline style or a `<style>` block, or to add a third typeface → no, the pairing is declared once via `next/font` in the root layout (§4.31).
+- Requests to pull a webfont from a CDN `<link>` instead of `next/font` → no, that reintroduces the third-party request and the flash of unstyled text (§4.31).
+- Requests to add a `text-slate-*` / `bg-white` / `border-slate-*` class, or to fix dark mode by pairing a palette shade with a `dark:` twin → no, name the token (§4.32).
+- Requests to ship a semantic badge or alert without a `dark:` variant → no, a `-700` text colour is unreadable on a dark card (§4.32).
+- Requests to leave the header/footer gradient at its light-mode brightness in dark mode → no, the chrome is capped dark (§4.32).
+- Requests to hardcode a reference-number format, or to restate one as a template string on a field's `derive` row → no, it is segments in `mca_ref_format_master_t` and the field binds `{ref}` (§4.33).
+- Requests to find the next sequence with a `LIKE 'prefix%'` scan → no, that assumes the number is last; use `buildSequencePattern` (§4.33).
+- Requests to emit a reference with a missing code left blank → no, blank the whole field rather than issue a reference that will collide (§4.33).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

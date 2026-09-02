@@ -78,9 +78,9 @@ const LOCATION_GRADIENTS = [
 ];
 
 function statusBadge(s: SealStatus): string {
-  if (s === 'Used') return 'bg-amber-100 text-amber-800 border-amber-200';
-  if (s === 'Damaged') return 'bg-red-100 text-red-700 border-red-200';
-  return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (s === 'Used') return 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30';
+  if (s === 'Damaged') return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30';
+  return 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30';
 }
 
 export default function SealsPage() {
@@ -260,7 +260,7 @@ export default function SealsPage() {
           const active = activeCard === card.key;
           return (
             <button key={card.key} type="button" onClick={() => clickStatusCard(card.key)}
-              className={`text-left rounded-xl bg-gradient-to-br ${card.gradient} text-white p-4 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
+              className={`text-left rounded-xl bg-gradient-to-br ${card.gradient} text-white p-4 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}>
               <Icon className="h-8 w-8 absolute right-3 top-3 opacity-25" />
               <div className="text-3xl font-bold leading-none">{cardValue(card.key)}</div>
               <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.title}</div>
@@ -273,7 +273,7 @@ export default function SealsPage() {
           const active = activeCard === `loc-${loc.id}`;
           return (
             <button key={loc.id} type="button" onClick={() => clickLocationCard(loc.id)}
-              className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-4 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
+              className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-4 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}>
               <MapPin className="h-8 w-8 absolute right-3 top-3 opacity-25" />
               <div className="text-3xl font-bold leading-none">{loc.seal_count}</div>
               <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{loc.location_name}</div>
@@ -284,7 +284,7 @@ export default function SealsPage() {
       </div>
 
       {/* ---- form accordion ---- */}
-      <div className="rounded-xl overflow-hidden mb-4 shadow-sm border border-slate-200">
+      <div className="rounded-xl overflow-hidden mb-4 shadow-sm border border-border">
         <div className="w-full flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <button type="button" onClick={() => setFormOpen((v) => !v)} className="font-semibold flex items-center gap-2">
             <Shield className="h-5 w-5" /> {editId ? 'Edit Seal' : 'Add New Seal'}
@@ -296,8 +296,8 @@ export default function SealsPage() {
           </button>
         </div>
         {formOpen && (
-          <div className="p-4 bg-white">
-            {formErr && <div className="rounded-md bg-red-50 p-2 mb-3 text-sm text-red-700 border border-red-200">{formErr}</div>}
+          <div className="p-4 bg-card">
+            {formErr && <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 mb-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">{formErr}</div>}
             <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
               <div>
                 <label className="label required">Office Location</label>
@@ -334,11 +334,11 @@ export default function SealsPage() {
               </div>
               <div>
                 <label className="label">Per Seal Amount</label>
-                <input className="input bg-slate-100" value={`$${SEAL_UNIT_PRICE.toFixed(2)}`} readOnly />
+                <input className="input bg-muted" value={`$${SEAL_UNIT_PRICE.toFixed(2)}`} readOnly />
               </div>
               <div>
                 <label className="label">Total Seal (auto)</label>
-                <input className="input bg-slate-100 font-semibold" value={totalSeal} readOnly />
+                <input className="input bg-muted font-semibold" value={totalSeal} readOnly />
               </div>
               <div>
                 <label className="label">Display</label>
@@ -363,8 +363,8 @@ export default function SealsPage() {
 
       {/* ---- masters list ---- */}
       <div className="card mb-4">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Masters List
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+          <span className="font-semibold text-foreground flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Masters List
             {(masterStatus || masterLocation) ? <span className="text-[11px] rounded-full bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5">filtered</span> : null}
           </span>
         </div>
@@ -401,10 +401,10 @@ export default function SealsPage() {
                 <span
                   className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${
                     m.added_seals >= m.total_seal && m.total_seal > 0
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                       : m.added_seals > 0
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-slate-100 text-muted-foreground'
+                        ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                        : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {m.added_seals}
@@ -416,7 +416,7 @@ export default function SealsPage() {
               header: 'Display',
               render: (m: SealMasterRow) =>
                 m.display === 'Y' ? (
-                  <span className="text-emerald-600 text-xs font-medium">Yes</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Yes</span>
                 ) : (
                   <span className="text-red-500 text-xs font-medium">No</span>
                 ),
@@ -451,17 +451,17 @@ export default function SealsPage() {
 
       {/* ---- individual seal numbers tracker ---- */}
       <div className="card">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-          <span className="font-semibold text-slate-800 flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Numbers — Usage Tracker</span>
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+          <span className="font-semibold text-foreground flex items-center gap-2"><ListOrdered className="h-4 w-4 text-muted-foreground" /> Seal Numbers — Usage Tracker</span>
         </div>
-        <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2">
+        <div className="px-4 py-3 border-b border-border flex flex-wrap gap-2">
           {([['', 'All'], ['Available', 'Available'], ['Used', 'Used'], ['Damaged', 'Damaged']] as Array<['' | SealStatus, string]>).map(([val, lbl]) => (
             <button key={lbl} type="button" onClick={() => { setNumStatus(val); setNumLocation(0); }}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium border ${numStatus === val && numLocation === 0 ? 'bg-primary-600 text-white border-primary-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>{lbl}</button>
+              className={`px-3 py-1.5 rounded-md text-sm font-medium border ${numStatus === val && numLocation === 0 ? 'bg-primary-600 text-white border-primary-600' : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'}`}>{lbl}</button>
           ))}
           {offices.map((o) => (
             <button key={o.id} type="button" onClick={() => { setNumLocation(o.id); setNumStatus(''); }}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium border inline-flex items-center gap-1 ${numLocation === o.id ? 'bg-primary-600 text-white border-primary-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}><MapPin className="h-3.5 w-3.5" /> {o.label}</button>
+              className={`px-3 py-1.5 rounded-md text-sm font-medium border inline-flex items-center gap-1 ${numLocation === o.id ? 'bg-primary-600 text-white border-primary-600' : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'}`}><MapPin className="h-3.5 w-3.5" /> {o.label}</button>
           ))}
         </div>
         <DataTable<SealNumberRow>
@@ -585,22 +585,22 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={onClose}>
       <div className="card w-full max-w-4xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <h2 className="font-semibold flex items-center gap-2"><ListOrdered className="h-5 w-5" /> Manage Seal Numbers — {master.location_name}</h2>
           <button type="button" onClick={onClose} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 max-h-[75vh] overflow-y-auto">
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
-            <div className="text-sm font-semibold text-slate-700 mb-2">Add Seal Numbers</div>
+          <div className="rounded-lg bg-muted/50 border border-border p-4">
+            <div className="text-sm font-semibold text-foreground mb-2">Add Seal Numbers</div>
             <div className="text-xs text-muted-foreground mb-1">Added: {added} / {limit}</div>
-            <div className="w-full h-2 rounded bg-slate-200 mb-3 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
-            <div className="inline-flex rounded-md overflow-hidden border border-slate-300 mb-3">
-              <button type="button" onClick={() => setMode('single')} className={`px-3 py-1.5 text-sm ${mode === 'single' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>Single</button>
-              <button type="button" onClick={() => setMode('range')} className={`px-3 py-1.5 text-sm ${mode === 'range' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>Range</button>
+            <div className="w-full h-2 rounded bg-muted mb-3 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
+            <div className="inline-flex rounded-md overflow-hidden border border-border mb-3">
+              <button type="button" onClick={() => setMode('single')} className={`px-3 py-1.5 text-sm ${mode === 'single' ? 'bg-primary-600 text-white' : 'bg-card text-muted-foreground'}`}>Single</button>
+              <button type="button" onClick={() => setMode('range')} className={`px-3 py-1.5 text-sm ${mode === 'range' ? 'bg-primary-600 text-white' : 'bg-card text-muted-foreground'}`}>Range</button>
             </div>
-            {err && <div className="rounded-md bg-red-50 p-2 mb-2 text-xs text-red-700 border border-red-200">{err}</div>}
+            {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 mb-2 text-xs text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">{err}</div>}
             {mode === 'single' ? (
               <input className="input" placeholder="e.g. BB91002" value={single} onChange={(e) => setSingle(e.target.value)} />
             ) : (
@@ -613,14 +613,14 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
             <button type="button" onClick={add} disabled={busy || added >= limit} className="btn-primary w-full mt-3">
               <Plus className="h-4 w-4" /> {busy ? 'Adding...' : 'Add Seal Number(s)'}
             </button>
-            {added >= limit && <div className="text-xs text-amber-600 mt-2">Limit reached.</div>}
+            {added >= limit && <div className="text-xs text-amber-600 dark:text-amber-400 mt-2">Limit reached.</div>}
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-700 mb-2">Existing Seal Numbers ({added})</div>
+            <div className="text-sm font-semibold text-foreground mb-2">Existing Seal Numbers ({added})</div>
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
               {list.length === 0 && <div className="text-sm text-muted-foreground py-4 text-center">No seal numbers yet.</div>}
               {list.map((s) => (
-                <div key={s.id} className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <div key={s.id} className="rounded-lg border border-border p-3 flex items-center justify-between">
                   <div>
                     <span className="font-mono font-semibold">{s.seal_number}</span>
                     <span className={`ml-2 inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(s.status)}`}>{s.status}</span>
@@ -633,7 +633,7 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
             </div>
           </div>
         </div>
-        <div className="flex justify-end border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary"><X className="h-4 w-4" /> Close</button>
         </div>
       </div>
@@ -666,15 +666,15 @@ function EditNumberModal({ data, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="card w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <h2 className="font-semibold flex items-center gap-2"><Edit2 className="h-5 w-5" /> Edit Seal Number</h2>
           <button type="button" onClick={onClose} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-5 space-y-3">
-          {err && <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 border border-red-200">{err}</div>}
-          <div><label className="label">Location</label><input className="input bg-slate-100" value={data.location} readOnly /></div>
+          {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">{err}</div>}
+          <div><label className="label">Location</label><input className="input bg-muted" value={data.location} readOnly /></div>
           <div><label className="label required">Seal Number</label><input required className="input" value={seal} onChange={(e) => setSeal(e.target.value)} /></div>
           <div>
             <label className="label required">Status</label>
@@ -691,11 +691,11 @@ function EditNumberModal({ data, onClose, onSaved }: {
               ]}
               onChange={(v) => setStatus(v as SealStatus)}
             />
-            {wasUsed && <div className="text-xs text-amber-600 mt-1">A &quot;Used&quot; seal cannot be changed to &quot;Damaged&quot;.</div>}
+            {wasUsed && <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">A &quot;Used&quot; seal cannot be changed to &quot;Damaged&quot;.</div>}
           </div>
           <div><label className="label">Notes</label><textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
         </div>
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
           <button type="button" onClick={save} disabled={busy} className="btn-primary"><Save className="h-4 w-4" /> {busy ? 'Updating...' : 'Update'}</button>
         </div>
@@ -715,7 +715,7 @@ function ViewModal({ data, onClose }: { data: Record<string, unknown>; onClose: 
     ['Display', data.display === 'Y' ? 'Yes' : 'No'],
   ];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="card w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
           <h2 className="font-semibold flex items-center gap-2"><Eye className="h-5 w-5" /> Seal Details</h2>
@@ -723,13 +723,13 @@ function ViewModal({ data, onClose }: { data: Record<string, unknown>; onClose: 
         </div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
           {fields.map(([label, value]) => (
-            <div key={label} className="border-b border-slate-100 pb-2">
+            <div key={label} className="border-b border-border pb-2">
               <div className="text-[11px] uppercase tracking-wide text-primary-600 font-semibold">{label}</div>
-              <div className="text-sm text-slate-800">{value !== null && value !== undefined && value !== '' ? String(value) : <span className="text-slate-300">—</span>}</div>
+              <div className="text-sm text-foreground">{value !== null && value !== undefined && value !== '' ? String(value) : <span className="text-muted-foreground">—</span>}</div>
             </div>
           ))}
         </div>
-        <div className="flex justify-end border-t border-slate-200 px-5 py-3">
+        <div className="flex justify-end border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary"><X className="h-4 w-4" /> Close</button>
         </div>
       </div>

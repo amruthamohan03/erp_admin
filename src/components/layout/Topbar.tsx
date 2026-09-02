@@ -56,7 +56,11 @@ export default function Topbar() {
     .toUpperCase();
 
   return (
-    <header className="bg-brand-gradient sticky top-0 z-30 flex h-14 items-center justify-between gap-2 px-3 text-white shadow-md sm:h-16 sm:px-6">
+    // The gradient is a brand token, so the bar follows both the configured palette
+    // and the active theme (§4.32). The bottom edge is an alpha of the bar's own
+    // colour rather than a border token: on a dark page the drop shadow alone stops
+    // separating the chrome from the content beneath it.
+    <header className="bg-brand-gradient sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-black/10 px-3 text-white shadow-md dark:border-white/10 sm:h-16 sm:px-6">
       <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         {/* Opens the drawer below `lg`; from `lg` the sidebar is docked and this
             same slot becomes the rail toggle instead. */}

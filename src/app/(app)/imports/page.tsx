@@ -310,7 +310,7 @@ export default function ImportsListPage() {
   return (
     <>
       <div className="card p-4 mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Truck className="h-5 w-5 text-primary-600" /> Import Management
         </h1>
         <button
@@ -343,12 +343,12 @@ export default function ImportsListPage() {
                 key={card.id}
                 type="button"
                 onClick={() => toggleCard(key)}
-                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''} ${isFilter ? '' : 'cursor-default'}`}
+                className={`text-left rounded-xl bg-gradient-to-br ${gradient} text-white p-3 shadow-sm relative overflow-hidden transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''} ${isFilter ? '' : 'cursor-default'}`}
                 title={isFilter ? `Filter: ${card.card_title}` : card.card_title}
               >
                 <div className="absolute right-2 top-2">
                   {active && isFilter ? (
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-slate-900 shadow">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-card text-foreground shadow">
                       <Check className="h-3.5 w-3.5" strokeWidth={3} />
                     </span>
                   ) : (
@@ -367,9 +367,9 @@ export default function ImportsListPage() {
 
       {/* ---- Advanced Filters ---- */}
       <div className="card p-4 mb-4">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
           <Filter className="h-4 w-4 text-primary-600" />
-          <span className="font-semibold text-slate-800">Advanced Filters</span>
+          <span className="font-semibold text-foreground">Advanced Filters</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
@@ -452,7 +452,7 @@ export default function ImportsListPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-500 hover:bg-slate-600 text-white px-3 py-1.5 text-sm font-medium transition"
+                className="btn-neutral btn-sm"
               >
                 <X className="h-4 w-4" /> Reset All Filters
               </button>
@@ -467,7 +467,7 @@ export default function ImportsListPage() {
           href="/imports/new"
           className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
         >
-          <span className="flex items-center gap-2 text-slate-800 font-medium">
+          <span className="flex items-center gap-2 text-foreground font-medium">
             <Truck className="h-4 w-4 text-primary-600" /> Import Tracking
           </span>
           <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
@@ -478,7 +478,7 @@ export default function ImportsListPage() {
           href="/imports/partielles"
           className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
         >
-          <span className="flex items-center gap-2 text-slate-800 font-medium">
+          <span className="flex items-center gap-2 text-foreground font-medium">
             <Layers className="h-4 w-4 text-primary-600" /> PARTIELLE Allocation
           </span>
           <span className="text-xs text-primary-600 group-hover:text-primary-700">
@@ -501,7 +501,7 @@ export default function ImportsListPage() {
             header: 'MCA Ref',
             render: (r: ImportRow) =>
               r.mca_ref ? (
-                <span className="inline-block rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-medium">
+                <span className="inline-block rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 text-[11px] font-mono font-medium">
                   {r.mca_ref}
                 </span>
               ) : (
@@ -536,7 +536,7 @@ export default function ImportsListPage() {
             header: 'Clearing Status',
             render: (r: ImportRow) =>
               r.clearing_status_name ? (
-                <span className="inline-block rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+                <span className="inline-block rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-medium uppercase">
                   {r.clearing_status_name}
                 </span>
               ) : (

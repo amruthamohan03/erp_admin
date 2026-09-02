@@ -216,7 +216,7 @@ export default function RecycleBinPage() {
       {/* §4.27 — the second ask. The name has to be typed, so this cannot be
           completed by muscle memory on a confirm dialog. */}
       {confirmRow && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
           <div className="card w-full max-w-md overflow-hidden">
             <div className="flex items-start gap-3 p-5">
               <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300">

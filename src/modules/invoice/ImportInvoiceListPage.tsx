@@ -59,9 +59,9 @@ function dgiComplete(r: Row): boolean {
   return !!r.tally_ref && r.tally_ref.trim() !== '' && r.dgi_amount > 0 && !!r.normalized_by && r.normalized_by > 0;
 }
 function statusOf(r: Row): { label: string; cls: string } {
-  if (r.validated === 2 || dgiComplete(r)) return { label: 'DGI VERIFIED', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-  if (r.validated === 1) return { label: 'VALIDATED', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
-  return { label: 'NOT VALIDATED', cls: 'bg-rose-100 text-rose-800 border-rose-200' };
+  if (r.validated === 2 || dgiComplete(r)) return { label: 'DGI VERIFIED', cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30' };
+  if (r.validated === 1) return { label: 'VALIDATED', cls: 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30' };
+  return { label: 'NOT VALIDATED', cls: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30' };
 }
 
 export default function ImportInvoiceListPage() {
@@ -179,7 +179,7 @@ export default function ImportInvoiceListPage() {
       <div className="card overflow-hidden mb-4">
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary-600" /> Import Invoices
           </h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -207,11 +207,11 @@ export default function ImportInvoiceListPage() {
               key={card.key}
               type="button"
               onClick={() => { if (card.filter) { setFilter(card.filter); setPage(1); } }}
-              className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''} ${clickable ? '' : 'cursor-default'}`}
+              className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''} ${clickable ? '' : 'cursor-default'}`}
               title={clickable ? `Filter: ${card.label}` : `${card.label} (management view deferred)`}
             >
               {active && (
-                <span className="absolute right-2 top-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-slate-900 shadow">
+                <span className="absolute right-2 top-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-card text-foreground shadow">
                   <Check className="h-3.5 w-3.5" strokeWidth={3} />
                 </span>
               )}
@@ -302,22 +302,22 @@ export default function ImportInvoiceListPage() {
 
       {/* Confirm modal */}
       {confirm && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setConfirm(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setConfirm(null)}>
           <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-violet-500 to-purple-600">
               <h2 className="font-semibold">Confirm — Invoice #{confirm.row.id}</h2>
               <button type="button" onClick={() => setConfirm(null)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
             </div>
             <div className="p-5 space-y-3">
-              {err && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
-              <p className="text-sm text-slate-600">
+              {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
+              <p className="text-sm text-muted-foreground">
                 {confirm.action === 'delete' ? 'Delete this invoice? It will be hidden from the list.'
                   : confirm.action === 'dgi' ? 'Mark this invoice as DGI-verified?'
                   : 'Validate this invoice? This removes the PDF watermark.'}
               </p>
               <div className="text-sm text-muted-foreground">{confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · ${fmt(confirm.row.amount)}</div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setConfirm(null)} className="btn-secondary">Cancel</button>
               <button type="button" onClick={runAction} disabled={busy} className={confirm.action === 'delete' ? 'btn-danger' : 'btn-primary'}>
                 {busy ? '…' : confirm.action === 'delete' ? 'Delete' : confirm.action === 'dgi' ? 'Mark DGI' : 'Validate'}
@@ -329,17 +329,17 @@ export default function ImportInvoiceListPage() {
 
       {/* DGI edit modal */}
       {dgiEdit && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setDgiEdit(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setDgiEdit(null)}>
           <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-rose-600 to-red-700">
               <h2 className="font-semibold flex items-center gap-2"><Clock className="h-5 w-5" /> Edit DGI Info</h2>
               <button type="button" onClick={() => setDgiEdit(null)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
             </div>
             <div className="p-5 space-y-3">
-              {err && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
+              {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
               <div>
                 <label className="label">Invoice Ref</label>
-                <input className="input bg-slate-100" value={dgiEdit.invoice_ref ?? ''} readOnly />
+                <input className="input bg-muted" value={dgiEdit.invoice_ref ?? ''} readOnly />
               </div>
               <div>
                 <label className="label">DGI Code</label>
@@ -362,7 +362,7 @@ export default function ImportInvoiceListPage() {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setDgiEdit(null)} className="btn-secondary">Cancel</button>
               <button type="button" onClick={saveDgiEdit} disabled={busy} className="btn-primary inline-flex items-center gap-2">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Changes

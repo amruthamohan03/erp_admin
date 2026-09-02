@@ -57,13 +57,13 @@ function fmt(v: string | number | null | undefined): string {
 // Derive the display status + the ONE actionable stage for a row.
 function statusOf(r: Row): { label: string; cls: string; stage: Stage | null } {
   if ([r.dept_approval, r.finance_approval, r.management_approval, r.under_process, r.paid_approval].some((v) => v === -1))
-    return { label: 'Rejected', cls: 'bg-rose-100 text-rose-800 border-rose-200', stage: null };
-  if (r.paid_approval === 1) return { label: 'Paid', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200', stage: null };
-  if (r.dept_approval == null) return { label: 'Pending Dept', cls: 'bg-amber-100 text-amber-800 border-amber-200', stage: 'dept' };
-  if (r.finance_approval == null) return { label: 'Pending Finance', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200', stage: 'finance' };
-  if (r.management_approval == null) return { label: 'Pending Mgmt', cls: 'bg-violet-100 text-violet-800 border-violet-200', stage: 'management' };
-  if (r.payment_type === 'Bank' && r.under_process == null) return { label: 'Under Process', cls: 'bg-sky-100 text-sky-800 border-sky-200', stage: 'under_process' };
-  return { label: 'Pending Payment', cls: 'bg-orange-100 text-orange-800 border-orange-200', stage: 'paid' };
+    return { label: 'Rejected', cls: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30', stage: null };
+  if (r.paid_approval === 1) return { label: 'Paid', cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30', stage: null };
+  if (r.dept_approval == null) return { label: 'Pending Dept', cls: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30', stage: 'dept' };
+  if (r.finance_approval == null) return { label: 'Pending Finance', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30', stage: 'finance' };
+  if (r.management_approval == null) return { label: 'Pending Mgmt', cls: 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-500/30', stage: 'management' };
+  if (r.payment_type === 'Bank' && r.under_process == null) return { label: 'Under Process', cls: 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30', stage: 'under_process' };
+  return { label: 'Pending Payment', cls: 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-500/30', stage: 'paid' };
 }
 
 export default function PaymentsPage() {
@@ -154,7 +154,7 @@ export default function PaymentsPage() {
       <div className="card overflow-hidden mb-4">
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary-600" /> Payment Requests
           </h1>
           <Link href="/payments/new" className="btn-primary"><Plus className="h-4 w-4" /> New Payment Request</Link>
@@ -170,7 +170,7 @@ export default function PaymentsPage() {
             <button
               key={card.key} type="button"
               onClick={() => { setFilter(card.key); setPage(1); }}
-              className={`text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
+              className={`text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}
             >
               <div className="text-2xl font-bold leading-none">{value}</div>
               <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.label}</div>
@@ -281,7 +281,7 @@ export default function PaymentsPage() {
 
       {/* View modal */}
       {view && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setView(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setView(null)}>
           <div className="card w-full max-w-2xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
               <h2 className="font-semibold flex items-center gap-2"><Receipt className="h-5 w-5" /> Payment Request #{String(view.id)}</h2>
@@ -297,13 +297,13 @@ export default function PaymentsPage() {
                 ] as Array<[string, unknown]>).map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{k}</dt>
-                    <dd className="text-slate-800 dark:text-slate-100">{v === null || v === undefined || v === '' ? '—' : String(v)}</dd>
+                    <dd className="text-foreground">{v === null || v === undefined || v === '' ? '—' : String(v)}</dd>
                   </div>
                 ))}
               </dl>
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Motif</div>
-                <div className="rounded-md bg-slate-50 dark:bg-slate-800/40 p-2 text-sm whitespace-pre-wrap">{String(view.motif ?? '—')}</div>
+                <div className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{String(view.motif ?? '—')}</div>
               </div>
               {mcaLines.length > 0 && (
                 <div className="mt-4">
@@ -320,10 +320,10 @@ export default function PaymentsPage() {
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                 {([['Dept', 'dept_approval', 'dept_approved_by_name'], ['Finance', 'finance_approval', 'finance_approved_by_name'], ['Mgmt', 'management_approval', 'management_approved_by_name'], ['Under Proc.', 'under_process', 'under_process_by_name'], ['Paid', 'paid_approval', 'paid_approved_by_name']] as Array<[string, string, string]>).map(([label, ap, by]) => {
                   const v = view[ap] as number | null;
-                  const badge = v === 1 ? 'bg-emerald-100 text-emerald-700' : v === -1 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-muted-foreground';
+                  const badge = v === 1 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : v === -1 ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300' : 'bg-muted text-muted-foreground';
                   return (
-                    <div key={label} className="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-center">
-                      <div className="font-semibold text-slate-600 dark:text-slate-300 mb-1">{label}</div>
+                    <div key={label} className="rounded-lg border border-border p-2 text-center">
+                      <div className="font-semibold text-muted-foreground mb-1">{label}</div>
                       <span className={`inline-block rounded-full px-2 py-0.5 ${badge}`}>{v === 1 ? 'Approved' : v === -1 ? 'Rejected' : 'Pending'}</span>
                       {view[by] ? <div className="mt-1 text-muted-foreground truncate">{String(view[by])}</div> : null}
                     </div>
@@ -331,7 +331,7 @@ export default function PaymentsPage() {
                 })}
               </div>
             </div>
-            <div className="flex justify-end border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+            <div className="flex justify-end border-t border-border px-5 py-3">
               <button type="button" onClick={() => setView(null)} className="btn-secondary"><X className="h-4 w-4" /> Close</button>
             </div>
           </div>
@@ -340,15 +340,15 @@ export default function PaymentsPage() {
 
       {/* Approve / reject modal */}
       {act && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setAct(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setAct(null)}>
           <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-violet-500 to-purple-600">
               <h2 className="font-semibold capitalize">{act.stage.replace('_', ' ')} — Payment #{act.row.id}</h2>
               <button type="button" onClick={() => setAct(null)} className="rounded-md p-1 hover:bg-white/20"><X className="h-5 w-5" /></button>
             </div>
             <div className="p-5 space-y-3">
-              {actErr && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{actErr}</div>}
-              <div className="text-sm text-slate-600 dark:text-slate-300">
+              {actErr && <div className="rounded-md bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{actErr}</div>}
+              <div className="text-sm text-muted-foreground">
                 {act.row.beneficiary} · {fmt(act.row.amount)} {act.row.currency_short_name} · {act.row.payment_type}
               </div>
               {act.stage === 'paid' && (
@@ -365,7 +365,7 @@ export default function PaymentsPage() {
             {/* §4.21 — a way out that is not the X or the backdrop. This modal
                 commits an approval, so leaving without deciding must be an
                 explicit, labelled choice. */}
-            <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setAct(null)} disabled={busy} className="btn-secondary">Cancel</button>
               <button type="button" onClick={submitReject} disabled={busy} className="btn-danger"><X className="h-4 w-4" /> Reject</button>
               <button type="button" onClick={submitApprove} disabled={busy} className="btn-primary"><Check className="h-4 w-4" /> {busy ? '…' : 'Approve'}</button>

@@ -72,6 +72,10 @@ const PARENTS: ParentSpec[] = [
   // to this branch — the links 404 until it ships (kept as real URLs,
   // not '#', so they resolve the moment the page lands).
   { name: 'Transactional Pages', order: 93, icon: 'ti ti-forms' },
+  // Configuration that changes how the app BEHAVES rather than what it holds.
+  // Reference Formats sits here rather than under Masters because getting it
+  // wrong renames every consignment created afterwards — it is not a lookup table.
+  { name: 'Developer Options', order: 98, icon: 'ti ti-code' },
 ];
 
 // The single Dashboard entry (id=1 in the original) links directly
@@ -344,6 +348,15 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Transactional Pages', name: 'Accordions', order: 2, url: '/masters/pages?tab=accordions' },
   { parent: 'Transactional Pages', name: 'Fields', order: 3, url: '/masters/pages?tab=fields' },
   { parent: 'Transactional Pages', name: 'Role Grants', order: 4, url: '/masters/pages?tab=roles' },
+
+  // ── Developer Options ───────────────────────────────────────────
+  {
+    parent: 'Developer Options',
+    name: 'Reference Formats',
+    order: 1,
+    url: '/developer/reference-formats',
+    icon: 'ti ti-hash',
+  },
 ];
 
 // New top-level rows added on this branch that don't map to any

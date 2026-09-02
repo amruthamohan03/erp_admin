@@ -95,7 +95,7 @@ export default function LocalPage() {
       <div className="card overflow-hidden mb-4">
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary-600" /> Local Tracking
           </h1>
           <Link href="/local/new" className="btn-primary"><Plus className="h-4 w-4" /> Add New Local</Link>
@@ -105,13 +105,13 @@ export default function LocalPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <button type="button" onClick={() => { setLocationFilter(0); setPage(1); }}
-          className={`text-left rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-4 shadow-sm transition hover:shadow-md ${locationFilter === 0 ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
+          className={`text-left rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-4 shadow-sm transition hover:shadow-md ${locationFilter === 0 ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}>
           <div className="text-2xl font-bold">{stats?.total_tracking ?? 0}</div>
           <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">Total Tracking</div>
         </button>
         {(stats?.location_counts ?? []).map((loc) => (
           <button key={loc.id} type="button" onClick={() => { setLocationFilter(loc.id); setPage(1); }}
-            className={`text-left rounded-xl bg-gradient-to-br ${OFFICE_GRAD[loc.id] ?? 'from-slate-500 to-slate-700'} text-white p-4 shadow-sm transition hover:shadow-md ${locationFilter === loc.id ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}>
+            className={`text-left rounded-xl bg-gradient-to-br ${OFFICE_GRAD[loc.id] ?? 'from-slate-500 to-slate-700'} text-white p-4 shadow-sm transition hover:shadow-md ${locationFilter === loc.id ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}>
             <div className="text-2xl font-bold flex items-center gap-1"><MapPin className="h-4 w-4 opacity-70" />{loc.file_count}</div>
             <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide truncate">{loc.main_location_name}</div>
           </button>
@@ -152,7 +152,7 @@ export default function LocalPage() {
 
       {/* View modal */}
       {view && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setView(null)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setView(null)}>
           <div className="card w-full max-w-3xl my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
               <h2 className="font-semibold flex items-center gap-2"><Eye className="h-5 w-5" /> Local #{String(view.id)} — {D('mca_lt_reference')}</h2>
@@ -171,16 +171,16 @@ export default function LocalPage() {
                 ] as Array<[string, string]>).map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{k}</dt>
-                    <dd className="text-slate-800 dark:text-slate-100">{v}</dd>
+                    <dd className="text-foreground">{v}</dd>
                   </div>
                 ))}
               </dl>
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Remarks</div>
-                <div className="rounded-md bg-slate-50 dark:bg-slate-800/40 p-2 text-sm whitespace-pre-wrap">{D('remarks')}</div>
+                <div className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{D('remarks')}</div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <Link href={`/local/${view.id}`} className="btn-primary"><Edit2 className="h-4 w-4" /> Edit</Link>
               <button type="button" onClick={() => setView(null)} className="btn-secondary"><X className="h-4 w-4" /> Close</button>
             </div>

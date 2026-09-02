@@ -130,8 +130,12 @@
     --brand-foreground: 243 40% 10%;
     --brand-accent: 262 80% 70%;
     --brand-accent-foreground: 262 40% 10%;
-    --brand-from: 243 75% 43%;
-    --brand-to: 262 83% 38%;
+    /* The header/footer strips are the largest painted areas on the screen, so in
+       dark mode they go deep rather than merely a shade down — a bright gradient
+       bar is the glare source at night, and it stops the app reading as dark at
+       all. src/lib/branding.ts caps the configured brand the same way. */
+    --brand-from: 243 75% 30%;
+    --brand-to: 262 83% 25%;
 
     --sidebar: 229 39% 11%;
     --sidebar-foreground: 210 40% 92%;
@@ -147,7 +151,30 @@
   html, body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* §4.31 — one typeface for the whole app. `--font-sans` is set on <html> by
+       next/font in the root layout; the stack behind it is what renders if the
+       webfont has not arrived yet or is blocked. */
+    font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* `cv05`/`cv08`: single-storey `l` and upright `t` — the ambiguous pair in a
+       screen full of reference codes. `tnum`: fixed-width digits so a column of
+       amounts lines up without every call site remembering `tabular-nums`. */
+    font-feature-settings: "cv05" 1, "cv08" 1, "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, kbd, pre, samp, .font-mono {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas,
+      "Liberation Mono", monospace;
+  }
+
+  /* Proportional figures read better in running prose; the tabular default above
+     is for data, and headings are neither. */
+  h1, h2, h3, h4, h5, h6 {
+    font-feature-settings: "cv05" 1, "cv08" 1;
+    letter-spacing: -0.011em;
   }
 
   /* Stop iOS Safari from zooming when a sub-16px input takes focus. */

@@ -68,7 +68,7 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
         )}
       </div>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
               <h2 className="font-semibold flex items-center gap-2"><Shield className="h-5 w-5" /> Select DGDA Seals</h2>
@@ -80,7 +80,7 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
                 <input className="input pl-9" placeholder="Search seals..." value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <div className="text-xs text-muted-foreground mb-2">{checked.size} selected</div>
-              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
+              <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-md">
                 {loading && <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>}
                 {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">No available seals.</div>}
                 {!loading && options.map((s) => (
@@ -91,7 +91,7 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
                 ))}
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setOpen(false)} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
               <button type="button" onClick={confirm} className="btn-primary"><Check className="h-4 w-4" /> Confirm Selection</button>
             </div>

@@ -41,9 +41,9 @@ function fmt(n: number): string {
 }
 
 function statusOf(v: number): { label: string; cls: string } {
-  if (v === 2) return { label: 'DGI Verified', cls: 'bg-cyan-100 text-cyan-800 border-cyan-200' };
-  if (v === 1) return { label: 'Validated', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-  return { label: 'Pending', cls: 'bg-amber-100 text-amber-800 border-amber-200' };
+  if (v === 2) return { label: 'DGI Verified', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30' };
+  if (v === 1) return { label: 'Validated', cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30' };
+  return { label: 'Pending', cls: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30' };
 }
 
 export default function InvoiceListPage({ kind }: { kind: Kind }) {
@@ -136,7 +136,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
       <div className="card overflow-hidden mb-4">
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary-600" /> {title}
           </h1>
           <Link href={`/${kind}-invoices/new`} className="btn-primary">
@@ -157,7 +157,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
                 setFilter(card.key);
                 setPage(1);
               }}
-              className={`text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-slate-900/40' : ''}`}
+              className={`text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}
             >
               <div className="text-2xl font-bold leading-none">{stats[card.stat]}</div>
               <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.label}</div>
@@ -243,7 +243,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
 
       {confirm && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/50 p-4 sm:p-8 overflow-y-auto"
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 sm:p-8 overflow-y-auto"
           onClick={() => setConfirm(null)}
         >
           <div className="card w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -254,13 +254,13 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
               </button>
             </div>
             <div className="p-5 space-y-3">
-              {err && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
-              <p className="text-sm text-slate-600 dark:text-slate-300">{confirmText}</p>
+              {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
+              <p className="text-sm text-muted-foreground">{confirmText}</p>
               <div className="text-sm text-muted-foreground">
                 {confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · {fmt(confirm.row.total_usd)} USD
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => setConfirm(null)} className="btn-secondary">
                 Cancel
               </button>

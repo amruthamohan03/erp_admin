@@ -15,6 +15,16 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { loadMcaRefSegments } from '@/db/queries/mcaRefFormats';
+import {
+  buildSequencePattern,
+  renderMcaRef,
+  sequenceSegment,
+  sequenceWidthOf,
+  type McaRefSegment,
+  type McaRefTargetKey,
+  type McaRefTokens,
+} from '@/lib/mcaRefFormat';
 
 type Values = Record<string, unknown>;
 type Row = Record<string, unknown>;
@@ -94,231 +104,238 @@ const SOURCES: Record<string, DeriveSource> = {
         FROM client_master_t WHERE id = ${id} LIMIT 1`);
     },
   },
-
-  // Licence MCA reference tokens, resolved from the form's OWN master ids (the
-  // licence form carries client/kind/goods/transport directly, unlike imports
-  // which read them off the selected licence). §4.5: the number is
-  // {client_short}-{kind_short}-{goods_short}-{transport_letter}, no year/seq.
-  // Returns null (→ field left blank) if any of the four short codes is missing.
-  license_mca: {
-    async resolve(values) {
-      const clientId = toId(values['client_id']);
-      const kindId = toId(values['kind_id']);
-      const goodsId = toId(values['type_of_goods_id']);
-      const transportId = toId(values['transport_mode_id']);
-      if (!clientId || !kindId || !goodsId || !transportId) return null;
-
-      const tokens = await queryOne(sql`
-        SELECT c.short_name AS client_short,
-               k.kind_short_name AS kind_short,
-               tg.goods_short_name AS goods_short,
-               tm.transport_letter AS transport_letter
-        FROM client_master_t c
-        LEFT JOIN kind_master_t k ON k.id = ${kindId}
-        LEFT JOIN type_of_goods_master_t tg ON tg.id = ${goodsId}
-        LEFT JOIN transport_mode_master_t tm ON tm.id = ${transportId}
-        WHERE c.id = ${clientId}
-        LIMIT 1
-      `);
-      if (!tokens) return null;
-
-      const up = (v: unknown) => String(v ?? '').trim().toUpperCase();
-      if (
-        !tokens.client_short ||
-        !tokens.kind_short ||
-        !tokens.goods_short ||
-        !tokens.transport_letter
-      ) {
-        return null;
-      }
-      return {
-        client_short: up(tokens.client_short),
-        kind_short: up(tokens.kind_short),
-        goods_short: up(tokens.goods_short),
-        transport_letter: up(tokens.transport_letter),
-      };
-    },
-  },
-
-  // Import MCA reference tokens: client short code + the license's kind/goods/
-  // transport short codes, the 2-digit year, and the next sequence for that prefix.
-  // The template string itself lives in the field's derive config.
-  import_mca: {
-    async resolve(values) {
-      const clientId = toId(values['client_id']);
-      const licenseId = toId(values['license_id']);
-      if (!clientId || !licenseId) return null;
-
-      const tokens = await queryOne(sql`
-        SELECT c.short_name AS client_short,
-               k.kind_short_name AS kind_short,
-               tg.goods_short_name AS goods_short,
-               tm.transport_letter AS transport_letter
-        FROM license_t l
-        LEFT JOIN client_master_t c ON c.id = ${clientId}
-        LEFT JOIN kind_master_t k ON k.id = l.kind_id
-        LEFT JOIN type_of_goods_master_t tg ON tg.id = l.type_of_goods_id
-        LEFT JOIN transport_mode_master_t tm ON tm.id = l.transport_mode_id
-        WHERE l.id = ${licenseId}
-        LIMIT 1
-      `);
-      if (!tokens) return null;
-
-      const year = String(new Date().getFullYear()).slice(-2);
-      const up = (v: unknown) => String(v ?? '').trim().toUpperCase();
-      const prefix = `${up(tokens.client_short)}-${up(tokens.kind_short)}${up(tokens.goods_short)}${up(tokens.transport_letter)}${year}-`;
-
-      const last = await queryOne(sql`
-        SELECT mca_ref FROM imports_t
-        WHERE mca_ref LIKE ${prefix + '%'} AND display = 'Y'
-        ORDER BY mca_ref DESC LIMIT 1
-      `);
-      let next = 1;
-      if (last?.mca_ref) {
-        const m = /-(\d{4})$/.exec(String(last.mca_ref));
-        if (m) next = parseInt(m[1], 10) + 1;
-      }
-
-      return {
-        client_short: up(tokens.client_short),
-        kind_short: up(tokens.kind_short),
-        goods_short: up(tokens.goods_short),
-        transport_letter: up(tokens.transport_letter),
-        year,
-        seq: String(next).padStart(4, '0'),
-      };
-    },
-  },
-
-  // Export MCA reference — same shape as import_mca but sequences against
-  // exports_t and applies the legacy kind_id = 2 → "RE" short-code override
-  // (ExportController::getNextMCASequence).
-  export_mca: {
-    async resolve(values) {
-      const clientId = toId(values['client_id']);
-      const licenseId = toId(values['license_id']);
-      if (!clientId || !licenseId) return null;
-
-      const tokens = await queryOne(sql`
-        SELECT c.short_name AS client_short,
-               l.kind_id AS kind_id,
-               k.kind_short_name AS kind_short,
-               tg.goods_short_name AS goods_short,
-               tm.transport_letter AS transport_letter
-        FROM license_t l
-        LEFT JOIN client_master_t c ON c.id = ${clientId}
-        LEFT JOIN kind_master_t k ON k.id = l.kind_id
-        LEFT JOIN type_of_goods_master_t tg ON tg.id = l.type_of_goods_id
-        LEFT JOIN transport_mode_master_t tm ON tm.id = l.transport_mode_id
-        WHERE l.id = ${licenseId}
-        LIMIT 1
-      `);
-      if (!tokens) return null;
-
-      const year = String(new Date().getFullYear()).slice(-2);
-      const up = (v: unknown) => String(v ?? '').trim().toUpperCase();
-      // kind_id = 2 (Re-Export) forces the "RE" short code regardless of master value.
-      const kindShort = Number(tokens.kind_id) === 2 ? 'RE' : up(tokens.kind_short);
-      const prefix = `${up(tokens.client_short)}-${kindShort}${up(tokens.goods_short)}${up(tokens.transport_letter)}${year}-`;
-
-      const last = await queryOne(sql`
-        SELECT mca_ref FROM exports_t
-        WHERE mca_ref LIKE ${prefix + '%'} AND display = 'Y'
-        ORDER BY mca_ref DESC LIMIT 1
-      `);
-      let next = 1;
-      if (last?.mca_ref) {
-        const m = /-(\d{4})$/.exec(String(last.mca_ref));
-        if (m) next = parseInt(m[1], 10) + 1;
-      }
-
-      return {
-        client_short: up(tokens.client_short),
-        kind_short: kindShort,
-        goods_short: up(tokens.goods_short),
-        transport_letter: up(tokens.transport_letter),
-        year,
-        seq: String(next).padStart(4, '0'),
-      };
-    },
-  },
 };
 
-// Local-tracking LT reference tokens, resolved from the form's client + office.
-// §4.5 format: {client_short(3 letters)}-LT{location_prefix(2 letters)}{year2}-
-// {seq4}. Sequence is the next number for that prefix in locals_t.
-SOURCES.local_lt = {
-  async resolve(values) {
-    const clientId = toId(values['client_id']);
-    const locationId = toId(values['location']);
-    if (!clientId || !locationId) return null;
+// ── Generated reference numbers ────────────────────────────────────────────
+//
+// Every auto-generated reference in the app — the two MCA references, the
+// licence number, the LT reference and the two invoice references — is built the
+// same way: resolve the master CODES from whatever the form has so far, then
+// arrange them according to the format configured under Developer Options
+// (mca_ref_format_master_t, see src/lib/mcaRefFormat.ts).
+//
+// The split matters. WHERE a reference reads its codes from is a fact about the
+// page and stays here, in vetted SQL. HOW those codes are arranged — order,
+// separators, which of them appear at all, how wide the number is — is the part
+// a business analyst changes, and that is config (§4.1). Before this, both halves
+// were hardcoded and the format was additionally restated as a template string in
+// each field's derive row, so changing `NMI-IDCOR26-0001` to `IDCOR26-0001-NMI`
+// meant a deploy.
 
-    const info = await queryOne(sql`
-      SELECT c.short_name AS client_short, m.main_location_name AS location_name
-      FROM client_master_t c
-      CROSS JOIN main_office_master_t m
-      WHERE c.id = ${clientId} AND m.id = ${locationId}
-      LIMIT 1
-    `);
-    if (!info) return null;
-
-    const lettersUpper = (v: unknown, n: number) => String(v ?? '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, n);
-    const clientShort = lettersUpper(info.client_short, 3);
-    const locationPrefix = lettersUpper(info.location_name, 2);
-    if (!clientShort || !locationPrefix) return null;
-
-    const year = String(new Date().getFullYear()).slice(-2);
-    const prefix = `${clientShort}-LT${locationPrefix}${year}-`;
-
-    const last = await queryOne(sql`
-      SELECT mca_lt_reference FROM locals_t
-      WHERE mca_lt_reference LIKE ${prefix + '%'} AND display = 'Y'
-      ORDER BY mca_lt_reference DESC LIMIT 1
-    `);
-    let next = 1;
-    if (last?.mca_lt_reference) {
-      const m = /-(\d{4})$/.exec(String(last.mca_lt_reference));
-      if (m) next = parseInt(m[1], 10) + 1;
-    }
-    return { client_short: clientShort, location_prefix: locationPrefix, year, seq: String(next).padStart(4, '0') };
-  },
+/**
+ * The table and column each reference is written to.
+ *
+ * Vetted, and deliberately NOT part of the config row: `target_key` selects an
+ * entry here, so a config row can name a reference but never a table (§4.12).
+ */
+const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string }> = {
+  import: { table: 'imports_t', column: 'mca_ref' },
+  export: { table: 'exports_t', column: 'mca_ref' },
+  license: { table: 'license_t', column: 'license_number' },
+  local: { table: 'locals_t', column: 'mca_lt_reference' },
+  'export-invoice': { table: 'export_invoices_t', column: 'invoice_ref' },
+  'import-invoice': { table: 'import_invoices_t', column: 'invoice_ref' },
 };
 
-// Invoice reference tokens. Both suggest an editable ref of the form
-// {year(4)}-{client_short}[-EXP]-{seq(4)}, sequenced against the matching
-// invoice table for that year+client prefix. The template string lives in the
-// field's derive config; these only supply the tokens.
-function invoiceRefSource(kind: 'export' | 'import'): DeriveSource {
-  const table = kind === 'export' ? 'export_invoices_t' : 'import_invoices_t';
-  const mid = kind === 'export' ? 'EXP-' : '';
+const upper = (v: unknown): string | null => {
+  const s = String(v ?? '').trim().toUpperCase();
+  return s || null;
+};
+
+/** Four-digit current year; a 2-digit format slices it (§4.19 keeps display separate). */
+const currentYear = (): string => String(new Date().getFullYear());
+
+/**
+ * The next number for this format and these codes.
+ *
+ * The old implementation scanned `LIKE 'prefix%' ORDER BY … DESC`, which only
+ * works while the sequence is the LAST segment — and the whole point of the
+ * setup screen is that it need not be. Matching on a regex built from the
+ * resolved value of every other segment finds the series wherever the number
+ * sits, and scopes the counter to exactly what the format prints: two
+ * consignments share a counter when every other segment of their reference is
+ * identical, and not otherwise.
+ *
+ * Returns null when the format carries no sequence (the licence number does not).
+ */
+async function nextSequence(
+  key: McaRefTargetKey,
+  segments: McaRefSegment[],
+  tokens: McaRefTokens,
+): Promise<number | null> {
+  const built = buildSequencePattern(segments, tokens);
+  if (!built) return null;
+
+  const { table, column } = REF_TABLES[key];
+  const col = sql.identifier(column);
+  // `regexp_match(...)[1]` rather than `substring(x from p)`: the function form
+  // takes the pattern as a plain bind parameter, where the `FROM` syntax needs a
+  // literal. Soft-deleted rows still count — their reference is spent, and
+  // reissuing it would collide the moment one is restored (§4.27).
+  const row = await queryOne(sql`
+    SELECT COALESCE(MAX(((regexp_match(${col}, ${built.pattern}))[1])::bigint), 0) AS max_seq
+    FROM ${sql.identifier(table)}
+    WHERE ${col} ~ ${built.pattern}
+  `);
+  return Number(row?.max_seq ?? 0) + 1;
+}
+
+/**
+ * Build a derive source for one reference from a token resolver.
+ *
+ * Returns `{ ref, … }` — the finished reference plus the codes it was built
+ * from, so a field can bind `{ref}` and the tokens stay available to anything
+ * else on the page. Returns null (→ the field is left blank) when a code the
+ * format asks for is missing, rather than emitting a reference with a hole in
+ * it: a short reference is not a partial one, it is somebody else's.
+ */
+function referenceSource(
+  key: McaRefTargetKey,
+  resolveTokens: (values: Values) => Promise<McaRefTokens | null>,
+): DeriveSource {
   return {
     async resolve(values) {
-      const clientId = toId(values['client_id']);
-      if (!clientId) return null;
-      const info = await queryOne(sql`
-        SELECT short_name AS client_short FROM client_master_t WHERE id = ${clientId} LIMIT 1`);
-      if (!info?.client_short) return null;
+      const tokens = await resolveTokens(values);
+      if (!tokens) return null;
 
-      const up = (v: unknown) => String(v ?? '').trim().toUpperCase();
-      const clientShort = up(info.client_short);
-      const year = String(new Date().getFullYear());
-      const prefix = `${year}-${clientShort}-${mid}`;
+      const segments = await loadMcaRefSegments(key);
+      const seqSeg = sequenceSegment(segments);
+      const seq = seqSeg ? await nextSequence(key, segments, tokens) : null;
+      const ref = renderMcaRef(segments, tokens, seq);
+      if (!ref) return null;
 
-      const last = await queryOne(sql`
-        SELECT invoice_ref FROM ${sql.identifier(table)}
-        WHERE invoice_ref LIKE ${prefix + '%'} AND display = 'Y'
-        ORDER BY invoice_ref DESC LIMIT 1`);
-      let next = 1;
-      if (last?.invoice_ref) {
-        const m = /-(\d{4})$/.exec(String(last.invoice_ref));
-        if (m) next = parseInt(m[1], 10) + 1;
-      }
-      return { client_short: clientShort, year, seq: String(next).padStart(4, '0') };
+      return {
+        ref,
+        client: tokens.client ?? null,
+        kind: tokens.kind ?? null,
+        goods: tokens.goods ?? null,
+        transport: tokens.transport ?? null,
+        office: tokens.office ?? null,
+        year: tokens.year ?? null,
+        seq: seq === null || !seqSeg ? null : String(seq).padStart(sequenceWidthOf(seqSeg), '0'),
+      };
     },
   };
 }
-SOURCES.export_invoice_ref = invoiceRefSource('export');
-SOURCES.import_invoice_ref = invoiceRefSource('import');
+
+/** The licence form carries client/kind/goods/transport directly. */
+SOURCES.license_mca = referenceSource('license', async (values) => {
+  const clientId = toId(values['client_id']);
+  const kindId = toId(values['kind_id']);
+  const goodsId = toId(values['type_of_goods_id']);
+  const transportId = toId(values['transport_mode_id']);
+  if (!clientId || !kindId || !goodsId || !transportId) return null;
+
+  const row = await queryOne(sql`
+    SELECT c.short_name AS client_short,
+           k.kind_short_name AS kind_short,
+           tg.goods_short_name AS goods_short,
+           tm.transport_letter AS transport_letter
+    FROM client_master_t c
+    LEFT JOIN kind_master_t k ON k.id = ${kindId}
+    LEFT JOIN type_of_goods_master_t tg ON tg.id = ${goodsId}
+    LEFT JOIN transport_mode_master_t tm ON tm.id = ${transportId}
+    WHERE c.id = ${clientId}
+    LIMIT 1
+  `);
+  if (!row) return null;
+
+  return {
+    client: upper(row.client_short),
+    kind: upper(row.kind_short),
+    goods: upper(row.goods_short),
+    transport: upper(row.transport_letter),
+    year: currentYear(),
+  };
+});
+
+/**
+ * Import and export tracking take the client from the consignment and the other
+ * three codes off the selected licence.
+ *
+ * `reExportKindId` is a legacy quirk carried over verbatim: on exports, kind 2
+ * prints RE whatever the master says (ExportController::getNextMCASequence).
+ * It belongs in kind_master_t.kind_short_name and should move there, but that is
+ * a data correction with existing references depending on it — not a side effect
+ * of making the format configurable.
+ */
+function trackingReference(key: 'import' | 'export'): DeriveSource {
+  return referenceSource(key, async (values) => {
+    const clientId = toId(values['client_id']);
+    const licenseId = toId(values['license_id']);
+    if (!clientId || !licenseId) return null;
+
+    const row = await queryOne(sql`
+      SELECT c.short_name AS client_short,
+             l.kind_id AS kind_id,
+             k.kind_short_name AS kind_short,
+             tg.goods_short_name AS goods_short,
+             tm.transport_letter AS transport_letter
+      FROM license_t l
+      LEFT JOIN client_master_t c ON c.id = ${clientId}
+      LEFT JOIN kind_master_t k ON k.id = l.kind_id
+      LEFT JOIN type_of_goods_master_t tg ON tg.id = l.type_of_goods_id
+      LEFT JOIN transport_mode_master_t tm ON tm.id = l.transport_mode_id
+      WHERE l.id = ${licenseId}
+      LIMIT 1
+    `);
+    if (!row) return null;
+
+    const kind = key === 'export' && Number(row.kind_id) === 2 ? 'RE' : upper(row.kind_short);
+    return {
+      client: upper(row.client_short),
+      kind,
+      goods: upper(row.goods_short),
+      transport: upper(row.transport_letter),
+      year: currentYear(),
+    };
+  });
+}
+
+SOURCES.import_mca = trackingReference('import');
+SOURCES.export_mca = trackingReference('export');
+
+/**
+ * Local tracking: the client's code plus the selected main office.
+ *
+ * The office token is the office's FULL name — the format's `letters` decides how
+ * much of it prints, so shortening KINSHASA from KI to KIN is a config change.
+ */
+SOURCES.local_lt = referenceSource('local', async (values) => {
+  const clientId = toId(values['client_id']);
+  const locationId = toId(values['location']);
+  if (!clientId || !locationId) return null;
+
+  const row = await queryOne(sql`
+    SELECT c.short_name AS client_short, m.main_location_name AS location_name
+    FROM client_master_t c
+    CROSS JOIN main_office_master_t m
+    WHERE c.id = ${clientId} AND m.id = ${locationId}
+    LIMIT 1
+  `);
+  if (!row) return null;
+
+  return {
+    client: upper(row.client_short),
+    office: upper(row.location_name),
+    year: currentYear(),
+  };
+});
+
+/** Invoices know only the client — kind, goods and transport aren't on the form. */
+function invoiceReference(key: 'export-invoice' | 'import-invoice'): DeriveSource {
+  return referenceSource(key, async (values) => {
+    const clientId = toId(values['client_id']);
+    if (!clientId) return null;
+    const row = await queryOne(sql`
+      SELECT short_name AS client_short FROM client_master_t WHERE id = ${clientId} LIMIT 1`);
+    if (!row) return null;
+    return { client: upper(row.client_short), year: currentYear() };
+  });
+}
+
+SOURCES.export_invoice_ref = invoiceReference('export-invoice');
+SOURCES.import_invoice_ref = invoiceReference('import-invoice');
 
 export function getDeriveSource(name: string): DeriveSource | null {
   return SOURCES[name] ?? null;
