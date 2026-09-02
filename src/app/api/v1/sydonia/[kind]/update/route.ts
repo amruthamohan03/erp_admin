@@ -4,7 +4,8 @@
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, fail, isResponse, requireAuth, withErrorHandler } from '@/lib/api';
-import { applySydoniaUpdates, type SydoniaKind } from '@/db/queries/sydonia';
+import { applySydoniaUpdates } from '@/db/queries/sydonia';
+import { type SydoniaKind } from '@/lib/sydonia';
 
 const rowSchema = z.object({
   mca_ref: z.string().trim().min(1),
