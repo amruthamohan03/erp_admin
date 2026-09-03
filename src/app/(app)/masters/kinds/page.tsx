@@ -2,13 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+
+/** Whether a form may offer this kind — read at a glance down the column. */
+function UsedBadge({ on }: { on: boolean }) {
+  return on ? (
+    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+      Yes
+    </span>
+  ) : (
+    <span className="text-xs text-muted-foreground">—</span>
+  );
+}
 
 interface KindRow {
   id: number;
   kind_name: string;
   kind_short_name: string;
+  use_for_import: boolean;
+  use_for_export: boolean;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -86,6 +100,15 @@ export default function KindsPage() {
                       </span>
             </>
           ) },
+        // §4.1 — which forms may offer this kind. Shown here because it is the
+        // answer an operator changes, and the name no longer implies it: a
+        // temporary import is used by BOTH, since it leaves again as a re-export.
+        { key: 'use_for_import', header: 'Import', align: 'center',
+          value: (k: KindRow) => (k.use_for_import ? 'Yes' : 'No'),
+          render: (k: KindRow) => <UsedBadge on={k.use_for_import} /> },
+        { key: 'use_for_export', header: 'Export', align: 'center',
+          value: (k: KindRow) => (k.use_for_export ? 'Yes' : 'No'),
+          render: (k: KindRow) => <UsedBadge on={k.use_for_export} /> },
         ]}
         actions={(k) => ({ edit: () => setEditing(k), remove: () => handleDelete(k.id) })}
         server={{
@@ -139,6 +162,8 @@ function KindFormModal({
   const isEdit = !!kind;
   const [name, setName] = useState(kind?.kind_name || '');
   const [shortName, setShortName] = useState(kind?.kind_short_name || '');
+  const [useForImport, setUseForImport] = useState(kind?.use_for_import ?? false);
+  const [useForExport, setUseForExport] = useState(kind?.use_for_export ?? false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -209,6 +234,24 @@ function KindFormModal({
               maxLength={20}
             />
           </div>
+
+          {/* §4.1 — the classification that used to be inferred from the name.
+              Both can be on: a temporary import is cleared in as an import and
+              leaves again as a re-export, so both forms need to offer it. */}
+          <div className="rounded-md border border-border bg-muted/40 p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Offered on
+            </div>
+            <div className="flex flex-wrap gap-x-8 gap-y-2">
+              <Toggle checked={useForImport} onChange={setUseForImport} label="Import Tracking" />
+              <Toggle checked={useForExport} onChange={setUseForExport} label="Export Tracking" />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              A kind left off both is still available on other screens — this only decides the
+              Kind dropdown on the two tracking forms.
+            </p>
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

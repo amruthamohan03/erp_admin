@@ -2,6 +2,7 @@ import {
   pgTable,
   serial,
   varchar,
+  boolean,
   integer,
   timestamp,
 } from 'drizzle-orm/pg-core';
@@ -20,6 +21,12 @@ export const kindMaster = pgTable('kind_master_t', {
   id: serial('id').primaryKey(),
   kindName: varchar('kind_name', { length: 100 }).notNull(),
   kindShortName: varchar('kind_short_name', { length: 20 }).notNull(),
+  // §4.1 — which forms may offer this kind. Migration 0062 replaced a
+  // classify-by-name-prefix filter (`kind_name ILIKE 'EXPORT%'`) with these, so
+  // a kind can belong to both: a temporary import leaves again as a re-export,
+  // and no naming convention can express that.
+  useForImport: boolean('use_for_import').notNull().default(false),
+  useForExport: boolean('use_for_export').notNull().default(false),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

@@ -107,7 +107,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       buyer: exportT.buyer,
       loading_date: exportT.loadingDate,
       client_id: exportT.clientId,
-      client_name: clientMaster.companyName,
+      // The 3-character code, not the legal name. It is what operators recognise
+      // a consignment's owner by, it is what the MCA reference embeds, and a
+      // column of 200-character legal names is unscannable in a grid (§4.15).
+      client_name: clientMaster.shortName,
       license_id: exportT.licenseId,
       license_no: licenseT.licenseNumber,
       // Alias exposed for parity with main's list, which renders the

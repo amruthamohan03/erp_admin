@@ -55,7 +55,10 @@ export const GET = withErrorHandler(
         transport_mode_id: licenseT.transportModeId,
         transport_mode_name: sql<string | null>`(SELECT transport_mode_name FROM transport_mode_master_t t WHERE t.id = ${licenseT.transportModeId})`,
         currency_id: licenseT.currencyId,
-        currency_name: sql<string | null>`(SELECT currency_name FROM currency_master_t c WHERE c.id = ${licenseT.currencyId})`,
+        // The SHORT code (USD, CDF), not the full name. It is what operators say
+        // and what every currency picker in the app is labelled with, and a
+        // header cell has no room for "United States Dollar".
+        currency_name: sql<string | null>`(SELECT currency_short_name FROM currency_master_t c WHERE c.id = ${licenseT.currencyId})`,
       })
       .from(licenseT)
       .where(eq(licenseT.id, licenseId))
