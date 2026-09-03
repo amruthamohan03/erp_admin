@@ -17,7 +17,9 @@ import { isTargetKey, MCA_REF_TARGETS } from '@/lib/mcaRefFormat';
 // only what it reads, so the schema stays permissive about the rest.
 const querySchema = z.object({
   target: z.string().min(1),
-  count: z.coerce.number().int().min(1).max(50).default(1),
+  // Matches MAX_ENTRIES on the export grid, which shows a reference per row —
+  // a lower cap here would leave later rows with no reference to display.
+  count: z.coerce.number().int().min(1).max(200).default(1),
   client_id: z.coerce.number().int().positive().optional(),
   license_id: z.coerce.number().int().positive().optional(),
   kind_id: z.coerce.number().int().positive().optional(),

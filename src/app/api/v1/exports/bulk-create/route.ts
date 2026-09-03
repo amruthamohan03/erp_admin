@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { exportT, licenseT } from '@/db/schema';
+import { exportT, importT, licenseT } from '@/db/schema';
 import {
   ok,
   requireAuth,
@@ -53,7 +53,11 @@ interface LicenseFacts {
   amount: string | null;
   // Nullable in main's licenses model (client is set per-accordion).
   clientId: number | null;
+  weightCap: string | null;
+  /** FOB already consumed on this licence, by imports and exports alike. */
   used: number;
+  /** Weight already consumed, same basis. */
+  usedWeight: number;
 }
 
 async function loadLicenseFacts(
@@ -64,6 +68,9 @@ async function loadLicenseFacts(
       id: licenseT.id,
       // main's licenses model: fob_declared is the declared FOB ceiling.
       amount: licenseT.fobDeclared,
+      // The weight ceiling. Enforced alongside FOB — a licence caps both, and a
+      // batch that fits the money can still exceed the tonnage.
+      weightCap: licenseT.weight,
       clientId: licenseT.clientId,
     })
     .from(licenseT)
@@ -71,15 +78,32 @@ async function loadLicenseFacts(
     .limit(1);
   if (!lic) return null;
 
-  // Cumulative FOB used across every LIVE export on this license.
-  const [used] = await db
+  // Consumption across every LIVE consignment on this licence — IMPORTS AS WELL
+  // AS EXPORTS. A licence is drawn down by both, and /licenses/{id}/usage (which
+  // feeds the "Remaining" figures the operator reads before submitting) has
+  // always counted both. Counting only exports here made the server permit more
+  // than the screen said was left.
+  const [expUsed] = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${exportT.fob}), 0)`.as('total'),
+      fob: sql<string>`COALESCE(SUM(${exportT.fob}), 0)`.as('fob'),
+      weight: sql<string>`COALESCE(SUM(${exportT.weight}), 0)`.as('weight'),
     })
     .from(exportT)
     .where(and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y')));
 
-  return { ...lic, used: Number(used?.total ?? 0) };
+  const [impUsed] = await db
+    .select({
+      fob: sql<string>`COALESCE(SUM(${importT.fob}), 0)`.as('fob'),
+      weight: sql<string>`COALESCE(SUM(${importT.weight}), 0)`.as('weight'),
+    })
+    .from(importT)
+    .where(and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y')));
+
+  return {
+    ...lic,
+    used: Number(expUsed?.fob ?? 0) + Number(impUsed?.fob ?? 0),
+    usedWeight: Number(expUsed?.weight ?? 0) + Number(impUsed?.weight ?? 0),
+  };
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
@@ -96,18 +120,43 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  // Cap check — license.amount is the FOB ceiling on this branch.
-  // Nullable amount means "no cap" (main-line behavior when the
-  // operator hasn't recorded one); allow the batch through.
-  if (lic.amount != null) {
-    const cap = Number(lic.amount);
-    const requested = rows.reduce((s, r) => s + Number(r.fob ?? 0), 0);
-    const remaining = cap - lic.used;
-    if (requested > remaining) {
+  // Cap check — a licence caps BOTH the value and the tonnage it may carry, and
+  // nothing is written if either would be exceeded. A null ceiling means the
+  // operator recorded none, which is "no cap" rather than "zero".
+  //
+  // Both are checked before either is reported, so an operator over on both is
+  // told once instead of fixing the FOB, resubmitting, and being sent back again
+  // for the weight (§4.23).
+  {
+    const overruns: string[] = [];
+
+    if (lic.amount != null) {
+      const cap = Number(lic.amount);
+      const requested = rows.reduce((s, r) => s + Number(r.fob ?? 0), 0);
+      const remaining = cap - lic.used;
+      if (requested > remaining) {
+        overruns.push(
+          `FOB: this batch totals ${requested.toFixed(2)} but only ${remaining.toFixed(2)} is left on the licence ` +
+            `(cap ${cap.toFixed(2)} − ${lic.used.toFixed(2)} already used) — over by ${(requested - remaining).toFixed(2)}.`,
+        );
+      }
+    }
+
+    if (lic.weightCap != null) {
+      const cap = Number(lic.weightCap);
+      const requested = rows.reduce((s, r) => s + Number(r.weight ?? 0), 0);
+      const remaining = cap - lic.usedWeight;
+      if (requested > remaining) {
+        overruns.push(
+          `Weight: this batch totals ${requested.toFixed(3)} MT but only ${remaining.toFixed(3)} MT is left on the licence ` +
+            `(cap ${cap.toFixed(3)} − ${lic.usedWeight.toFixed(3)} already used) — over by ${(requested - remaining).toFixed(3)} MT.`,
+        );
+      }
+    }
+
+    if (overruns.length > 0) {
       throw new BadRequestError(
-        `Batch FOB (${requested.toFixed(2)}) exceeds remaining license ` +
-          `capacity (${remaining.toFixed(2)} = cap ${cap.toFixed(2)} − ` +
-          `used ${lic.used.toFixed(2)}).`,
+        `Nothing was created — the batch exceeds what this licence has left. ${overruns.join(' ')}`,
       );
     }
   }
@@ -161,12 +210,27 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         );
       }
 
-      const charges = computeExportCharges(chargeRules, {
+      // The configured rate, then the operator's figure where they gave one.
+      // A blank cell means "use the rate" rather than "charge nothing", so the
+      // rates are computed for every row regardless and only overridden per
+      // column — clearing one amount cannot silently zero it (§4.2).
+      const rates = computeExportCharges(chargeRules, {
         weight: Number(r.weight ?? 0),
         fob: Number(r.fob ?? 0),
         type_of_goods_id: common.type_of_goods_id ?? null,
         feet_container_id: r.feet_container_id ?? null,
       });
+      const override = (
+        supplied: number | null | undefined,
+        rate: string | null,
+      ): string | null => (supplied == null ? rate : supplied.toFixed(2));
+      const charges = {
+        ceec_amount: override(r.ceec_amount, rates.ceec_amount),
+        cgea_amount: override(r.cgea_amount, rates.cgea_amount),
+        occ_amount: override(r.occ_amount, rates.occ_amount),
+        lmc_amount: override(r.lmc_amount, rates.lmc_amount),
+        ogefrem_amount: override(r.ogefrem_amount, rates.ogefrem_amount),
+      };
 
       const values = {
         clientId: common.client_id,
@@ -181,6 +245,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         buyer: norm(common.buyer),
         bpNo: norm(common.bp_no),
         loadingDate: r.loading_date ?? null,
+        bpDate: r.bp_date ?? null,
         weight: num(r.weight),
         fob: num(r.fob),
         numberOfBags: r.number_of_bags ?? null,
