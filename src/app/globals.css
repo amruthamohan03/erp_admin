@@ -321,6 +321,57 @@
      control in the app is a <Toggle> (§4.11); a styled checkbox would only invite
      a new one back in. */
   .card { @apply rounded-lg border border-border bg-card text-card-foreground shadow-sm; }
+
+  /* A DATA-ENTRY grid, as distinct from `.table-base`'s list of records.
+     Where a list is scanned, this is typed into — so it carries a solid brand
+     header band and ruled cells, which is what tells an operator at a glance
+     which column they are in twenty fields along a horizontal scroll.
+
+     The header is `--brand`, not a palette colour, so it follows the operator's
+     configured palette and both themes (§4.20, §4.32). It is deliberately SOLID
+     rather than the header/footer gradient: a gradient painted per-cell repeats
+     in every column, and a sticky column needs an opaque background of its own
+     or the scrolling content shows through it. */
+  .table-entry { @apply w-full text-left text-sm; }
+
+  /* The header is a LIGHT band, not a second brand-coloured one.
+     The card's title bar above it already carries the brand gradient, and two
+     saturated strips stacked on each other merge into a single block with no
+     line between the card's name and its column names. A light header under a
+     strong title reads as a hierarchy, and it is the same tone every other table
+     in the app uses — so this grid still looks like it belongs here. The brand
+     returns as a rule along the bottom edge, tying the two together. */
+  .table-entry th {
+    @apply whitespace-nowrap px-3 py-2.5 font-semibold;
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+    border-inline-end: 1px solid hsl(var(--border));
+    border-bottom: 2px solid hsl(var(--brand));
+  }
+  .table-entry td {
+    @apply border-b border-e border-border px-2 py-1.5 align-middle;
+  }
+  .table-entry tbody tr:hover td { @apply bg-muted/40; }
+
+  /* A frozen cell must repaint its own ground, on hover too — a translucent tint
+     would let the scrolling columns show through underneath it. Both states are
+     stated together so the two can never drift apart. */
+  .table-entry td.is-frozen,
+  .table-entry tbody tr:hover td.is-frozen {
+    background-color: hsl(var(--card));
+  }
+
+  /* The reference column, tinted in the lightest step of the configured brand.
+     It is the one cell that says WHICH consignment a row is, so it reads as a
+     label rather than as another white box — and the eye can find its row while
+     twenty columns scroll past it. Brand-derived, so it follows the operator's
+     palette and both themes rather than being a fixed lilac. */
+  .table-entry td.is-ref,
+  .table-entry tbody tr:hover td.is-ref {
+    background-color: hsl(var(--primary-50));
+    color: hsl(var(--primary-700));
+  }
+
   .table-base { @apply w-full text-left text-sm; }
   .table-base th {
     @apply px-4 py-3 font-semibold text-muted-foreground bg-muted/60 border-b border-border whitespace-nowrap;

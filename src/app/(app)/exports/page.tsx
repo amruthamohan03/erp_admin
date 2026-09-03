@@ -10,6 +10,7 @@ import {
   Check,
   X,
   Truck,
+  Layers,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -27,6 +28,9 @@ import {
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import BulkUpdateModal from '@/modules/exports/BulkUpdateModal';
+import { isPendingFilter } from '@/lib/exports/bulkFields';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
@@ -135,6 +139,21 @@ export default function ExportsListPage() {
 
   // View-details modal (per-row eye action) — null when closed, else row id.
   const [viewId, setViewId] = useState<number | null>(null);
+
+  // §8 Bulk Update — enabled only when a "pending" card filter is active (the
+  // three clearing-status cards name no field to fill in).
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const pendingActive = activeFilters.filter(isPendingFilter);
+  const [result, setResult] = useState<SaveResult | null>(null);
+
+  const reloadStats = useCallback(() => {
+    fetch('/api/v1/exports/stats')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setStats(j.data as Stats);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -384,6 +403,25 @@ export default function ExportsListPage() {
         title="Export List"
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No export files match these filters — clear them, or create one."
+        toolbar={
+          // §8 — enabled only when a "pending" status card is active. The three
+          // clearing-status cards describe a state rather than a missing value,
+          // so there is nothing for a mass edit to fill in; the title says which
+          // rather than leaving a dead button to be poked at.
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            disabled={pendingActive.length === 0}
+            title={
+              pendingActive.length === 0
+                ? 'Select a “pending” status card above to bulk-fill the field it is about'
+                : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
+            }
+            className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Layers className="h-4 w-4" /> Bulk Update
+          </button>
+        }
         columns={[
           {
             key: 'mca_ref',
@@ -466,6 +504,31 @@ export default function ExportsListPage() {
           onClose={() => setViewId(null)}
         />
       )}
+
+      {bulkOpen && (
+        <BulkUpdateModal
+          statusFilters={pendingActive}
+          extra={{
+            client_id: applied.client_id ? Number(applied.client_id) : undefined,
+            transport_mode_id: applied.transport_mode_id ? Number(applied.transport_mode_id) : undefined,
+            loading_from: applied.loading_from || undefined,
+            loading_to: applied.loading_to || undefined,
+          }}
+          onClose={() => setBulkOpen(false)}
+          onSaved={(count) => {
+            setBulkOpen(false);
+            load();
+            reloadStats();
+            setResult({
+              status: 'success',
+              title: 'Updated',
+              message: `${count} export${count === 1 ? '' : 's'} updated.`,
+            });
+          }}
+        />
+      )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }

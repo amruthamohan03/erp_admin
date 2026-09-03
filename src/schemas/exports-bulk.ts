@@ -24,6 +24,7 @@ const dateOnly = z
 
 const rowSchema = z.object({
   loading_date: dateOnly,
+  bp_date: dateOnly,
   weight: nonNeg.optional(),
   fob: nonNeg.optional(),
   horse: shortText(50),
@@ -40,6 +41,14 @@ const rowSchema = z.object({
   site_of_loading_id: intIdOptional,
   exit_point_id: intIdOptional,
   feet_container_id: intIdOptional,
+  // The five charge amounts, when the operator overrode the configured rate.
+  // Omitted or null ⇒ the handler computes the rate itself, so clearing a cell
+  // falls back to the tariff rather than writing nothing (§4.2).
+  ceec_amount: nonNeg.nullable().optional(),
+  cgea_amount: nonNeg.nullable().optional(),
+  occ_amount: nonNeg.nullable().optional(),
+  lmc_amount: nonNeg.nullable().optional(),
+  ogefrem_amount: nonNeg.nullable().optional(),
 });
 export type ExportsBulkRow = z.infer<typeof rowSchema>;
 

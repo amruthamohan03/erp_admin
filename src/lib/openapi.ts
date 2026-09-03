@@ -805,7 +805,7 @@ function buildRegistry(): OpenAPIRegistry {
           'export-invoice',
           'import-invoice',
         ]),
-        count: z.coerce.number().int().min(1).max(50).optional(),
+        count: z.coerce.number().int().min(1).max(200).optional(),
         client_id: z.coerce.number().int().positive().optional(),
         license_id: z.coerce.number().int().positive().optional(),
       }),
