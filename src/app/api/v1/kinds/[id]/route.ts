@@ -23,6 +23,8 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       id: kindMaster.id,
       kind_name: kindMaster.kindName,
       kind_short_name: kindMaster.kindShortName,
+      use_for_import: kindMaster.useForImport,
+      use_for_export: kindMaster.useForExport,
       display: kindMaster.display,
       created_at: kindMaster.createdAt,
       updated_at: kindMaster.updatedAt,
@@ -50,6 +52,8 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const patch: Partial<KindMasterInsert> = {};
   if (data.kind_name !== undefined) patch.kindName = data.kind_name;
   if (data.kind_short_name !== undefined) patch.kindShortName = data.kind_short_name;
+  if (data.use_for_import !== undefined) patch.useForImport = data.use_for_import;
+  if (data.use_for_export !== undefined) patch.useForExport = data.use_for_export;
   if (data.display !== undefined) patch.display = data.display;
   if (Object.keys(patch).length === 0) {
     throw new BadRequestError('Nothing to update');

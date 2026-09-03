@@ -21,13 +21,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  // Optional group filter so import/export forms only offer their own kinds:
-  // ?group=import → IMPORT %, ?group=export → EXPORT % (by kind_name prefix).
+  // Optional group filter so import/export forms only offer their own kinds.
+  //
+  // Read from the `use_for_*` flags on the row, NOT from the kind's name. The
+  // name-prefix test this replaced (`kind_name ILIKE 'EXPORT%'`) could not
+  // express a kind that belongs to both — a temporary import leaves again as a
+  // re-export — and quietly reclassified a kind whenever it was renamed (§4.1).
   const group = searchParams.get('group');
   const conds = [eq(kindMaster.display, 'Y')];
   if (like) conds.push(or(ilike(kindMaster.kindName, like), ilike(kindMaster.kindShortName, like))!);
-  if (group === 'import') conds.push(ilike(kindMaster.kindName, 'IMPORT%'));
-  else if (group === 'export') conds.push(ilike(kindMaster.kindName, 'EXPORT%'));
+  if (group === 'import') conds.push(eq(kindMaster.useForImport, true));
+  else if (group === 'export') conds.push(eq(kindMaster.useForExport, true));
   const where = and(...conds);
 
   const [countRow] = await db
@@ -40,6 +44,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       id: kindMaster.id,
       kind_name: kindMaster.kindName,
       kind_short_name: kindMaster.kindShortName,
+      use_for_import: kindMaster.useForImport,
+      use_for_export: kindMaster.useForExport,
       display: kindMaster.display,
       created_at: kindMaster.createdAt,
       updated_at: kindMaster.updatedAt,
@@ -65,6 +71,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       kindName: data.kind_name,
       kindShortName: data.kind_short_name,
+      useForImport: data.use_for_import,
+      useForExport: data.use_for_export,
       createdBy: session.uid,
       updatedBy: session.uid,
     })
@@ -72,6 +80,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       id: kindMaster.id,
       kind_name: kindMaster.kindName,
       kind_short_name: kindMaster.kindShortName,
+      use_for_import: kindMaster.useForImport,
+      use_for_export: kindMaster.useForExport,
       display: kindMaster.display,
       created_at: kindMaster.createdAt,
     });

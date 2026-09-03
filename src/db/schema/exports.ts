@@ -19,6 +19,7 @@ import {
   varchar,
   text,
   integer,
+  jsonb,
   date,
   numeric,
   timestamp,
@@ -29,6 +30,9 @@ import {
 import { sql } from 'drizzle-orm';
 import { usersT } from './users';
 import { clientMaster } from './clients';
+// The dated-remark shape is shared with Import — one log entry means the same
+// thing on both sides, so it is defined once (§4.10).
+import type { RemarkLine } from './imports';
 import { licenseT } from './license';
 import { kindMaster } from './kindMaster';
 import { typeOfGoodsMaster } from './typeOfGoodsMaster';
@@ -140,8 +144,11 @@ export const exportT = pgTable(
 
     // ── Status & Remarks ──
     clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
-    // JSON array of remarks (kept as text to mirror the source column type).
-    remarks: text('remarks'),
+    // A dated remarks log — many entries, each with its own date and text.
+    // Migration 0061 converted this from text to jsonb, matching what Import's
+    // column became in 0059. Free text already stored became the first entry
+    // rather than being discarded.
+    remarks: jsonb('remarks').$type<RemarkLine[]>().default([]),
 
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references((): AnyPgColumn => usersT.id),
