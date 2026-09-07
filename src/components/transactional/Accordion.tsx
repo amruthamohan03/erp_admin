@@ -7,6 +7,7 @@ import type { FieldState } from '@/lib/pages/conditions';
 import { parseDerive, isEditableDerive } from '@/lib/pages/derive';
 import { accentFor } from './accents';
 import FieldRenderer from './FieldRenderer';
+import { companionOf } from '@/lib/pages/companion';
 
 // §4.17 — presentational only. The accordion renders fields and reports clicks; it
 // owns no save button and no save state, because a transaction page has exactly one
@@ -64,6 +65,19 @@ export default function Accordion({
   const readonly = accordion.permission === 'view';
   const accent = accentFor(accentIndex);
   const visibleFields = resolved.filter((r) => r.state.visible);
+
+  // A companion is rendered INSIDE its amount's cell, so it must not also get a
+  // cell of its own. Only pairs where both halves are visible are welded — if a
+  // condition hid the amount, the currency stands alone rather than vanishing.
+  const byName = new Map(visibleFields.map((r) => [r.field.name, r]));
+  const companions = new Map<string, ResolvedField>();
+  for (const r of visibleFields) {
+    const name = companionOf(r.field.props);
+    const mate = name ? byName.get(name) : undefined;
+    if (mate) companions.set(r.field.name, mate);
+  }
+  const consumed = new Set([...companions.values()].map((r) => r.field.name));
+  const laidOut = visibleFields.filter((r) => !consumed.has(r.field.name));
   const errorCount = invalidFields
     ? visibleFields.filter((r) => invalidFields.has(r.field.name)).length
     : 0;
@@ -130,13 +144,22 @@ export default function Accordion({
       {open && (
         <div className="p-4 pt-4 border-t border-border">
           <div className="flex flex-wrap -mx-2">
-            {visibleFields.map(({ field, state }) => (
+            {laidOut.map(({ field, state }) => (
               <div key={field.id} className={`${colClassFor(field.props)} mb-3`}>
                 {/* §4.18 — the `required` class renders the star; never type one
                     into the label text. */}
                 <label htmlFor={field.name} className={clsx('label', state.required && 'required')}>
                   {field.label}
                 </label>
+                <PairedField
+                  companion={companions.get(field.name)}
+                  values={values}
+                  onChange={onChange}
+                  readonly={readonly}
+                  entityType={entityType}
+                  entityId={entityId}
+                  invalidFields={invalidFields}
+                >
                 <FieldRenderer
                   field={field}
                   value={values[field.name]}
@@ -160,6 +183,7 @@ export default function Accordion({
                   values={values}
                   invalid={invalidFields?.has(field.name)}
                 />
+                </PairedField>
                 {invalidFields?.has(field.name) && (
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">This field needs a value.</p>
                 )}
@@ -168,6 +192,65 @@ export default function Accordion({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Renders one field, welded to its companion when it has one (§4.1 config via
+ * `props.currencyField`). Without a companion it is a pass-through, so the
+ * common case pays nothing for the feature.
+ *
+ * The companion is rendered through the SAME FieldRenderer as any other field —
+ * it keeps its configured type, options source and label — rather than a private
+ * currency dropdown reimplemented here (§4.10).
+ */
+function PairedField({
+  companion,
+  values,
+  onChange,
+  readonly,
+  entityType,
+  entityId,
+  invalidFields,
+  children,
+}: {
+  companion: ResolvedField | undefined;
+  values: Record<string, unknown>;
+  onChange: (fieldName: string, value: unknown) => void;
+  readonly: boolean;
+  entityType?: string;
+  entityId?: string;
+  invalidFields?: ReadonlySet<string>;
+  children: React.ReactNode;
+}) {
+  if (!companion) return <>{children}</>;
+  const { field, state } = companion;
+  return (
+    <div className="input-group">
+      <div className="flex-1 min-w-0">{children}</div>
+      {/* Narrow and fixed: a currency code is three characters, and letting it
+          share the amount's width would defeat the point of combining them. */}
+      <div className="w-24 shrink-0">
+        <FieldRenderer
+          field={field}
+          value={values[field.name]}
+          readonly={
+            readonly ||
+            field.permission === 'view' ||
+            state.readonly ||
+            (field.derive != null && !isEditableDerive(parseDerive(field.derive)))
+          }
+          requiredOverride={state.required}
+          minBound={state.min}
+          maxBound={state.max}
+          onChange={(v) => onChange(field.name, v)}
+          entityType={entityType}
+          entityId={entityId}
+          values={values}
+          invalid={invalidFields?.has(field.name)}
+        />
+      </div>
     </div>
   );
 }

@@ -449,6 +449,20 @@
       "when": 1784660519398,
       "tag": "0062_kind_usage_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1784660519399,
+      "tag": "0063_tracking_field_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1784660519400,
+      "tag": "0064_amount_currency_pairs",
+      "breakpoints": true
     }
   ]
 }

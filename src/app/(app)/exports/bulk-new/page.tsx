@@ -184,6 +184,24 @@ const TRANSPORT_RAIL = 3;
 const MAX_ENTRIES = 200;
 
 /**
+ * What a new export batch starts on.
+ *
+ * Named by the master's own text and resolved against the loaded options, never
+ * by id — ids are assigned by the seed and differ between installations, so a
+ * hardcoded 14 would silently select a different regime elsewhere. The same
+ * resolve-by-text approach the status filters use (§4.1).
+ *
+ * A default that no longer matches any row simply leaves the field empty, and
+ * the required check then asks for it — never a silently wrong pick.
+ */
+const DEFAULT_REGIME = 'EX1';
+const DEFAULT_CLEARANCE = 'DECLARATION';
+
+/** The option whose label matches `label`, case- and space-insensitively. */
+const findOption = (options: Option[], label: string): Option | undefined =>
+  options.find((o) => o.label.trim().toUpperCase() === label.toUpperCase());
+
+/**
  * Has the operator entered anything into this row?
  *
  * The charge amounts do not count: they arrive auto-filled, so counting them
@@ -315,8 +333,14 @@ export default function BulkNewExportsPage() {
       // fetchMasterOptions returns { id, label }; the picker takes { value, label }.
       const asOptions = (rows: MasterOption[]): Option[] =>
         rows.map((o) => ({ value: String(o.id), label: o.label }));
-      setRegimes(asOptions(regimeOpts));
-      setClearances(asOptions(clearanceOpts));
+      const regimeList = asOptions(regimeOpts);
+      const clearanceList = asOptions(clearanceOpts);
+      setRegimes(regimeList);
+      setClearances(clearanceList);
+      // Preselect the usual pick so the operator confirms rather than hunts.
+      // Only ever sets an EMPTY field, so it cannot overwrite a choice.
+      setRegimeId((cur) => cur || findOption(regimeList, DEFAULT_REGIME)?.value || '');
+      setClearanceId((cur) => cur || findOption(clearanceList, DEFAULT_CLEARANCE)?.value || '');
       setLoadingSites(asOptions(siteOpts));
       setExitPoints(asOptions(exitOpts));
       setFeetContainers(asOptions(feetOpts));
@@ -484,6 +508,15 @@ export default function BulkNewExportsPage() {
       ),
     [rows],
   );
+
+  // What the licence would have left once THIS batch is written, recomputed as
+  // the grid is typed. The header used to show the licence's opening balance and
+  // never move, so an operator watched a figure that could not tell them whether
+  // the batch in front of them fit.
+  const liveRemainingWeight =
+    usage?.remaining_weight == null ? null : usage.remaining_weight - batchWeight;
+  const liveRemainingFob =
+    usage?.remaining_fob == null ? null : usage.remaining_fob - batchFob;
 
   // A licence caps both the value and the tonnage. Either overrun blocks the
   // save; the server re-checks and is authoritative, but an operator should not
@@ -744,7 +777,6 @@ export default function BulkNewExportsPage() {
               value={bpNo}
               onChange={(e) => setBpNo(e.target.value)}
               maxLength={100}
-              placeholder="e.g. 1234-56"
             />
           </div>
 
@@ -837,12 +869,12 @@ export default function BulkNewExportsPage() {
           <FromLicense label="License FOB" value={usage ? fmtMoney(usage.amount) : null} />
           <FromLicense
             label="Remaining Weight (MT)"
-            value={usage ? fmtMoney(usage.remaining_weight) : null}
+            value={usage ? fmtMoney(liveRemainingWeight) : null}
             tone={weightExceeded ? 'over' : undefined}
           />
           <FromLicense
             label="Remaining FOB"
-            value={usage ? fmtMoney(usage.remaining_fob) : null}
+            value={usage ? fmtMoney(liveRemainingFob) : null}
             tone={capExceeded ? 'over' : undefined}
           />
         </div>

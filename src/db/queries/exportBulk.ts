@@ -18,21 +18,31 @@ import {
   readonlyFieldsFor,
 } from '@/lib/exports/bulkFields';
 
-const BULK_LIMIT = 2000;
+// One page of rows at a time. 50 fills a screen without laying out thousands of
+// inputs; 200 is the ceiling for an operator who wants fewer round trips.
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface BulkExtra {
   client_id?: number;
   transport_mode_id?: number;
+  type_of_goods_id?: number;
   loading_from?: string;
   loading_to?: string;
+  /** Free-text narrowing over identity columns — see bulkWhere. */
+  q?: string;
 }
 
 export interface BulkUpdateData {
   relevant_fields: string[];
   readonly_fields: string[];
   rows: Record<string, unknown>[];
-  truncated: boolean;
+  /** Server-side paging — the modal edits one page at a time (§4.9). */
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
 }
 
 // Identity + every bulk-editable column + truck identity. Fixed projection so
@@ -80,20 +90,58 @@ function bulkWhere(filterKeys: string[], extra: BulkExtra): SQL {
   }
   if (extra.client_id) conds.push(sql`${exportT.clientId} = ${extra.client_id}`);
   if (extra.transport_mode_id) conds.push(sql`${exportT.transportMode} = ${extra.transport_mode_id}`);
+  if (extra.type_of_goods_id) conds.push(sql`${exportT.typeOfGoods} = ${extra.type_of_goods_id}`);
   if (extra.loading_from) conds.push(sql`${exportT.loadingDate} >= ${extra.loading_from}`);
   if (extra.loading_to) conds.push(sql`${exportT.loadingDate} <= ${extra.loading_to}`);
+
+  // Searched HERE rather than over the loaded page. With server-side paging a
+  // client-side filter would only look at the 50 rows in front of the operator
+  // and report "no matches" for a truck that is three pages away — the opposite
+  // of what a search box promises.
+  const q = extra.q?.trim();
+  if (q) {
+    const like = `%${q}%`;
+    conds.push(sql`(
+      ${exportT.mcaRef} ILIKE ${like}
+      OR ${clientMaster.shortName} ILIKE ${like}
+      OR ${exportT.horse} ILIKE ${like}
+      OR ${exportT.trailer1} ILIKE ${like}
+      OR ${exportT.trailer2} ILIKE ${like}
+      OR ${exportT.container} ILIKE ${like}
+    )`);
+  }
   return and(...conds) as SQL;
 }
 
+/**
+ * One page of rows to bulk-edit.
+ *
+ * Paged server-side rather than fetched whole (§4.9): a "pending" filter can
+ * match every export on the system, and the modal used to pull up to 2000 rows
+ * — each rendering several inputs — into one DOM before it would open. That is
+ * both a slow request and a browser that stops responding while it lays out
+ * fifteen thousand controls.
+ */
 export async function bulkUpdateData(
   filterKeys: string[],
   extra: BulkExtra,
+  paging: { page?: number; pageSize?: number } = {},
 ): Promise<BulkUpdateData> {
+  const pageSize = Math.min(Math.max(paging.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const relevant = relevantFieldsFor(filterKeys);
+
   // No pending filter active ⇒ nothing to fill in. The modal reads this as "pick
   // a status card first" rather than opening on every export in the system.
   if (relevant.length === 0) {
-    return { relevant_fields: [], readonly_fields: [], rows: [], truncated: false };
+    return {
+      relevant_fields: [],
+      readonly_fields: [],
+      rows: [],
+      page: 1,
+      page_size: pageSize,
+      total: 0,
+      total_pages: 1,
+    };
   }
   const where = bulkWhere(filterKeys, extra);
 
@@ -103,19 +151,30 @@ export async function bulkUpdateData(
     .leftJoin(clientMaster, eq(clientMaster.id, exportT.clientId))
     .where(where);
 
+  const totalPages = Math.max(1, Math.ceil(Number(total) / pageSize));
+  // Clamped rather than trusted: a page number past the end (the filter narrowed
+  // while the modal was open) returns the last page instead of nothing at all.
+  const page = Math.min(Math.max(paging.page ?? 1, 1), totalPages);
+
   const rows = await db
     .select(bulkSelect())
     .from(exportT)
     .leftJoin(clientMaster, eq(clientMaster.id, exportT.clientId))
     .where(where)
+    // Ordered by id last so the sequence is total — two exports loaded the same
+    // day would otherwise page unstably and a row could be seen twice or missed.
     .orderBy(asc(exportT.loadingDate), asc(exportT.id))
-    .limit(BULK_LIMIT);
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
   return {
     relevant_fields: relevant,
     readonly_fields: readonlyFieldsFor(filterKeys),
     rows,
-    truncated: Number(total) > BULK_LIMIT,
+    page,
+    page_size: pageSize,
+    total: Number(total),
+    total_pages: totalPages,
   };
 }
 

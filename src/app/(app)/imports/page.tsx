@@ -35,6 +35,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -180,6 +181,10 @@ export default function ImportsListPage() {
   // three clearing-status cards name no field to fill in).
   const [bulkOpen, setBulkOpen] = useState(false);
   const pendingActive = activeFilters.filter(isPendingFilter);
+
+  // §4.22 — a bulk write reports what it did; closing the modal on its own is
+  // indistinguishable from the save having silently done nothing.
+  const [result, setResult] = useState<SaveResult | null>(null);
 
   const reloadStats = useCallback(() => {
     fetch('/api/v1/imports/stats')
@@ -495,6 +500,25 @@ export default function ImportsListPage() {
         title="Import List"
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No import files match these filters — clear them, or create one."
+        toolbar={
+          // §9 — enabled only when a "pending" status card is active. The
+          // clearing-status cards describe a state rather than a missing value,
+          // so there is nothing for a mass edit to fill in; the title says which
+          // rather than leaving a dead button to be poked at.
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            disabled={pendingActive.length === 0}
+            title={
+              pendingActive.length === 0
+                ? 'Select a “pending” status card above to bulk-fill the field it is about'
+                : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
+            }
+            className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Layers className="h-4 w-4" /> Bulk Update
+          </button>
+        }
         columns={[
           {
             key: 'mca_ref',
@@ -588,13 +612,20 @@ export default function ImportsListPage() {
             pre_alert_to: applied.end_date || undefined,
           }}
           onClose={() => setBulkOpen(false)}
-          onSaved={() => {
+          onSaved={(count) => {
             setBulkOpen(false);
             load();
             reloadStats();
+            setResult({
+              status: 'success',
+              title: 'Updated',
+              message: `${count} import file${count === 1 ? '' : 's'} updated.`,
+            });
           }}
         />
       )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }

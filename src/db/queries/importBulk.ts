@@ -17,21 +17,32 @@ import { importFilterCondition } from '@/db/queries/importFilters';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
 import { BULK_WHITELIST, FIELD_META, relevantFieldsFor, readonlyFieldsFor } from '@/lib/imports/bulkFields';
 
-const BULK_LIMIT = 2000;
+// One page of rows at a time (§4.9). Same numbers as the export twin, so the two
+// bulk screens page identically.
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface BulkExtra {
   client_id?: number;
+  transport_mode_id?: number;
+  type_of_goods_id?: number;
   pre_alert_from?: string;
   pre_alert_to?: string;
+  /** Free-text narrowing over identity columns — see bulkWhere. */
+  q?: string;
 }
 
 export interface BulkUpdateData {
   relevant_fields: string[];
   readonly_fields: string[];
   rows: Record<string, unknown>[];
-  truncated: boolean;
+  /** Server-side paging — the modal edits one page at a time (§4.9). */
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
 }
 
 // The fixed projection: identity + every bulk-editable column + truck identity +
@@ -40,7 +51,10 @@ function bulkSelect() {
   return {
     id: importT.id,
     mca_ref: importT.mcaRef,
-    client_name: clientMaster.companyName,
+    // The short code, matching the export twin and the client picker above the
+    // grid (§4.15). A 200-character legal name is unreadable in a 15-column grid,
+    // and a column that disagreed with the filter above it reads as a bug.
+    client_name: clientMaster.shortName,
     pre_alert_date: importT.preAlertDate,
     crf_reference: importT.crfReference,
     crf_received_date: importT.crfReceivedDate,
@@ -76,15 +90,54 @@ function bulkWhere(filterKeys: string[], extra: BulkExtra): SQL {
     if (c) conds.push(c);
   }
   if (extra.client_id) conds.push(sql`${importT.clientId} = ${extra.client_id}`);
+  if (extra.transport_mode_id) conds.push(sql`${importT.transportMode} = ${extra.transport_mode_id}`);
+  if (extra.type_of_goods_id) conds.push(sql`${importT.typeOfGoods} = ${extra.type_of_goods_id}`);
   if (extra.pre_alert_from) conds.push(sql`${importT.preAlertDate} >= ${extra.pre_alert_from}`);
   if (extra.pre_alert_to) conds.push(sql`${importT.preAlertDate} <= ${extra.pre_alert_to}`);
+
+  // Searched HERE, not over the loaded page — with server-side paging a
+  // client-side filter only sees the 50 rows on screen and would report "no
+  // matches" for a truck three pages away.
+  const q = extra.q?.trim();
+  if (q) {
+    const like = `%${q}%`;
+    conds.push(sql`(
+      ${importT.mcaRef} ILIKE ${like}
+      OR ${clientMaster.shortName} ILIKE ${like}
+      OR ${clientMaster.companyName} ILIKE ${like}
+      OR ${importT.horse} ILIKE ${like}
+      OR ${importT.trailer1} ILIKE ${like}
+      OR ${importT.trailer2} ILIKE ${like}
+      OR ${importT.container} ILIKE ${like}
+    )`);
+  }
   return and(...conds) as SQL;
 }
 
-export async function bulkUpdateData(filterKeys: string[], extra: BulkExtra): Promise<BulkUpdateData> {
+/**
+ * One page of rows to bulk-edit.
+ *
+ * Paged server-side rather than fetched whole (§4.9): a "pending" filter can
+ * match every import on the system, and pulling up to 2000 rows — each rendering
+ * several inputs — into one DOM made the modal slow to open and slow to type in.
+ */
+export async function bulkUpdateData(
+  filterKeys: string[],
+  extra: BulkExtra,
+  paging: { page?: number; pageSize?: number } = {},
+): Promise<BulkUpdateData> {
+  const pageSize = Math.min(Math.max(paging.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const relevant = relevantFieldsFor(filterKeys);
   if (relevant.length === 0) {
-    return { relevant_fields: [], readonly_fields: [], rows: [], truncated: false };
+    return {
+      relevant_fields: [],
+      readonly_fields: [],
+      rows: [],
+      page: 1,
+      page_size: pageSize,
+      total: 0,
+      total_pages: 1,
+    };
   }
   const where = bulkWhere(filterKeys, extra);
 
@@ -94,19 +147,30 @@ export async function bulkUpdateData(filterKeys: string[], extra: BulkExtra): Pr
     .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
     .where(where);
 
+  const totalPages = Math.max(1, Math.ceil(Number(total) / pageSize));
+  // Clamped rather than trusted: a page past the end (the filter narrowed while
+  // the modal was open) returns the last page instead of nothing at all.
+  const page = Math.min(Math.max(paging.page ?? 1, 1), totalPages);
+
   const rows = await db
     .select(bulkSelect())
     .from(importT)
     .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
     .where(where)
+    // id last so the order is total — two imports pre-alerted the same day would
+    // otherwise page unstably and a row could be seen twice or missed.
     .orderBy(asc(importT.preAlertDate), asc(importT.id))
-    .limit(BULK_LIMIT);
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
   return {
     relevant_fields: relevant,
     readonly_fields: readonlyFieldsFor(filterKeys),
     rows,
-    truncated: Number(total) > BULK_LIMIT,
+    page,
+    page_size: pageSize,
+    total: Number(total),
+    total_pages: totalPages,
   };
 }
 

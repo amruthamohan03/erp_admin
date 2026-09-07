@@ -448,6 +448,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
   const source = field.options_source;
   const labelField = field.options_label_field ?? 'name';
   const labelTemplate = getString(field.props, 'labelTemplate');
+  const valueField = getString(field.props, 'optionsValueField');
   const quickAdd = parseQuickAdd(field.props);
 
   // §4.5 — dependent options. `props.optionsParams` maps a query-param name to the
@@ -512,7 +513,13 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
         setLoadError(null);
         setDynamic(
           (list as Record<string, unknown>[]).map((row) => {
-            const v = row['id'] as string | number;
+            // §4.5 — `props.optionsValueField` submits a column instead of the
+            // row id. For a column that already stores the NAME (imports_t
+            // .operating_company is varchar and always held one), that turns a
+            // free-text box into a picker without migrating a single row, and
+            // without every report that reads the column having to learn a join.
+            // Absent ⇒ the id, which is what an FK column wants.
+            const v = (valueField ? row[valueField] : row['id']) as string | number;
             const label = labelTemplate
               ? labelTemplate.replace(/\{(\w+)\}/g, (_, k: string) => String(row[k] ?? ''))
               : String(row[labelField] ?? row[labelField.replace('_', '')] ?? v);
@@ -526,7 +533,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     return () => {
       cancelled = true;
     };
-  }, [source, labelField, labelTemplate, paramQuery]);
+  }, [source, labelField, labelTemplate, valueField, paramQuery]);
 
   // Order is SearchableSelect's job (§4.16) — id order for entity-backed lists,
   // authored order for static ones. Pre-sorting here is what used to alphabetise
