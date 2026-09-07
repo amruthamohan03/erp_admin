@@ -317,6 +317,26 @@
   .input[aria-invalid='true']:focus {
     @apply border-destructive ring-destructive/60;
   }
+  /* Two controls that are really ONE value, welded into a single field: an amount
+     and the currency it is in, a quantity and its unit. The pair used to occupy two
+     of the five columns per row and could be scrolled apart, so an operator could
+     read a figure without its currency anywhere in sight.
+
+     Descendant selectors rather than utilities at the call site, because the inner
+     control is often a component that owns its own `.input` (SearchableSelect puts
+     it on the trigger, not on the element the className reaches). The group is the
+     one place that knows a seam is being hidden. */
+  .input-group { @apply flex items-stretch; }
+  .input-group > * { @apply min-w-0; }
+  .input-group > *:not(:last-child) .input,
+  .input-group > .input:not(:last-child) { @apply rounded-r-none border-r-0; }
+  .input-group > *:not(:first-child) .input,
+  .input-group > .input:not(:first-child) { @apply rounded-l-none; }
+  /* The focused half draws above its neighbour, so the ring is not clipped by the
+     border of the control beside it. */
+  .input-group .input:focus,
+  .input-group .input:focus-visible { @apply relative z-10; }
+
   /* NOTE: there is deliberately no `.checkbox` class. Every on/off and selection
      control in the app is a <Toggle> (§4.11); a styled checkbox would only invite
      a new one back in. */

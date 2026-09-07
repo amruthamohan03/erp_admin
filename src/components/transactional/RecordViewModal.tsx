@@ -7,6 +7,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { accentFor } from './accents';
 import type { PageDef, PageFieldDef, PageFetchResponse } from '@/types';
 import { formatDate } from '@/lib/formatDate';
+import { companionOf } from '@/lib/pages/companion';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -39,6 +40,7 @@ function getString(props: Record<string, unknown> | null, key: string): string |
 
 // Field types that hold long text and read better spanning the full row.
 const WIDE_TYPES = new Set(['textarea', 'seal-picker', 'checkbox-group', 'remark-log']);
+
 
 export default function RecordViewModal({
   slug,
@@ -257,19 +259,39 @@ export default function RecordViewModal({
                         <p className="text-sm text-muted-foreground">No fields.</p>
                       ) : (
                         <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                          {acc.fields.map((f) => (
-                            <div
-                              key={f.id}
-                              className={WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''}
-                            >
-                              <dt className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                                {f.label}
-                              </dt>
-                              <dd className="mt-0.5 break-words text-sm text-foreground">
-                                {renderValue(f)}
-                              </dd>
-                            </div>
-                          ))}
+                          {/* An amount and its currency are one value (§4.1
+                              props.currencyField) — read together here for the same
+                              reason they are typed together on the form. */}
+                          {(() => {
+                            const mates = new Map<string, PageFieldDef>();
+                            for (const f of acc.fields) {
+                              const name = companionOf(f.props);
+                              const mate = name ? acc.fields.find((x) => x.name === name) : undefined;
+                              if (mate) mates.set(f.name, mate);
+                            }
+                            const consumed = new Set([...mates.values()].map((m) => m.name));
+                            return acc.fields
+                              .filter((f) => !consumed.has(f.name))
+                              .map((f) => {
+                                const mate = mates.get(f.name);
+                                return (
+                                  <div
+                                    key={f.id}
+                                    className={WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''}
+                                  >
+                                    <dt className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                                      {f.label}
+                                    </dt>
+                                    <dd className="mt-0.5 break-words text-sm text-foreground">
+                                      {renderValue(f)}
+                                      {mate && (
+                                        <span className="ml-1.5 text-muted-foreground">{renderValue(mate)}</span>
+                                      )}
+                                    </dd>
+                                  </div>
+                                );
+                              });
+                          })()}
                         </dl>
                       )}
                     </div>

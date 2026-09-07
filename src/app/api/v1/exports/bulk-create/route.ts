@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { exportT, importT, licenseT } from '@/db/schema';
+import { clearingStatusMaster, exportT, importT, licenseT } from '@/db/schema';
 import {
   ok,
   requireAuth,
@@ -166,6 +166,25 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // short as possible.
   const chargeRules = await loadExportChargeRules();
 
+  // Declaration Status starts at IN TRANSIT: a consignment that has just been
+  // created has left but not yet been cleared, and leaving the column null made
+  // every new export invisible to the status cards that count by it.
+  //
+  // Resolved from the master's own text rather than a hardcoded id — ids are
+  // assigned by the seed and differ between installations (§4.1), the same way
+  // exportFilters.ts matches its clearing statuses. No matching row ⇒ null, which
+  // is what the column held before; a missing status must not stop a batch.
+  const [defaultStatus] = await db
+    .select({ id: clearingStatusMaster.id })
+    .from(clearingStatusMaster)
+    .where(
+      and(
+        eq(clearingStatusMaster.display, 'Y'),
+        sql`upper(btrim(${clearingStatusMaster.clearingStatus})) = 'IN TRANSIT'`,
+      ),
+    )
+    .limit(1);
+
   const createdIds = await db.transaction(async (tx) => {
     // §4.33 — references come from the format configured under Developer Options,
     // via the same generator the single-record form uses. The operator used to
@@ -241,6 +260,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         typeOfGoods: common.type_of_goods_id ?? null,
         regime: common.regime_id ?? null,
         typesOfClearance: common.types_of_clearance_id ?? null,
+        clearingStatus: defaultStatus?.id ?? null,
         currency: common.currency_id ?? null,
         buyer: norm(common.buyer),
         bpNo: norm(common.bp_no),

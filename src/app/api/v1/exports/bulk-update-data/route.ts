@@ -23,11 +23,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const data = await bulkUpdateData(filterKeys, {
-    client_id: positiveInt(sp.get('client_id')),
-    transport_mode_id: positiveInt(sp.get('transport_mode_id')),
-    loading_from: sp.get('loading_from') ?? undefined,
-    loading_to: sp.get('loading_to') ?? undefined,
-  });
+  const data = await bulkUpdateData(
+    filterKeys,
+    {
+      client_id: positiveInt(sp.get('client_id')),
+      transport_mode_id: positiveInt(sp.get('transport_mode_id')),
+      type_of_goods_id: positiveInt(sp.get('type_of_goods_id')),
+      loading_from: sp.get('loading_from') ?? undefined,
+      loading_to: sp.get('loading_to') ?? undefined,
+      // Searched in SQL, not over the page — see bulkWhere.
+      q: sp.get('q') ?? undefined,
+    },
+    // §4.9 — server-side paging. Out-of-range values are clamped rather than
+    // rejected, so a filter that narrowed while the modal was open returns the
+    // last page instead of an error.
+    { page: positiveInt(sp.get('page')), pageSize: positiveInt(sp.get('page_size')) },
+  );
   return ok(data);
 });
