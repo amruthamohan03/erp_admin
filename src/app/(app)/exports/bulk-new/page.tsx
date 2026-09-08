@@ -321,7 +321,13 @@ export default function BulkNewExportsPage() {
           // Clients are labelled by short code, via the shared helper (§4.15).
           // licenses allows pageSize up to 500.
           fetchClientOptions(),
-          fetch('/api/v1/licenses?pageSize=500').then((r) => r.json()),
+          // §4.1 — only licences an EXPORT may draw on, by the kind's own flag
+          // (kind_master_t.use_for_export: IMPORT TEMPORARY, EXPORT DEFINITVE,
+          // EXPORT TEMPORARY today). Unfiltered, this offered import-only
+          // licences too, and picking one built an MCA reference carrying an
+          // import kind code while drawing the tonnage down the wrong side.
+          // Never an id list — re-flagging a kind is a master edit, not a deploy.
+          fetch('/api/v1/licenses?use_for=export&pageSize=500').then((r) => r.json()),
           // Export regimes only — the same filter the single-record form applies.
           fetchMasterOptions('regimes?type=E', 'regime_name'),
           fetchMasterOptions('clearances', 'clearance_name'),

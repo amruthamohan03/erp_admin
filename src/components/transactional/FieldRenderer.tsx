@@ -459,10 +459,29 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
     field.props && typeof field.props === 'object'
       ? ((field.props as Record<string, unknown>)['optionsParams'] as Record<string, string> | undefined)
       : undefined;
+  // §4.5 — FIXED scope. `props.optionsFilters` maps a query-param name to a
+  // literal value rather than to a form field, for a narrowing that is a property
+  // of the field itself and not of what the operator has typed — Import
+  // Tracking's licence picker asks for `use_for=import`, so it offers only the
+  // kinds the master flags as usable on an import.
+  //
+  // A sibling of optionsParams rather than a special value inside it: one map
+  // means "read this from the form", the other means "this is always so", and
+  // collapsing them would make every literal ambiguous with a field name.
+  const optionsFilters =
+    field.props && typeof field.props === 'object'
+      ? ((field.props as Record<string, unknown>)['optionsFilters'] as
+          | Record<string, string | number | boolean>
+          | undefined)
+      : undefined;
   const paramQuery = (() => {
-    if (!optionsParams) return '';
+    if (!optionsParams && !optionsFilters) return '';
     const sp = new URLSearchParams();
-    for (const [param, formField] of Object.entries(optionsParams)) {
+    // Literals first, so a form-driven value wins if both name the same param.
+    for (const [param, literal] of Object.entries(optionsFilters ?? {})) {
+      if (literal !== null && literal !== undefined && literal !== '') sp.set(param, String(literal));
+    }
+    for (const [param, formField] of Object.entries(optionsParams ?? {})) {
       const v = values ? values[formField] : undefined;
       if (v !== null && v !== undefined && v !== '') sp.set(param, String(v));
     }

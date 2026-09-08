@@ -467,6 +467,12 @@ export default function ImportsListPage() {
       </div>
 
       {/* ---- Create ---- */}
+      {/* PARTIELLE Allocation used to sit beside this as a second card. Allotments
+          are cut where they are used — from the gear on the import form's
+          Inspection Reports field, and on the PARTIELLE Management screen — so a
+          third entry point on the tracking list was one more place for the same
+          job. The /imports/partielles route still exists and still works; it is
+          simply not advertised from here. */}
       <div className="flex flex-wrap gap-3 mb-4">
         <Link
           href="/imports/new"
@@ -477,17 +483,6 @@ export default function ImportsListPage() {
           </span>
           <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
             <Plus className="h-3.5 w-3.5" /> New Import
-          </span>
-        </Link>
-        <Link
-          href="/imports/partielles"
-          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
-        >
-          <span className="flex items-center gap-2 text-foreground font-medium">
-            <Layers className="h-4 w-4 text-primary-600" /> PARTIELLE Allocation
-          </span>
-          <span className="text-xs text-primary-600 group-hover:text-primary-700">
-            Manage allotments
           </span>
         </Link>
       </div>

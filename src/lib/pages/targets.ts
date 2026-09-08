@@ -2,7 +2,7 @@
 // table object it targets. Never derive table identifiers from request data;
 // always look them up here. New transactional pages MUST be added here before
 // the runtime can read/write them.
-import { sql, getTableColumns } from 'drizzle-orm';
+import { sql, getTableColumns, type SQL } from 'drizzle-orm';
 import { type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 // restructure export names: clientMaster (client_master_t), licenseT (license_t),
@@ -60,6 +60,35 @@ export function getPageTarget(pageSlug: string): PageTarget | null {
  * Filter a list of column names down to those actually present in the page's
  * target table. Use this everywhere before letting field names hit a SQL query.
  */
+/**
+ * Bind ONE page value as a SQL parameter.
+ *
+ * Everything here goes through `sql` template interpolation, and Drizzle treats a
+ * JS ARRAY as a parenthesised parameter list — `($1, $2)` — because that is what
+ * an `IN (…)` needs. For a JSONB column that is wrong in both directions:
+ *
+ *   remarks = []          →  remarks = ()        — a Postgres syntax error
+ *   remarks = [ {...} ]   →  remarks = ($1)      — not the array either
+ *
+ * So every repeating group saved as a JSONB column (§4.5 — the remark log, the
+ * payment MCA grid) broke the save of any record that carried one, and an EMPTY
+ * log broke it hardest: an export that had never had a remark could not be
+ * updated at all.
+ *
+ * Serialised to JSON text and left UNCAST: the parameter is untyped, so Postgres
+ * resolves it against the target column — jsonb where the column is jsonb, text
+ * where it is text. A hardcoded `::jsonb` would be right for today's columns and
+ * wrong the first time a plain-text column receives a structured value.
+ */
+export function bindColumnValue(value: unknown): SQL {
+  const isPlainObject =
+    typeof value === 'object' &&
+    value !== null &&
+    !(value instanceof Date) &&
+    (Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype);
+  return isPlainObject ? sql`${JSON.stringify(value)}` : sql`${value ?? null}`;
+}
+
 export function safeColumnsFor(pageSlug: string, columns: string[]): string[] {
   const target = getPageTarget(pageSlug);
   if (!target) return [];

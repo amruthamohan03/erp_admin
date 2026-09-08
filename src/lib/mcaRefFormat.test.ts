@@ -32,6 +32,10 @@ describe('the shipped defaults reproduce the references already in the database'
     ['local', 'NMI-LTKI26-0001'],
     ['export-invoice', '2026-NMI-EXP-0001'],
     ['import-invoice', '2026-NMI-0001'],
+    // Three digits, matching the allotments already on file (TCL-001). A wider
+    // sequence here would name new allotments differently from every existing
+    // one, and an import links to its allotment by that exact string.
+    ['partielle', 'NMI-001'],
   ] as const)('%s renders %s', (target, expected) => {
     expect(renderMcaRef(MCA_REF_DEFAULTS[target], TOKENS, 1)).toBe(expected);
   });
@@ -100,6 +104,26 @@ describe('a missing code blanks the whole reference', () => {
 
   it('rejects a year that is not four digits', () => {
     expect(renderMcaRef([{ type: 'year', digits: 2 }], { year: '26' }, 1)).toBeNull();
+  });
+});
+
+describe('the PARTIELLE number is scoped by client, not by licence', () => {
+  // An import links to its allotment by NAME (imports_t.inspection_reports), so
+  // two licences for the same client must never both produce "TCL-001".
+  // buildSequencePattern anchors on the client segment alone, so the counter
+  // continues across every licence that client holds.
+  it('matches any allotment for the same client', () => {
+    const built = buildSequencePattern(MCA_REF_DEFAULTS.partielle, TOKENS);
+    expect(built).not.toBeNull();
+    const re = new RegExp(built!.pattern);
+    expect(re.test('NMI-001')).toBe(true);
+    expect(re.test('NMI-014')).toBe(true);
+  });
+
+  it('does not match another client', () => {
+    const built = buildSequencePattern(MCA_REF_DEFAULTS.partielle, TOKENS);
+    const re = new RegExp(built!.pattern);
+    expect(re.test('TCL-001')).toBe(false);
   });
 });
 

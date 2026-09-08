@@ -29,7 +29,7 @@ import {
   sealNumber,
 } from '@/db/schema';
 import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
-import { fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
+import { bindColumnValue, fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
@@ -279,7 +279,9 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       // them in practice.
       const cols = [...provided, 'created_by', 'updated_by'];
       const vals = [
-        ...provided.map((c) => sql`${patch[c]}`),
+        // bindColumnValue, not a bare interpolation: a JSONB array would
+        // otherwise bind as a parameter LIST — see its doc comment.
+        ...provided.map((c) => bindColumnValue(patch[c])),
         sql`${session.uid}`,
         sql`${session.uid}`,
       ];
@@ -294,7 +296,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       savedId = row.id;
     } else {
       const setEntries = Object.keys(patch).map(
-        (c) => sql`${sql.identifier(c)} = ${patch[c] ?? null}`,
+        (c) => sql`${sql.identifier(c)} = ${bindColumnValue(patch[c])}`,
       );
       setEntries.push(sql`${sql.identifier('updated_by')} = ${session.uid}`);
       setEntries.push(sql`${sql.identifier('updated_at')} = CURRENT_TIMESTAMP`);

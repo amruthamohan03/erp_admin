@@ -5,6 +5,7 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 /** Whether a form may offer this kind — read at a glance down the column. */
 function UsedBadge({ on }: { on: boolean }) {
@@ -175,26 +176,29 @@ function KindFormModal({
     const url = isEdit ? `/api/v1/kinds/${kind!.id}` : '/api/v1/kinds';
     const method = isEdit ? 'PUT' : 'POST';
 
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kind_name: name,
-          kind_short_name: shortName,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
-        return;
-      }
-      onSaved();
-    } catch {
-      setError('Network error');
-    } finally {
-      setSaving(false);
+    // Every field the form shows. The two flags used to be rendered, toggled and
+    // then dropped on the floor — the request carried only the name and short
+    // name, so the save succeeded, the dialog said "Saved", and Import/Export
+    // came back exactly as they were. A control the form offers has to be in the
+    // payload.
+    const res = await safeFetchJson<{ id: number }>(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind_name: name,
+        kind_short_name: shortName,
+        use_for_import: useForImport,
+        use_for_export: useForExport,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      // §4.23 — the server names the field and the fix; only fall back when it
+      // said nothing useful.
+      setError(res.message || 'This kind could not be saved.');
+      return;
     }
+    onSaved();
   }
 
   return (

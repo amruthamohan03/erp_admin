@@ -37,6 +37,9 @@ const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string }> = {
   local: { table: 'locals_t', column: 'mca_lt_reference' },
   'export-invoice': { table: 'export_invoices_t', column: 'invoice_ref' },
   'import-invoice': { table: 'import_invoices_t', column: 'invoice_ref' },
+  // §5 — the PARTIELLE (inspection-report) allotment. An import links to one by
+  // NAME, so this column is the reference and it is unique app-wide.
+  partielle: { table: 'partial_t', column: 'partial_name' },
 };
 
 async function queryOne(exec: Executor, query: ReturnType<typeof sql>): Promise<Row | null> {
@@ -120,6 +123,7 @@ const TOKEN_RESOLVERS: Record<
 
   'export-invoice': (values, exec) => clientOnlyTokens(values, exec),
   'import-invoice': (values, exec) => clientOnlyTokens(values, exec),
+  partielle: partielleTokens,
 };
 
 /**
@@ -162,6 +166,24 @@ async function trackingTokens(
     transport: upper(row.transport_letter),
     year: currentYear(),
   };
+}
+
+/**
+  * A PARTIELLE knows only its licence, and the licence knows the client. The
+  * allotment carries no kind/goods/transport of its own, so those are not offered
+  * as segments for this target.
+  */
+async function partielleTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {
+  const licenseId = toId(values['license_id']);
+  if (!licenseId) return null;
+  const row = await queryOne(exec, sql`
+    SELECT c.short_name AS client_short
+    FROM license_t l
+    LEFT JOIN client_master_t c ON c.id = l.client_id
+    WHERE l.id = ${licenseId}
+    LIMIT 1`);
+  if (!row) return null;
+  return { client: upper(row.client_short), year: currentYear() };
 }
 
 async function clientOnlyTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {

@@ -329,7 +329,12 @@
   .input-group { @apply flex items-stretch; }
   .input-group > * { @apply min-w-0; }
   .input-group > *:not(:last-child) .input,
-  .input-group > .input:not(:last-child) { @apply rounded-r-none border-r-0; }
+  .input-group > .input:not(:last-child) { @apply rounded-r-none; }
+  /* Halves overlap by exactly one pixel, so the two adjoining borders collapse
+     into a SINGLE hairline seam. Removing the inner border instead would weld
+     them into one undivided box, and an operator could no longer see where the
+     amount ends and the unit begins. */
+  .input-group > *:not(:first-child) { @apply -ml-px; }
   .input-group > *:not(:first-child) .input,
   .input-group > .input:not(:first-child) { @apply rounded-l-none; }
   /* The focused half draws above its neighbour, so the ring is not clipped by the
