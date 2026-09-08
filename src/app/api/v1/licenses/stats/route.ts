@@ -1,61 +1,55 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { licenseT } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { licenseCardCondition, type LicenseCardKey } from '@/db/queries/licenseFilters';
 
 // GET /api/v1/licenses/stats
-// Counts + status breakdown for the licenses module. license_t has
-// `state` from the case-runtime workflow — the seeded license
-// workflow uses: draft → submitted → approved → issued
-// (happy path) plus cancelled as an escape hatch.
 //
-// Reported buckets:
-//   * issued    — the "live" bucket (state='issued')
-//   * approved  — approved but not yet issued (state='approved')
-//   * pending   — in review or draft (state IN ('draft','submitted'))
-//   * cancelled — terminal reject (state='cancelled')
-//   * expiring_soon — issued + expiry_date within 30 days
+// The number on each dashboard card. Every bucket is counted through
+// `licenseCardCondition` — the same predicate the list applies when the card is
+// clicked — so a card can never report a figure the grid then contradicts
+// (§4.29). Hand-written SQL here had already drifted: `issued` counted every
+// ACTIVE licence including ones that expired months ago.
+//
+// Buckets, in the order the cards render:
+//   * expired       — ACTIVE but past its expiry date (derived, never stored)
+//   * issued        — ACTIVE and still in date
+//   * approved      — MODIFIED
+//   * pending       — INACTIVE
+//   * cancelled     — ANNULATED
+//   * expiring_soon — in date, but inside the 30-day renewal window
 
-interface TotalsRow {
-  total_count: number;
-  issued_count: number;
-  approved_count: number;
-  pending_count: number;
-  cancelled_count: number;
-  expiring_soon_count: number;
-}
+const BUCKETS = [
+  'expired',
+  'issued',
+  'approved',
+  'pending',
+  'cancelled',
+  'expiring_soon',
+] as const satisfies readonly LicenseCardKey[];
 
 export const GET = withErrorHandler(async (_req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
-  // TODO(parity): buckets below were mapped from the old workflow `state`
-  // (draft/submitted/approved/issued/cancelled) to main's `status` enum
-  // (ACTIVE/INACTIVE/ANNULATED/MODIFIED/PROROGATED). The dashboard card
-  // labels should be reworked to the new status set in a follow-up.
-  const result = await db.execute(sql`
-    SELECT
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y') AS total_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'ACTIVE') AS issued_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'MODIFIED') AS approved_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'INACTIVE') AS pending_count,
-      (SELECT count(*)::int FROM license_t WHERE display = 'Y' AND status = 'ANNULATED') AS cancelled_count,
-      (
-        SELECT count(*)::int FROM license_t
-        WHERE display = 'Y'
-          AND status = 'ACTIVE'
-          AND license_expiry_date IS NOT NULL
-          AND license_expiry_date BETWEEN current_date AND current_date + interval '30 days'
-      ) AS expiring_soon_count
-  `);
-  const t = (result.rows ?? [])[0] as unknown as TotalsRow | undefined;
+  const live = eq(licenseT.display, 'Y');
+
+  const counted = await Promise.all(
+    BUCKETS.map(async (key) => {
+      const [row] = await db
+        .select({ n: count() })
+        .from(licenseT)
+        .where(and(live, licenseCardCondition(key)));
+      return [`${key}_count`, row?.n ?? 0] as const;
+    }),
+  );
+
+  const [totalRow] = await db.select({ n: count() }).from(licenseT).where(live);
 
   return ok({
-    total_count: t?.total_count ?? 0,
-    issued_count: t?.issued_count ?? 0,
-    approved_count: t?.approved_count ?? 0,
-    pending_count: t?.pending_count ?? 0,
-    cancelled_count: t?.cancelled_count ?? 0,
-    expiring_soon_count: t?.expiring_soon_count ?? 0,
+    total_count: totalRow?.n ?? 0,
+    ...Object.fromEntries(counted),
   });
 });

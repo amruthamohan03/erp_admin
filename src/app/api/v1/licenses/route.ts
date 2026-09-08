@@ -11,6 +11,11 @@ import {
   typeOfGoodsMaster,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import {
+  EFFECTIVE_STATUS,
+  licenseCardCondition,
+  licenseStatusCondition,
+} from '@/db/queries/licenseFilters';
 
 // GET-only list endpoint for the licenses entity. Backs the /licenses
 // list page (dashboard cards + filter bar + table) as well as the
@@ -48,25 +53,6 @@ export { querySchema as licenseListQuerySchema };
 
 // card_content_id → extra WHERE condition. Mirrors the buckets in
 // /api/v1/licenses/stats. 'total'/'all' (or unknown) add nothing.
-function cardCondition(card: string): SQL | undefined {
-  switch (card) {
-    case 'issued':
-      return eq(licenseT.status, 'ACTIVE');
-    case 'approved':
-      return eq(licenseT.status, 'MODIFIED');
-    case 'pending':
-      return eq(licenseT.status, 'INACTIVE');
-    case 'cancelled':
-      return eq(licenseT.status, 'ANNULATED');
-    case 'expiring_soon':
-      return and(
-        eq(licenseT.status, 'ACTIVE'),
-        sql`${licenseT.licenseExpiryDate} IS NOT NULL AND ${licenseT.licenseExpiryDate} BETWEEN current_date AND current_date + interval '30 days'`,
-      );
-    default:
-      return undefined;
-  }
-}
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -114,11 +100,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
   if (q.transport_mode_id) conds.push(eq(licenseT.transportModeId, q.transport_mode_id));
-  if (q.status) conds.push(eq(licenseT.status, q.status));
+  if (q.status) conds.push(licenseStatusCondition(q.status));
   if (q.start_date) conds.push(gte(licenseT.licenseAppliedDate, q.start_date));
   if (q.end_date) conds.push(lte(licenseT.licenseAppliedDate, q.end_date));
   if (q.card) {
-    const cardCond = cardCondition(q.card);
+    const cardCond = licenseCardCondition(q.card);
     if (cardCond) conds.push(cardCond);
   }
   const where = and(...conds);
@@ -145,7 +131,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       bank_name: banklistMaster.bankName,
       transport_mode_name: transportModeMaster.transportModeName,
       type_of_goods_name: typeOfGoodsMaster.goodsType,
-      status: licenseT.status,
+      // The DERIVED status (§2.2) — EXPIRED once the date has passed. The stored
+      // column is unchanged; this is what the badge and the filters agree on.
+      status: EFFECTIVE_STATUS,
       supplier: licenseT.supplier,
       ref_cod: licenseT.refCod,
       invoice_number: licenseT.invoiceNumber,

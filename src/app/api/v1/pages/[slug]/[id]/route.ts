@@ -34,7 +34,7 @@ import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/field
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
-import { assertImportPartielleCapacity } from '@/db/queries/partielle';
+import { assertPartielleCapacity } from '@/db/queries/partielle';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
@@ -236,13 +236,13 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (boundError) return fail(boundError, 422, { field: f.name });
   }
 
-  // §5 C-02 — an import file must fit inside its selected PARTIELLE allotment.
-  // Enforced here (not in the generic write) because the budget rule is
-  // import-specific, exactly as the export seal-reservation below is export-
-  // specific. Uses the merged (before + submitted) values so a weight/fob change
-  // on any accordion is re-checked against the allotment.
-  if (slug === 'import') {
-    const partielleError = await assertImportPartielleCapacity(evalContext, entityId);
+  // §5 C-02 — a consignment must fit inside its selected PARTIELLE allotment.
+  // Both sides now: a licence's allotments are drawn on by imports AND exports,
+  // so enforcing it on one alone let the other quietly overfill the same
+  // allotment. Uses the merged (before + submitted) values so a weight/fob
+  // change on any accordion is re-checked.
+  if (slug === 'import' || slug === 'export') {
+    const partielleError = await assertPartielleCapacity(slug, evalContext, entityId);
     if (partielleError) return fail(partielleError, 422, { field: 'inspection_reports' });
   }
 

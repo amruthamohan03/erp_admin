@@ -34,6 +34,11 @@ export const MCA_REF_SEGMENT_TYPES = [
   'goods',
   'transport',
   'office',
+  // §5 — the licence's REF. COD (license_t.ref_cod), which the operation also
+  // calls the CRF Reference. Unlike the other code segments this is not a short
+  // master code: it is a full customs reference, spaces and all, so it is kept
+  // verbatim rather than sliced.
+  'refcod',
   'year',
   'literal',
   'sequence',
@@ -69,6 +74,7 @@ export interface McaRefTokens {
   goods?: string | null;
   transport?: string | null;
   office?: string | null;
+  refcod?: string | null;
   /** Always the full four-digit year; the segment slices it to `digits`. */
   year?: string | null;
 }
@@ -93,6 +99,7 @@ const SAMPLE: McaRefTokens = {
   goods: 'CO',
   transport: 'R',
   office: 'KINSHASA',
+  refcod: 'COD 2026 234480',
   year: '2026',
 };
 
@@ -152,8 +159,8 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
     key: 'partielle',
     label: 'PARTIELLE (Inspection Report)',
     fieldLabel: 'PARTIELLE Number',
-    hint: "Client code from the allotment's licence. Kind, goods and transport are not available here.",
-    tokens: ['client', ...ALWAYS],
+    hint: "REF. COD (the CRF Reference) and the client code both come from the allotment's licence. Kind, goods and transport are not available here.",
+    tokens: ['refcod', 'client', ...ALWAYS],
     sample: SAMPLE,
   },
 };
@@ -205,13 +212,17 @@ export const MCA_REF_DEFAULTS: Record<McaRefTargetKey, McaRefSegment[]> = {
     { type: 'literal', separator: '-', value: 'EXP' },
     { type: 'sequence', separator: '-', width: 4 },
   ],
-  // TCL-001 — numbered per client across every licence, because an import links
-  // to its allotment by NAME (imports_t.inspection_reports), so the name has to be
-  // unique app-wide rather than per licence. Three digits, matching what the
-  // operation already has on file.
+  // COD 2026 234480-0001 — the licence's REF. COD, then a four-digit counter.
+  //
+  // Prefixed with REF COD rather than the client code because that is what the
+  // operation reads it as: the allotment belongs to a customs reference, and an
+  // operator matching a PARTIELLE against a CRF document needs the two to share
+  // a prefix. Scoping the counter by REF COD also keeps the name unique app-wide,
+  // which it must be — an import links to its allotment by NAME
+  // (imports_t.inspection_reports), not by id.
   partielle: [
-    { type: 'client' },
-    { type: 'sequence', separator: '-', width: 3 },
+    { type: 'refcod' },
+    { type: 'sequence', separator: '-', width: 4 },
   ],
   // 2026-NMI-0001
   'import-invoice': [

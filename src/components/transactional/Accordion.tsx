@@ -41,6 +41,11 @@ interface AccordionProps {
 
 const COL_CLASS: Record<string, string> = {
   '5-per-row': 'w-full md:w-1/2 lg:w-1/3 xl:w-1/5 px-2',
+  // Two of the five. For a field that is a control PLUS something else — the
+  // PARTIELLE picker carries a manage button, so a single cell left its dropdown
+  // narrower than the list's own minimum width and the list opened over the next
+  // field. Steps with the same breakpoints as '5-per-row' so a row still lines up.
+  '2-of-5': 'w-full md:w-1/2 lg:w-2/3 xl:w-2/5 px-2',
   '12': 'w-full px-2',
   '6': 'w-full md:w-1/2 px-2',
 };

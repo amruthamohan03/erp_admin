@@ -47,6 +47,7 @@ const SEGMENT_LABELS: Record<McaRefSegmentType, string> = {
   goods: 'Type of goods code',
   transport: 'Transport mode letter',
   office: 'Office code',
+  refcod: 'REF. COD (CRF Reference)',
   year: 'Year',
   literal: 'Fixed text',
   sequence: 'Number (increments)',

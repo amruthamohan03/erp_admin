@@ -1,7 +1,9 @@
 'use client';
 
-// §5 PARTIELLE Management modal — opened from the gear button on the import
-// form's "Inspection Reports (PARTIELLE)" field. Shows the licence weight/FOB
+// §5 PARTIELLE Management modal — opened from the gear button on the Inspection
+// Reports (PARTIELLE) field of EITHER tracking form. It lives beside
+// FieldRenderer rather than under modules/imports because both sides use it now:
+// a licence's allotments are drawn on by imports and exports alike (§4.10). Shows the licence weight/FOB
 // budget and remaining (available) budget, lets the operator create allotments,
 // and lists every allotment with its usage (files, weight/FOB used, remaining).
 // Ports the legacy "PARTIELLE Management" dialog. On any change it calls
@@ -65,16 +67,38 @@ export default function PartielleManageModal({
   }, [load]);
 
   /**
+   * The fixed half of a PARTIELLE number: the licence's REF. COD and its
+   * separator. Shown as a locked badge rather than as editable text — it is a
+   * property of the licence, not something to retype per allotment, and typing
+   * it by hand is how two allotments end up under slightly different references.
+   */
+  const prefix = data?.license.ref_cod ? `${data.license.ref_cod}-` : '';
+
+  /**
+   * The digits the generator would issue next, peeled off the reference it
+   * built. Derived by stripping the known prefix rather than by splitting on
+   * "-": a REF COD is a full customs reference and may contain its own hyphens
+   * (COD-2026-234480), so the LAST segment is not reliably the sequence.
+   */
+  const suggestedSequence = (() => {
+    const ref = data?.next_reference;
+    if (!ref) return '';
+    return prefix && ref.startsWith(prefix) ? ref.slice(prefix.length) : ref;
+  })();
+
+  /** What will actually be created — shown live, so there is no surprise. */
+  const fullNumber = form.name.trim() ? `${prefix}${form.name.trim()}` : '';
+
+  /**
    * Open the create form with the next number already filled in.
    *
    * It used to be grey placeholder text, and `create()` returned silently when
    * the field was empty — so the operator saw a number, pressed Save, and
-   * nothing happened, with no message. The number is a real value now, and an
-   * operator who clears it gets the next free one from the server anyway.
+   * nothing happened, with no message.
    */
   function openCreate() {
     setError(null);
-    setForm({ name: data?.next_reference ?? '', weight: '', fob: '' });
+    setForm({ name: suggestedSequence, weight: '', fob: '' });
     setShowCreate(true);
   }
 
@@ -86,7 +110,10 @@ export default function PartielleManageModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          partial_name: form.name.trim(),
+          // Prefix + digits. Blank digits submit blank, and the server issues
+          // the next free reference itself (§4.33) — one generator, whichever
+          // way the operator got here.
+          partial_name: fullNumber,
           license_id: licenseId,
           partial_weight: Number(form.weight) || 0,
           partial_fob: Number(form.fob) || 0,
@@ -165,29 +192,90 @@ export default function PartielleManageModal({
                   <Plus className="h-4 w-4" /> Add New PARTIELLE
                 </button>
               ) : (
-                <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-3 flex flex-wrap items-end gap-3">
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-3">
+                  <div className="flex flex-wrap items-start gap-4">
                   <div>
-                    <label className="label">PARTIELLE Number</label>
-                    <input className="input w-48" value={form.name}
-                      placeholder={data?.next_reference ?? 'Auto'}
-                      title="Generated from the configured format. Clear it to take the next free number."
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                    <label htmlFor="partielle-sequence" className="label required">PARTIELLE Number</label>
+                    {/* The REF. COD half is fixed and the operator types only the
+                        counter — the same split the operation already works to.
+                        Rendered through .input-group so the badge and the field
+                        read as one control (§4.20), not two. */}
+                    <div className="input-group w-64">
+                      {prefix && (
+                        <span
+                          className="input flex w-auto shrink-0 items-center whitespace-nowrap bg-primary-600 font-semibold text-white"
+                          title="The licence's REF. COD. Change it on the licence, not here."
+                        >
+                          {prefix}
+                        </span>
+                      )}
+                      <input
+                        id="partielle-sequence"
+                        className="input min-w-0 flex-1 font-mono"
+                        inputMode="numeric"
+                        // The width the configured format issues (§4.33), so the
+                        // field cannot accept a counter the format would not print.
+                        maxLength={prefix ? Math.max(suggestedSequence.length || 4, 3) : 100}
+                        value={form.name}
+                        placeholder={suggestedSequence || '0001'}
+                        // Digits only while a prefix supplies the rest. With no
+                        // REF. COD the operator is typing the WHOLE reference, which
+                        // is not numeric, so the filter would eat it.
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            name: prefix ? e.target.value.replace(/[^0-9]/gu, '') : e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    {/* §4.23 — a missing prefix has one cause and the operator
+                        cannot guess it: the number is built from the licence's
+                        REF. COD (§4.33). Say so here, not only on a failed save. */}
+                    {prefix ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Enter the {suggestedSequence.length || 4}-digit counter — it becomes{' '}
+                        <span className="font-mono font-semibold text-foreground">
+                          {fullNumber || `${prefix}${suggestedSequence || '0001'}`}
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="mt-1 max-w-xs text-xs text-amber-700 dark:text-amber-400">
+                        This licence has no REF. COD, so the prefix cannot be filled in.
+                        Set it on the licence, or type the whole number here.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Partial Weight (KG)</label>
-                    <input type="number" step="0.001" className="input w-36" value={form.weight}
+                    <input type="number" step="0.001" min="0" className="input w-36" value={form.weight}
                       onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))} />
+                    {/* Repeated beside the input: the licence's remaining budget is
+                        the number this one is checked against, and the card holding
+                        it is a long way up the modal. */}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Available: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{money(data.available.weight)}</span> KG
+                    </p>
                   </div>
                   <div>
                     <label className="label">Partial FOB</label>
-                    <input type="number" step="0.01" className="input w-36" value={form.fob}
+                    <input type="number" step="0.01" min="0" className="input w-36" value={form.fob}
                       onChange={(e) => setForm((f) => ({ ...f, fob: e.target.value }))} />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Available: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{money(data.available.fob)}</span>
+                    </p>
                   </div>
-                  <button type="button" onClick={create} disabled={busy || !form.name.trim()}
-                    className="btn-primary inline-flex items-center gap-1.5 disabled:opacity-50">
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add
-                  </button>
-                  <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
+                  </div>
+
+                  {/* §4.21 — a labelled way out beside the commit. */}
+                  <div className="mt-3 flex justify-end gap-2 border-t border-emerald-200 pt-3 dark:border-emerald-500/30">
+                    <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={create} disabled={busy} className="btn-primary disabled:opacity-50">
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Save PARTIELLE
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -220,7 +308,7 @@ export default function PartielleManageModal({
                       return (
                         <tr key={r.id} className="hover:bg-muted/50">
                           <td className="text-muted-foreground">{idx + 1}</td>
-                          <td>{lic.ref_cod}</td>
+                          <td>{lic.ref_cod || '—'}</td>
                           <td className="font-mono">{r.partial_name}</td>
                           <td className="text-right tabular-nums">{money(lic.license_weight)}</td>
                           <td className="text-right tabular-nums">{money(lic.license_fob)}</td>

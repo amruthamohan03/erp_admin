@@ -177,13 +177,20 @@ async function partielleTokens(values: Values, exec: Executor): Promise<McaRefTo
   const licenseId = toId(values['license_id']);
   if (!licenseId) return null;
   const row = await queryOne(exec, sql`
-    SELECT c.short_name AS client_short
+    SELECT c.short_name AS client_short, l.ref_cod AS ref_cod
     FROM license_t l
     LEFT JOIN client_master_t c ON c.id = l.client_id
     WHERE l.id = ${licenseId}
     LIMIT 1`);
   if (!row) return null;
-  return { client: upper(row.client_short), year: currentYear() };
+  return {
+    client: upper(row.client_short),
+    // REF. COD is the licence's customs reference (the operation also calls it
+    // the CRF Reference) and is the default prefix for a PARTIELLE number. Kept
+    // verbatim apart from case: it is a full reference, not a short code.
+    refcod: upper(row.ref_cod),
+    year: currentYear(),
+  };
 }
 
 async function clientOnlyTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {
