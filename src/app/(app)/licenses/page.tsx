@@ -56,8 +56,11 @@ interface DashboardCard {
   data_source: string | null;
 }
 
-// Status → badge colour. Mirrors main's license statuses.
+// Status → badge colour. The five stored statuses, plus EXPIRED — which no row
+// stores: the API derives it from the expiry date (db/queries/licenseFilters.ts),
+// so a lapsed licence stops reading ACTIVE. Red, because it blocks work.
 const STATUS_BADGE: Record<string, string> = {
+  EXPIRED: 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-500/30',
   ACTIVE: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
   INACTIVE: 'bg-muted text-muted-foreground border-border',
   ANNULATED: 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-500/30',
@@ -372,21 +375,6 @@ export default function LicensesListPage() {
         </div>
       </div>
 
-      {/* ---- Create card — links to /licenses/new ---- */}
-      <Link
-        href="/licenses/new"
-        className="card p-4 mb-4 flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
-      >
-        <span className="flex items-center gap-2 text-foreground font-medium">
-          <FileText className="h-4 w-4 text-primary-600" />
-          Create License
-        </span>
-        <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
-          <Plus className="h-3.5 w-3.5" />
-          New License
-        </span>
-      </Link>
-
       {/* ---- List card ---- */}
       <DataTable<LicenseRow>
         rows={items}
@@ -405,6 +393,17 @@ export default function LicensesListPage() {
         }
         searchPlaceholder="Search license, client, bank, invoice..."
         emptyMessage="No licences match these filters — clear them, or create one."
+        toolbar={
+          // §4.20/§4.25 — the create action lives in the table's toolbar, as a
+          // real primary button, next to the export and beside the list it adds
+          // to. It used to be a full-width Link dressed up as a `card`: it read
+          // as a section of content rather than a control, it said the same thing
+          // twice ("Create License" and "New License"), and it pushed the cards
+          // and the grid a whole row further down every screen.
+          <Link href="/licenses/new" className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New License
+          </Link>
+        }
         columns={[
           { key: 'license_number', header: 'License Number', className: 'font-mono text-xs font-medium' },
           { key: 'client_name', header: 'Client', className: 'font-medium' },

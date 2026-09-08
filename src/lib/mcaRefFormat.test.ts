@@ -17,6 +17,8 @@ const TOKENS: McaRefTokens = {
   goods: 'CO',
   transport: 'R',
   office: 'KINSHASA',
+  // A full customs reference, spaces and all — not a short master code.
+  refcod: 'COD 2026 234480',
   year: '2026',
 };
 
@@ -32,10 +34,10 @@ describe('the shipped defaults reproduce the references already in the database'
     ['local', 'NMI-LTKI26-0001'],
     ['export-invoice', '2026-NMI-EXP-0001'],
     ['import-invoice', '2026-NMI-0001'],
-    // Three digits, matching the allotments already on file (TCL-001). A wider
-    // sequence here would name new allotments differently from every existing
-    // one, and an import links to its allotment by that exact string.
-    ['partielle', 'NMI-001'],
+    // The licence's REF. COD, then four digits — what the live operation issues
+    // (COD 2026 234480-0001). An import links to its allotment by this exact
+    // string, so a different shape here is a different allotment.
+    ['partielle', 'COD 2026 234480-0001'],
   ] as const)('%s renders %s', (target, expected) => {
     expect(renderMcaRef(MCA_REF_DEFAULTS[target], TOKENS, 1)).toBe(expected);
   });
@@ -107,23 +109,35 @@ describe('a missing code blanks the whole reference', () => {
   });
 });
 
-describe('the PARTIELLE number is scoped by client, not by licence', () => {
+describe('the PARTIELLE number is scoped by REF COD', () => {
   // An import links to its allotment by NAME (imports_t.inspection_reports), so
-  // two licences for the same client must never both produce "TCL-001".
-  // buildSequencePattern anchors on the client segment alone, so the counter
-  // continues across every licence that client holds.
-  it('matches any allotment for the same client', () => {
+  // the counter has to continue across every allotment sharing a REF COD rather
+  // than restarting per licence.
+  it('matches any allotment under the same REF COD', () => {
     const built = buildSequencePattern(MCA_REF_DEFAULTS.partielle, TOKENS);
     expect(built).not.toBeNull();
     const re = new RegExp(built!.pattern);
-    expect(re.test('NMI-001')).toBe(true);
-    expect(re.test('NMI-014')).toBe(true);
+    expect(re.test('COD 2026 234480-0001')).toBe(true);
+    expect(re.test('COD 2026 234480-0014')).toBe(true);
   });
 
-  it('does not match another client', () => {
+  it('does not match a different REF COD', () => {
     const built = buildSequencePattern(MCA_REF_DEFAULTS.partielle, TOKENS);
     const re = new RegExp(built!.pattern);
-    expect(re.test('TCL-001')).toBe(false);
+    expect(re.test('COD 2026 999999-0001')).toBe(false);
+  });
+
+  // REF COD is a full customs reference, not a short code: it carries spaces and
+  // could carry punctuation, so the pattern must escape it rather than splice it
+  // into a regex raw.
+  it('treats a REF COD containing regex metacharacters literally', () => {
+    const built = buildSequencePattern(MCA_REF_DEFAULTS.partielle, {
+      ...TOKENS,
+      refcod: 'COD (2026) 234.480',
+    });
+    const re = new RegExp(built!.pattern);
+    expect(re.test('COD (2026) 234.480-0007')).toBe(true);
+    expect(re.test('CODX2026Y234X480-0007')).toBe(false);
   });
 });
 

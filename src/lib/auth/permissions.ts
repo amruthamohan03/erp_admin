@@ -48,6 +48,27 @@ const COLUMN = {
   manageSettings: roleMenuMapping.canManageSettings,
 } as const satisfies Record<PermissionAction, unknown>;
 
+/**
+ * What each flag is called on the Role to Menu matrix, so a refusal can name the
+ * exact box to tick (§4.23) rather than saying "Forbidden". Kept beside COLUMN
+ * because the two are the same list read two ways — add a flag, add both.
+ */
+export const PERMISSION_LABELS = {
+  view: 'View',
+  add: 'Add',
+  edit: 'Edit',
+  delete: 'Delete',
+  approve: 'Approve',
+  restore: 'Restore',
+  permanentDelete: 'Perm. Delete',
+  export: 'Export',
+  import: 'Import',
+  print: 'Print',
+  viewAudit: 'View Audit',
+  exportAudit: 'Export Audit',
+  manageSettings: 'Settings',
+} as const satisfies Record<PermissionAction, string>;
+
 export async function checkPermission(
   user: AuthPayload,
   resource: string,

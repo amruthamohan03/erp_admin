@@ -484,6 +484,41 @@
       "when": 1784660519403,
       "tag": "0067_export_license_kind_filter",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1784660519404,
+      "tag": "0068_license_expired_card",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1784660519405,
+      "tag": "0069_partielle_refcod_and_currency",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1784660519406,
+      "tag": "0070_export_partielle",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1784660519407,
+      "tag": "0071_repair_super_admin_audit_grant",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1784660519408,
+      "tag": "0072_partielle_picker_width",
+      "breakpoints": true
     }
   ]
 }

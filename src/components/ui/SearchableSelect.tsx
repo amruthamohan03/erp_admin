@@ -120,9 +120,21 @@ export default function SearchableSelect({
     const flip = below < wanted + SEARCH_ROW_PX && above > below;
     const room = (flip ? above : below) - SEARCH_ROW_PX;
 
+    // A very narrow trigger (a rows-per-page selector, or a picker sharing its
+    // cell with a button) still needs a readable list, so the panel has a floor.
+    // When that floor makes it WIDER than the trigger it grows leftward — right
+    // is where the next field in a grid form sits, and a list spilling onto a
+    // neighbouring input reads as a broken layout rather than as a menu.
+    const width = Math.round(Math.max(r.width, MIN_PANEL_WIDTH_PX));
+    const preferred = width > r.width ? r.right - width : r.left;
+    // Then keep it on screen: a control near the right edge used to open a panel
+    // that ran off it, with the far end of every option unreachable.
+    const maxLeft = window.innerWidth - width - VIEWPORT_PAD_PX;
+    const left = Math.round(Math.min(Math.max(preferred, VIEWPORT_PAD_PX), Math.max(maxLeft, VIEWPORT_PAD_PX)));
+
     setPosition({
-      left: Math.round(r.left),
-      width: Math.round(Math.max(r.width, MIN_PANEL_WIDTH_PX)),
+      left,
+      width,
       top: flip ? null : Math.round(r.bottom + TRIGGER_GAP_PX),
       bottom: flip ? Math.round(window.innerHeight - r.top + TRIGGER_GAP_PX) : null,
       maxList: Math.round(

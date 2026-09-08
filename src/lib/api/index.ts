@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { getSession, AuthPayload } from '@/lib/auth';
-import { checkPermission, PermissionAction } from '@/lib/auth/permissions';
+import { checkPermission, PERMISSION_LABELS, PermissionAction } from '@/lib/auth/permissions';
 import { AppError } from '@/lib/errors';
 import { messageForPgError, summarizeZodError } from '@/lib/validation/messages';
 
@@ -73,7 +73,18 @@ export async function requirePermission(
   const session = await getSession();
   if (!session) return fail('Unauthorized', 401);
   const allowed = await checkPermission(session, resource, action);
-  if (!allowed) return fail('Forbidden', 403);
+  if (!allowed) {
+    // §4.23 — name the permission and where to grant it. A bare "Forbidden" told
+    // an operator only that something was refused: it named neither the screen,
+    // nor which of the thirteen flags was missing, nor that the fix is one row
+    // on the Role to Menu matrix. The resource IS the menu URL (§4.7), so the
+    // message can say exactly what to go and tick.
+    return fail(
+      `Your role does not have the "${PERMISSION_LABELS[action] ?? action}" permission for ${resource}. ` +
+        'Grant it under Mapping → Role to Menu.',
+      403,
+    );
+  }
   return session;
 }
 

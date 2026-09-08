@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, FileText, Plus, Settings, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
-import PartielleManageModal from '@/modules/imports/PartielleManageModal';
+import PartielleManageModal from '@/components/transactional/PartielleManageModal';
 import McaRefGrid from '@/modules/payments/McaRefGrid';
 import type { McaLine, RemarkLine } from '@/db/schema';
 import RemarkLog from '@/components/transactional/RemarkLog';
@@ -789,10 +789,13 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
 
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2">
         <SearchableSelect
           id={field.name}
-          className="flex-1"
+          // min-w-0: a flex item defaults to min-width:auto, so a long option
+          // label ("TCL-002 — rem 73 KG / 8 FOB") could push the control past its
+          // cell and over the next field.
+          className="min-w-0 flex-1"
           aria-label={field.label}
           required={requiredOverride ?? field.required}
           invalid={invalid}

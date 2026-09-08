@@ -30,6 +30,11 @@ export interface PartielleRow {
 
 // Usage is rolled up once (GROUP BY) rather than per-row correlated subqueries
 // (the doc's P-02 fix). Linked by the legacy string key.
+//
+// Counts IMPORTS AND EXPORTS. A licence is drawn down by both — which is why the
+// remaining weight/FOB on the tracking forms count both (deriveSources.ts) — so
+// an allotment that saw only imports reported room that exports had already
+// taken. Unioned rather than joined twice so the GROUP BY stays one pass.
 export async function listForLicense(licenseId: number): Promise<PartielleRow[]> {
   const rows = await db.execute(sql`
     SELECT p.id, p.partial_name, p.license_id, p.client_id,
@@ -38,7 +43,13 @@ export async function listForLicense(licenseId: number): Promise<PartielleRow[]>
     FROM partial_t p
     LEFT JOIN (
       SELECT inspection_reports, SUM(weight) AS w, SUM(fob) AS f, COUNT(*) AS c
-      FROM imports_t WHERE display = 'Y' AND inspection_reports IS NOT NULL
+      FROM (
+        SELECT inspection_reports, weight, fob FROM imports_t
+         WHERE display = 'Y' AND inspection_reports IS NOT NULL
+        UNION ALL
+        SELECT inspection_reports, weight, fob FROM exports_t
+         WHERE display = 'Y' AND inspection_reports IS NOT NULL
+      ) consignments
       GROUP BY inspection_reports
     ) u ON u.inspection_reports = p.partial_name
     WHERE p.license_id = ${licenseId} AND p.display = 'Y'
@@ -87,7 +98,13 @@ export interface PartielleSummary {
 
 export async function partielleSummary(licenseId: number): Promise<PartielleSummary | null> {
   const [l] = await db
-    .select({ number: licenseT.licenseNumber, weight: licenseT.weight, fob: licenseT.fobDeclared, clientId: licenseT.clientId })
+    .select({
+      number: licenseT.licenseNumber,
+      weight: licenseT.weight,
+      fob: licenseT.fobDeclared,
+      clientId: licenseT.clientId,
+      refCod: licenseT.refCod,
+    })
     .from(licenseT)
     .where(eq(licenseT.id, licenseId));
   if (!l) return null;
@@ -111,7 +128,12 @@ export async function partielleSummary(licenseId: number): Promise<PartielleSumm
       license_weight: lw,
       license_fob: lf,
       client_name: clientName,
-      ref_cod: clientName,
+      // The LICENCE's REF. COD — the customs reference the operation also calls
+      // the CRF Reference, and the prefix a PARTIELLE number is built from
+      // (§4.33). This reported the client's short code instead, so the modal
+      // said "REF COD: TCL" on a licence whose REF COD was something else
+      // entirely, and the two never lined up with the numbers being issued.
+      ref_cod: l.refCod ?? '',
     },
     available: { weight: round3(lw - allocW), fob: round3(lf - allocF) },
     rows,
@@ -146,7 +168,13 @@ async function siblingAllocated(
 async function consumedByName(partialName: string): Promise<{ weight: number; fob: number }> {
   const rows = await db.execute(sql`
     SELECT COALESCE(SUM(weight), 0) AS w, COALESCE(SUM(fob), 0) AS f
-    FROM imports_t WHERE inspection_reports = ${partialName} AND display = 'Y'`);
+    FROM (
+      SELECT weight, fob FROM imports_t
+       WHERE inspection_reports = ${partialName} AND display = 'Y'
+      UNION ALL
+      SELECT weight, fob FROM exports_t
+       WHERE inspection_reports = ${partialName} AND display = 'Y'
+    ) consignments`);
   const r = (rows as unknown as { rows: { w: unknown; f: unknown }[] }).rows[0];
   return { weight: N(r?.w), fob: N(r?.f) };
 }
@@ -191,7 +219,8 @@ export async function createPartielle(input: PartielleInput, uid: number): Promi
   const name = input.partial_name.trim() || (await nextPartielleReference(input.license_id));
   if (!name) {
     throw new PartielleError(
-      'The PARTIELLE number could not be generated — the licence has no client, or that client has no short code. Set one on the client, or type a number here.',
+      'The PARTIELLE number could not be generated — the licence has no REF. COD, ' +
+        'which the number is built from. Set it on the licence, or type a number here.',
     );
   }
 
@@ -283,13 +312,14 @@ export async function updatePartielle(
     .where(eq(partialT.id, id));
 }
 
-// §5 C-02 — reject an import save that would over-draw its selected allotment.
+// §5 C-02 — reject a save that would over-draw its selected allotment.
 // Returns an error message, or null when there's nothing to enforce. Reads the
-// effective (merged) form values; excludeImportId discounts the file's own
-// current consumption on an update.
-export async function assertImportPartielleCapacity(
+// effective (merged) form values; `excludeId` discounts the record's own current
+// consumption on an update, and `side` says which table that record lives in.
+export async function assertPartielleCapacity(
+  side: 'import' | 'export',
   ctx: Record<string, unknown>,
-  excludeImportId: number | null,
+  excludeId: number | null,
 ): Promise<string | null> {
   const partialName = String(ctx['inspection_reports'] ?? '').trim();
   if (!partialName) return null; // no allotment selected
@@ -303,11 +333,19 @@ export async function assertImportPartielleCapacity(
   const weight = N(ctx['weight']);
   const fob = N(ctx['fob']);
 
+  // Both sides always, minus the record being saved. Counting only the record's
+  // OWN table would let an import and an export each fill the same allotment.
   const usedRows = await db.execute(sql`
     SELECT COALESCE(SUM(weight), 0) AS w, COALESCE(SUM(fob), 0) AS f
-    FROM imports_t
-    WHERE inspection_reports = ${partialName} AND display = 'Y'
-      ${excludeImportId ? sql`AND id <> ${excludeImportId}` : sql``}`);
+    FROM (
+      SELECT weight, fob FROM imports_t
+       WHERE inspection_reports = ${partialName} AND display = 'Y'
+         ${side === 'import' && excludeId ? sql`AND id <> ${excludeId}` : sql``}
+      UNION ALL
+      SELECT weight, fob FROM exports_t
+       WHERE inspection_reports = ${partialName} AND display = 'Y'
+         ${side === 'export' && excludeId ? sql`AND id <> ${excludeId}` : sql``}
+    ) consignments`);
   const used = (usedRows as unknown as { rows: { w: unknown; f: unknown }[] }).rows[0];
   const remainingWeight = round3(N(p.weight) - N(used?.w));
   const remainingFob = round3(N(p.fob) - N(used?.f));

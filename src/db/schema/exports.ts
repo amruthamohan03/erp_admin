@@ -85,6 +85,12 @@ export const exportT = pgTable(
     destination: varchar('destination', { length: 255 }),
     exitPointId: integer('exit_point_id').references((): AnyPgColumn => transitPointMaster.id),
 
+    // §5 — the PARTIELLE (inspection-report) allotment this consignment draws
+    // on. Linked by NAME, matching imports_t.inspection_reports and the legacy
+    // model: partial_t.partial_name is the key, not its id. Same column name and
+    // width as the import twin so one allocation service can serve both.
+    inspectionReports: varchar('inspection_reports', { length: 100 }),
+
     // ── Seals ──
     dgdaSealNo: varchar('dgda_seal_no', { length: 255 }),
     numberOfSeals: integer('number_of_seals'),
