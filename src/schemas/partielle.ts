@@ -2,7 +2,15 @@
 import { z } from 'zod';
 
 export const partielleCreateSchema = z.object({
-  partial_name: z.string().trim().min(1).max(100),
+  // Optional on purpose: blank means "issue the next one from the configured
+  // format" (§4.33). A required field here would force the operator to retype a
+  // number the app already knows.
+  partial_name: z
+    .string()
+    .trim()
+    .max(100, 'PARTIELLE Number must be 100 characters or fewer.')
+    .optional()
+    .default(''),
   license_id: z.coerce.number().int().positive(),
   partial_weight: z.coerce.number().min(0),
   partial_fob: z.coerce.number().min(0),

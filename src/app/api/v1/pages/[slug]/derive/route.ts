@@ -20,7 +20,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { slug } = await params;
 
-  let body: { trigger_field?: string; values?: Record<string, unknown> };
+  let body: {
+    trigger_field?: string;
+    values?: Record<string, unknown>;
+    entity_id?: string | number | null;
+  };
   try {
     body = await req.json();
   } catch {
@@ -28,6 +32,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   const triggerField = body.trigger_field;
   const values = body.values ?? {};
+  // The record being edited, so a source computing "what is left" can discount
+  // this record's own consumption. 'new' (or absent) means there is none yet.
+  const rawEntityId = Number(body.entity_id);
+  const entityId = Number.isInteger(rawEntityId) && rawEntityId > 0 ? rawEntityId : null;
   if (!triggerField || typeof triggerField !== 'string') {
     return fail('trigger_field is required', 422);
   }
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   async function resolveSource(name: string): Promise<Record<string, unknown> | null> {
     if (sourceCache.has(name)) return sourceCache.get(name) ?? null;
     const src = getDeriveSource(name);
-    const resolved = src ? await src.resolve(values) : null;
+    const resolved = src ? await src.resolve(values, { entityId }) : null;
     sourceCache.set(name, resolved);
     return resolved;
   }

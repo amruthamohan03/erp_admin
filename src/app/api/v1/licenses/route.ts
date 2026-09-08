@@ -22,6 +22,12 @@ const querySchema = z.object({
   // Import Tracking narrows Client → MCA Reference → License (§ import cascade).
   mca_ref: z.string().max(100).optional(),
   kind_id: z.coerce.number().int().positive().optional(),
+  // Which side of the business may USE this licence, from the kind's own flags
+  // (kind_master_t.use_for_import / use_for_export). Import Tracking asks for
+  // 'import' so its picker offers only IMPORT DEFINITVE and IMPORT TEMPORARY —
+  // by the flag, never by an id list, so re-flagging a kind is a master edit and
+  // not a deploy (§4.1).
+  use_for: z.enum(['import', 'export']).optional(),
   transport_mode_id: z.coerce.number().int().positive().optional(),
   // Status enum from the licenses model: ACTIVE / INACTIVE /
   // ANNULATED / MODIFIED / PROROGATED. No enum check here — unknown
@@ -72,6 +78,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     client_id: searchParams.get('client_id') ?? undefined,
     mca_ref: searchParams.get('mca_ref') || undefined,
     kind_id: searchParams.get('kind_id') ?? undefined,
+    use_for: searchParams.get('use_for') ?? undefined,
     transport_mode_id: searchParams.get('transport_mode_id') ?? undefined,
     status: searchParams.get('status') ?? undefined,
     card: searchParams.get('card') ?? undefined,
@@ -97,6 +104,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   if (q.client_id) conds.push(eq(licenseT.clientId, q.client_id));
   if (q.mca_ref) conds.push(eq(licenseT.mcaRef, q.mca_ref));
   if (q.kind_id) conds.push(eq(licenseT.kindId, q.kind_id));
+  if (q.use_for) {
+    // A licence with no kind is offered to neither side: it cannot be classified,
+    // and a reference built from it would be missing its kind code anyway (§4.33).
+    conds.push(
+      q.use_for === 'import'
+        ? eq(kindMaster.useForImport, true)
+        : eq(kindMaster.useForExport, true),
+    );
+  }
   if (q.transport_mode_id) conds.push(eq(licenseT.transportModeId, q.transport_mode_id));
   if (q.status) conds.push(eq(licenseT.status, q.status));
   if (q.start_date) conds.push(gte(licenseT.licenseAppliedDate, q.start_date));
@@ -111,6 +127,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .select({ total: count() })
     .from(licenseT)
     .leftJoin(clientMaster, eq(clientMaster.id, licenseT.clientId))
+    // Joined even though the count selects nothing from it: `use_for` filters on
+    // the kind's flags, and the total has to be counted over the same rows the
+    // page returns or the pagination footer contradicts the table.
+    .leftJoin(kindMaster, eq(kindMaster.id, licenseT.kindId))
     .leftJoin(banklistMaster, eq(banklistMaster.id, licenseT.bankId))
     .where(where);
 

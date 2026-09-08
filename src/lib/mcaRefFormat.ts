@@ -23,6 +23,7 @@ export const MCA_REF_TARGET_KEYS = [
   'local',
   'export-invoice',
   'import-invoice',
+  'partielle',
 ] as const;
 
 export type McaRefTargetKey = (typeof MCA_REF_TARGET_KEYS)[number];
@@ -147,6 +148,14 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
     tokens: ['client', ...ALWAYS],
     sample: SAMPLE,
   },
+  partielle: {
+    key: 'partielle',
+    label: 'PARTIELLE (Inspection Report)',
+    fieldLabel: 'PARTIELLE Number',
+    hint: "Client code from the allotment's licence. Kind, goods and transport are not available here.",
+    tokens: ['client', ...ALWAYS],
+    sample: SAMPLE,
+  },
 };
 
 /**
@@ -195,6 +204,14 @@ export const MCA_REF_DEFAULTS: Record<McaRefTargetKey, McaRefSegment[]> = {
     { type: 'client', separator: '-' },
     { type: 'literal', separator: '-', value: 'EXP' },
     { type: 'sequence', separator: '-', width: 4 },
+  ],
+  // TCL-001 — numbered per client across every licence, because an import links
+  // to its allotment by NAME (imports_t.inspection_reports), so the name has to be
+  // unique app-wide rather than per licence. Three digits, matching what the
+  // operation already has on file.
+  partielle: [
+    { type: 'client' },
+    { type: 'sequence', separator: '-', width: 3 },
   ],
   // 2026-NMI-0001
   'import-invoice': [

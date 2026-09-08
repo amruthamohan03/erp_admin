@@ -24,6 +24,8 @@ interface Summary {
   license: { license_number: string; license_weight: number; license_fob: number; client_name: string; ref_cod: string };
   available: { weight: number; fob: number };
   rows: Row[];
+  /** Issued by the configured format (§4.33) — never assembled here. */
+  next_reference: string | null;
 }
 
 const money = (n: number): string =>
@@ -62,8 +64,21 @@ export default function PartielleManageModal({
     void load();
   }, [load]);
 
+  /**
+   * Open the create form with the next number already filled in.
+   *
+   * It used to be grey placeholder text, and `create()` returned silently when
+   * the field was empty — so the operator saw a number, pressed Save, and
+   * nothing happened, with no message. The number is a real value now, and an
+   * operator who clears it gets the next free one from the server anyway.
+   */
+  function openCreate() {
+    setError(null);
+    setForm({ name: data?.next_reference ?? '', weight: '', fob: '' });
+    setShowCreate(true);
+  }
+
   async function create() {
-    if (!form.name.trim()) return;
     setBusy(true);
     setError(null);
     try {
@@ -78,7 +93,7 @@ export default function PartielleManageModal({
         }),
       }).then((r) => r.json());
       if (!j.ok) {
-        setError(j.error?.message ?? 'Create failed');
+        setError(j.error?.message ?? 'The PARTIELLE could not be created.');
         return;
       }
       setForm({ name: '', weight: '', fob: '' });
@@ -113,7 +128,6 @@ export default function PartielleManageModal({
   }
 
   const lic = data?.license;
-  const nextRef = `${lic?.ref_cod || ''}-${String((data?.rows.length ?? 0) + 1).padStart(4, '0')}`;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/50 p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
@@ -147,15 +161,16 @@ export default function PartielleManageModal({
 
               {/* Add new */}
               {!showCreate ? (
-                <button type="button" onClick={() => setShowCreate(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-sm font-medium">
+                <button type="button" onClick={openCreate} className="btn-primary">
                   <Plus className="h-4 w-4" /> Add New PARTIELLE
                 </button>
               ) : (
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-3 flex flex-wrap items-end gap-3">
                   <div>
                     <label className="label">PARTIELLE Number</label>
-                    <input className="input w-48" value={form.name} placeholder={nextRef}
+                    <input className="input w-48" value={form.name}
+                      placeholder={data?.next_reference ?? 'Auto'}
+                      title="Generated from the configured format. Clear it to take the next free number."
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                   </div>
                   <div>

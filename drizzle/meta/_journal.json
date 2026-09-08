@@ -463,6 +463,27 @@
       "when": 1784660519400,
       "tag": "0064_amount_currency_pairs",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1784660519401,
+      "tag": "0065_partielle_reference_and_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1784660519402,
+      "tag": "0066_import_license_kind_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1784660519403,
+      "tag": "0067_export_license_kind_filter",
+      "breakpoints": true
     }
   ]
 }

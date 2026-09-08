@@ -25,6 +25,34 @@ interface TransactionalPageProps {
   entityId: string;
 }
 
+/**
+ * Seed a new record's values from each field's configured `props.defaultValue`.
+ *
+ * Only fills blanks, so anything the create route already supplied (a copied
+ * record, a query-string prefill) wins over the default.
+ *
+ * The stored value is whatever the column holds — an id for an option-backed
+ * field. Config carries the id rather than the label because that is what gets
+ * written; the migration that sets it resolves the id from the master's own text
+ * so each database gets its own (§4.1).
+ */
+function withFieldDefaults(
+  page: PageDef,
+  values: Record<string, unknown>,
+): Record<string, unknown> {
+  const empty = (v: unknown) => v === null || v === undefined || v === '';
+  const next = { ...values };
+  for (const acc of page.accordions) {
+    for (const f of acc.fields) {
+      const dflt = f.props?.['defaultValue'];
+      if (dflt === undefined || dflt === null || dflt === '') continue;
+      if (!empty(next[f.name])) continue;
+      next[f.name] = dflt;
+    }
+  }
+  return next;
+}
+
 export default function TransactionalPage({ slug, entityId }: TransactionalPageProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,7 +94,16 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       return;
     }
     setPage(result.data.page);
-    setValues(result.data.values ?? {});
+    // §4.1 — a NEW record opens with whatever defaults the config declares
+    // (`props.defaultValue`). Applied here rather than in the renderer so the
+    // value is really in the form state: a control that merely *displays* a
+    // default submits nothing when the operator leaves it alone, which is the
+    // exact case a default exists for.
+    //
+    // Never on an existing record — a stored blank is a decision, and stamping a
+    // default over it on open would rewrite history on the next save.
+    const stored = result.data.values ?? {};
+    setValues(entityId === 'new' ? withFieldDefaults(result.data.page, stored) : stored);
     // §4.34 — every section opens with the page. One save covers the whole form
     // (§4.17), so a collapsed section is still being submitted; hiding it means
     // an operator fills in what they can see, saves, and is told a required field
@@ -133,7 +170,13 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       const res = await fetch(`/api/v1/pages/${slug}/derive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger_field: triggerField, values: current }),
+        // The record being edited goes along, so a source computing "what is
+        // left" on a licence can discount this record's own consumption.
+        body: JSON.stringify({
+          trigger_field: triggerField,
+          values: current,
+          entity_id: entityId === 'new' ? null : entityId,
+        }),
       });
       const json: { ok: boolean; data?: { values: Record<string, unknown> } } = await res.json();
       if (!res.ok || !json.ok || !json.data) return;
@@ -160,7 +203,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
       // clean would show a completed record that silently reverts on reload.
       setDirty(true);
     },
-    [slug, authoritativeFields],
+    [slug, entityId, authoritativeFields],
   );
 
   // §4.12 — prefill derives (INIT_TRIGGER) have no triggering field: they fire

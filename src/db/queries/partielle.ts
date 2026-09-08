@@ -6,6 +6,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { partialT, licenseT, clientMaster } from '@/db/schema';
+import { generateReferences } from '@/db/queries/mcaRefGenerator';
 
 const N = (v: unknown): number => {
   const n = Number(v);
@@ -76,6 +77,12 @@ export interface PartielleSummary {
   };
   available: { weight: number; fob: number };
   rows: PartielleRow[];
+  /**
+   * The number the next allotment will get, from the configured format (§4.33).
+   * The modal shows it as the field's VALUE, not as placeholder text — a grey
+   * suggestion the operator had to retype was the whole of the old bug.
+   */
+  next_reference: string | null;
 }
 
 export async function partielleSummary(licenseId: number): Promise<PartielleSummary | null> {
@@ -92,6 +99,7 @@ export async function partielleSummary(licenseId: number): Promise<PartielleSumm
   }
 
   const rows = await listForLicense(licenseId);
+  const nextReference = await nextPartielleReference(licenseId);
   const allocW = rows.reduce((s, r) => s + r.partial_weight, 0);
   const allocF = rows.reduce((s, r) => s + r.partial_fob, 0);
   const lw = N(l.weight);
@@ -107,6 +115,7 @@ export async function partielleSummary(licenseId: number): Promise<PartielleSumm
     },
     available: { weight: round3(lw - allocW), fob: round3(lf - allocF) },
     rows,
+    next_reference: nextReference,
   };
 }
 
@@ -150,15 +159,54 @@ export class PartielleError extends Error {
 }
 
 export interface PartielleInput {
+  /** Blank ⇒ the configured format issues the next one (§4.33). */
   partial_name: string;
   license_id: number;
   partial_weight: number;
   partial_fob: number;
 }
 
+/**
+ * The next PARTIELLE number for a licence, from the format configured under
+ * Developer Options → Reference Formats (§4.33). Null when it cannot be built —
+ * the licence has no client, or no client short code.
+ *
+ * Never assembled at a call site. The management modal used to build its own
+ * (`${ref_cod}-${rows.length + 1}` padded to four digits), which was wrong three
+ * ways: the width did not match what the operation already had on file, deleting
+ * an allotment made the next one collide with a name still in use, and the number
+ * only ever appeared as placeholder text that the operator had to retype.
+ */
+export async function nextPartielleReference(licenseId: number): Promise<string | null> {
+  const [issued] = await generateReferences('partielle', { license_id: licenseId }, 1);
+  return issued?.ref ?? null;
+}
+
 export async function createPartielle(input: PartielleInput, uid: number): Promise<{ id: number }> {
   const budget = await licenceBudget(input.license_id);
   if (!budget) throw new PartielleError('Licence not found');
+
+  // An omitted number is generated rather than rejected — the operator asked for
+  // "the next one", which is the normal case (§4.33).
+  const name = input.partial_name.trim() || (await nextPartielleReference(input.license_id));
+  if (!name) {
+    throw new PartielleError(
+      'The PARTIELLE number could not be generated — the licence has no client, or that client has no short code. Set one on the client, or type a number here.',
+    );
+  }
+
+  // The name is the link an import file holds (imports_t.inspection_reports), so
+  // a duplicate would silently re-point existing files. Checked here for a
+  // message that names the number, rather than surfacing a unique-index violation.
+  const [clash] = await db
+    .select({ id: partialT.id })
+    .from(partialT)
+    .where(eq(partialT.partialName, name));
+  if (clash) {
+    throw new PartielleError(
+      `PARTIELLE "${name}" already exists. Numbers are unique across every licence — leave the field empty to take the next free one.`,
+    );
+  }
 
   const siblings = await siblingAllocated(input.license_id, null);
   if (siblings.weight + input.partial_weight > budget.weight + 0.001) {
@@ -175,7 +223,7 @@ export async function createPartielle(input: PartielleInput, uid: number): Promi
   const [row] = await db
     .insert(partialT)
     .values({
-      partialName: input.partial_name,
+      partialName: name,
       licenseId: input.license_id,
       clientId: budget.client_id,
       partialWeight: String(input.partial_weight),

@@ -32,26 +32,60 @@ function toId(v: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * What the form is resolving against, beyond the values themselves.
+ *
+ * `entityId` is the record being edited, or null for a create. A source that
+ * computes "what is left" has to discount the record's OWN consumption —
+ * otherwise reopening a saved import shows a licence with its own tonnage
+ * already subtracted, and the figure shrinks every time the page is opened.
+ */
+export interface DeriveContext {
+  entityId: number | null;
+}
+
 export interface DeriveSource {
-  resolve(values: Values): Promise<Row | null>;
+  resolve(values: Values, ctx: DeriveContext): Promise<Row | null>;
 }
 
 const SOURCES: Record<string, DeriveSource> = {
   // Import → the selected license. Plain columns the form copies + computed
   // remaining weight/FOB/M3 (license total minus what existing imports consumed).
   license: {
-    async resolve(values) {
+    async resolve(values, ctx) {
       const id = toId(values['license_id']);
       if (!id) return null;
+
+      // A licence is drawn down by IMPORTS AND EXPORTS alike. Counting only
+      // imports here showed the form more headroom than the licence actually
+      // had, and disagreed with both /licenses/{id}/usage (what the export
+      // screen reads) and the export bulk-create cap check (what the server
+      // enforces) — three answers to one question.
+      //
+      // The record being edited is excluded from its own remaining figure. Left
+      // in, reopening a saved import subtracted its own tonnage a second time,
+      // so the number fell every time the page was opened and "what is left if I
+      // save this" was unanswerable.
+      const self = ctx.entityId;
+      const usedImports = (col: string) => sql`
+        (SELECT SUM(${sql.identifier(col)}) FROM imports_t i
+          WHERE i.license_id = l.id AND i.display = 'Y'
+            ${self ? sql`AND i.id <> ${self}` : sql``})`;
+      const usedExports = (col: string) => sql`
+        (SELECT SUM(${sql.identifier(col)}) FROM exports_t e
+          WHERE e.license_id = l.id AND e.display = 'Y')`;
+
       return queryOne(sql`
         SELECT l.kind_id, l.type_of_goods_id, l.transport_mode_id, l.currency_id,
                l.supplier, l.ref_cod, l.invoice_number,
-               (COALESCE(l.weight,0) - COALESCE(
-                 (SELECT SUM(i.weight) FROM imports_t i WHERE i.license_id = l.id AND i.display = 'Y'),0)) AS remaining_weight,
-               (COALESCE(l.fob_declared,0) - COALESCE(
-                 (SELECT SUM(i.fob) FROM imports_t i WHERE i.license_id = l.id AND i.display = 'Y'),0)) AS remaining_fob,
-               (COALESCE(l.m3,0) - COALESCE(
-                 (SELECT SUM(i.m3) FROM imports_t i WHERE i.license_id = l.id AND i.display = 'Y'),0)) AS remaining_m3
+               (COALESCE(l.weight,0)
+                  - COALESCE(${usedImports('weight')},0)
+                  - COALESCE(${usedExports('weight')},0)) AS remaining_weight,
+               (COALESCE(l.fob_declared,0)
+                  - COALESCE(${usedImports('fob')},0)
+                  - COALESCE(${usedExports('fob')},0)) AS remaining_fob,
+               -- exports_t carries no m3, so only imports consume it.
+               (COALESCE(l.m3,0) - COALESCE(${usedImports('m3')},0)) AS remaining_m3
         FROM license_t l
         WHERE l.id = ${id}
         LIMIT 1
