@@ -81,6 +81,40 @@ export function todayIso(): string {
 }
 
 /**
+ * The weekday of an ISO date, in UTC.
+ *
+ * UTC is the whole point: `new Date('2026-01-01')` is UTC midnight, which is the
+ * PREVIOUS day west of Greenwich, so a local-time read reports the wrong weekday
+ * for anyone in the Americas (§4.19's timezone rule). The date is a calendar day,
+ * not an instant, so it is read as one.
+ *
+ * The locale is pinned rather than inherited for the same reason `formatDate` is
+ * not locale-aware — the answer must not change with the machine.
+ */
+export function weekdayName(value: unknown, fallback = ''): string {
+  const iso = toDateInputValue(value);
+  if (!iso) return fallback;
+  const t = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(t)) return fallback;
+  return new Date(t).toLocaleDateString('en', { weekday: 'long', timeZone: 'UTC' });
+}
+
+/**
+ * Saturday or Sunday, in UTC — see `weekdayName` for why.
+ *
+ * Used where a weekend changes the meaning of a date: a public holiday landing
+ * on one is already a non-working day, so it shifts no working-day count.
+ */
+export function isWeekend(value: unknown): boolean {
+  const iso = toDateInputValue(value);
+  if (!iso) return false;
+  const t = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(t)) return false;
+  const dow = new Date(t).getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+/**
  * `YYYY-MM-DD` for `<input type="date">`, whose value attribute is ISO by spec and
  * must never be localised. Use this when seeding a date input from stored data.
  */
