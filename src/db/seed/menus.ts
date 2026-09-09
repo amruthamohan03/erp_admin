@@ -159,6 +159,9 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Commodities', order: 201, url: '/masters/commodities' },
   { parent: 'Masters', name: 'Done By', order: 202, url: '/masters/done-by' },
   { parent: 'Masters', name: 'Group Companies', order: 203, url: '/masters/group-companies' },
+  // Read by the delay KPIs to exclude non-working days, and republished by the
+  // DRC each year — so it needs a screen, not a hand-edited table (§4.1).
+  { parent: 'Masters', name: 'DRC Public Holidays', order: 204, url: '/masters/drc-holidays' },
   { parent: 'Masters', name: 'Application Settings', order: 206, url: '/settings/application' },
 
   // ── Client Management (original menu_id=2) ──────────────────────

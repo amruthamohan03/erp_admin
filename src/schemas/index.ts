@@ -62,6 +62,7 @@ export * from './payment-types';
 export * from './payment-subtypes';
 export * from './invoice-banks';
 export * from './departments';
+export * from './drc-holidays';
 export * from './files';
 export * from './bivac';
 export * from './payments';

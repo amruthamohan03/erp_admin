@@ -519,6 +519,13 @@
       "when": 1784660519408,
       "tag": "0072_partielle_picker_width",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1784660519409,
+      "tag": "0073_drc_holidays_menu",
+      "breakpoints": true
     }
   ]
 }
