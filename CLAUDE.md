@@ -192,7 +192,31 @@ fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD);      // page-local option fe
 
 For **master-driven selects** this is config, not code: a `master_page_accordion_field_t` row with `options_source = 'clients'` must have `options_label_field = 'short_name'`. The seed ships that for all seven client selects, and migration `0046` normalises any row that drifted. If you add a client select through the page-builder, set the label field — don't special-case it in the renderer.
 
-**This is about selection, not display.** Detail views, report columns, print/PDF output and export files still show `company_name` where the full legal name is the right thing — an invoice needs the legal entity, a dropdown needs the code. Some read-only tables sensibly show both (`{short_name} — {company_name}`); that's fine. The rule binds anything the user picks *from*.
+**The rule covers picking AND scanning — every dropdown, and every Client column in a list.** A `<DataTable>` on a transaction screen (imports, exports, licences, quotations, payments, local, bivac, invoices, and the dashboard's recent-activity feed) selects `client_master_t.short_name` as its `client_name`. A grid is read across, not down: a 200-character legal name pushes every column after it off screen, and it is not what an operator says out loud when they mean that row.
+
+```ts
+client_name: clientMaster.shortName,        // ✅ list / grid / activity feed
+client_name: clientMaster.companyName,      // ❌ unreadable in a column
+```
+
+**Then the search must accept both.** Showing the code while searching only the legal name means typing exactly what is on screen returns nothing — the defect this pairing exists to prevent:
+
+```ts
+or(
+  ilike(clientMaster.shortName, like),      // what the column shows
+  ilike(clientMaster.companyName, like),    // what an outside document carries
+)
+```
+
+An Excel export that mirrors a list's filter searches both for the same reason: an export of a filtered list must contain the rows that list was showing.
+
+**Where `company_name` is still correct — all of these are the legal entity, not a label:**
+
+- **Detail views and print/PDF output.** An invoice names the legal entity.
+- **The cells of an export file.** A spreadsheet leaves the office; the code means nothing outside it.
+- **A list of clients themselves** — the clients master, the clients dashboard, the Recycle Bin's client rows. There the name *is* the record's identity, not a foreign key rendered into a column. Showing both (`{short_name} — {company_name}`) is fine there.
+
+The distinction is not "picking versus display" — it is **whether the client is the row, or a column on someone else's row.** As a column it is the code.
 
 ### 4.16 Every dropdown is a searchable dropdown
 
@@ -713,6 +737,105 @@ Consequences worth keeping:
 - **Read-only views were never collapsed.** [RecordViewModal](src/components/transactional/RecordViewModal.tsx) renders every section outright, which is the same intent — this rule brings the editable page in line with it.
 - **The sticky action bar keeps its bottom padding.** With everything expanded the page is longer, so the clearance under the last section matters more, not less.
 
+### 4.35 The create action is one button, in the DataTable's toolbar
+
+**Every list screen offers exactly one way to create a record: a `btn-primary btn-sm` in that table's `toolbar` slot, reading `<Plus /> New <Thing>`.** The action belongs to the list it adds to, so it sits with that list's other controls — search, filters, Export — not in the page header and not as a panel above it.
+
+```tsx
+<DataTable<Row>
+  …
+  emptyMessage="No licences yet — create the first one."
+  toolbar={
+    <Link href="/licenses/new" className="btn-primary btn-sm">
+      <Plus className="h-4 w-4" /> New License
+    </Link>
+  }
+/>
+```
+
+Everything else about it is fixed, and all of it was drifting before this rule:
+
+- **`btn-primary btn-sm`** — creating is the primary action of a list screen, and `btn-sm` matches the Excel and Bulk Update buttons it stands beside. A full-size `btn-primary` in the toolbar towers over them.
+- **A `<Plus />` at `h-4 w-4`**, always, and always first.
+- **"New <Thing>", singular** — `New License`, `New Import`, `New Export`, `New Payment Request`. Not "Add New Local", not "Create License", and never the same words twice in one control.
+- **`<Link>` when it navigates, `<button type="button">` when it opens a modal.** Both carry the identical class, so the two read the same.
+- **Last in the toolbar**, so it ends the row. `<DataTable>` renders the Excel button first and then whatever `toolbar` contains; a create action that shares the slot (Bulk Update, say) goes before it.
+
+Three shapes this replaced, each of which had spread to a family of screens:
+
+1. **A full-width `<Link>` dressed up as a `card`** (imports, exports, licences). It read as a section of *content* rather than a control, it said the same thing twice — "Import Tracking" beside "New Import" — and it pushed the status cards and the grid a whole row further down every screen. Two of them side by side (imports once carried a second for PARTIELLE Allocation) pushed the actual list below the fold.
+2. **A `btn-primary` in the page header** beside the `<h1>` (payments, local, and all 40 master screens). It is a long way from the table, it lines up with nothing, and on a screen with stat cards between the header and the grid the button and the list it feeds were separated by half a viewport.
+3. **Two entry points for one thing** — exports once made the operator choose "single" or "bulk" before seeing a form. One button; let the create screen handle one row or twenty.
+
+Consequences to respect:
+
+- **The page header keeps the `<h1>` alone.** Do not put a second action there to "balance" it.
+- **A screen with no `<DataTable>` has nowhere to put this**, which is a sign it should be using one (§4.25).
+- **Row-level actions are unaffected** — View / Edit / Delete stay in the last column in their reserved hues (§4.20).
+
+### 4.36 A control never grows to fit its content — it truncates inside its cell
+
+**No form control may widen its container or spill over the field beside it, whatever it is holding.** A commodity called `PHOTOVOLTAIC INVERTER , POWER DISTRIBUTION BOARD , CABLE ACCESSORIES` must render inside its box, ellipsised, not run out of it. Content is operator data and has no length an interface may assume.
+
+**The cause is almost always `min-width: auto`.** A flex item's default minimum is *content-based*, so it will not shrink below what it holds — it pushes the row wider instead. Two things in this app hit that floor:
+
+| | Intrinsic minimum |
+| --- | --- |
+| `<input>` | roughly 20 characters, from its default `size` |
+| A `<SearchableSelect>` trigger | the full selected label |
+
+So a control given `flex-1` inside a flex row is **not** constrained by that row:
+
+```tsx
+<div className="flex items-center gap-2">
+  <SearchableSelect className="flex-1" … />          {/* ❌ grows to fit the label */}
+  <button className="btn-create h-9 w-9 shrink-0">…</button>
+</div>
+```
+
+The damage is worse than a wide box, because the accordion card is `overflow-hidden`: the control is sliced off square — no ellipsis, and the chevron gone with it, so the dropdown can no longer be opened.
+
+**Fixes, in order of preference:**
+
+1. **Defend it in the shared component.** `<SearchableSelect>` carries `min-w-0` on its own root, so it can never blow out a row regardless of the call site. A rule that depends on ~90 call sites remembering a utility class is already broken somewhere. `cn` merges, so a caller that genuinely wants a floor still passes one.
+2. **`min-w-0` on any other control given `flex-1`** — `className="input min-w-0 flex-1"`. Required for `<input>` because of its intrinsic width; a deliberate floor (`min-w-[100px]`) is fine and says so.
+3. **`truncate` on the text**, so what does not fit ends in an ellipsis rather than being clipped mid-glyph.
+4. **The full text as `title`**, so a truncated value is still readable on hover. Truncating is the right rendering for a one-line control; *losing* the text is not.
+
+Two related points:
+
+- **Wrapping is right in the open list, truncation is right in the closed control.** A dropdown panel gives an option as many lines as it needs — that is where the operator reads it. The trigger is one line by definition, so the same string truncates there. Those are not inconsistent.
+- **Give a field that carries a companion control more room instead of squeezing it.** A select sharing its cell with a "+" or a gear is doing two jobs in one column — that is what the `2-of-5` `colSpan` exists for (see the PARTIELLE picker), not a reason to let it overflow.
+
+**Check a long value before calling a form done.** Every one of these was invisible until a real record arrived with a long name, because seed data is short.
+
+### 4.37 Freeing a resource that is still in use asks first, then fixes both sides
+
+**When a master screen frees a resource, and a transaction record still claims it, the operation is REFUSED until the operator confirms — and confirming updates both records in one transaction.** Freeing one side alone leaves the two disagreeing, and for a physical resource that means the same one is handed out twice.
+
+The live case is seals. `seal_number_t.status` is the seal's own lifecycle; `exports_t.dgda_seal_no` is the comma-joined list of seals on a consignment, with `number_of_seals` its count. Releasing a seal from Seals → batch detail used to flip it to Available while the export went on naming it, so the seal could be issued to a second consignment while the first still claimed it.
+
+**The shape, which any resource like this should follow:**
+
+1. **Ask the endpoint plainly.** `POST …/release` with `{ seal_numbers }`.
+2. **It refuses with 409 and NAMES the records** (§4.23) — "This seal is still on an export file: `TCL-EDCOR26-0015` (seal ZTEST-12)." The refusal writes nothing.
+3. **The structured list rides in `error.details`** alongside the sentence, so the UI renders it rather than parsing the message back apart. `safeFetchJson` exposes `details` for exactly this.
+4. **The UI turns that into a question, not an error** (§4.22) — a dialog naming the files, with Cancel and a labelled commit (§4.21).
+5. **Repeating with `detach: true` does both halves in ONE transaction** — takes the resource off the records holding it, recomputes anything derived from that list, and frees it.
+
+Rules that follow:
+
+- **Refuse by default; never free-and-hope.** An API-only caller gets the same protection as the screen, because the guard is in the route rather than in the dialog.
+- **Detach before you free.** If the detach fails the release has not happened either — a resource still marked in use is recoverable, one freed off a record that still names it is not.
+- **Recompute derived counts, don't decrement them.** `number_of_seals` is rebuilt from the remaining list, so a column that had already drifted is corrected instead of carried forward. Empty means `NULL`, not `0` — "how many seals" has no answer for a consignment with none.
+- **Audit the record that changed, not just the master.** The export gets its own `before → after` entry (§4.28); someone auditing a consignment must see the seal leave it, not have to infer it from a seals-master row.
+- **Match whole entries, never substrings.** A comma-joined column is split and compared entry by entry in SQL. `LIKE '%12%'` reports seal 12 as held by an export carrying seal 123, and would then detach the wrong one.
+- **One splitter.** `splitSeals` / `joinSeals` / `countSeals` live in [sealUsage.ts](src/db/queries/sealUsage.ts) and every caller uses them (§4.10). Three private copies had grown, and a whitespace difference between them shows up as a count off by one.
+- **Guard every door, from one shared function.** `assertSealsReleasable` is called by the bulk release AND by `PUT /seal-numbers/{id}`, which sets a single seal's status directly and was unguarded — the same bug arriving by another route. A check that lives inside one handler is a check the next handler does not have.
+- **Guard the transition, not the starting point.** The trigger is *becoming issuable again* — any status change **into** Available — not "from Used". A seal recorded as Damaged can still be named by an export, and flipping that one straight to Available would hand it out with the file unchanged.
+- **Do not over-guard.** Used → Damaged is deliberately allowed without confirmation: a damaged seal can never be issued (mark-used only picks up Available), and recording that a seal was found broken must not force it off the file it was actually applied to.
+- **A delete refuses instead of offering the detach.** Deleting a seal is not the same decision as releasing one; the message names the file and says to release it there first (§4.27).
+
 ## 5. Directory layout
 
 ```
@@ -862,7 +985,8 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to edit an already-merged migration → no, write a new one.
 - Requests to apply a schema or data change directly to the database (Studio, `psql`, a throwaway script, `drizzle-kit push` on a shared DB) → no, it goes in a migration script (§7.2).
 - Requests to add an `<input type="checkbox">` for a boolean setting, or a second toggle/switch component → no, use `<Toggle>` (§4.11).
-- Requests to label a client dropdown with `company_name` → no, pickers show `short_name` via the shared resolver (§4.15).
+- Requests to label a client dropdown with `company_name`, or to put the legal name in a list's Client column → no, pickers and columns both show `short_name` (§4.15).
+- Requests to switch a Client column to the short code without adding `short_name` to that list's search → no, an operator must be able to type what the column shows (§4.15).
 - Requests to add a raw `<select>` ("it's only a few options") → no, use `<SearchableSelect>` (§4.16).
 - Requests to sort a dropdown's options alphabetically, or to pre-sort them at the call site → no, options render in id order via `orderOptions` (§4.16).
 - Requests to write another private `fetchOptions` helper on a page → no, use `fetchMasterOptions` (§4.16, §4.10).
@@ -880,6 +1004,10 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
 - Requests to let `public/` serve uploads directly ("it works locally") → no, Next only serves what was there at build time; uploads go through the route handler (§4.24).
 - Requests to hand-roll a `<table>` for a new list screen → no, use `<DataTable>` (§4.25).
+- Requests to put a list screen's create action in the page header, to dress it up as a full-width `card`, or to offer a second "bulk" entry point beside it → no, one `btn-primary btn-sm` in the table's toolbar (§4.35).
+- Requests to let a control widen to fit a long value, or to give a control `flex-1` without `min-w-0` → no, it truncates inside its cell and keeps the full text as its `title` (§4.36).
+- Requests to free a seal (or any in-use resource) without checking which record still holds it, or to free it without also taking it off that record → no, refuse with the file named, then fix both sides in one transaction (§4.37).
+- Requests to find a seal in a comma-joined column with `LIKE '%n%'` → no, split the column and compare whole entries — otherwise seal 12 matches seal 123 (§4.37).
 - Requests to hardcode an action colour or icon "just on this screen" → no, it is a row in `action_style_master_t` (§4.26).
 - Requests to hard-delete a record on the normal Delete action, or to gate restore/permanent-delete behind `can_delete` → no, three operations, three permissions (§4.27).
 - Requests to skip the audit entry "because it is only a read/export/print" → no, those are logged too (§4.28).

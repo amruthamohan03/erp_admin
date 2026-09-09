@@ -61,6 +61,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(exportT.mcaRef, like),
       ilike(exportT.invoice, like),
       ilike(exportT.buyer, like),
+      // Both client names — the column shows the short code (§4.15), the legal
+      // name stays searchable.
+      ilike(clientMaster.shortName, like),
       ilike(clientMaster.companyName, like),
     );
     if (orClause) conds.push(orClause);

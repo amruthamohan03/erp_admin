@@ -76,9 +76,6 @@ export default function SubOfficesPage() {
             from <code>main_office_master_t</code> (the regional office itself).
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Sub-Office
-        </button>
       </div>
 
       <DataTable<SubOfficeRow>
@@ -87,6 +84,12 @@ export default function SubOfficesPage() {
         rowKey={(s) => s.id}
         searchPlaceholder="Search sub-office name..."
         emptyMessage="No sub offices yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Sub-Office
+          </button>
+        }
         columns={[
         { key: 'sub_office_name', header: 'Sub-Office', sortable: true, className: 'font-medium' },
         ]}

@@ -368,27 +368,6 @@ export default function ExportsListPage() {
         </div>
       </div>
 
-      {/* ---- Create ----
-          One action, not a choice between "single" and "bulk". An export is
-          created against a licence, and the grid handles one row as readily as
-          twenty — so making the operator decide up front how many they were
-          about to enter asked a question the screen could answer itself, and
-          sent whoever guessed wrong back to the list to start again. Editing an
-          existing export stays the single-record page at /exports/[id]. */}
-      <div className="mb-4">
-        <Link
-          href="/exports/bulk-new"
-          className="card p-4 flex items-center justify-between transition hover:border-primary-300 hover:shadow-sm group"
-        >
-          <span className="flex items-center gap-2 font-medium text-foreground">
-            <Truck className="h-4 w-4 text-primary-600" /> Export Tracking
-          </span>
-          <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
-            <Plus className="h-3.5 w-3.5" /> New Export
-          </span>
-        </Link>
-      </div>
-
       {error && (
         <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
           {error}
@@ -404,23 +383,36 @@ export default function ExportsListPage() {
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No export files match these filters — clear them, or create one."
         toolbar={
-          // §8 — enabled only when a "pending" status card is active. The three
-          // clearing-status cards describe a state rather than a missing value,
-          // so there is nothing for a mass edit to fill in; the title says which
-          // rather than leaving a dead button to be poked at.
-          <button
-            type="button"
-            onClick={() => setBulkOpen(true)}
-            disabled={pendingActive.length === 0}
-            title={
-              pendingActive.length === 0
-                ? 'Select a “pending” status card above to bulk-fill the field it is about'
-                : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
-            }
-            className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Layers className="h-4 w-4" /> Bulk Update
-          </button>
+          <>
+            {/* §8 — enabled only when a "pending" status card is active. The
+                three clearing-status cards describe a state rather than a
+                missing value, so there is nothing for a mass edit to fill in;
+                the title says which rather than leaving a dead button to be
+                poked at. */}
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              disabled={pendingActive.length === 0}
+              title={
+                pendingActive.length === 0
+                  ? 'Select a “pending” status card above to bulk-fill the field it is about'
+                  : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
+              }
+              className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Layers className="h-4 w-4" /> Bulk Update
+            </button>
+            {/* §4.35 — one create action, matching New License and New Import.
+                Not a choice between "single" and "bulk": an export is created
+                against a licence and the grid handles one row as readily as
+                twenty, so asking up front how many were coming posed a question
+                the screen could answer itself and sent whoever guessed wrong
+                back here to start again. Editing an existing export stays the
+                single-record page at /exports/[id]. */}
+            <Link href="/exports/bulk-new" className="btn-primary btn-sm">
+              <Plus className="h-4 w-4" /> New Export
+            </Link>
+          </>
         }
         columns={[
           {

@@ -50,9 +50,6 @@ export default function RolesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Roles</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Role
-        </button>
       </div>
 
       <DataTable<Role>
@@ -61,6 +58,12 @@ export default function RolesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search role, parent..."
         emptyMessage="No record yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Role
+          </button>
+        }
         columns={[
         { key: 'role_name', header: 'Role Name', sortable: true, className: 'font-medium' },
         { key: 'parent_role_name', header: 'Parent', render: (r: Role) => (

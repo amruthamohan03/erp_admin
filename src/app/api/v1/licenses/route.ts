@@ -82,6 +82,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(licenseT.licenseNumber, like),
       ilike(licenseT.supplier, like),
       ilike(licenseT.invoiceNumber, like),
+      // Both client names — the column shows the short code (§4.15), the legal
+      // name stays searchable.
+      ilike(clientMaster.shortName, like),
       ilike(clientMaster.companyName, like),
       ilike(banklistMaster.bankName, like),
     );
@@ -126,7 +129,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       license_number: licenseT.licenseNumber,
       client_id: licenseT.clientId,
       mca_ref: licenseT.mcaRef,
-      client_name: clientMaster.companyName,
+      // §4.15 — the Client column of a list is the short code, not the legal name.
+      client_name: clientMaster.shortName,
       kind_name: kindMaster.kindName,
       bank_name: banklistMaster.bankName,
       transport_mode_name: transportModeMaster.transportModeName,

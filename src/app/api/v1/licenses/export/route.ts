@@ -33,7 +33,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const clientIds = db
       .select({ id: clientMaster.id })
       .from(clientMaster)
-      .where(ilike(clientMaster.companyName, like));
+      // Both names, matching the list's own search (§4.15) — an export of a
+      // filtered list must contain the rows that list was showing.
+      .where(or(ilike(clientMaster.shortName, like), ilike(clientMaster.companyName, like)));
     const orClause = or(
       ilike(licenseT.licenseNumber, like),
       ilike(licenseT.supplier, like),

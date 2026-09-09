@@ -82,9 +82,6 @@ export default function MenuPage() {
             Manage sidebar menus. Maximum 2 levels (parent + child).
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Menu
-        </button>
       </div>
 
       <DataTable<MenuRow>
@@ -93,6 +90,12 @@ export default function MenuPage() {
         rowKey={(m) => m.id}
         searchPlaceholder="Search name, url, parent..."
         emptyMessage="No menus yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Menu
+          </button>
+        }
         filters={
           <Toggle checked={showHidden} onChange={setShowHidden} label="Show disabled" />
         }

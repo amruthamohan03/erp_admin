@@ -73,9 +73,6 @@ export default function QuotationCategoriesPage() {
         <h1 className="text-2xl font-bold text-foreground">
           Quotation Categories
         </h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Category
-        </button>
       </div>
 
       <DataTable<QuotationCategoryRow>
@@ -84,6 +81,12 @@ export default function QuotationCategoriesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search category name..."
         emptyMessage="No quotation categorys yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Category
+          </button>
+        }
         columns={[
         { key: 'category_name', header: 'Category', sortable: true, className: 'font-medium' },
         { key: 'category_header', header: 'Section Header', className: 'text-muted-foreground text-xs', render: (r: QuotationCategoryRow) => (

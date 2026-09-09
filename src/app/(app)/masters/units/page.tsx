@@ -66,9 +66,6 @@ export default function UnitsPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Units</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Unit
-        </button>
       </div>
 
       <DataTable<UnitRow>
@@ -77,6 +74,12 @@ export default function UnitsPage() {
         rowKey={(u) => u.id}
         searchPlaceholder="Search unit name, code..."
         emptyMessage="No units yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Unit
+          </button>
+        }
         columns={[
         { key: 'unit_name', header: 'Unit Name', sortable: true, className: 'font-medium' },
         { key: 'unit_code', header: 'Code', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (u: UnitRow) => (

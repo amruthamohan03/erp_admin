@@ -119,9 +119,6 @@ export default function ItemsPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Items</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Item
-        </button>
       </div>
 
       <DataTable<ItemRow>
@@ -130,6 +127,12 @@ export default function ItemsPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search item name or code..."
         emptyMessage="No items yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Item
+          </button>
+        }
         columns={[
         { key: 'item_name', header: 'Item Name', sortable: true, className: 'font-medium' },
         { key: 'item_code', header: 'Code', className: 'text-muted-foreground text-xs', render: (r: ItemRow) => (

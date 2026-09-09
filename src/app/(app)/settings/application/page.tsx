@@ -484,7 +484,9 @@ function ColorField({
           aria-label={`${label} color picker`}
         />
         <input
-          className="input flex-1 font-mono text-sm uppercase"
+          // min-w-0: beside the colour swatch this is a flex item, and an
+          // <input>'s intrinsic ~20ch minimum would otherwise widen the row.
+          className="input min-w-0 flex-1 font-mono text-sm uppercase"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}

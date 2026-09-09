@@ -35,6 +35,7 @@ import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
 import { assertPartielleCapacity } from '@/db/queries/partielle';
+import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
@@ -313,7 +314,6 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     // release removed ones (Used→Available). Only runs when the export's seal
     // field is part of this save.
     if (slug === 'export' && 'dgda_seal_no' in patch) {
-      const splitSeals = (v: unknown) => String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
       const newSeals = splitSeals(patch['dgda_seal_no']);
       const oldSeals = splitSeals(before?.['dgda_seal_no']);
       const toReserve = newSeals.filter((s) => !oldSeals.includes(s));

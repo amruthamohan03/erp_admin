@@ -98,9 +98,6 @@ export default function ExpenseTypesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Expense Types</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Expense Type
-        </button>
       </div>
 
       <DataTable<Row>
@@ -109,6 +106,12 @@ export default function ExpenseTypesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search expense type name..."
         emptyMessage="No expense types yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Expense Type
+          </button>
+        }
         columns={[
         { key: 'expense_type_name', header: 'Expense Type', sortable: true, className: 'font-medium' },
         { key: 'filter', header: 'Categories', className: 'flex flex-wrap gap-1', render: (r: Row) => (

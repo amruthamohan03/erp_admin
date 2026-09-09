@@ -157,7 +157,6 @@ export default function PaymentsPage() {
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary-600" /> Payment Requests
           </h1>
-          <Link href="/payments/new" className="btn-primary"><Plus className="h-4 w-4" /> New Payment Request</Link>
         </div>
       </div>
 
@@ -189,6 +188,13 @@ export default function PaymentsPage() {
         searchPlaceholder="Search requestee, beneficiary, client…"
         emptyMessage="No payment requests yet — raise the first one."
         serial={false}
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to, not to the
+          // page header.
+          <Link href="/payments/new" className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Payment Request
+          </Link>
+        }
         columns={[
           { key: 'id', header: '#', className: 'font-mono font-semibold', render: (r: Row) => `#${r.id}` },
           { key: 'requestee', header: 'Requestee', sortable: true, className: 'font-medium' },

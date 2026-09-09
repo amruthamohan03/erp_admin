@@ -69,9 +69,6 @@ export default function UsersPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Users</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New User
-        </button>
       </div>
 
       <DataTable<User>
@@ -80,6 +77,12 @@ export default function UsersPage() {
         rowKey={(u) => u.id}
         searchPlaceholder="Search username, name, email..."
         emptyMessage="No record yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New User
+          </button>
+        }
         columns={[
         { key: 'username', header: 'Username', sortable: true, className: 'font-medium' },
         { key: 'full_name', header: 'Full Name', sortable: true },

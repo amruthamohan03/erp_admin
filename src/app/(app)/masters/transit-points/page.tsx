@@ -101,9 +101,6 @@ export default function TransitPointsPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Transit Points</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Transit Point
-        </button>
       </div>
 
       <DataTable<TransitPointRow>
@@ -112,6 +109,12 @@ export default function TransitPointsPage() {
         rowKey={(t) => t.id}
         searchPlaceholder="Search transit point name..."
         emptyMessage="No transit points yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Transit Point
+          </button>
+        }
         columns={[
         { key: 'transit_point_name', header: 'Transit Point', sortable: true, className: 'font-medium' },
         { key: 'filter', header: 'Flags', className: 'flex flex-wrap gap-1', render: (t: TransitPointRow) => (

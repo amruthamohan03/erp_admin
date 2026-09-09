@@ -70,9 +70,6 @@ export default function DoneByPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Done By</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Done By
-        </button>
       </div>
 
       <DataTable<Row>
@@ -81,6 +78,12 @@ export default function DoneByPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search done by name..."
         emptyMessage="No attributions yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Done By
+          </button>
+        }
         columns={[
         { key: 'done_by_name', header: 'Done By', className: 'font-medium', render: (r: Row) => (
             <>

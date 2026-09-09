@@ -243,7 +243,19 @@ export default function SearchableSelect({
   const unresolved = !selected && value !== '';
 
   return (
-    <div ref={rootRef} className={cn('relative', className)}>
+    // `min-w-0` is load-bearing, not decoration. A flex item defaults to
+    // `min-width: auto` — a content-based floor — so inside a flex row (a select
+    // sharing its cell with a "+" or a gear button) a long option label made the
+    // control grow past its cell instead of truncating. The label then ran under
+    // the neighbouring field, or was sliced off square by the accordion's
+    // `overflow-hidden` with no ellipsis and no chevron left to click.
+    //
+    // Defended HERE rather than asked for at every call site: the component is
+    // the only thing that knows its own label can be arbitrarily long, and a
+    // rule that relies on ~90 call sites remembering a utility class is a rule
+    // that is already broken somewhere. `cn` merges, so a caller that genuinely
+    // wants a floor can still pass one.
+    <div ref={rootRef} className={cn('relative min-w-0', className)}>
       {/* Hidden field so form `required` validation still works */}
       {required && (
         <input
@@ -279,10 +291,13 @@ export default function SearchableSelect({
           display ? 'text-foreground' : 'text-muted-foreground',
           unresolved && 'text-amber-700 dark:text-amber-400',
         )}
+        // The selected label doubles as the tooltip, so a value too long for the
+        // control is still readable without opening the list. Truncation is the
+        // right rendering for a one-line control; losing the text is not.
         title={
           unresolved
             ? `This field holds "${value}", which is not one of the options offered here. Pick a value from the list, or correct the record it was copied from.`
-            : undefined
+            : display || undefined
         }
       >
         <span className="truncate">

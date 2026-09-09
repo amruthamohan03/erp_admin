@@ -43,6 +43,19 @@ export type FetchResult<T> =
        * without field-level marking can ignore this and show `message`.
        */
       fieldMessages?: Record<string, string[]>;
+      /**
+       * `error.details` as the object the route sent, when it sent one.
+       *
+       * `detail` above is the same thing flattened for *reading*; this is it
+       * intact, for a caller that has to act on it. A refusal can then be a
+       * question rather than a dead end — the seal release answers 409 with the
+       * export files still holding a seal, and the page turns that into a
+       * confirmation instead of making the operator go and look.
+       *
+       * Reading it means knowing the route's shape, so narrow it at the call
+       * site; that is the same parse boundary Zod occupies on the server (§6).
+       */
+      details?: Record<string, unknown>;
     };
 
 export async function safeFetchJson<T = unknown>(
@@ -134,6 +147,7 @@ export async function safeFetchJson<T = unknown>(
                 fieldSentences(fieldMessages, message),
       field,
       fieldMessages,
+      details: bag ?? undefined,
     };
   }
 

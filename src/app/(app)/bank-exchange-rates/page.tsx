@@ -142,9 +142,6 @@ export default function BankExchangeRatesPage() {
         <h1 className="text-2xl font-bold text-foreground">
           Bank Exchange Rates
         </h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Rate
-        </button>
       </div>
 
       {error && (
@@ -160,6 +157,12 @@ export default function BankExchangeRatesPage() {
         title="Exchange Rates"
         searchPlaceholder="Search bank, currency..."
         emptyMessage="No exchange rates yet — add the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Rate
+          </button>
+        }
         columns={[
           { key: 'exchange_date', header: 'Date', sortable: true, className: 'font-mono text-sm' },
           { key: 'bank_name', header: 'Bank', sortable: true, className: 'font-medium' },

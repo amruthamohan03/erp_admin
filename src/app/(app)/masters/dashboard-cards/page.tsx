@@ -126,9 +126,6 @@ export default function DashboardCardsPage() {
             set in Role &rarr; Dashboard Cards mapping.
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Card
-        </button>
       </div>
 
       <DataTable<CardRow>
@@ -137,6 +134,12 @@ export default function DashboardCardsPage() {
         rowKey={(m) => m.id}
         searchPlaceholder="Search title, key, category..."
         emptyMessage="No dashboard cards yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Card
+          </button>
+        }
         columns={[
           {
             key: 'card_title',

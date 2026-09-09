@@ -9,6 +9,17 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
+
+/**
+ * An export file still holding a seal that this edit would free, as reported by
+ * `PUT /api/v1/seal-numbers/{id}` when it refuses (§4.37).
+ */
+interface SealHolder {
+  export_id: number;
+  mca_ref: string | null;
+  seal_numbers: string[];
+}
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -250,6 +261,13 @@ export default function SealsPage() {
   async function afterNumbersChanged() {
     await Promise.all([loadMasters(), loadStats(), loadNumbers()]);
   }
+
+  /**
+   * Bumped whenever a seal number changes, to make the Manage Seal Numbers modal
+   * reload. It fetches its own list, so the page refreshing its tables does not
+   * reach it — and it is the list the operator is actually looking at.
+   */
+  const [numbersRefresh, setNumbersRefresh] = useState(0);
 
   return (
     <>
@@ -507,10 +525,23 @@ export default function SealsPage() {
       </div>
 
       {manageFor && (
-        <ManageNumbersModal master={manageFor} onClose={() => setManageFor(null)} onChanged={afterNumbersChanged} onEditNumber={setEditNumber} />
+        <ManageNumbersModal master={manageFor} refreshToken={numbersRefresh} onClose={() => setManageFor(null)} onChanged={afterNumbersChanged} onEditNumber={setEditNumber} />
       )}
       {editNumber && (
-        <EditNumberModal data={editNumber} onClose={() => setEditNumber(null)} onSaved={async () => { setEditNumber(null); await afterNumbersChanged(); }} />
+        <EditNumberModal
+          data={editNumber}
+          onClose={() => setEditNumber(null)}
+          onSaved={async () => {
+            // Close the child modal, then refresh BOTH the page's lists and the
+            // Manage Seal Numbers list sitting behind it. That list keeps its own
+            // copy of the numbers and only loaded on mount, so without the token
+            // the seal went on reading "Used" right where the operator was
+            // looking, even though the save had gone through.
+            setEditNumber(null);
+            setNumbersRefresh((n) => n + 1);
+            await afterNumbersChanged();
+          }}
+        />
       )}
       {viewData && (
         <ViewModal data={viewData} onClose={() => setViewData(null)} />
@@ -522,8 +553,10 @@ export default function SealsPage() {
 }
 
 // ---- Manage Seal Numbers modal ----
-function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
+function ManageNumbersModal({ master, refreshToken, onClose, onChanged, onEditNumber }: {
   master: SealMasterRow;
+  /** Changes when a seal was edited elsewhere, so this list refetches. */
+  refreshToken: number;
   onClose: () => void;
   onChanged: () => Promise<void>;
   onEditNumber: (n: { id: number; seal_number: string; status: SealStatus; notes: string; location: string }) => void;
@@ -540,8 +573,10 @@ function ManageNumbersModal({ master, onClose, onChanged, onEditNumber }: {
     const r = await fetch(`/api/v1/seals/${master.id}/numbers`); const j = await r.json();
     if (j.ok) setList(j.data);
   }, [master.id]);
+  // `refreshToken` is a dependency with no use inside `load` on purpose: it is
+  // the signal that a seal changed somewhere else on the page.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshToken]);
 
   const added = list.length;
   const limit = master.total_seal;
@@ -651,18 +686,44 @@ function EditNumberModal({ data, onClose, onSaved }: {
   const [notes, setNotes] = useState(data.notes);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /**
+   * Set when the save was refused because export files still hold this seal.
+   * The refusal is a QUESTION, not a dead end (§4.37) — so it is rendered with
+   * its own Continue / Cancel rather than as red text the operator can only read.
+   */
+  const [confirmDetach, setConfirmDetach] = useState<SealHolder[] | null>(null);
   const wasUsed = data.status === 'Used';
 
-  async function save() {
+  async function save(detach = false) {
     setErr(null);
     if (wasUsed && status === 'Damaged') { setErr('Cannot change "Used" to "Damaged".'); return; }
     setBusy(true);
     try {
-      const res = await fetch(`/api/v1/seal-numbers/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seal_number: seal, status, notes: notes || null }) });
-      const j = await res.json();
-      if (!res.ok || !j.ok) { setErr(j.error?.message || 'Failed'); return; }
+      const res = await safeFetchJson<{ id: number; detached: number }>(
+        `/api/v1/seal-numbers/${data.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            seal_number: seal,
+            status,
+            notes: notes || null,
+            ...(detach ? { detach: true } : {}),
+          }),
+        },
+      );
+      if (!res.ok) {
+        const d = res.details as { requires_confirmation?: string; holders?: SealHolder[] } | undefined;
+        if (d?.requires_confirmation === 'detach' && d.holders?.length) {
+          setConfirmDetach(d.holders);
+          return;
+        }
+        setErr(res.message);
+        return;
+      }
+      setConfirmDetach(null);
       await onSaved();
-    } catch { setErr('Failed'); } finally { setBusy(false); }
+    } finally { setBusy(false); }
   }
 
   return (
@@ -674,6 +735,49 @@ function EditNumberModal({ data, onClose, onSaved }: {
         </div>
         <div className="p-5 space-y-3">
           {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">{err}</div>}
+
+          {/* §4.37 — the save was refused because this seal is still on an export
+              file. It carries its own Continue / Cancel: a refusal the operator
+              can act on must not be a wall of red text with nothing to press. */}
+          {confirmDetach && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+              <p className="flex items-start gap-2 font-medium text-amber-900 dark:text-amber-200">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                This seal is still on an export file.
+              </p>
+              <ul className="mt-2 space-y-1 ps-6">
+                {confirmDetach.map((h) => (
+                  <li key={h.export_id} className="text-amber-900 dark:text-amber-200">
+                    <span className="font-mono font-medium">{h.mca_ref ?? `export #${h.export_id}`}</span>
+                    <span className="ms-2 opacity-80">DGDA Seal No: {h.seal_numbers.join(', ')}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 ps-6 text-amber-800 dark:text-amber-300">
+                Continuing removes the seal from {confirmDetach.length === 1 ? 'that file' : 'those files'} and
+                reduces {confirmDetach.length === 1 ? 'its' : 'their'} <strong>No. of Seals</strong> to match.
+              </p>
+              <div className="mt-3 flex flex-wrap justify-end gap-2 ps-6">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => { setConfirmDetach(null); setStatus(data.status); }}
+                  className="btn-secondary btn-sm"
+                >
+                  <X className="h-4 w-4" /> Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save(true)}
+                  className="btn-primary btn-sm disabled:opacity-50"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Remove and continue
+                </button>
+              </div>
+            </div>
+          )}
+
           <div><label className="label">Location</label><input className="input bg-muted" value={data.location} readOnly /></div>
           <div><label className="label required">Seal Number</label><input required className="input" value={seal} onChange={(e) => setSeal(e.target.value)} /></div>
           <div>
@@ -682,22 +786,50 @@ function EditNumberModal({ data, onClose, onSaved }: {
               required
               aria-label="Status"
               value={status}
-              // A "Used" seal can't move to "Damaged", so that option is withheld
-              // rather than rendered disabled — the dropdown has no disabled state.
+              // Both exclusions withhold the option rather than rendering it
+              // disabled — the dropdown has no disabled state (§4.16).
               options={[
                 { value: 'Available', label: 'Available' },
-                { value: 'Used', label: 'Used' },
+                // "Used" is not something an operator picks. A seal becomes Used
+                // by being put on a consignment — the export save reserves it,
+                // and Mark Used does it in bulk — so offering it here invited a
+                // seal marked Used with no file behind it, which then could not
+                // be issued and had nothing to release it from. It appears only
+                // when the seal ALREADY is Used, so the control can show its own
+                // current value.
+                ...(wasUsed ? [{ value: 'Used', label: 'Used' }] : []),
+                // A "Used" seal can't move straight to "Damaged".
                 ...(wasUsed ? [] : [{ value: 'Damaged', label: 'Damaged' }]),
               ]}
               onChange={(v) => setStatus(v as SealStatus)}
             />
-            {wasUsed && <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">A &quot;Used&quot; seal cannot be changed to &quot;Damaged&quot;.</div>}
+            {wasUsed ? (
+              <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                This seal is in use. It can be set back to &quot;Available&quot;, but not to &quot;Damaged&quot;.
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground mt-1">
+                &quot;Used&quot; is set by putting the seal on a consignment, not chosen here.
+              </div>
+            )}
           </div>
           <div><label className="label">Notes</label><textarea className="input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
         </div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="btn-secondary"><X className="h-4 w-4" /> Cancel</button>
-          <button type="button" onClick={save} disabled={busy} className="btn-primary"><Save className="h-4 w-4" /> {busy ? 'Updating...' : 'Update'}</button>
+          {/* `() => void save()` — NOT `save`: passed directly, React hands the
+              click event in as the first argument, which `save(detach)` would
+              read as a confirmation the operator never gave. */}
+          <button
+            type="button"
+            onClick={() => void save()}
+            // While the confirmation panel is open it owns the decision; two
+            // buttons that both submit is how someone confirms by accident.
+            disabled={busy || confirmDetach !== null}
+            className="btn-primary disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {busy ? 'Updating...' : 'Update'}
+          </button>
         </div>
       </div>
     </div>

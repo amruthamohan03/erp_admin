@@ -48,6 +48,16 @@ export const sealNumberUpdateSchema = z.object({
   status: sealStatusEnum.optional(),
   notes: z.string().optional().nullable(),
   display: z.enum(['Y', 'N']).optional(),
+  /**
+   * Same meaning as on the bulk release (§4.37): the caller has been told which
+   * export files still hold this seal and has agreed to take it off them.
+   *
+   * Only consulted when the update frees the seal — setting `status` to
+   * Available, or hiding the row. Without it, such an update is refused rather
+   * than performed, because a seal freed while an export still names it can be
+   * issued to a second consignment.
+   */
+  detach: z.boolean().optional(),
 });
 export type SealNumberUpdateInput = z.infer<typeof sealNumberUpdateSchema>;
 
@@ -69,6 +79,15 @@ export const sealNumberBulkActionSchema = z.object({
   seal_numbers: z.union([z.array(z.string()), z.string()]),
   /** Optional human-readable note recorded on each affected row. */
   reference_info: z.string().max(255).optional(),
+  /**
+   * Release only: the caller has been told which export files still hold these
+   * seals and has agreed to take them off those files.
+   *
+   * Absent, a release that would strand a seal is REFUSED rather than performed
+   * — freeing a seal while an export still names it is how the same seal ends
+   * up on two consignments. The refusal names the files so the caller can ask.
+   */
+  detach: z.boolean().optional(),
 });
 export type SealNumberBulkActionInput = z.infer<typeof sealNumberBulkActionSchema>;
 

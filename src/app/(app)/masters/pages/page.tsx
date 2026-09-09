@@ -104,9 +104,6 @@ function MasterPagesList() {
             Configure §4.12 pages — slug, title, target table, accordions, role grants, and fields.
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Page
-        </button>
       </div>
 
       {loadError && (
@@ -121,6 +118,12 @@ function MasterPagesList() {
         rowKey={(i) => i.id}
         searchPlaceholder="Search slug, title, target table..."
         emptyMessage="No record yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Page
+          </button>
+        }
         columns={[
         { key: 'slug', header: 'Slug', sortable: true, className: 'font-mono text-xs' },
         { key: 'title', header: 'Title', sortable: true, className: 'font-medium' },
