@@ -93,9 +93,6 @@ export default function ProvincesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Provinces</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Province
-        </button>
       </div>
 
       <DataTable<Row>
@@ -104,6 +101,12 @@ export default function ProvincesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search province, origin..."
         emptyMessage="No provinces yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Province
+          </button>
+        }
         columns={[
         { key: 'province_name', header: 'Province', sortable: true, className: 'font-medium' },
         { key: 'origin_name', header: 'Origin', className: 'text-foreground', render: (r: Row) => (

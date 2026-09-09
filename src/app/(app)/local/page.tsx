@@ -33,7 +33,7 @@ const OFFICE_GRAD: Record<number, string> = {
   2: 'from-sky-500 to-blue-600',
   4: 'from-emerald-500 to-teal-600',
 };
-
+
 
 export default function LocalPage() {
   const [items, setItems] = useState<Row[]>([]);
@@ -98,7 +98,6 @@ export default function LocalPage() {
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary-600" /> Local Tracking
           </h1>
-          <Link href="/local/new" className="btn-primary"><Plus className="h-4 w-4" /> Add New Local</Link>
         </div>
       </div>
 
@@ -125,6 +124,13 @@ export default function LocalPage() {
         title="Locals List"
         searchPlaceholder="Search reference, horse, transporter, client…"
         emptyMessage="No local tracking records yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to, not to the
+          // page header.
+          <Link href="/local/new" className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Local
+          </Link>
+        }
         columns={[
           { key: 'client_name', header: 'Client', className: 'font-medium' },
           { key: 'location_name', header: 'Location' },

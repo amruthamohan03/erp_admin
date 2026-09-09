@@ -15,6 +15,18 @@ import {
   XCircle,
 } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
+
+/**
+ * An export file that still names a seal being released, as reported by
+ * `POST /api/v1/seal-numbers/release` when it refuses (§4.23).
+ */
+interface SealHolder {
+  export_id: number;
+  mca_ref: string | null;
+  seal_numbers: string[];
+}
 
 interface BatchDetail {
   id: number;
@@ -60,6 +72,15 @@ export default function SealBatchDetailPage() {
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [referenceInfo, setReferenceInfo] = useState('');
+
+  // §4.22 — the outcome of a release/mark-used, acknowledged by the operator.
+  const [result, setResult] = useState<SaveResult | null>(null);
+  /**
+   * Set when a release was refused because the seals are still on export files.
+   * Holds what the server told us, so the confirmation can name the files and
+   * the seals rather than asking "are you sure?" about nothing in particular.
+   */
+  const [detachAsk, setDetachAsk] = useState<{ seals: string[]; holders: SealHolder[] } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -165,26 +186,61 @@ export default function SealBatchDetailPage() {
     }
   }
 
-  async function release() {
+  /**
+   * Make the selected seals Available again.
+   *
+   * Two passes by design. The first asks without `detach`, and the server
+   * REFUSES if any of these seals is still named by a live export — freeing one
+   * there and then left the export claiming a seal the master had already handed
+   * on, so the same physical seal could reach two consignments. The refusal
+   * carries the files, we ask, and only then do we repeat with `detach: true`,
+   * which takes the seals off those exports and releases them in one
+   * transaction.
+   */
+  async function release(detach = false) {
     const nums = selectedSealNumbers();
     if (nums.length === 0) return;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch('/api/v1/seal-numbers/release', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seal_numbers: nums }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Release failed');
+      const res = await safeFetchJson<{ released: number; failed: string[]; detached: number }>(
+        '/api/v1/seal-numbers/release',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seal_numbers: nums, ...(detach ? { detach: true } : {}) }),
+        },
+      );
+
+      if (!res.ok) {
+        const details = res.details as { requires_confirmation?: string; holders?: SealHolder[] } | undefined;
+        if (details?.requires_confirmation === 'detach' && details.holders?.length) {
+          // Not an error the operator has to fix — a question. Ask it.
+          setDetachAsk({ seals: nums, holders: details.holders });
+          return;
+        }
+        setResult({ status: 'error', title: 'Not released', message: res.message });
         return;
       }
-      setNotice(`Released ${json.data.released}.`);
+
+      setDetachAsk(null);
       setSelected(new Set());
       await load();
+
+      const { released, detached, failed } = res.data;
+      const parts = [`${released} seal${released === 1 ? '' : 's'} released`];
+      if (detached > 0) {
+        parts.push(
+          `removed from ${detached} export file${detached === 1 ? '' : 's'}, whose No. of Seals was recalculated`,
+        );
+      }
+      if (failed.length > 0) {
+        // Not an error: a Damaged or already-Available seal simply has nothing
+        // to release. Say which, so the count adding up is not a mystery.
+        parts.push(`${failed.length} skipped (not currently in use): ${failed.join(', ')}`);
+      }
+      setResult({ status: 'success', title: 'Released', message: `${parts.join('. ')}.` });
     } finally {
       setBusy(false);
     }
@@ -354,7 +410,7 @@ export default function SealBatchDetailPage() {
                   </button>
                 </div>
                 <button
-                  onClick={release}
+                  onClick={() => release()}
                   disabled={busy}
                   className="btn-secondary"
                 >
@@ -463,6 +519,63 @@ export default function SealBatchDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* The release was refused because these seals are still on export files.
+          A question, not a result (§4.22) — so it names the files and the seals
+          and offers a labelled way out (§4.21) rather than a bare "are you
+          sure?". */}
+      {detachAsk && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/50 p-4"
+          onClick={() => setDetachAsk(null)}
+        >
+          <div className="card w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 border-b border-border px-5 py-4">
+              <span className="mt-0.5 shrink-0 rounded-full bg-amber-100 p-2 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="font-semibold text-foreground">
+                  {detachAsk.seals.length === 1 ? 'This seal is' : 'These seals are'} already in use
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Releasing {detachAsk.seals.length === 1 ? 'it' : 'them'} removes the seal from the
+                  export file below and reduces that file&apos;s <strong>No. of Seals</strong> to match.
+                </p>
+              </div>
+            </div>
+
+            <ul className="max-h-64 divide-y divide-border overflow-y-auto px-5 py-2">
+              {detachAsk.holders.map((h) => (
+                <li key={h.export_id} className="py-2 text-sm">
+                  <span className="font-mono font-medium text-foreground">
+                    {h.mca_ref ?? `export #${h.export_id}`}
+                  </span>
+                  <span className="ms-2 text-muted-foreground">
+                    DGDA Seal No: {h.seal_numbers.join(', ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+              <button type="button" onClick={() => setDetachAsk(null)} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void release(true)}
+                className="btn-primary disabled:opacity-50"
+              >
+                <Undo2 className="h-4 w-4" /> Remove and release
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
   );
 }

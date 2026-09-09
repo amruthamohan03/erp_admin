@@ -60,9 +60,6 @@ export default function ClearingBasissPage() {
     <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Clearing Bases</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Clearing Basis
-        </button>
       </div>
 
       <DataTable<Row>
@@ -71,6 +68,12 @@ export default function ClearingBasissPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search clearing basis..."
         emptyMessage="No clearing basis yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Clearing Basis
+          </button>
+        }
         columns={[{ key: 'clearing_basis_name', header: 'Clearing Basis', sortable: true, className: 'font-medium' }]}
         actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
         server={{

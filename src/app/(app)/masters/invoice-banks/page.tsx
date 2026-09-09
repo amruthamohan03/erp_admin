@@ -73,9 +73,6 @@ export default function InvoiceBanksPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Invoice Banks</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Invoice Bank
-        </button>
       </div>
 
       <DataTable<Row>
@@ -84,6 +81,12 @@ export default function InvoiceBanksPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search bank, account, SWIFT..."
         emptyMessage="No invoice banks yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Invoice Bank
+          </button>
+        }
         columns={[
         { key: 'invoice_bank_name', header: 'Bank', sortable: true, className: 'font-medium' },
         { key: 'invoice_bank_account_name', header: 'Account Name', sortable: true },

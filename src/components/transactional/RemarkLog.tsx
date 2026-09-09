@@ -99,7 +99,9 @@ export default function RemarkLog({
             aria-label={`${fieldLabel} date`}
           />
           <input
-            className="input flex-1"
+            // min-w-0 so the row shrinks with its cell — an <input>'s intrinsic
+            // ~20ch minimum is otherwise a floor a flex item will not go below.
+            className="input min-w-0 flex-1"
             value={text}
             maxLength={MAX_REMARK_LENGTH}
             placeholder="Type a remark, then press + or Enter"

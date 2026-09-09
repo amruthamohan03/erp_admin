@@ -69,9 +69,6 @@ export default function TruckStatusesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Truck Statuses</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Truck Status
-        </button>
       </div>
 
       <DataTable<Row>
@@ -80,6 +77,12 @@ export default function TruckStatusesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search truck status..."
         emptyMessage="No truck statuss yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Truck Status
+          </button>
+        }
         columns={[
         { key: 'truck_status', header: 'Truck Status', sortable: true, className: 'font-medium' },
         ]}

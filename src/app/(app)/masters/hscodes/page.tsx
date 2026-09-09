@@ -86,9 +86,6 @@ export default function HscodesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">HS Codes</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New HS Code
-        </button>
       </div>
 
       <DataTable<Row>
@@ -97,6 +94,12 @@ export default function HscodesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search HS code..."
         emptyMessage="No HS codes yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New HS Code
+          </button>
+        }
         columns={[
           { key: 'hscode_number', header: 'HS Code', sortable: true, className: 'font-mono' },
           ...RATE_FIELDS.map((f) => ({

@@ -60,9 +60,6 @@ export default function PaymentTermsPage() {
     <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Payment Terms</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Payment Term
-        </button>
       </div>
 
       <DataTable<Row>
@@ -71,6 +68,12 @@ export default function PaymentTermsPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search payment term..."
         emptyMessage="No payment term yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Payment Term
+          </button>
+        }
         columns={[{ key: 'payment_term_name', header: 'Payment Term', sortable: true, className: 'font-medium' }]}
         actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
         server={{

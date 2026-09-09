@@ -70,6 +70,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ilike(importT.mcaRef, like),
       ilike(importT.invoice, like),
       ilike(importT.supplier, like),
+      // Both client names. The Client column shows the short code (§4.15), so
+      // that is what an operator types — but the legal name stays searchable,
+      // because it is what a document from outside the office carries.
+      ilike(clientMaster.shortName, like),
       ilike(clientMaster.companyName, like),
     );
     if (orClause) conds.push(orClause);
@@ -122,7 +126,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       supplier: importT.supplier,
       pre_alert_date: importT.preAlertDate,
       client_id: importT.clientId,
-      client_name: clientMaster.companyName,
+      // §4.15 — the Client column of a list is the short code. A 200-character
+      // legal name is unscannable in a grid, and it is not what operators say.
+      client_name: clientMaster.shortName,
       license_id: importT.licenseId,
       license_no: licenseT.licenseNumber,
       // main's list reads `license_number`; emit it alongside the

@@ -91,9 +91,6 @@ export default function RegimesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Regimes</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Regime
-        </button>
       </div>
 
       <DataTable<RegimeRow>
@@ -102,6 +99,12 @@ export default function RegimesPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search regime name..."
         emptyMessage="No regimes yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Regime
+          </button>
+        }
         columns={[
         { key: 'regime_name', header: 'Regime', sortable: true, className: 'font-medium' },
         { key: '5', header: 'Type', render: (r: RegimeRow) => (

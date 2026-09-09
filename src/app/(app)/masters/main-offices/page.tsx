@@ -77,9 +77,6 @@ export default function MainOfficesPage() {
             and <code>sub_office_master_t</code> (customs declaration desk).
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Main Office
-        </button>
       </div>
 
       <DataTable<MainOfficeRow>
@@ -88,6 +85,12 @@ export default function MainOfficesPage() {
         rowKey={(o) => o.id}
         searchPlaceholder="Search main location name..."
         emptyMessage="No main offices yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Main Office
+          </button>
+        }
         columns={[
         { key: 'main_location_name', header: 'Main Office', className: 'font-medium', render: (o: MainOfficeRow) => (
             <>

@@ -66,9 +66,6 @@ export default function CurrenciesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Currencies</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Currency
-        </button>
       </div>
 
       <DataTable<CurrencyRow>
@@ -77,6 +74,12 @@ export default function CurrenciesPage() {
         rowKey={(c) => c.id}
         searchPlaceholder="Search currency name, short name..."
         emptyMessage="No currencys yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Currency
+          </button>
+        }
         columns={[
         { key: 'currency_name', header: 'Currency Name', sortable: true, className: 'font-medium' },
         { key: '5', header: 'Short Name', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (c: CurrencyRow) => (

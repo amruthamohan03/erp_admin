@@ -8634,7 +8634,8 @@
                             "license",
                             "local",
                             "export-invoice",
-                            "import-invoice"
+                            "import-invoice",
+                            "partielle"
                           ]
                         },
                         "format_name": {
@@ -8655,6 +8656,7 @@
                                   "goods",
                                   "transport",
                                   "office",
+                                  "refcod",
                                   "year",
                                   "literal",
                                   "sequence"

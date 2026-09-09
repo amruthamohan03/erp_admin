@@ -68,9 +68,6 @@ export default function GoodsTypesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Type of Goods</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Type
-        </button>
       </div>
 
       <DataTable<GoodsTypeRow>
@@ -79,6 +76,12 @@ export default function GoodsTypesPage() {
         rowKey={(g) => g.id}
         searchPlaceholder="Search type, short name..."
         emptyMessage="No goods types yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Type
+          </button>
+        }
         columns={[
         { key: 'goods_type', header: 'Type', sortable: true, className: 'font-medium' },
         { key: '5', header: 'Short Name', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (g: GoodsTypeRow) => (

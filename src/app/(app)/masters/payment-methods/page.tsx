@@ -60,9 +60,6 @@ export default function PaymentMethodsPage() {
     <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Payment Methods</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Payment Method
-        </button>
       </div>
 
       <DataTable<Row>
@@ -71,6 +68,12 @@ export default function PaymentMethodsPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search payment method..."
         emptyMessage="No payment method yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Payment Method
+          </button>
+        }
         columns={[{ key: 'payment_method_name', header: 'Payment Method', sortable: true, className: 'font-medium' }]}
         actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
         server={{

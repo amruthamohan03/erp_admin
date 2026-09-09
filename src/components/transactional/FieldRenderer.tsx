@@ -681,7 +681,7 @@ function QuickAddSelect({
 
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2">
         {children}
         {!readonly && (
           <button
@@ -703,7 +703,10 @@ function QuickAddSelect({
           <div className="flex items-center gap-2">
             <input
               autoFocus
-              className="input flex-1"
+              // min-w-0: an <input> carries an intrinsic ~20ch minimum, which as
+              // a flex item is a floor it will not shrink below — so in a narrow
+              // cell the row grew instead of the field shrinking.
+              className="input min-w-0 flex-1"
               placeholder={config.placeholder ?? 'New value'}
               value={draft}
               disabled={busy}

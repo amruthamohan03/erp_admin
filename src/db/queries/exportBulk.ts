@@ -11,6 +11,9 @@ import { db } from '@/lib/db';
 import { exportT, clientMaster } from '@/db/schema';
 import { exportFilterCondition } from '@/db/queries/exportFilters';
 import { recordAudit } from '@/lib/audit/recordAudit';
+// One seal-splitting rule for the whole app (§4.10) — a whitespace difference
+// between copies shows up as a seal count off by one.
+import { countSeals } from '@/db/queries/sealUsage';
 import {
   BULK_WHITELIST,
   FIELD_META,
@@ -193,9 +196,6 @@ export interface BulkRowUpdate {
   values: Record<string, unknown>;
 }
 
-/** Comma-joined seal numbers → count, the rule the single form applies via its `count` derive. */
-const sealCount = (s: unknown): number =>
-  String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean).length;
 
 /**
  * Clean and validate one submitted value against its type and the row's loading
@@ -262,7 +262,7 @@ export async function applyBulkUpdate(
     // No. of Seals is derived, never submitted — recomputed here so a bulk edit
     // and a single-record save leave the row in the same state.
     if ('dgda_seal_no' in patch) {
-      patch['number_of_seals'] = patch['dgda_seal_no'] === null ? null : sealCount(patch['dgda_seal_no']);
+      patch['number_of_seals'] = patch['dgda_seal_no'] === null ? null : countSeals(patch['dgda_seal_no']);
     }
 
     if (Object.keys(patch).length > 0) patches.push({ id: u.id, ref, patch });

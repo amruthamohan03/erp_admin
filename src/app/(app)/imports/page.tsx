@@ -466,27 +466,6 @@ export default function ImportsListPage() {
         </div>
       </div>
 
-      {/* ---- Create ---- */}
-      {/* PARTIELLE Allocation used to sit beside this as a second card. Allotments
-          are cut where they are used — from the gear on the import form's
-          Inspection Reports field, and on the PARTIELLE Management screen — so a
-          third entry point on the tracking list was one more place for the same
-          job. The /imports/partielles route still exists and still works; it is
-          simply not advertised from here. */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <Link
-          href="/imports/new"
-          className="card p-4 flex-1 min-w-[220px] flex items-center justify-between hover:border-primary-300 hover:shadow-sm transition group"
-        >
-          <span className="flex items-center gap-2 text-foreground font-medium">
-            <Truck className="h-4 w-4 text-primary-600" /> Import Tracking
-          </span>
-          <span className="flex items-center gap-1 text-xs text-primary-600 group-hover:text-primary-700">
-            <Plus className="h-3.5 w-3.5" /> New Import
-          </span>
-        </Link>
-      </div>
-
       {/* ---- List card ---- */}
       <DataTable<ImportRow>
         rows={items}
@@ -496,23 +475,41 @@ export default function ImportsListPage() {
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No import files match these filters — clear them, or create one."
         toolbar={
-          // §9 — enabled only when a "pending" status card is active. The
-          // clearing-status cards describe a state rather than a missing value,
-          // so there is nothing for a mass edit to fill in; the title says which
-          // rather than leaving a dead button to be poked at.
-          <button
-            type="button"
-            onClick={() => setBulkOpen(true)}
-            disabled={pendingActive.length === 0}
-            title={
-              pendingActive.length === 0
-                ? 'Select a “pending” status card above to bulk-fill the field it is about'
-                : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
-            }
-            className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Layers className="h-4 w-4" /> Bulk Update
-          </button>
+          <>
+            {/* §9 — enabled only when a "pending" status card is active. The
+                clearing-status cards describe a state rather than a missing
+                value, so there is nothing for a mass edit to fill in; the title
+                says which rather than leaving a dead button to be poked at. */}
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              disabled={pendingActive.length === 0}
+              title={
+                pendingActive.length === 0
+                  ? 'Select a “pending” status card above to bulk-fill the field it is about'
+                  : `Bulk update the ${pendingActive.length} active pending filter${pendingActive.length === 1 ? '' : 's'}`
+              }
+              className="btn-update btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Layers className="h-4 w-4" /> Bulk Update
+            </button>
+            {/* §4.35 — the create action, last so it ends the toolbar exactly as
+                New License does. It used to be a full-width Link dressed up as a
+                `card`: it read as a section of content rather than a control, it
+                said the same thing twice ("Import Tracking" and "New Import"),
+                and it pushed the status cards and the grid a whole row further
+                down every screen.
+
+                PARTIELLE Allocation sat beside it as a second such card.
+                Allotments are cut where they are used — the gear on the import
+                form's Inspection Reports field, and the PARTIELLE Management
+                screen — so a third entry point here was one more place for the
+                same job. /imports/partielles still exists; it is simply not
+                advertised from the list. */}
+            <Link href="/imports/new" className="btn-primary btn-sm">
+              <Plus className="h-4 w-4" /> New Import
+            </Link>
+          </>
         }
         columns={[
           {

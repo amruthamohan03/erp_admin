@@ -66,9 +66,6 @@ export default function TransportModesPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Transport Modes</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Transport Mode
-        </button>
       </div>
 
       <DataTable<TransportModeRow>
@@ -77,6 +74,12 @@ export default function TransportModesPage() {
         rowKey={(t) => t.id}
         searchPlaceholder="Search mode name, letter..."
         emptyMessage="No transport modes yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Transport Mode
+          </button>
+        }
         columns={[
         { key: 'transport_mode_name', header: 'Mode Name', sortable: true, className: 'font-medium' },
         { key: '5', header: 'Letter', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (t: TransportModeRow) => (

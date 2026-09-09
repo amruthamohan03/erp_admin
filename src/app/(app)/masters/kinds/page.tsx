@@ -81,9 +81,6 @@ export default function KindsPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Kinds</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Kind
-        </button>
       </div>
 
       <DataTable<KindRow>
@@ -92,6 +89,12 @@ export default function KindsPage() {
         rowKey={(k) => k.id}
         searchPlaceholder="Search kind name, short name..."
         emptyMessage="No kinds yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Kind
+          </button>
+        }
         columns={[
         { key: 'kind_name', header: 'Kind Name', sortable: true, className: 'font-medium' },
         { key: '5', header: 'Short Name', className: 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground font-mono', render: (k: KindRow) => (

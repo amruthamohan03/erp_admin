@@ -105,9 +105,6 @@ export default function OfficeLocationsPage() {
             Referenced by <code>client_master_t.office_location_id</code>.
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Office Location
-        </button>
       </div>
 
       <DataTable<OfficeLocationRow>
@@ -116,6 +113,12 @@ export default function OfficeLocationsPage() {
         rowKey={(o) => o.id}
         searchPlaceholder="Search location or province..."
         emptyMessage="No office locations yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Office Location
+          </button>
+        }
         columns={[
         { key: 'location_name', header: 'Office Location', sortable: true, className: 'font-medium' },
         { key: 'province_name', header: 'Province', className: 'text-foreground', render: (o: OfficeLocationRow) => (

@@ -67,9 +67,6 @@ export default function OriginsPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Origins</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Origin
-        </button>
       </div>
 
       <DataTable<Row>
@@ -78,6 +75,12 @@ export default function OriginsPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search origin name..."
         emptyMessage="No origins yet — create the first one."
+        toolbar={
+          // §4.35 — the create action belongs to the list it adds to.
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Origin
+          </button>
+        }
         columns={[
           { key: 'origin_name', header: 'Origin', sortable: true, className: 'font-medium' },
         ]}
