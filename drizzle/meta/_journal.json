@@ -526,6 +526,41 @@
       "when": 1784660519409,
       "tag": "0073_drc_holidays_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1784660519410,
+      "tag": "0074_drc_holidays_2027_2030",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1784660519411,
+      "tag": "0075_bank_exchange_rate_soft_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1784660519412,
+      "tag": "0076_users_location_department_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1784660519413,
+      "tag": "0077_sub_office_main_office",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1784660519414,
+      "tag": "0078_declaration_office_menu_label",
+      "breakpoints": true
     }
   ]
 }

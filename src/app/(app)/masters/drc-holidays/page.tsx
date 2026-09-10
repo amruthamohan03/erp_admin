@@ -19,6 +19,7 @@ import {
   MONTH_NAMES,
   todayLocalIso,
   WEEKDAY_HEADINGS,
+  weekendDaysInYear,
 } from '@/lib/calendarMonth';
 
 type HolidayType = 'fixed' | 'variable';
@@ -127,11 +128,16 @@ export default function DrcHolidaysPage() {
     if (view === 'calendar') loadYear();
   }, [load, loadYear, view]);
 
-  /** A window around today — far enough back to audit, far enough on to plan. */
+  /**
+   * A window around today — far enough back to audit, far enough on to plan.
+   * The forward reach matches how far the fixed holidays are seeded (migration
+   * `0074` carries them to 2030); a year with no rows yet is not an error, it is
+   * a year waiting for the DRC to publish its movable feasts.
+   */
   const yearOptions = useMemo(() => {
     const now = new Date().getUTCFullYear();
     const years: { value: string; label: string }[] = [];
-    for (let y = now + 2; y >= now - 3; y -= 1) years.push({ value: String(y), label: String(y) });
+    for (let y = now + 4; y >= now - 3; y -= 1) years.push({ value: String(y), label: String(y) });
     return years;
   }, []);
 
@@ -262,12 +268,16 @@ export default function DrcHolidaysPage() {
             header: 'Day',
             className: 'text-xs',
             render: (r: Row) => (
-              <span className={isWeekend(r.holiday_date) ? 'text-muted-foreground' : 'text-foreground'}>
+              <span
+                className={
+                  isWeekend(r.holiday_date) ? 'text-red-700 dark:text-red-400' : 'text-foreground'
+                }
+              >
                 {weekdayName(r.holiday_date)}
                 {/* A holiday on a weekend is already a non-working day, so it
                     changes no delay figure. Worth saying, or someone will add it
                     and wonder why nothing moved. */}
-                {isWeekend(r.holiday_date) && ' · weekend'}
+                {isWeekend(r.holiday_date) && ' · weekend, already non-working'}
               </span>
             ),
           },
@@ -512,7 +522,16 @@ function HolidayCalendar({
   const byDate = useMemo(() => new Map(rows.map((r) => [r.holiday_date, r])), [rows]);
   const today = todayLocalIso();
 
+  /**
+   * Saturdays and Sundays are non-working days in their own right — the working
+   * -day counter skips them before it ever consults the holiday set — so they
+   * are shown as such without being rows in the table. A weekend that also
+   * carries a public holiday is one non-working day, not two, which is why the
+   * total subtracts the overlap rather than adding the two counts.
+   */
+  const weekendDays = weekendDaysInYear(year);
   const onWeekend = rows.filter((r) => isWeekend(r.holiday_date)).length;
+  const nonWorking = weekendDays + rows.length - onWeekend;
 
   return (
     <div className="card p-4">
@@ -531,24 +550,28 @@ function HolidayCalendar({
               'Loading…'
             ) : (
               <>
-                <strong className="text-foreground">{rows.length}</strong>{' '}
-                {rows.length === 1 ? 'holiday' : 'holidays'} in {year}
-                {/* A holiday on a Saturday or Sunday is already a non-working
-                    day, so it moves no delay figure. Saying how many keeps the
-                    count from looking wrong against the KPI. */}
-                {onWeekend > 0 && ` · ${onWeekend} on a weekend, which changes no delay figure`}
+                {/* The arithmetic is spelled out because the two halves come
+                    from different places: the holidays are rows an operator
+                    maintains, the weekends are the calendar itself. */}
+                <strong className="text-foreground">{nonWorking}</strong> non-working days in {year} —{' '}
+                {rows.length} public {rows.length === 1 ? 'holiday' : 'holidays'} + {weekendDays} weekend days
+                {onWeekend > 0 &&
+                  ` (${onWeekend} ${onWeekend === 1 ? 'falls' : 'fall'} on a weekend, counted once)`}
               </>
             )}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          {/* Legend — the colours mean something, so they are named. */}
+          {/* Legend — the colours mean something, so they are named. Both are
+              red because both are non-working; the solid one is a named public
+              holiday, the tint is the weekend. */}
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="inline-block h-3 w-3 rounded-sm bg-red-600" /> Public holiday
           </span>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-block h-3 w-3 rounded-sm bg-muted" /> Weekend
+            <span className="inline-block h-3 w-3 rounded-sm border border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/20" />{' '}
+            Weekend — non-working
           </span>
           <button type="button" onClick={onAdd} className="btn-primary btn-sm">
             <Plus className="h-4 w-4" /> New Holiday
@@ -632,12 +655,15 @@ function MonthCard({
                 }
 
                 const isToday = cell.iso === today;
-                // A solid mid-tone red reads on either theme's ground, so it
-                // needs no dark: twin (§4.32).
+                // Both non-working states are red, because that is what the
+                // colour means here. A solid mid-tone reads on either theme's
+                // ground unaided; the weekend tint is a translucent fill of the
+                // same hue with a light text step, so it tints the card instead
+                // of punching a hole in it (§4.32).
                 const tone = holiday
                   ? 'bg-red-600 text-white font-semibold hover:bg-red-700'
                   : cell.weekend
-                    ? 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    ? 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-500/15 dark:text-red-300 dark:hover:bg-red-500/25'
                     : 'text-foreground hover:bg-muted/50';
 
                 return (
@@ -648,14 +674,18 @@ function MonthCard({
                       title={
                         holiday
                           ? `${formatDate(cell.iso)} — ${holiday.name_en}${holiday.name_fr ? ` / ${holiday.name_fr}` : ''}${
-                              cell.weekend ? ' (weekend — changes no delay figure)' : ''
+                              cell.weekend ? ` (also ${weekdayName(cell.iso)} — counted once)` : ''
                             }`
-                          : `Add a holiday on ${formatDate(cell.iso)}`
+                          : cell.weekend
+                            ? `${formatDate(cell.iso)} — ${weekdayName(cell.iso)}, already a non-working day. Click to add a public holiday.`
+                            : `Add a holiday on ${formatDate(cell.iso)}`
                       }
                       aria-label={
                         holiday
                           ? `${holiday.name_en} on ${formatDate(cell.iso)}. Edit.`
-                          : `Add a holiday on ${formatDate(cell.iso)}`
+                          : cell.weekend
+                            ? `${formatDate(cell.iso)}, ${weekdayName(cell.iso)}, non-working. Add a holiday.`
+                            : `Add a holiday on ${formatDate(cell.iso)}`
                       }
                       className={`block w-full rounded py-1 transition-colors ${tone} ${
                         isToday ? 'ring-2 ring-primary-500' : ''

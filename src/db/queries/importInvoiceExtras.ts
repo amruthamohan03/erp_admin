@@ -171,13 +171,17 @@ export async function listImportInvoices(
 }
 
 // ---------------------------------------------------------------------------
-// NORMALIZERS (users who can normalise — main filters dept_id = 3)
+// NORMALIZERS (users who can normalise — the Finance department)
+// ---------------------------------------------------------------------------
+/** department_master_t id 3 = FINANCE. Was the string '3' while dept_id was
+ *  varchar; migration 0076 made it a real master id. */
+const FINANCE_DEPT_ID = 3;
 // ---------------------------------------------------------------------------
 export async function normalizers(): Promise<{ id: number; full_name: string }[]> {
   const rows = await db
     .select({ id: usersT.id, full_name: usersT.fullName })
     .from(usersT)
-    .where(and(eq(usersT.deptId, '3'), eq(usersT.display, 'Y')))
+    .where(and(eq(usersT.deptId, FINANCE_DEPT_ID), eq(usersT.display, 'Y')))
     .orderBy(usersT.fullName);
   return rows.map((r) => ({ id: r.id, full_name: r.full_name ?? `User #${r.id}` }));
 }

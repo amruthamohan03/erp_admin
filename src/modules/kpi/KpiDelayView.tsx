@@ -9,6 +9,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Search, X, FileInput, ChartBar, AlertOctagon, CircleCheck, Route, CalendarOff, Users, Download } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { formatDate } from '@/lib/formatDate';
 
 interface StageKpi {
   key: string; label: string; short: string; from: string; to: string; threshold: number; priority: boolean; color: string; icon: string;
@@ -398,8 +399,9 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                             <td><span className="font-mono font-bold text-blue-600 dark:text-blue-400">{String(r.mca_ref ?? '—')}</span></td>
                             <td className="font-semibold">{String(r.client_short ?? '—')}</td>
                             <td><span className="rounded bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 text-[10px] font-bold">{String(r.clearance_name ?? '—')}</span></td>
-                            <td className="font-mono">{String(r.stage_from_date ?? '—')}</td>
-                            <td className="font-mono">{pending ? <span className="text-amber-600 dark:text-amber-400 italic">{today} →</span> : String(r.stage_to_date ?? '—')}</td>
+                            {/* §4.19 — these two printed the raw ISO the query returns. */}
+                            <td className="font-mono">{formatDate(r.stage_from_date as string | null)}</td>
+                            <td className="font-mono">{pending ? <span className="text-amber-600 dark:text-amber-400 italic">{formatDate(today)} →</span> : formatDate(r.stage_to_date as string | null)}</td>
                             <td className="text-center font-mono">{r.total_days != null ? `${r.total_days}d` : '—'}</td>
                             <td className="text-center font-mono font-bold" style={{ color: st === 'Delayed' ? '#e11d48' : st === 'On Time' ? '#059669' : '#94a3b8' }}>{r.days_taken != null ? `${d1(r.days_taken as number)}d` : '—'}</td>
                             <td className="text-center font-mono font-bold text-rose-600 dark:text-rose-400">{dd && dd > 0 ? `+${dd}d` : '0d'}</td>

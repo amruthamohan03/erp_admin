@@ -17,6 +17,7 @@ import {
 import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { formatDate } from '@/lib/formatDate';
 
 /**
  * An export file that still names a seal being released, as reported by
@@ -341,7 +342,8 @@ export default function SealBatchDetailPage() {
                   {batch.sub_office_code ?? '—'}
                 </dd>
                 <dt className="text-muted-foreground">Purchase date</dt>
-                <dd className="text-foreground">{batch.purchase_date ?? '—'}</dd>
+                {/* §4.19 — was printing the stored ISO. */}
+                <dd className="text-foreground">{formatDate(batch.purchase_date)}</dd>
                 <dt className="text-muted-foreground">Total amount</dt>
                 <dd className="text-foreground font-mono">
                   {batch.total_amount ?? '0'}

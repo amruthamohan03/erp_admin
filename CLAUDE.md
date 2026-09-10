@@ -342,6 +342,36 @@ The one sanctioned exception is a **calendar tile** that stacks the day over an 
 
 **Filenames are not display.** An export or a generated document names itself with the sortable `YYYYMMDD` form (`src/lib/csv.ts`, `src/lib/xlsx.ts`) so a directory listing sorts chronologically. That is not a date a user reads *in the app*, and it stays as it is.
 
+**"Display" is wider than a page of the app.** The rule follows the *reader*, not the file the code lives in. Every one of these is a date a person reads, so every one of them goes through `formatDate` / `formatDateTime`:
+
+| Surface | Was found doing |
+| --- | --- |
+| A `<DataTable>` column | `{ key: 'exchange_date', header: 'Date' }` with no `render` — prints the stored ISO |
+| A dropdown option label | `` `${ref} (${q.quotation_date})` `` |
+| A definition list / detail panel | `{batch.purchase_date ?? '—'}` |
+| A hand-built `<td>` | `{String(r.stage_from_date ?? '—')}` |
+| An **Excel export cell** | a private `` `${day}/${m}/${y}` `` builder |
+| A **generated PDF / printable HTML** | its own local formatter |
+
+The last two matter most and are the easiest to miss, because they are server-side and nobody looks at them in the browser. A spreadsheet or a PDF leaves the office — it is read by someone with no access to the app to check what `03/04/2026` meant. Both `*Print.ts` and `*Export.ts` builders format through the shared module; the export-invoice and import-invoice builders each carried their own slashed formatter until it was found by sweep.
+
+**A column that omits `render` prints the raw field.** That is the single most common way this rule is broken, and it is invisible to a reviewer reading the column list — the defect is in what is *absent*. Any column whose key names a date needs a `render`.
+
+**Sorting is not a reason to print the ISO.** `<DataTable>` sorts and searches on the underlying field (`dataTableSort.ts` → `cellValue`), not on the rendered cell, so formatting a date column costs nothing in ordering. If a computed cell genuinely needs a different sort key, that is what the column's `value` is for.
+
+**What a date column displays must be typeable into the search box.** `cellText` contributes both forms of a stored date — the ISO the row carries and the `DD-MM-YYYY` the column shows — so typing `30-06-2026` finds the row that displays `30-06-2026`. This is §4.15's pairing applied to dates: showing one string and searching a different one means typing exactly what is on screen returns nothing. Server-side search endpoints owe the same courtesy; a `q` that looks like `DD-MM-YYYY` should reach the date column.
+
+**Sweep for it, don't trust a reading.** The formatter has existed since the twelve local helpers were collapsed, and violations still accumulated — a new column here, a new export builder there. The greps that find them:
+
+```bash
+grep -rn "toLocaleDateString\|toLocaleString\|toDateString" src/   # locale-driven output
+grep -rn "key: '[a-zA-Z_]*\(date\|_at\|expiry\)[a-zA-Z_]*'" src/    # columns — then check each has a render
+grep -rn '\${day}/\${m}/\${y}\|/\${m}/' src/                         # hand-built slashed dates
+grep -rn "const fmtDate\|function fmtDate" src/                      # local helpers — each must delegate
+```
+
+A local `const fmtDate = (v: unknown) => formatDate(v, '')` alias is fine — it is a fallback argument, not a second format. A local helper that *builds* a date string is not.
+
 ### 4.20 Colour comes from tokens, and an action button is coloured by what it produces
 
 **Never hardcode a text, surface or border colour on a Tailwind palette class.** `text-slate-500`, `bg-white`, `border-slate-200` and friends bypass the theme entirely: they are a fixed value that cannot follow light/dark, cannot follow the operator's configured palette, and drift into a washed-out "light black" that is tiring to read. There are zero `text-slate-*` / `bg-white` / `border-slate-*` classes in `src/`, and adding one is a defect. **§4.32 has the full mapping** — including what a semantic status colour must do instead, and the short list of fixed colours that are allowed to stay.
@@ -995,6 +1025,8 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to type an asterisk into a label, or to style a required field's error state by hand → no, use `label.required` and the shared invalid CSS (§4.18).
 - Requests to format a date inline or via `toLocaleDateString()` → no, use `formatDate` (§4.19).
 - Requests to render a user-visible date with slashes, or in any order but day-month-year → no, it is `DD-MM-YYYY` (§4.19).
+- Requests to leave a date column without a `render` "because the value is already a string", or to print a raw ISO in a cell, an option label, a detail panel, an Excel cell or a PDF → no, every date a person reads goes through `formatDate` (§4.19).
+- Requests to keep a date column on the raw ISO so it sorts correctly → no, `<DataTable>` sorts the field, not the rendered cell (§4.19).
 - Requests to hardcode `text-slate-400` / `text-slate-500` or any palette colour for text → no, use `text-foreground` / `text-muted-foreground` (§4.20).
 - Requests to hand-roll an export/print button's colours, or to colour the same action differently on two screens → no, use `btn-pdf` / `btn-excel` / `btn-neutral` (§4.20).
 - Requests to recolour View / Edit / Delete away from black / blue / red, to leave a delete icon grey until hover, or to put a non-destructive action in the delete hue → no, those three hues are reserved (§4.20).
