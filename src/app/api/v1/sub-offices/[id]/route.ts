@@ -22,6 +22,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
     .select({
       id: subOfficeMaster.id,
       sub_office_name: subOfficeMaster.subOfficeName,
+      main_office_id: subOfficeMaster.mainOfficeId,
       display: subOfficeMaster.display,
       created_at: subOfficeMaster.createdAt,
       updated_at: subOfficeMaster.updatedAt,
@@ -49,6 +50,9 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const patch: Partial<SubOfficeMasterInsert> = {};
   if (data.sub_office_name !== undefined)
     patch.subOfficeName = data.sub_office_name;
+  // Present-but-null clears the region; absent leaves it alone. The schema
+  // turns a cleared dropdown ('') into null, so both reach here as null.
+  if (data.main_office_id !== undefined) patch.mainOfficeId = data.main_office_id;
   if (data.display !== undefined) patch.display = data.display;
   if (Object.keys(patch).length === 0) {
     throw new BadRequestError('Nothing to update');

@@ -47,6 +47,44 @@ describe('matchesSearch', () => {
   });
 });
 
+describe('matchesSearch on dates (§4.19)', () => {
+  interface DateRow { holiday_date: string; created_at: string; ref: string }
+  const DATE_COLUMNS: SortableColumn<DateRow>[] = [
+    { key: 'holiday_date' },
+    { key: 'created_at' },
+    { key: 'ref' },
+  ];
+  const row: DateRow = {
+    holiday_date: '2026-06-30',
+    created_at: '2026-01-17T09:30:00Z',
+    ref: '2026-0001',
+  };
+
+  it('matches the DD-MM-YYYY form the column actually displays', () => {
+    expect(matchesSearch(row, DATE_COLUMNS, '30-06-2026')).toBe(true);
+    expect(matchesSearch(row, DATE_COLUMNS, '17-01-2026')).toBe(true);
+  });
+
+  it('still matches the stored ISO', () => {
+    expect(matchesSearch(row, DATE_COLUMNS, '2026-06-30')).toBe(true);
+  });
+
+  it('matches a partial day-month, the way an operator narrows a list', () => {
+    expect(matchesSearch(row, DATE_COLUMNS, '30-06')).toBe(true);
+  });
+
+  it('does not invent a date out of a reference that merely starts with a year', () => {
+    // '2026-0001' is a reference, not a date — it must not gain a reversed twin.
+    expect(matchesSearch(row, DATE_COLUMNS, '0001-2026')).toBe(false);
+    expect(matchesSearch(row, DATE_COLUMNS, '2026-0001')).toBe(true);
+  });
+
+  it('leaves non-dates alone', () => {
+    expect(matchesSearch(rows[1], COLUMNS, 'apple')).toBe(true);
+    expect(matchesSearch(rows[1], COLUMNS, '2026')).toBe(false);
+  });
+});
+
 describe('compareRows', () => {
   const sortBy = (key: string, dir: 'asc' | 'desc') =>
     [...rows].sort((a, b) => compareRows(a, b, COLUMNS, { key, dir }));

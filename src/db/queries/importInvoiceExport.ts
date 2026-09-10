@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { buildXlsx, type XlsxColumn } from '@/lib/xlsx';
+import { formatDate } from '@/lib/formatDate';
 
 export type ExportProfile = 'debit' | 'invoice' | 'full';
 
@@ -16,12 +17,11 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 const r2 = (n: number): number => Math.round(n * 100) / 100;
-const d = (v: unknown): string => {
-  if (!v) return '';
-  const s = String(v).slice(0, 10);
-  const [y, m, day] = s.split('-');
-  return y && m && day ? `${day}/${m}/${y}` : s;
-};
+// §4.19 — the house format, through the one formatter. This was a private
+// DD/MM/YYYY builder: a slashed date is exactly the shape a month-first reader
+// takes for their own convention, so 03/04/2026 left the office on a spreadsheet
+// readable as either 3 April or 4 March, with nothing on the sheet to settle it.
+const d = (v: unknown): string => formatDate(v, '');
 
 // Compress consecutive MCA refs sharing a prefix into "A0001 to A0003".
 function formatMcaRange(refs: string[]): string {

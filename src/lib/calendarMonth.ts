@@ -71,6 +71,26 @@ export function buildMonthGrid(year: number, month: number): CalendarDay[][] {
   return weeks;
 }
 
+/**
+ * How many Saturdays and Sundays a year holds.
+ *
+ * Weekends are non-working days everywhere it counts — `makeWorkingDays` skips
+ * them before it ever looks at the holiday set — so they are not rows in
+ * `drc_holidays_t` and cannot be counted from it. The calendar still has to
+ * state the real total, or "9 holidays in 2026" reads as the year's whole
+ * non-working count when it is a fraction of it.
+ */
+export function weekendDaysInYear(year: number): number {
+  const start = Date.UTC(year, 0, 1);
+  const end = Date.UTC(year + 1, 0, 1);
+  let n = 0;
+  for (let t = start; t < end; t += 86_400_000) {
+    const dow = new Date(t).getUTCDay();
+    if (dow === 0 || dow === 6) n += 1;
+  }
+  return n;
+}
+
 /** Today as `YYYY-MM-DD` in the viewer's own timezone — for the "today" ring. */
 export function todayLocalIso(): string {
   const n = new Date();

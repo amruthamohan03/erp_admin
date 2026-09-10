@@ -5,10 +5,11 @@ import {
   timestamp,
   date,
   numeric,
+  varchar,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { usersT } from './users';
 import { banklistMaster } from './banklistMaster';
 import { currencyMaster } from './currencyMaster';
@@ -43,6 +44,9 @@ export const bankExchangeRate = pgTable(
     bankRate: numeric('bank_rate', { precision: 10, scale: 4 }).default(
       '0.0000',
     ),
+    // §4.27 — deleting a day's rates hides it; the row stays for the invoices
+    // that were quoted against it.
+    display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id, {
       onDelete: 'set null',
     }),
@@ -57,12 +61,12 @@ export const bankExchangeRate = pgTable(
       .notNull(),
   },
   (t) => ({
-    // One rate per (bank, currency, date) — no duplicate entries.
-    uniqueRate: uniqueIndex('uq_bank_exchange_rate_t_bank_currency_date').on(
-      t.bankId,
-      t.currencyId,
-      t.exchangeDate,
-    ),
+    // One LIVE rate per (bank, currency, date). Partial on `display` so a
+    // soft-deleted day frees its slot and can be re-entered (migration 0075) —
+    // an index over every row left the day permanently unusable.
+    uniqueRate: uniqueIndex('uq_bank_exchange_rate_t_bank_currency_date')
+      .on(t.bankId, t.currencyId, t.exchangeDate)
+      .where(sql`${t.display} = 'Y'`),
     dateIdx: index('idx_bank_exchange_rate_t_date').on(t.exchangeDate),
     bankIdx: index('idx_bank_exchange_rate_t_bank').on(t.bankId),
   }),

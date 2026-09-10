@@ -13,6 +13,7 @@ import { Plus, Trash2, Save, RefreshCw, Loader2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { formatDate } from '@/lib/formatDate';
 
 type Kind = 'export' | 'import';
 
@@ -133,7 +134,9 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
     () =>
       (data?.clientQuotations ?? []).map((qq) => ({
         value: String(qq.id),
-        label: `${qq.quotation_ref}${qq.quotation_date ? ` (${qq.quotation_date})` : ''}`,
+        // §4.19 — an option label is a date the operator reads, so it carries
+        // the house format like every other one.
+        label: `${qq.quotation_ref}${qq.quotation_date ? ` (${formatDate(qq.quotation_date)})` : ''}`,
       })),
     [data],
   );

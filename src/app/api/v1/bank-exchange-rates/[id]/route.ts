@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   bankExchangeRate,
@@ -104,9 +104,13 @@ export const DELETE = withErrorHandler(
       throw new BadRequestError('Invalid id');
     }
 
+    // §4.27 — hidden, not destroyed, the same as the board's day-delete. This
+    // route was a real DELETE: the guard has to live on every door, or the bug
+    // simply arrives by the one that was not fixed (§4.37).
     const [row] = await db
-      .delete(bankExchangeRate)
-      .where(eq(bankExchangeRate.id, id))
+      .update(bankExchangeRate)
+      .set({ display: 'N', updatedBy: session.uid, updatedAt: new Date() })
+      .where(and(eq(bankExchangeRate.id, id), eq(bankExchangeRate.display, 'Y')))
       .returning({ id: bankExchangeRate.id });
 
     if (!row) throw new NotFoundError();

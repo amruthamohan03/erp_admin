@@ -142,7 +142,9 @@ const CHILDREN: ChildSpec[] = [
     note: 'TODO(port): perdiem_master_t not on branch.',
   },
   { parent: 'Masters', name: 'Seal', order: 34, url: '/masters/seals' },
-  { parent: 'Masters', name: 'Sub Office', order: 35, url: '/masters/sub-offices' },
+  // Label matches the screen (migration 0078). The URL stays `sub-offices` —
+  // role_menu_mapping_t grants permission on it (§4.7).
+  { parent: 'Masters', name: 'Declaration Office', order: 35, url: '/masters/sub-offices' },
   { parent: 'Masters', name: 'Main Office', order: 36, url: '/masters/main-offices' },
   { parent: 'Masters', name: 'Office Location', order: 37, url: '/masters/office-locations' },
   {

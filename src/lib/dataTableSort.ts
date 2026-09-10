@@ -14,10 +14,29 @@ function cellValue<T>(row: T, col: SortableColumn<T>): string | number | null | 
   return col.value ? col.value(row) : (row as Record<string, unknown>)[col.key] as string | number | null | undefined;
 }
 
-/** The cell as searchable text. Null and undefined are empty, never "null". */
+/**
+ * A stored `YYYY-MM-DD` (optionally with a clock component), which a date column
+ * renders as `DD-MM-YYYY` (§4.19). Anchored, so a reference like `2026-0001`
+ * is not mistaken for one.
+ */
+const STORED_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/;
+
+/**
+ * The cell as searchable text. Null and undefined are empty, never "null".
+ *
+ * A date cell contributes BOTH forms: the ISO the row actually carries, and the
+ * `DD-MM-YYYY` the column puts on screen. Search reads the underlying field
+ * rather than the rendered cell, so without this an operator typing exactly what
+ * the Date column shows them — `30-06-2026` — matched nothing, while the ISO
+ * they never see did. That is the §4.15 pairing applied to dates: whatever a
+ * column displays has to be typeable into the box above it.
+ */
 export function cellText<T>(row: T, col: SortableColumn<T>): string {
   const raw = cellValue(row, col);
-  return raw === null || raw === undefined ? '' : String(raw);
+  if (raw === null || raw === undefined) return '';
+  const text = String(raw);
+  const iso = STORED_DATE.exec(text);
+  return iso ? `${text} ${iso[3]}-${iso[2]}-${iso[1]}` : text;
 }
 
 /** True when any column contains the query, case-insensitively. */

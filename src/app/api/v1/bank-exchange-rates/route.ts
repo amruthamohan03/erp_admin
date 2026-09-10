@@ -33,7 +33,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [];
+  // §4.27 — a soft-deleted rate is off the board and off this list too.
+  const conds: SQL[] = [eq(bankExchangeRate.display, 'Y')];
   if (q.bank_id) conds.push(eq(bankExchangeRate.bankId, q.bank_id));
   if (q.currency_id)
     conds.push(eq(bankExchangeRate.currencyId, q.currency_id));

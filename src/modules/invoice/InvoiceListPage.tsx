@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Edit2, Trash2, CheckCircle2, FileText, Layers, X } from 'lucide-react';
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
+import { formatDate, formatDateTime } from '@/lib/formatDate';
 
 type Kind = 'export' | 'import';
 
@@ -178,7 +179,14 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
           { key: 'client_name', header: 'Client' },
           // Only the export list carries a separate invoice date.
           ...(kind === 'export'
-            ? [{ key: 'invoice_date', header: 'Invoice Date' } as DataTableColumn<Row>]
+            ? [
+                {
+                  key: 'invoice_date',
+                  header: 'Invoice Date',
+                  // §4.19 — was printing the stored ISO.
+                  render: (r: Row) => formatDate(r.invoice_date),
+                } as DataTableColumn<Row>,
+              ]
             : []),
           {
             key: 'total_usd',
@@ -200,7 +208,8 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
               );
             },
           },
-          { key: 'created_at', header: 'Created' },
+          // §4.19 — a timestamp, so DD-MM-YYYY HH:mm.
+          { key: 'created_at', header: 'Created', render: (r: Row) => formatDateTime(r.created_at) },
         ]}
         actions={(r) => ({
           edit: `/${kind}-invoices/${r.id}`,

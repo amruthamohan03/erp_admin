@@ -13,8 +13,12 @@ export interface User {
   updated_at: string;
   profile_image: string | null;
   signature_image: string | null;
-  location_id: string | null;
-  dept_id: string | null;
+  // Master ids since migration 0076 — main_office_master_t and
+  // department_master_t. The `*_name` fields are the list join's labels.
+  location_id: number | null;
+  location_name?: string | null;
+  dept_id: number | null;
+  department_name?: string | null;
 }
 
 export interface Role {

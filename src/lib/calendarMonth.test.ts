@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMonthGrid, MONTH_NAMES, WEEKDAY_HEADINGS } from './calendarMonth';
+import { buildMonthGrid, MONTH_NAMES, WEEKDAY_HEADINGS, weekendDaysInYear } from './calendarMonth';
 
 const flat = (year: number, month: number) => buildMonthGrid(year, month).flat();
 const inMonth = (year: number, month: number) => flat(year, month).filter((d) => d.inMonth);
@@ -73,6 +73,30 @@ describe('buildMonthGrid', () => {
     const weeks = buildMonthGrid(2027, 1);
     expect(weeks[0][0].iso).toBe('2026-12-28');
     expect(weeks[0][0].inMonth).toBe(false);
+  });
+});
+
+describe('weekendDaysInYear', () => {
+  it.each([
+    // A common year is 52 weeks + 1 day, so 104 unless that odd day is a
+    // Saturday or Sunday.
+    [2026, 104], // starts Thu, ends Thu
+    [2027, 104], // starts Fri, ends Fri
+    [2022, 105], // starts Sat, ends Sat — the extra day is a Saturday
+    // A leap year is 52 weeks + 2 days.
+    [2024, 104], // starts Mon, ends Tue
+    [2028, 106], // starts Sat, ends Sun — both odd days are weekend days
+  ])('counts %i correctly', (year, expected) => {
+    expect(weekendDaysInYear(year)).toBe(expected);
+  });
+
+  it('agrees with the month grids it sits beside', () => {
+    for (const year of [2024, 2026, 2028, 2030]) {
+      const fromGrids = Array.from({ length: 12 }, (_, i) => i + 1)
+        .flatMap((m) => buildMonthGrid(year, m).flat())
+        .filter((d) => d.inMonth && d.weekend).length;
+      expect(weekendDaysInYear(year)).toBe(fromGrids);
+    }
   });
 });
 

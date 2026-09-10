@@ -241,14 +241,46 @@
             "exclusiveMinimum": true
           },
           "location_id": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 100
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "dept_id": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 100
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
           }
         },
         "required": [
@@ -288,14 +320,46 @@
             "maxLength": 100
           },
           "location_id": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 100
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "dept_id": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 100
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "display": {
             "type": "string",
@@ -311,6 +375,25 @@
         "properties": {
           "q": {
             "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "all"
+            ],
+            "default": "active"
+          },
+          "location_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "dept_id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
           },
           "page": {
             "type": "integer",
@@ -361,10 +444,18 @@
             "nullable": true
           },
           "location_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "location_name": {
             "type": "string",
             "nullable": true
           },
           "dept_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "department_name": {
             "type": "string",
             "nullable": true
           },
@@ -2038,6 +2129,40 @@
           },
           {
             "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive",
+                "all"
+              ],
+              "default": "active"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "location_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dept_id",
+            "in": "query"
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 1,
               "default": 1
@@ -2110,10 +2235,18 @@
                             "nullable": true
                           },
                           "location_id": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "location_name": {
                             "type": "string",
                             "nullable": true
                           },
                           "dept_id": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "department_name": {
                             "type": "string",
                             "nullable": true
                           },
@@ -2262,14 +2395,46 @@
                     "exclusiveMinimum": true
                   },
                   "location_id": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
                   },
                   "dept_id": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -2333,10 +2498,18 @@
                           "nullable": true
                         },
                         "location_id": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "location_name": {
                           "type": "string",
                           "nullable": true
                         },
                         "dept_id": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "department_name": {
                           "type": "string",
                           "nullable": true
                         },
@@ -2614,10 +2787,18 @@
                           "nullable": true
                         },
                         "location_id": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "location_name": {
                           "type": "string",
                           "nullable": true
                         },
                         "dept_id": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "department_name": {
                           "type": "string",
                           "nullable": true
                         },
@@ -2836,14 +3017,46 @@
                     "maxLength": 100
                   },
                   "location_id": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
                   },
                   "dept_id": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
                   },
                   "display": {
                     "type": "string",
