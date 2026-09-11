@@ -38,9 +38,9 @@ CREATE INDEX IF NOT EXISTS "role_expense_type_mapping_role_idx"
 -- Mapping" (12). The id is left to the sequence: menus.ts seeds by name, not
 -- by id, so there is no id to collide with.
 INSERT INTO "menu_master_t" ("menu_id", "menu_order", "menu_level", "menu_name", "url", "icon", "display")
-SELECT 176, 4, 1, 'Role Expense Type Mapping', '/mapping/roletoexpensetype', '', 'Y'
+SELECT 114, 4, 1, 'Role Expense Type Mapping', '/mapping/roletoexpensetype', '', 'Y'
 WHERE NOT EXISTS (
-  SELECT 1 FROM "menu_master_t" WHERE "menu_name" = 'Role Expense Type Mapping' AND "menu_id" = 176
+  SELECT 1 FROM "menu_master_t" WHERE "menu_name" = 'Role Expense Type Mapping' AND "menu_id" = 114
 );
 --> statement-breakpoint
 
@@ -51,7 +51,7 @@ WHERE NOT EXISTS (
 INSERT INTO "role_menu_mapping_t" ("role_id", "menu_id", "can_view", "can_add", "can_edit", "can_delete", "can_approve")
 SELECT 1, m."id", true, true, true, true, true
 FROM "menu_master_t" m
-WHERE m."menu_name" = 'Role Expense Type Mapping' AND m."menu_id" = 176
+WHERE m."menu_name" = 'Role Expense Type Mapping' AND m."menu_id" = 114
   AND NOT EXISTS (
     SELECT 1 FROM "role_menu_mapping_t" r WHERE r."role_id" = 1 AND r."menu_id" = m."id"
   );
