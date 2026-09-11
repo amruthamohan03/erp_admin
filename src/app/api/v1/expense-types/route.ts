@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { expenseTypeMaster } from '@/db/schema';
+import { expenseTypeMaster, roleExpenseTypeMapping } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import {
   expenseTypeCreateSchema,
@@ -30,6 +30,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     q: searchParams.get('q') ?? undefined,
     flag: searchParams.get('flag') ?? undefined,
     pay_for: searchParams.get('pay_for') ?? undefined,
+    for_role: searchParams.get('for_role') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -45,6 +46,26 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // an explicit `flag` still wins so existing callers are unaffected.
   const flag = q.flag ?? (q.pay_for !== undefined ? PAY_FOR_EXPENSE_FLAG[q.pay_for] : undefined);
   if (flag) conds.push(eq(FLAG_COLUMNS[flag], true));
+
+  // §4.1 — the caller's role may be restricted to a subset of expense types
+  // (role_expense_type_mapping_t, edited under Mapping → Role Expense Type
+  // Mapping). A role with NO rows is unrestricted: an empty mapping table must
+  // not empty every picker in the app, so the narrowing only applies once an
+  // administrator has actually made a choice for that role.
+  if (q.for_role === 'me') {
+    const allowed = await db
+      .select({ id: roleExpenseTypeMapping.expenseTypeId })
+      .from(roleExpenseTypeMapping)
+      .where(
+        and(
+          eq(roleExpenseTypeMapping.roleId, session.role_id),
+          eq(roleExpenseTypeMapping.isAllowed, true),
+        ),
+      );
+    if (allowed.length > 0) {
+      conds.push(inArray(expenseTypeMaster.id, allowed.map((r) => r.id)));
+    }
+  }
   const where = and(...conds);
 
   const [countRow] = await db

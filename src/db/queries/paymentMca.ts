@@ -5,7 +5,7 @@
 //
 // pay_for → tracking table: 0 Import→imports_t, 1 Export→exports_t, 2 Local→locals_t;
 // 3 Other / 4 Pre-Payment carry auto-generated references and skip existence checks.
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { paymentRequest, type McaLine } from '@/db/schema';
 
@@ -52,6 +52,8 @@ export interface McaGridData {
   };
   refs: McaLine[];
   availableRefs: { mca_ref: string }[];
+  /** References withheld from the picker because this expense type already uses them. */
+  consumedRefs: number;
 }
 
 export async function mcaGridData(paymentId: number): Promise<McaGridData | null> {
@@ -88,17 +90,45 @@ export async function mcaGridData(paymentId: number): Promise<McaGridData | null
       editable,
     },
     refs: (row.mca_data ?? []) as McaLine[],
-    availableRefs: await availableRefs(row.client_id, row.pay_for),
+    ...(await (async () => {
+      const picker = await availableRefs(row.client_id, row.pay_for, row.expense_type, paymentId);
+      return { availableRefs: picker.refs, consumedRefs: picker.consumed };
+    })()),
   };
 }
 
-// Reference picker: the client's own tracking references for this pay_for.
+export interface PickerRefs {
+  /** Offerable references — this client's, minus any already spent. */
+  refs: { mca_ref: string }[];
+  /**
+   * How many of the client's references were withheld because another request
+   * already claims them for THIS expense type. Reported rather than silently
+   * dropped: "my file isn't in the list" needs an answer.
+   */
+  consumed: number;
+}
+
+/**
+ * The reference picker's list: this client's tracking references for this
+ * pay_for, minus the ones already spent on this expense type.
+ *
+ * A reference maps ONE-TO-ONE to an expense type — the same file cannot be
+ * claimed twice for the same kind of expense, which is what the duplicate check
+ * enforces on save. Filtering the picker by the same rule means an operator
+ * cannot pick something that would be rejected two clicks later; the save-time
+ * check stays as the real guard, because the list is a snapshot and someone
+ * else may claim a reference in between (§4.37's "guard every door").
+ *
+ * Expense type 25 is exempt, matching the duplicate check.
+ */
 export async function availableRefs(
   clientId: number | null,
   payFor: number | null,
-): Promise<{ mca_ref: string }[]> {
+  expenseType: number | null = null,
+  excludePaymentId: number | null = null,
+): Promise<PickerRefs> {
   const src = sourceFor(payFor);
-  if (!src || !clientId) return [];
+  if (!src || !clientId) return { refs: [], consumed: 0 };
 
   const filters = [
     sql`client_id = ${clientId}`,
@@ -113,7 +143,26 @@ export async function availableRefs(
     FROM ${sql.identifier(src.table)}
     WHERE ${sql.join(filters, sql` AND `)}
     ORDER BY id DESC LIMIT 500`);
-  return (rows as unknown as { rows: { mca_ref: string }[] }).rows;
+  const all = (rows as unknown as { rows: { mca_ref: string }[] }).rows;
+
+  if (all.length === 0 || expenseType == null || expenseType === DUP_EXEMPT_EXPENSE_TYPE) {
+    return { refs: all, consumed: 0 };
+  }
+
+  const spent = await db.execute(sql`
+    SELECT DISTINCT upper(e->>'mca_ref') AS ref
+    FROM ${paymentRequest} pr,
+         jsonb_array_elements(COALESCE(pr.mca_data, '[]'::jsonb)) e
+    WHERE pr.expense_type = ${expenseType}
+      AND pr.display = 'Y'
+      AND pr.id <> ${excludePaymentId ?? -1}
+      AND upper(e->>'mca_ref') IN (${textList(all.map((r) => r.mca_ref.toUpperCase()))})`);
+  const taken = new Set(
+    (spent as unknown as { rows: { ref: string }[] }).rows.map((r) => r.ref),
+  );
+
+  const refs = all.filter((r) => !taken.has(r.mca_ref.toUpperCase()));
+  return { refs, consumed: all.length - refs.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +184,29 @@ export interface ValidateInput {
   paymentId: number | null;
 }
 
+/**
+ * A bound, comma-separated value list for `IN (...)`.
+ *
+ * NOT `= ANY(${array})`. Drizzle expands a JS array in the `sql` tag into a
+ * parameter LIST — `($1, $2)` — which is what `IN` wants and what `ANY` does
+ * not: `ANY` takes a single array-typed parameter, so `ANY(($1))` handed
+ * Postgres the string `TCL-EDCOR26-0001` where an array literal belonged and
+ * every reference check failed with 22P02. Saving any Payment Request whose
+ * references were checked therefore returned a 500.
+ *
+ * Callers must pass a non-empty list: `IN ()` is a syntax error. Both call sites
+ * below return early when there is nothing to check.
+ *
+ * Exported for its regression test, which asserts the compiled SQL — the same
+ * reason `bindColumnValue` is.
+ */
+export function textList(values: readonly string[]): SQL {
+  return sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  );
+}
+
 export async function validateRefs({
   refs,
   payFor,
@@ -153,7 +225,7 @@ export async function validateRefs({
     // Other / Pre-Payment: auto-generated references are always "exists".
     upper.forEach((r) => existsSet.add(r));
   } else {
-    const filters = [sql`upper(${sql.identifier(src.refCol)}) = ANY(${upper})`, sql`display = 'Y'`];
+    const filters = [sql`upper(${sql.identifier(src.refCol)}) IN (${textList(upper)})`, sql`display = 'Y'`];
     if (clientId) filters.push(sql`client_id = ${clientId}`);
     if (src.excludeCancelled) filters.push(sql`(clearing_status IS NULL OR clearing_status <> 7)`);
     const rows = await db.execute(sql`
@@ -173,7 +245,7 @@ export async function validateRefs({
       WHERE pr.expense_type = ${expenseType}
         AND pr.display = 'Y'
         AND pr.id <> ${paymentId ?? -1}
-        AND upper(e->>'mca_ref') = ANY(${upper})`);
+        AND upper(e->>'mca_ref') IN (${textList(upper)})`);
     for (const r of (rows as unknown as { rows: { ref: string; payment_id: number }[] }).rows) {
       dupMap.set(r.ref, r.payment_id);
     }

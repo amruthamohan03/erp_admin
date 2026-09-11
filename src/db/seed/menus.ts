@@ -179,6 +179,7 @@ const CHILDREN: ChildSpec[] = [
     note: 'TODO(port): client_bank_mapping_t not on branch.',
   },
   { parent: 'Mapping', name: 'Dashboard Cards Mapping', order: 3, url: '/mapping/roletodashboardcard' },
+  { parent: 'Mapping', name: 'Role Expense Type Mapping', order: 4, url: '/mapping/roletoexpensetype' },
   { parent: 'Mapping', name: 'Role Menu Mapping', order: 12, url: '/mapping/roletomenu' },
 
   // ── Import License (original menu_id=110) ───────────────────────

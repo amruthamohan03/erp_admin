@@ -4,7 +4,7 @@
 // non-negative; empty ⇒ NULL), recomputes document + clearing status from the
 // same config derives the single-record save uses, and runs as one transaction —
 // any failure rolls the whole batch back (naming the offending row).
-import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   importT,
@@ -237,7 +237,12 @@ export async function applyBulkUpdate(updates: BulkRowUpdate[], uid: number): Pr
     .select(bulkSelect())
     .from(importT)
     .leftJoin(clientMaster, eq(clientMaster.id, importT.clientId))
-    .where(and(eq(importT.display, 'Y'), sql`${importT.id} = ANY(${ids})`));
+    // `inArray`, not `= ANY(${ids})`. Drizzle expands a JS array in the `sql`
+    // tag into a parenthesised parameter LIST, so `ANY(($1))` handed Postgres a
+    // bare `1` where an array literal belonged (22P02) and two ids gave 42809
+    // "requires array on right side" — Bulk Update could not save at all. Same
+    // trap as the payment reference check; see textList in paymentMca.ts.
+    .where(and(eq(importT.display, 'Y'), inArray(importT.id, ids)));
   const byId = new Map(stored.map((r) => [r.id, r]));
 
   const derives = await statusDerives();
