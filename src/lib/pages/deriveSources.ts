@@ -12,8 +12,9 @@
 // names — `license_t` (main `licenses_t`) and `client_master_t` (main `clients_t`);
 // `imports_t`/`exports_t` and the `*_master_t` lookups already match main.
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { usersT } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { buildReference } from '@/db/queries/mcaRefGenerator';
 import { type McaRefTargetKey } from '@/lib/mcaRefFormat';
@@ -105,11 +106,38 @@ const SOURCES: Record<string, DeriveSource> = {
     async resolve() {
       const auth = await getSession().catch(() => null);
       if (!auth) return null;
+
+      // The token carries the login handle, not the person's name or where they
+      // work — it is a session credential, not a profile. A field that holds a
+      // NAME (Payment Request's Requestee is a varchar, not a user FK) wants the
+      // name, and one that holds the operator's own posting (Location,
+      // Department) wants those ids, so the profile row is read here rather than
+      // at each call site that needs a piece of it (§4.10).
+      const [row] = await db
+        .select({
+          full_name: usersT.fullName,
+          location_id: usersT.locationId,
+          dept_id: usersT.deptId,
+        })
+        .from(usersT)
+        .where(eq(usersT.id, auth.uid))
+        .limit(1);
+
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       return {
         user_id: auth.uid,
         username: auth.username,
+        // Falls back to the handle rather than to nothing: a prefilled box the
+        // operator can correct beats an empty required field.
+        full_name: row?.full_name || auth.username,
+        // Null when the user's own record has none. A prefill has nothing to
+        // offer then, and the derive leaves the field empty for the operator to
+        // pick — which is right: guessing a location would put a payment request
+        // against the wrong office, and the field is required so it cannot be
+        // skipped silently (§4.18).
+        location_id: row?.location_id ?? null,
+        dept_id: row?.dept_id ?? null,
         role_id: auth.role_id,
         // ISO, because that is what a date column and <input type="date"> both
         // expect — display formatting happens in the UI (§4.19).

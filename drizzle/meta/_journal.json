@@ -561,6 +561,48 @@
       "when": 1784660519414,
       "tag": "0078_declaration_office_menu_label",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1784660519415,
+      "tag": "0079_payment_requestee_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1784660519416,
+      "tag": "0080_payment_requestee_readonly",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1784660519417,
+      "tag": "0081_payment_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1784660519418,
+      "tag": "0082_role_expense_type_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1784660519419,
+      "tag": "0083_payment_expense_type_role_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1784660519420,
+      "tag": "0084_payment_defaults_location_dept_currency",
+      "breakpoints": true
     }
   ]
 }

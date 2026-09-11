@@ -265,6 +265,14 @@
      neither produces a document nor changes data (Reset filters). */
   .btn-neutral { @apply btn bg-slate-600 text-white shadow-sm hover:bg-slate-700; }
 
+  /* Opens a picker over existing records — the Payment Request grid's "Select
+     references". Not one of action_style_master_t's sixteen: it produces no
+     document, destroys nothing, and is not the screen's primary action, so it
+     has no configured row to read. §4.20 says a genuinely new action gets a
+     class HERE rather than an inlined colour at the call site. A mid-tone
+     emerald reads on either theme's ground unaided (§4.32). */
+  .btn-select { @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700; }
+
   /* Same meanings, unfilled, for tables that use bare glyphs (the master
      screens). Coloured AT REST, not only on hover: an all-grey row of icons that
      reveals which one deletes only once the pointer is on it makes the operator

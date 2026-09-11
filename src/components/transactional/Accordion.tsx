@@ -48,6 +48,11 @@ const COL_CLASS: Record<string, string> = {
   '2-of-5': 'w-full md:w-1/2 lg:w-2/3 xl:w-2/5 px-2',
   '12': 'w-full px-2',
   '6': 'w-full md:w-1/2 px-2',
+  // A quarter. Pairs with '6' to fill a row exactly — the Payment Request's
+  // Motif takes the half, its two document pickers a quarter each, which is the
+  // arrangement the reference app uses. Halves at md so the two documents still
+  // sit side by side once the row has stacked.
+  '3': 'w-full md:w-1/2 xl:w-1/4 px-2',
 };
 
 function colClassFor(props: Record<string, unknown> | null): string {

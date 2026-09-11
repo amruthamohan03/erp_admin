@@ -55,6 +55,12 @@ export const expenseTypeListQuerySchema = z.object({
   // Expense Type picker can scope itself straight from the form value without
   // the config having to know the flag column names.
   pay_for: z.coerce.number().int().min(0).max(4).optional(),
+  // §4.1 — narrow the list to what the CALLER's role may file against, per
+  // role_expense_type_mapping_t. Opt-in (`?for_role=me`) rather than always on,
+  // because this same endpoint backs the Expense Types master screen, where an
+  // administrator must see every row in order to manage it. A role with no
+  // mapping rows is unrestricted and gets the full list.
+  for_role: z.literal('me').optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
