@@ -387,6 +387,7 @@ export default function SealsPage() {
           </span>
         </div>
         <DataTable<SealMasterRow>
+          exportHref={'/api/v1/masters/seals/export'}
           rows={masters}
           rowKey={(m) => m.id}
           searchPlaceholder="Search location, sub office..."

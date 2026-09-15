@@ -44,6 +44,17 @@ export const bankExchangeRate = pgTable(
     bankRate: numeric('bank_rate', { precision: 10, scale: 4 }).default(
       '0.0000',
     ),
+    // The day's comparison, stamped on every row of that day (migration 0086).
+    // Stored rather than derived on read: the difference is measured against the
+    // last published BCC, and that moves when an older day is entered or
+    // corrected. Recomputing would rewrite the number the operator acted on.
+    highestBankId: integer('highest_bank_id').references(() => banklistMaster.id, {
+      onDelete: 'set null',
+    }),
+    highestBankRate: numeric('highest_bank_rate', { precision: 10, scale: 4 }),
+    prevBccRate: numeric('prev_bcc_rate', { precision: 10, scale: 4 }),
+    prevBccDate: date('prev_bcc_date'),
+    rateDifference: numeric('rate_difference', { precision: 10, scale: 4 }),
     // §4.27 — deleting a day's rates hides it; the row stays for the invoices
     // that were quoted against it.
     display: varchar('display', { length: 1 }).notNull().default('Y'),

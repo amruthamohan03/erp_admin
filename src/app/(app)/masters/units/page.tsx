@@ -69,6 +69,7 @@ export default function UnitsPage() {
       </div>
 
       <DataTable<UnitRow>
+        exportHref={`/api/v1/masters/units/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(u) => u.id}

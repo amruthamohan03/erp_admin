@@ -72,6 +72,7 @@ export default function TruckStatusesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/truck-statuses/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

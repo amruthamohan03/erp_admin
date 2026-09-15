@@ -72,6 +72,7 @@ export default function GroupCompaniesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/group-companies/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

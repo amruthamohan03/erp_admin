@@ -14,7 +14,6 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
 
   const patch: Partial<UserInsert> = {};
   if (data.theme_preference !== undefined) patch.themePreference = data.theme_preference;
-  if (data.locale_preference !== undefined) patch.localePreference = data.locale_preference;
   if (data.email_notifications !== undefined)
     patch.emailNotifications = data.email_notifications ? 'Y' : 'N';
   if (data.compact_mode !== undefined)
@@ -30,7 +29,6 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
     .where(eq(usersT.id, session.uid))
     .returning({
       theme_preference: usersT.themePreference,
-      locale_preference: usersT.localePreference,
       email_notifications: usersT.emailNotifications,
       compact_mode: usersT.compactMode,
     });

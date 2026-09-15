@@ -119,3 +119,21 @@ export const bankExchangeRateListQuerySchema = z.object({
 export type BankExchangeRateListQuery = z.infer<
   typeof bankExchangeRateListQuerySchema
 >;
+
+/**
+ * Ask DGI (e-MCF) what the BCC published for a day.
+ *
+ * `force` is what the refresh button sends: a manual click means "go and look
+ * again", so it skips the cache. The automatic lookup that runs when a day opens
+ * with no BCC on file does not, because it fires on every date change and would
+ * otherwise hammer the provider.
+ */
+export const bccRateQuerySchema = z.object({
+  currency: z.string().trim().min(1).max(10).default('USD'),
+  date: isoDate,
+  force: z
+    .union([z.literal('1'), z.literal('0'), z.literal('true'), z.literal('false')])
+    .optional()
+    .transform((v) => v === '1' || v === 'true'),
+});
+export type BccRateQuery = z.infer<typeof bccRateQuerySchema>;

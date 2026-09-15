@@ -7,8 +7,6 @@ import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
 import Toggle from '@/components/ui/Toggle';
 import { Separator } from '@/components/ui/separator';
-import { useTranslate } from '@/components/providers/TranslateProvider';
-import { localeLabels, locales, type Locale } from '@/i18n/config';
 import type { MeProfile } from './SettingsView';
 
 export default function PreferencesTab({
@@ -19,14 +17,12 @@ export default function PreferencesTab({
   onChange: () => Promise<void> | void;
 }) {
   const { theme, setTheme } = useTheme();
-  const { locale: currentLocale, setLocale } = useTranslate();
 
   const [emailNotifs, setEmailNotifs] = React.useState((me.email_notifications ?? 'Y') === 'Y');
   const [compact, setCompact] = React.useState((me.compact_mode ?? 'N') === 'Y');
 
   async function persistPrefs(patch: Partial<{
     theme_preference: 'light' | 'dark' | 'system';
-    locale_preference: Locale;
     email_notifications: boolean;
     compact_mode: boolean;
   }>) {
@@ -44,7 +40,6 @@ export default function PreferencesTab({
     { value: 'system', label: 'System' },
   ];
 
-  const localeOptions = locales.map((lc) => ({ value: lc, label: localeLabels[lc] }));
 
   return (
     <Card>
@@ -64,19 +59,6 @@ export default function PreferencesTab({
                 persistPrefs({ theme_preference: v as 'light' | 'dark' | 'system' });
               }}
               options={themeOptions}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Language</Label>
-            <Combobox
-              value={currentLocale}
-              onChange={(v) => {
-                if (!v) return;
-                const next = v as Locale;
-                setLocale(next);
-                persistPrefs({ locale_preference: next });
-              }}
-              options={localeOptions}
             />
           </div>
         </div>

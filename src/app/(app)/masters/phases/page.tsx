@@ -71,6 +71,7 @@ export default function PhasesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/phases/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

@@ -80,6 +80,7 @@ export default function MainOfficesPage() {
       </div>
 
       <DataTable<MainOfficeRow>
+        exportHref={`/api/v1/masters/main-offices/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(o) => o.id}

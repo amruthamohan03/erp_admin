@@ -70,6 +70,7 @@ export default function ReferersPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/referers/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

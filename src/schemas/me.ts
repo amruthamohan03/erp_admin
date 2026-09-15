@@ -8,7 +8,6 @@ export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;
 
 export const preferencesUpdateSchema = z.object({
   theme_preference: z.enum(['light', 'dark', 'system']).optional(),
-  locale_preference: z.enum(['en', 'fr']).optional(),
   email_notifications: z.boolean().optional(),
   compact_mode: z.boolean().optional(),
 });
@@ -35,7 +34,6 @@ export const profileResponseSchema = z.object({
   signature_image: z.string().nullable(),
   bio: z.string().nullable(),
   theme_preference: z.enum(['light', 'dark', 'system']).nullable(),
-  locale_preference: z.enum(['en', 'fr']).nullable(),
   email_notifications: z.enum(['Y', 'N']).nullable(),
   compact_mode: z.enum(['Y', 'N']).nullable(),
 });

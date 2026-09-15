@@ -70,6 +70,7 @@ export default function ClearancesPage() {
       </div>
 
       <DataTable<ClearanceRow>
+        exportHref={`/api/v1/masters/clearances/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(c) => c.id}

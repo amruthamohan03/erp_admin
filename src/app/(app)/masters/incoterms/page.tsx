@@ -71,6 +71,7 @@ export default function IncotermsPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/incoterms/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

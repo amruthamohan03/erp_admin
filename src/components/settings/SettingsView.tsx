@@ -19,7 +19,6 @@ export interface MeProfile {
   signature_image: string | null;
   bio: string | null;
   theme_preference: 'light' | 'dark' | 'system' | null;
-  locale_preference: 'en' | 'fr' | null;
   email_notifications: 'Y' | 'N' | null;
   compact_mode: 'Y' | 'N' | null;
 }

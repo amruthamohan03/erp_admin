@@ -23,7 +23,6 @@ export const GET = withErrorHandler(async () => {
       signature_image: usersT.signatureImage,
       bio: usersT.bio,
       theme_preference: usersT.themePreference,
-      locale_preference: usersT.localePreference,
       email_notifications: usersT.emailNotifications,
       compact_mode: usersT.compactMode,
     })

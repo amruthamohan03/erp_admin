@@ -129,6 +129,7 @@ export default function DashboardCardsPage() {
       </div>
 
       <DataTable<CardRow>
+        exportHref={'/api/v1/masters/dashboard-cards/export'}
         rows={items}
         loading={loading}
         rowKey={(m) => m.id}

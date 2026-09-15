@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   numeric,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import { usersT } from './users';
 
@@ -35,6 +36,12 @@ export const hscodeMaster = pgTable('hscode_master_t', {
   hscodeDci: numeric('hscode_dci', { precision: 5, scale: 2 }).default('0.00'),
   hscodeDcl: numeric('hscode_dcl', { precision: 5, scale: 2 }).default('0.00'),
   hscodeTpi: numeric('hscode_tpi', { precision: 5, scale: 2 }).default('0.00'),
+  // Whether this tariff line needs an environmental clearance (certificat vert)
+  // before it can be declared. A property of the code, so it lives on the code
+  // rather than in the head of whoever files the declaration (§4.1, 0087).
+  requiresGreenCertificate: boolean('requires_green_certificate')
+    .notNull()
+    .default(false),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

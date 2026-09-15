@@ -72,6 +72,7 @@ export default function FeetContainersPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/feet-containers/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

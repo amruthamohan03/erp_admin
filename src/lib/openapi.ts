@@ -11,7 +11,6 @@ import {
   passwordChangeSchema,
   preferencesUpdateSchema,
   profileUpdateSchema,
-  translateBatchSchema,
   userCreateSchema,
   userUpdateSchema,
   userListQuerySchema,
@@ -37,7 +36,7 @@ import {
 // truth for both runtime validation and the published API contract.
 // Endpoint annotations are added in batches per route group — this slice
 // covers auth (login / me / logout); future slices will cover users,
-// menus, roles, dashboard-cards, me/*, mappings, translate.
+// menus, roles, dashboard-cards, me/*, mappings.
 
 // Mutates ZodType.prototype so registry.register() can attach refIds via
 // .openapi(). Safe to call repeatedly — the lib no-ops a second extension.
@@ -114,7 +113,6 @@ function buildRegistry(): OpenAPIRegistry {
   registry.register('PasswordChangeInput', passwordChangeSchema);
   registry.register('PreferencesUpdateInput', preferencesUpdateSchema);
   registry.register('ProfileUpdateInput', profileUpdateSchema);
-  registry.register('TranslateBatchInput', translateBatchSchema);
   registry.register('UserCreateInput', userCreateSchema);
   registry.register('UserUpdateInput', userUpdateSchema);
   registry.register('UserListQuery', userListQuerySchema);
@@ -607,7 +605,6 @@ function buildRegistry(): OpenAPIRegistry {
         'Updated preferences',
         z.object({
           theme_preference: z.enum(['light', 'dark', 'system']).nullable(),
-          locale_preference: z.enum(['en', 'fr']).nullable(),
           email_notifications: z.enum(['Y', 'N']).nullable(),
           compact_mode: z.enum(['Y', 'N']).nullable(),
         }),
@@ -707,29 +704,6 @@ function buildRegistry(): OpenAPIRegistry {
     responses: {
       200: jsonOk('Signature cleared', z.object({ signature_image: z.null() })),
       401: jsonError('Unauthorized'),
-    },
-  });
-
-  // --- Translate endpoint -----------------------------------------------
-
-  registry.registerPath({
-    method: 'post',
-    path: '/translate',
-    summary: 'Batch-translate up to 200 strings via the configured provider',
-    tags: ['translate'],
-    request: {
-      body: {
-        required: true,
-        content: { 'application/json': { schema: translateBatchSchema } },
-      },
-    },
-    responses: {
-      200: jsonOk(
-        'Per-input translations (parallel to the input array)',
-        z.object({ translations: z.array(z.string()) }),
-      ),
-      400: jsonError('Unsupported target locale'),
-      422: jsonError('Invalid input'),
     },
   });
 

@@ -71,6 +71,7 @@ export default function GoodsTypesPage() {
       </div>
 
       <DataTable<GoodsTypeRow>
+        exportHref={`/api/v1/masters/goods-types/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(g) => g.id}

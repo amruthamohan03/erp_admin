@@ -7,7 +7,6 @@ export * from './mca-ref-formats';
 
 export * from './auth';
 export * from './me';
-export * from './translate';
 export * from './users';
 export * from './menus';
 export * from './roles';

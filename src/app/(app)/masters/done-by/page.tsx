@@ -73,6 +73,7 @@ export default function DoneByPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/done-by/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

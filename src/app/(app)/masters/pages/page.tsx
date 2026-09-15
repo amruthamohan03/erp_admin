@@ -113,6 +113,7 @@ function MasterPagesList() {
       )}
 
       <DataTable<MasterPage>
+        exportHref={'/api/v1/masters/master-pages/export'}
         rows={items}
         loading={loading}
         rowKey={(i) => i.id}

@@ -69,6 +69,7 @@ export default function TransportModesPage() {
       </div>
 
       <DataTable<TransportModeRow>
+        exportHref={`/api/v1/masters/transport-modes/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(t) => t.id}

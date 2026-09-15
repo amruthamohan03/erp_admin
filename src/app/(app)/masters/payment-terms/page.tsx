@@ -63,6 +63,7 @@ export default function PaymentTermsPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/payment-terms/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

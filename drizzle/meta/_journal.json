@@ -603,6 +603,27 @@
       "when": 1784660519420,
       "tag": "0084_payment_defaults_location_dept_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1784660519421,
+      "tag": "0085_goods_short_name_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1784660519422,
+      "tag": "0086_bank_exchange_rate_highest_prev_bcc",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1784660519423,
+      "tag": "0087_hscode_green_certificate",
+      "breakpoints": true
     }
   ]
 }

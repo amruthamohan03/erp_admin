@@ -85,6 +85,7 @@ export default function MenuPage() {
       </div>
 
       <DataTable<MenuRow>
+        exportHref={'/api/v1/masters/menus/export'}
         rows={items}
         loading={loading}
         rowKey={(m) => m.id}

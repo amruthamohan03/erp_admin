@@ -69,6 +69,7 @@ export * from './expenseTypeMaster';
 export * from './hscodeMaster';
 export * from './banklistMaster';
 export * from './bankExchangeRate';
+export * from './dgiCurrencyRate';
 export * from './phaseMaster';
 export * from './incotermMaster';
 export * from './groupCompanyMaster';

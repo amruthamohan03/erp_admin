@@ -38,6 +38,10 @@ export const usersT = pgTable('users_t', {
   signatureImage: varchar('signature_image', { length: 255 }),
   bio: text('bio'),
   themePreference: varchar('theme_preference', { length: 20 }),
+  // Vestigial. The machine-translation layer this fed was removed; nothing reads
+  // or writes it any more. The column is kept rather than dropped because losing
+  // a column is irreversible and this one costs nothing — drop it in its own
+  // migration once you are sure no report or export still selects it (§7.2).
   localePreference: varchar('locale_preference', { length: 10 }),
   emailNotifications: varchar('email_notifications', { length: 1 }).default('Y'),
   compactMode: varchar('compact_mode', { length: 1 }).default('N'),
