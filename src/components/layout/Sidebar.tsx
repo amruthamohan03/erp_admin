@@ -8,8 +8,8 @@ import BrandMark from '@/components/ui/BrandMark';
 import clsx from 'clsx';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/components/layout/SidebarProvider';
+import { useMenus } from '@/components/layout/MenuProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
-import type { MenuTreeNode } from '@/types/menu';
 
 // Convert "menu/index"-style URLs into "/menu" Next.js routes.
 // Adjust this if your routing scheme differs.
@@ -29,22 +29,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const branding = useBranding();
   const { mobileOpen, closeMobile, collapsed, setCollapsed, rail } = useSidebar();
-  const [menus, setMenus] = useState<MenuTreeNode[]>([]);
+  // Shared with DocumentTitle through MenuProvider — one fetch for the shell.
+  const { menus, loading } = useMenus();
   // Accordion, not a set: exactly one main menu is expanded at a time. With a long
   // menu tree, several open groups push the active submenu off-screen and the user
   // loses the sense of where they are.
   const [openGroup, setOpenGroup] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/v1/menus')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setMenus(j.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
 
   // Auto-open the group containing the active route on first load / route change.
   const activeParentId = useMemo(() => {

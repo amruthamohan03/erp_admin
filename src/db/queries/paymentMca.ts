@@ -22,17 +22,30 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 interface TrackingSource {
   table: 'imports_t' | 'exports_t' | 'locals_t';
   refCol: 'mca_ref' | 'mca_lt_reference';
-  excludeCancelled: boolean; // imports exclude clearing_status = 7
 }
 
+/**
+ * A CANCELLED file is still payable, and that is the point of cancelling it.
+ *
+ * Imports used to be filtered with `clearing_status <> 7` (CANCELLED), so a
+ * cancelled consignment vanished from the Payment Request picker entirely. That
+ * is backwards: work was done, charges were incurred, and the cancellation is
+ * precisely the moment somebody needs to raise a request against it. Exports
+ * never had the filter, so the two sides of the business behaved differently on
+ * the same question.
+ *
+ * Nothing replaces the filter — cancelled files are simply offered like any
+ * other. The one-to-one expense-type rule and the duplicate check still apply,
+ * so a cancelled file cannot be claimed twice.
+ */
 function sourceFor(payFor: number | null): TrackingSource | null {
   switch (payFor) {
     case 0:
-      return { table: 'imports_t', refCol: 'mca_ref', excludeCancelled: true };
+      return { table: 'imports_t', refCol: 'mca_ref' };
     case 1:
-      return { table: 'exports_t', refCol: 'mca_ref', excludeCancelled: false };
+      return { table: 'exports_t', refCol: 'mca_ref' };
     case 2:
-      return { table: 'locals_t', refCol: 'mca_lt_reference', excludeCancelled: false };
+      return { table: 'locals_t', refCol: 'mca_lt_reference' };
     default:
       return null; // 3 Other / 4 Pre-Payment → no tracking table
   }
@@ -136,7 +149,6 @@ export async function availableRefs(
     sql`${sql.identifier(src.refCol)} IS NOT NULL`,
     sql`${sql.identifier(src.refCol)} <> ''`,
   ];
-  if (src.excludeCancelled) filters.push(sql`(clearing_status IS NULL OR clearing_status <> 7)`);
 
   const rows = await db.execute(sql`
     SELECT ${sql.identifier(src.refCol)} AS mca_ref
@@ -227,8 +239,7 @@ export async function validateRefs({
   } else {
     const filters = [sql`upper(${sql.identifier(src.refCol)}) IN (${textList(upper)})`, sql`display = 'Y'`];
     if (clientId) filters.push(sql`client_id = ${clientId}`);
-    if (src.excludeCancelled) filters.push(sql`(clearing_status IS NULL OR clearing_status <> 7)`);
-    const rows = await db.execute(sql`
+      const rows = await db.execute(sql`
       SELECT DISTINCT upper(${sql.identifier(src.refCol)}) AS ref
       FROM ${sql.identifier(src.table)}
       WHERE ${sql.join(filters, sql` AND `)}`);

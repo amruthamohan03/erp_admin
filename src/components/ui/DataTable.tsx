@@ -2,11 +2,20 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowUp, ChevronsUpDown, FileSpreadsheet, Search } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ArrowDown, ArrowUp, ChevronsUpDown, FileSpreadsheet, FilterX, ListFilter, Search } from 'lucide-react';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import ActionIcon from '@/components/ui/ActionIcon';
 import { cellText, compareRows, matchesSearch } from '@/lib/dataTableSort';
+import ColumnChooser from '@/components/ui/ColumnChooser';
+import useColumnLayout from '@/lib/hooks/useColumnLayout';
+import {
+  activeFilterCount,
+  applyLayout,
+  matchesColumnFilters,
+  type ColumnFilters,
+} from '@/lib/dataTableColumns';
 
 // §4.25 — the one table every list screen renders.
 //
@@ -82,6 +91,24 @@ interface DataTableProps<T> {
   serial?: boolean;
   title?: ReactNode;
   server?: DataTableServerMode;
+  /**
+   * Where this table's saved column layout lives. Defaults to the route, which
+   * is unique per screen and means no call site has to pass anything — only a
+   * page rendering TWO tables needs to distinguish them.
+   */
+  tableId?: string;
+  /** Set false for a table whose columns are not worth rearranging (rare). */
+  customisableColumns?: boolean;
+  /**
+   * Per-column filter row. On by default in client mode.
+   *
+   * In SERVER mode it is off unless the caller wires `onColumnFiltersChange`,
+   * for the same reason sorting is: this component only holds one page of rows,
+   * so filtering them here would narrow the page and silently claim to have
+   * narrowed the table. A control that lies is worse than one that is absent.
+   */
+  columnFilters?: boolean;
+  onColumnFiltersChange?: (filters: ColumnFilters) => void;
 }
 
 const ALIGN = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
@@ -102,11 +129,33 @@ export default function DataTable<T>({
   serial = true,
   title,
   server,
+  tableId,
+  customisableColumns = true,
+  columnFilters = true,
+  onColumnFiltersChange,
 }: DataTableProps<T>) {
   const [clientSearch, setClientSearch] = useState('');
   const [clientSort, setClientSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
+  const [filterValues, setFilterValues] = useState<ColumnFilters>({});
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
 
   const isServer = !!server;
+
+  // §4.25 — which columns show, in what order. Keyed by route unless the caller
+  // named the table, so every existing screen gets this without a code change.
+  const pathname = usePathname();
+  const layoutKey = tableId ?? pathname ?? 'default';
+  const { layout, setLayout, reset, ready, customised } = useColumnLayout(layoutKey);
+
+  // The declared columns until the saved view has been read — the server rendered
+  // those, and swapping them mid-hydration is the mismatch `ready` exists to avoid.
+  const visibleColumns = useMemo(
+    () => (ready ? applyLayout(columns, layout) : columns),
+    [ready, columns, layout],
+  );
+
+  // A filter row that cannot filter is not offered (see the prop's note).
+  const canFilterColumns = columnFilters && (!isServer || !!onColumnFiltersChange);
   const search = isServer ? server.search : clientSearch;
   const sort = isServer ? (server.sort ?? null) : clientSort;
 
@@ -114,12 +163,18 @@ export default function DataTable<T>({
   // the endpoint has already done both.
   const prepared = useMemo(() => {
     if (isServer) return rows;
-    const filtered = clientSearch.trim()
+    let filtered = clientSearch.trim()
       ? rows.filter((row) => matchesSearch(row, columns, clientSearch))
       : rows;
+    // Column filters narrow what the global search left, and are matched against
+    // the VISIBLE columns only — a hidden column is not something the operator
+    // can see a box for, so it must not be silently narrowing their list.
+    if (activeFilterCount(filterValues) > 0) {
+      filtered = filtered.filter((row) => matchesColumnFilters(row, visibleColumns, filterValues));
+    }
     if (!clientSort) return filtered;
     return [...filtered].sort((a, b) => compareRows(a, b, columns, clientSort));
-  }, [isServer, rows, columns, clientSearch, clientSort]);
+  }, [isServer, rows, columns, visibleColumns, clientSearch, clientSort, filterValues]);
 
   const paged = usePagedList(prepared);
 
@@ -174,9 +229,32 @@ export default function DataTable<T>({
   // it gives a control that silently does nothing.
   const canSort = (c: DataTableColumn<T>) => !!c.sortable && (!isServer || !!server.onSortChange);
 
+  function setColumnFilter(key: string, value: string) {
+    const next = { ...filterValues, [key]: value };
+    setFilterValues(next);
+    if (isServer) onColumnFiltersChange?.(next);
+    else paged.resetPage(); // a fresh filter starts on page 1 (§4.9)
+  }
+
+  function clearColumnFilters() {
+    setFilterValues({});
+    if (isServer) onColumnFiltersChange?.({});
+    else paged.resetPage();
+  }
+
   const hasActions = !!actions;
-  const colCount = columns.length + (serial ? 1 : 0) + (hasActions ? 1 : 0);
-  const showToolbar = !!(title || toolbar || exportHref || onExport || searchable || filters);
+  const colCount = visibleColumns.length + (serial ? 1 : 0) + (hasActions ? 1 : 0);
+  const activeFilters = activeFilterCount(filterValues);
+  const showToolbar = !!(
+    title ||
+    toolbar ||
+    exportHref ||
+    onExport ||
+    searchable ||
+    filters ||
+    canFilterColumns ||
+    customisableColumns
+  );
 
   return (
     <div className="card">
@@ -199,6 +277,32 @@ export default function DataTable<T>({
             {filters}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canFilterColumns && (
+              <button
+                type="button"
+                onClick={() => setFilterRowOpen((v) => !v)}
+                aria-expanded={filterRowOpen}
+                className="btn-neutral btn-sm"
+                title="Filter each column"
+              >
+                <ListFilter className="h-4 w-4" />
+                Filter
+                {activeFilters > 0 && (
+                  <span className="ms-1 rounded-full bg-primary-600 px-1.5 text-[10px] font-semibold text-white">
+                    {activeFilters}
+                  </span>
+                )}
+              </button>
+            )}
+            {customisableColumns && (
+              <ColumnChooser
+                columns={columns}
+                layout={layout}
+                onChange={setLayout}
+                onReset={reset}
+                customised={customised}
+              />
+            )}
             {exportHref ? (
               <a href={exportHref} className="btn-excel btn-sm" title="Download as Excel">
                 <FileSpreadsheet className="h-4 w-4" /> Export
@@ -218,7 +322,7 @@ export default function DataTable<T>({
           <thead>
             <tr>
               {serial && <th className="w-16">#</th>}
-              {columns.map((c) => {
+              {visibleColumns.map((c) => {
                 const active = sort?.key === c.key;
                 return (
                   <th
@@ -251,6 +355,43 @@ export default function DataTable<T>({
               })}
               {hasActions && <th className="w-32 text-right">Actions</th>}
             </tr>
+
+            {/* One box per column, under its own header — an Excel autofilter
+                row. Only rendered on request, because a permanently-present row
+                of empty inputs is a second header competing with the real one. */}
+            {canFilterColumns && filterRowOpen && (
+              <tr className="bg-muted/30">
+                {serial && (
+                  <th className="p-1">
+                    <button
+                      type="button"
+                      onClick={clearColumnFilters}
+                      disabled={activeFilters === 0}
+                      title="Clear every column filter"
+                      aria-label="Clear every column filter"
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                    >
+                      <FilterX className="h-4 w-4" />
+                    </button>
+                  </th>
+                )}
+                {visibleColumns.map((c) => {
+                  const label = typeof c.header === 'string' ? c.header : c.key;
+                  return (
+                    <th key={c.key} className="p-1">
+                      <input
+                        className="input h-8 w-full min-w-0 text-xs font-normal"
+                        placeholder="Filter…"
+                        aria-label={`Filter by ${label}`}
+                        value={filterValues[c.key] ?? ''}
+                        onChange={(e) => setColumnFilter(c.key, e.target.value)}
+                      />
+                    </th>
+                  );
+                })}
+                {hasActions && <th className="p-1" />}
+              </tr>
+            )}
           </thead>
           <tbody>
             {/* Skeleton rows rather than one "Loading…" cell, so the table keeps
@@ -285,7 +426,7 @@ export default function DataTable<T>({
                         {view.startIndex + idx + 1}
                       </td>
                     )}
-                    {columns.map((c) => (
+                    {visibleColumns.map((c) => (
                       <td
                         key={c.key}
                         className={[ALIGN[c.align ?? 'left'], c.className ?? ''].join(' ').trim()}

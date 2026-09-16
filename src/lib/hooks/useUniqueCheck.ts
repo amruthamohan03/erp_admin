@@ -27,6 +27,13 @@ export interface UseUniqueCheckArgs {
    * the check stays in `idle` rather than firing an invalid request.
    */
   scopeId?: number | null;
+  /**
+   * Which column to check, for a master that constrains more than one.
+   * Omitted means the resource's main name column, which is what nearly
+   * every screen wants — Type of Goods is the exception, constraining both
+   * its Type and its Short Name.
+   */
+  field?: string;
   /** Minimum trimmed length before a check fires (default 1). */
   minLength?: number;
   /** Debounce in ms (default 350). */
@@ -43,6 +50,7 @@ export function useUniqueCheck({
   value,
   excludeId,
   scopeId,
+  field,
   minLength = 1,
   debounceMs = 350,
 }: UseUniqueCheckArgs): UseUniqueCheckResult {
@@ -71,6 +79,7 @@ export function useUniqueCheck({
         const params = new URLSearchParams({ name: trimmed });
         if (excludeId != null) params.set('exclude_id', String(excludeId));
         if (scopeId != null) params.set('scope_id', String(scopeId));
+        if (field) params.set('field', field);
         const res = await fetch(
           `/api/v1/uniqueness/${resource}?${params.toString()}`,
           { signal: controller.signal },
@@ -98,7 +107,7 @@ export function useUniqueCheck({
     return () => {
       clearTimeout(handle);
     };
-  }, [resource, value, excludeId, scopeId, minLength, debounceMs]);
+  }, [resource, value, excludeId, scopeId, field, minLength, debounceMs]);
 
   return { status, message };
 }

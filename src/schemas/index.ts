@@ -14,6 +14,8 @@ export * from './dashboard-cards';
 export * from './role-menu-mapping';
 export * from './role-dashboard-card-mapping';
 export * from './role-expense-type-mapping';
+export * from './client-invoice-bank-mapping';
+export * from './cancellation-reasons';
 export * from './tracking';
 export * from './fiche-de-calcul';
 export * from './form-field-grants';

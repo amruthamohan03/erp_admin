@@ -148,17 +148,41 @@ function GoodsTypeFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const checkValue = isEdit && type === goodsType?.goods_type ? '' : type;
+  // Both columns are unique (0091 Type, 0092 Short Name), so both are checked as
+  // the operator types. Checking only one meant a live badge on that field and a
+  // save-time rejection on the other — the form appearing to approve a value the
+  // database was about to refuse.
+  //
+  // An unchanged value is not re-checked: it would collide with the row being
+  // edited and report itself as taken.
+  const typeCheckValue = isEdit && type === goodsType?.goods_type ? '' : type;
   const { status, message } = useUniqueCheck({
     resource: 'goods-types',
-    value: checkValue,
+    field: 'goods_type',
+    value: typeCheckValue,
+    excludeId: goodsType?.id ?? null,
+  });
+
+  const shortCheckValue =
+    isEdit && shortName === goodsType?.goods_short_name ? '' : shortName;
+  const { status: shortStatus, message: shortMessage } = useUniqueCheck({
+    resource: 'goods-types',
+    field: 'short_name',
+    value: shortCheckValue,
     excludeId: goodsType?.id ?? null,
   });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // §4.23 — name the field and the value. "Already exists" left the operator
+    // to work out which of the two inputs it meant, and now there are two that
+    // can collide.
     if (status === 'taken') {
-      setError('Already exists');
+      setError(`Type “${type.trim()}” already exists. Enter a different one.`);
+      return;
+    }
+    if (shortStatus === 'taken') {
+      setError(`Short Name “${shortName.trim()}” is already in use. Enter a different one.`);
       return;
     }
     setSaving(true);
@@ -228,6 +252,7 @@ function GoodsTypeFormModal({
               required
               maxLength={20}
             />
+            <UniquenessIndicator status={shortStatus} message={shortMessage} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
@@ -235,7 +260,7 @@ function GoodsTypeFormModal({
             </button>
             <button
               type="submit"
-              disabled={saving || status === 'taken'}
+              disabled={saving || status === 'taken' || shortStatus === 'taken'}
               className="btn-primary"
             >
               {saving ? 'Saving...' : 'Save'}

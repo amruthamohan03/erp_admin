@@ -35,13 +35,40 @@ export const EFFECTIVE_STATUS = sql<string>`CASE WHEN ${IS_EXPIRED} THEN 'EXPIRE
 /** ACTIVE and still in date — what "Issued" is meant to count. */
 export const IS_LIVE: SQL = sql`(${licenseT.status} = 'ACTIVE' AND NOT ${IS_EXPIRED})`;
 
+/** How long before expiry a licence starts warning. One place, so the card, the
+ *  list filter and the export's orange rows cannot disagree about "soon". */
+export const EXPIRING_WINDOW_DAYS = 30;
+
+export const IS_EXPIRING: SQL = sql`(
+  ${licenseT.status} = 'ACTIVE'
+  AND ${licenseT.licenseExpiryDate} IS NOT NULL
+  AND ${licenseT.licenseExpiryDate} BETWEEN current_date
+      AND current_date + (${EXPIRING_WINDOW_DAYS} || ' days')::interval
+)`;
+
+/**
+ * The card buckets.
+ *
+ * These are the ADMINISTRATIVE states an operator sets (ANNULATED, MODIFIED,
+ * PROROGATED) plus the two DERIVED ones that are a date passing rather than a
+ * decision (expired, expiring).
+ *
+ * The four they replaced were misnamed rather than merely unwanted, which is
+ * worth recording because the names were actively misleading:
+ *   * `issued`    counted ACTIVE-and-in-date — that is "active", not "issued";
+ *   * `approved`  counted MODIFIED — nothing to do with approval;
+ *   * `cancelled` counted ANNULATED — the French term the rest of the screen
+ *                 uses, so two words for one state;
+ *   * `pending`   counted INACTIVE, a draft state the cards no longer surface.
+ */
 export type LicenseCardKey =
+  | 'total'
   | 'expired'
-  | 'issued'
-  | 'approved'
-  | 'pending'
-  | 'cancelled'
-  | 'expiring_soon';
+  | 'expiring'
+  | 'active'
+  | 'annulated'
+  | 'modified'
+  | 'prorogated';
 
 /**
  * The predicate behind each dashboard card. Clicking a card filters the list to
@@ -52,26 +79,82 @@ export function licenseCardCondition(card: string): SQL | undefined {
   switch (card) {
     case 'expired':
       return IS_EXPIRED;
-    // Excludes the expired ones. Counting them as Issued was the same bug the
-    // badge had: "live licences" that had lapsed months ago.
-    case 'issued':
+    // Excludes the expired ones — a licence that lapsed months ago is not
+    // "active", whatever its stored status still says.
+    case 'active':
       return IS_LIVE;
-    case 'approved':
-      return sql`${licenseT.status} = 'MODIFIED'`;
-    case 'pending':
-      return sql`${licenseT.status} = 'INACTIVE'`;
-    case 'cancelled':
-      return sql`${licenseT.status} = 'ANNULATED'`;
     // Still in date, but not for long — disjoint from `expired` by construction.
-    case 'expiring_soon':
-      return sql`(
-        ${licenseT.status} = 'ACTIVE'
-        AND ${licenseT.licenseExpiryDate} IS NOT NULL
-        AND ${licenseT.licenseExpiryDate} BETWEEN current_date AND current_date + interval '30 days'
-      )`;
+    case 'expiring':
+      return IS_EXPIRING;
+    case 'annulated':
+      return sql`${licenseT.status} = 'ANNULATED'`;
+    case 'modified':
+      return sql`${licenseT.status} = 'MODIFIED'`;
+    case 'prorogated':
+      return sql`${licenseT.status} = 'PROROGATED'`;
+    // 'total' adds nothing: every live licence counts, so the card is the
+    // unfiltered list and must not narrow it.
     default:
       return undefined;
   }
+}
+
+/**
+ * What the badge would say for a raw row — the JS twin of EFFECTIVE_STATUS.
+ *
+ * Needed wherever a licence is rendered outside a query that could compute it in
+ * SQL: the Excel export selects plain columns, and printing the stored ACTIVE on
+ * a licence that lapsed last month would contradict the red the same row is
+ * shaded.
+ */
+export function effectiveStatusOf(raw: Record<string, unknown>): string {
+  const status = String(raw.status ?? '').toUpperCase();
+  if (status !== 'ACTIVE') return status;
+  const expiry = raw.license_expiry_date;
+  if (expiry === null || expiry === undefined || expiry === '') return status;
+  const day = expiry instanceof Date ? expiry : new Date(String(expiry));
+  if (Number.isNaN(day.getTime())) return status;
+  return daysUntil(day) < 0 ? 'EXPIRED' : status;
+}
+
+/** Whole calendar days from today to `day`; negative once it has passed. */
+function daysUntil(day: Date): number {
+  const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((startOfDay(day) - startOfDay(new Date())) / 86_400_000);
+}
+
+/**
+ * A licence's traffic-light state, in JavaScript, over a raw database row.
+ *
+ * The JS twin of IS_EXPIRED / IS_EXPIRING / IS_LIVE above, and it lives beside
+ * them on purpose: the Excel export paints its rows with this while the screen
+ * colours its badges from the SQL, and "expiring" has to mean the same 30 days
+ * in both. Two definitions in two files is how a sheet ends up orange on rows
+ * the screen calls green.
+ *
+ * Returns null for a licence with no state worth flagging — an INACTIVE draft
+ * or a licence with no expiry date is not good news or bad news, and painting
+ * every row would leave nothing standing out.
+ */
+export function licenseRowTone(
+  raw: Record<string, unknown>,
+): 'danger' | 'warning' | 'success' | null {
+  const status = String(raw.status ?? '').toUpperCase();
+  if (status === 'ANNULATED') return 'danger';
+  if (status !== 'ACTIVE') return null;
+
+  const expiry = raw.license_expiry_date;
+  if (expiry === null || expiry === undefined || expiry === '') return 'success';
+
+  // Compared as calendar days, not instants: a `date` column has no time, and
+  // a licence expiring today is not expired (the SQL uses `< current_date`).
+  const day = expiry instanceof Date ? expiry : new Date(String(expiry));
+  if (Number.isNaN(day.getTime())) return 'success';
+
+  const daysLeft = daysUntil(day);
+  if (daysLeft < 0) return 'danger';
+  if (daysLeft <= EXPIRING_WINDOW_DAYS) return 'warning';
+  return 'success';
 }
 
 /**

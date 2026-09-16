@@ -1,6 +1,7 @@
 import type { PgTable } from 'drizzle-orm/pg-core';
 import {
   banklistMaster,
+  cancellationReasonMaster,
   clearanceMaster,
   clearingBasisMaster,
   clearingStatusMaster,
@@ -72,6 +73,7 @@ export interface MasterExport {
 
 export const MASTER_EXPORTS: Record<string, MasterExport> = {
   banks: { table: banklistMaster, label: 'Banks' },
+  'cancellation-reasons': { table: cancellationReasonMaster, label: 'Cancellation Reasons' },
   clearances: { table: clearanceMaster, label: 'Clearances' },
   'clearing-bases': { table: clearingBasisMaster, label: 'Clearing Bases' },
   'clearing-statuses': { table: clearingStatusMaster, label: 'Clearing Statuses' },

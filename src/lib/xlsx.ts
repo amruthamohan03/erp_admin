@@ -13,12 +13,38 @@ export interface XlsxColumn {
   width?: number;
 }
 
+/**
+ * A row's background, as one of a few named tones rather than a raw colour.
+ *
+ * Named because the point is the MEANING, not the paint: a licence expiring
+ * inside 30 days is orange on the screen and orange in the spreadsheet, and the
+ * two must not drift apart because somebody typed a different hex in one of
+ * them. A caller says what the row IS; this module decides what that looks like
+ * — the same reasoning as §4.20's action colours.
+ */
+export type XlsxRowTone = 'danger' | 'warning' | 'success' | 'muted';
+
+/** Solid ARGB fills, chosen to stay readable behind black text when printed. */
+const ROW_TONE_FILL: Record<XlsxRowTone, string> = {
+  danger: 'FFF8D7DA', // red — expired
+  warning: 'FFFFE5CC', // orange — expiring within the renewal window
+  success: 'FFD4EDDA', // green — active
+  muted: 'FFEFEFEF', // grey — everything with no state worth flagging
+};
+
 export interface XlsxSheet {
   name: string;
   columns: XlsxColumn[];
   rows: Array<Record<string, unknown>>;
   /** Optional bold totals row, keyed by column key (e.g. { mca_ref: 'TOTAL', weight: 123 }). */
   totalsRow?: Record<string, unknown>;
+  /**
+   * Per-row shading. Returns a tone, or null to leave the row unpainted.
+   *
+   * Given the row object rather than an index so the rule reads as a fact about
+   * the record ("this licence has expired") instead of about its position.
+   */
+  rowTone?: (row: Record<string, unknown>) => XlsxRowTone | null;
 }
 
 // Excel sheet names: max 31 chars, none of \ / ? * [ ] :
@@ -54,7 +80,19 @@ export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } };
     });
 
-    for (const r of s.rows) ws.addRow(r);
+    for (const r of s.rows) {
+      const added = ws.addRow(r);
+      const tone = s.rowTone?.(r) ?? null;
+      if (tone) {
+        const argb = ROW_TONE_FILL[tone];
+        // Painted cell by cell, not on the row: a row-level fill in ExcelJS only
+        // covers cells that already exist, so a record with a trailing empty
+        // column would end in an unpainted gap mid-stripe.
+        added.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+        });
+      }
+    }
 
     if (s.totalsRow) {
       const tr = ws.addRow(s.totalsRow);
