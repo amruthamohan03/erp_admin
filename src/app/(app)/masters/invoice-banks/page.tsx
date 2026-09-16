@@ -76,6 +76,7 @@ export default function InvoiceBanksPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/invoice-banks/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

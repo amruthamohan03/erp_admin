@@ -140,13 +140,6 @@
               "system"
             ]
           },
-          "locale_preference": {
-            "type": "string",
-            "enum": [
-              "en",
-              "fr"
-            ]
-          },
           "email_notifications": {
             "type": "boolean"
           },
@@ -179,33 +172,6 @@
             "maxLength": 1000
           }
         }
-      },
-      "TranslateBatchInput": {
-        "type": "object",
-        "properties": {
-          "texts": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "maxLength": 5000
-            },
-            "maxItems": 200
-          },
-          "target": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 8
-          },
-          "source": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 8
-          }
-        },
-        "required": [
-          "texts",
-          "target"
-        ]
       },
       "UserCreateInput": {
         "type": "object",
@@ -1332,14 +1298,6 @@
               "system"
             ]
           },
-          "locale_preference": {
-            "type": "string",
-            "nullable": true,
-            "enum": [
-              "en",
-              "fr"
-            ]
-          },
           "email_notifications": {
             "type": "string",
             "nullable": true,
@@ -1369,7 +1327,6 @@
           "signature_image",
           "bio",
           "theme_preference",
-          "locale_preference",
           "email_notifications",
           "compact_mode"
         ]
@@ -7068,14 +7025,6 @@
                             "system"
                           ]
                         },
-                        "locale_preference": {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            "en",
-                            "fr"
-                          ]
-                        },
                         "email_notifications": {
                           "type": "string",
                           "nullable": true,
@@ -7105,7 +7054,6 @@
                         "signature_image",
                         "bio",
                         "theme_preference",
-                        "locale_preference",
                         "email_notifications",
                         "compact_mode"
                       ]
@@ -7491,13 +7439,6 @@
                       "system"
                     ]
                   },
-                  "locale_preference": {
-                    "type": "string",
-                    "enum": [
-                      "en",
-                      "fr"
-                    ]
-                  },
                   "email_notifications": {
                     "type": "boolean"
                   },
@@ -7535,14 +7476,6 @@
                             "system"
                           ]
                         },
-                        "locale_preference": {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            "en",
-                            "fr"
-                          ]
-                        },
                         "email_notifications": {
                           "type": "string",
                           "nullable": true,
@@ -7562,7 +7495,6 @@
                       },
                       "required": [
                         "theme_preference",
-                        "locale_preference",
                         "email_notifications",
                         "compact_mode"
                       ]
@@ -8485,172 +8417,6 @@
           },
           "401": {
             "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "nullable": true
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "ok",
-                    "error"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/translate": {
-      "post": {
-        "summary": "Batch-translate up to 200 strings via the configured provider",
-        "tags": [
-          "translate"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "texts": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "maxLength": 5000
-                    },
-                    "maxItems": 200
-                  },
-                  "target": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 8
-                  },
-                  "source": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 8
-                  }
-                },
-                "required": [
-                  "texts",
-                  "target"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Per-input translations (parallel to the input array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "translations": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "translations"
-                      ]
-                    },
-                    "meta": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "nullable": true
-                      }
-                    }
-                  },
-                  "required": [
-                    "ok",
-                    "data"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Unsupported target locale",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "nullable": true
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "ok",
-                    "error"
-                  ]
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Invalid input",
             "content": {
               "application/json": {
                 "schema": {

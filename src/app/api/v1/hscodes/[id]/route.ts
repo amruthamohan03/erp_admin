@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { hscodeMaster, type HscodeMasterInsert } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { hscodeUpdateSchema } from '@/schemas';
 
@@ -28,6 +29,7 @@ export const GET = withErrorHandler(
         hscode_dci: hscodeMaster.hscodeDci,
         hscode_dcl: hscodeMaster.hscodeDcl,
         hscode_tpi: hscodeMaster.hscodeTpi,
+        requires_green_certificate: hscodeMaster.requiresGreenCertificate,
         display: hscodeMaster.display,
         created_at: hscodeMaster.createdAt,
         updated_at: hscodeMaster.updatedAt,
@@ -56,13 +58,16 @@ export const PUT = withErrorHandler(
 
     const patch: Partial<HscodeMasterInsert> = {};
     if (data.hscode_number !== undefined) {
-      patch.hscodeNumber = data.hscode_number;
+      patch.hscodeNumber = data.hscode_number.trim();
     }
     if (data.hscode_ddi !== undefined) patch.hscodeDdi = data.hscode_ddi;
     if (data.hscode_ica !== undefined) patch.hscodeIca = data.hscode_ica;
     if (data.hscode_dci !== undefined) patch.hscodeDci = data.hscode_dci;
     if (data.hscode_dcl !== undefined) patch.hscodeDcl = data.hscode_dcl;
     if (data.hscode_tpi !== undefined) patch.hscodeTpi = data.hscode_tpi;
+    if (data.requires_green_certificate !== undefined) {
+      patch.requiresGreenCertificate = data.requires_green_certificate;
+    }
     if (data.display !== undefined) patch.display = data.display;
     if (Object.keys(patch).length === 0) {
       throw new BadRequestError('Nothing to update');
@@ -70,11 +75,20 @@ export const PUT = withErrorHandler(
     patch.updatedBy = session.uid;
     patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
-    const [row] = await db
-      .update(hscodeMaster)
-      .set(patch)
-      .where(eq(hscodeMaster.id, id))
-      .returning({ id: hscodeMaster.id });
+    let row: { id: number } | undefined;
+    try {
+      [row] = await db
+        .update(hscodeMaster)
+        .set(patch)
+        .where(eq(hscodeMaster.id, id))
+        .returning({ id: hscodeMaster.id });
+    } catch (err) {
+      // Renaming a code onto one that already exists must say so, rather than
+      // surfacing a constraint name (§4.23).
+      const dup = uniqueViolationResponse(err, 'HS Code Number');
+      if (dup) return dup;
+      throw err;
+    }
 
     if (!row) throw new NotFoundError();
     return ok({ id: row.id });

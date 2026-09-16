@@ -3,6 +3,7 @@ import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { typeOfGoodsMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 import {
   goodsTypeCreateSchema,
   goodsTypeListQuerySchema,
@@ -61,21 +62,30 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (isResponse(session)) return session;
 
   const data = goodsTypeCreateSchema.parse(await req.json());
-  const [row] = await db
-    .insert(typeOfGoodsMaster)
-    .values({
-      goodsType: data.goods_type,
-      goodsShortName: data.goods_short_name,
-      createdBy: session.uid,
-      updatedBy: session.uid,
-    })
-    .returning({
-      id: typeOfGoodsMaster.id,
-      goods_type: typeOfGoodsMaster.goodsType,
-      goods_short_name: typeOfGoodsMaster.goodsShortName,
-      display: typeOfGoodsMaster.display,
-      created_at: typeOfGoodsMaster.createdAt,
-    });
+  try {
+    const [row] = await db
+      .insert(typeOfGoodsMaster)
+      .values({
+        goodsType: data.goods_type,
+        goodsShortName: data.goods_short_name,
+        createdBy: session.uid,
+        updatedBy: session.uid,
+      })
+      .returning({
+        id: typeOfGoodsMaster.id,
+        goods_type: typeOfGoodsMaster.goodsType,
+        goods_short_name: typeOfGoodsMaster.goodsShortName,
+        display: typeOfGoodsMaster.display,
+        created_at: typeOfGoodsMaster.createdAt,
+      });
 
-  return ok(row, 201);
+    return ok(row, 201);
+  } catch (err) {
+    // The short name is a unique code (0085). Without this the operator gets
+    // "Resource already exists" from the generic handler, which names neither
+    // the field nor the value (§4.23).
+    const dup = uniqueViolationResponse(err, 'Short Name');
+    if (dup) return dup;
+    throw err;
+  }
 });

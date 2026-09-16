@@ -122,6 +122,7 @@ export default function ItemsPage() {
       </div>
 
       <DataTable<ItemRow>
+        exportHref={`/api/v1/masters/items/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

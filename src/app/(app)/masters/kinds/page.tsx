@@ -84,6 +84,7 @@ export default function KindsPage() {
       </div>
 
       <DataTable<KindRow>
+        exportHref={`/api/v1/masters/kinds/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(k) => k.id}

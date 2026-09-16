@@ -100,6 +100,7 @@ export default function SubOfficesPage() {
       </div>
 
       <DataTable<SubOfficeRow>
+        exportHref={`/api/v1/masters/sub-offices/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(s) => s.id}

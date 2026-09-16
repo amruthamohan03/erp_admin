@@ -39,6 +39,12 @@ interface Board {
   currency_id: number;
   bcc_rate: string | null;
   banks: BoardBank[];
+  /** The day's comparison, resolved by the server (see bankExchangeRates.ts). */
+  highest_bank_id: number;
+  highest_bank_rate: number;
+  prev_bcc_rate: number;
+  prev_bcc_date: string | null;
+  rate_difference: number;
 }
 
 interface HistoryBank {
@@ -52,10 +58,34 @@ interface HistoryRow {
   bcc_rate: string | null;
   updated_at: string | null;
   rates: Record<number, string | null>;
+  highest_bank_id: number | null;
+  highest_bank_rate: string | null;
+  prev_bcc_rate: string | null;
+  prev_bcc_date: string | null;
+  rate_difference: string | null;
 }
 
 /** A rate cell's value while it is being typed — keyed by bank id. */
 type Draft = Record<number, string>;
+
+/**
+ * The history grid's `Updated` stamp: `DD-MM HH:mm`.
+ *
+ * Shortened because the column is the narrowest on a grid that is already as
+ * wide as the bank list — §4.19 allows the abbreviated form for exactly this,
+ * and it stays day-first so it cannot be read as a US date. The year is the one
+ * thing dropped, and the row's own Date column carries it.
+ *
+ * Built on `formatDateTime` rather than re-deriving the parts, so the separator
+ * and the ordering come from the one implementation (§4.10).
+ */
+function formatUpdatedStamp(value: string | null): string {
+  const full = formatDateTime(value, '');
+  if (!full) return '';
+  // `DD-MM-YYYY HH:mm` → `DD-MM HH:mm`.
+  const m = /^(\d{2}-\d{2})-\d{4}( .+)$/.exec(full);
+  return m ? `${m[1]}${m[2]}` : full;
+}
 
 export default function BankExchangeRatesPage() {
   /**
@@ -141,7 +171,10 @@ export default function BankExchangeRatesPage() {
       // Adopting it re-runs this effect once with the currency pinned; the
       // guard stops it there rather than ping-ponging.
       if (!currencyId) setCurrencyId(String(res.data.currency_id));
-      setBcc(res.data.bcc_rate && Number(res.data.bcc_rate) > 0 ? Number(res.data.bcc_rate).toFixed(2) : '');
+      const stored = res.data.bcc_rate && Number(res.data.bcc_rate) > 0
+        ? Number(res.data.bcc_rate).toFixed(2)
+        : '';
+      setBcc(stored);
       const next: Draft = {};
       for (const b of res.data.banks) {
         const r = toRate(b.bank_rate);
@@ -152,6 +185,7 @@ export default function BankExchangeRatesPage() {
       setBoardLoading(false);
     }
   }, [currencyId, date]);
+
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -205,6 +239,27 @@ export default function BankExchangeRatesPage() {
     if (verdict.bestRate === null) return null;
     return (board?.banks ?? []).find((b) => verdict.byBank.get(b.bank_id)?.best) ?? null;
   }, [verdict, board]);
+
+  /**
+   * The Highest / Diff pair, recomputed from what is in the boxes RIGHT NOW.
+   *
+   * Live rather than read from the loaded board, because the reference screen
+   * updates both the moment a rate is typed — that immediate feedback is the
+   * whole point of the two columns, and a figure that only moved after Save
+   * would be telling the operator about the previous board.
+   *
+   * `highestQuote`'s rule (strictly-greater, blanks are not quotes) is the
+   * server's, so the green here and the stored winner cannot disagree (§4.10).
+   */
+  const liveHighest = useMemo(() => {
+    let best = { bank_id: 0, rate: 0 };
+    for (const b of board?.banks ?? []) {
+      const value = toRate(draft[b.bank_id]);
+      if (value !== null && value > best.rate) best = { bank_id: b.bank_id, rate: value };
+    }
+    return best;
+  }, [board, draft]);
+
 
   async function save() {
     if (!board) return;
@@ -341,7 +396,10 @@ export default function BankExchangeRatesPage() {
       key: 'updated_at',
       header: 'Updated',
       className: 'text-xs text-muted-foreground whitespace-nowrap',
-      render: (r) => formatDateTime(r.updated_at),
+      // DD-MM HH:mm, as the reference screen shows it. §4.19 sanctions the
+      // shortened form where a full date will not fit; it is still day-first, so
+      // it cannot be misread as a US date.
+      render: (r) => formatUpdatedStamp(r.updated_at),
     },
   ];
 
@@ -475,10 +533,17 @@ export default function BankExchangeRatesPage() {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
+                          // Two different greens, deliberately: a bank BEATING
+                          // the BCC reference is worth using, but the day's
+                          // HIGHEST is the one the operator is looking for, so
+                          // it is the stronger mark (the reference screen's
+                          // `is-highest`).
                           className={`input min-w-0 text-right font-mono ${
-                            v?.beatsBcc
-                              ? 'border-emerald-500 bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                              : ''
+                            liveHighest.bank_id === b.bank_id
+                              ? 'border-2 border-emerald-600 bg-emerald-100 font-bold text-emerald-900 dark:bg-emerald-500/25 dark:text-emerald-200'
+                              : v?.beatsBcc
+                                ? 'border-emerald-500 bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                : ''
                           }`}
                           value={draft[b.bank_id] ?? ''}
                           onChange={(e) => setDraft((prev) => ({ ...prev, [b.bank_id]: e.target.value }))}
@@ -505,6 +570,9 @@ export default function BankExchangeRatesPage() {
                     );
                   })}
 
+                  {/* Save and Clear live in the row, beside the values they act
+                      on — the reference screen puts them here rather than in the
+                      bar below, which carries Load Rate and Export instead. */}
                   <td className="border border-border p-2 text-center align-top">
                     <div className="flex items-center justify-center gap-2">
                       <button
@@ -512,10 +580,9 @@ export default function BankExchangeRatesPage() {
                         onClick={() => void save()}
                         disabled={saving || boardLoading || !board}
                         // §4.26 — `btn-save` reads --action-save from
-                        // action_style_master_t, so the Save colour is an admin's
-                        // row edit under Settings → Application and changes
-                        // everywhere at once. `btn-primary` would have pinned it
-                        // to indigo on this one screen.
+                        // action_style_master_t, so this colour is an admin's row
+                        // edit under Settings → Application rather than a hex
+                        // pinned to this one screen.
                         className="btn-save btn-sm disabled:opacity-50"
                       >
                         <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
@@ -546,9 +613,15 @@ export default function BankExchangeRatesPage() {
                     }`
                   : 'Enter the BCC reference and each bank’s rate to compare them.'}
             </p>
+            {/* Load Rate and Export only — Save and Clear sit in the row itself. */}
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => void loadBoard()} className="btn-neutral btn-sm">
-                <RefreshCw className="h-4 w-4" /> Load Rate
+              <button
+                type="button"
+                onClick={() => void loadBoard()}
+                disabled={boardLoading}
+                className="btn-neutral btn-sm disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${boardLoading ? 'animate-spin' : ''}`} /> Load Rate
               </button>
               <a href={exportHref} className="btn-excel btn-sm">
                 <Download className="h-4 w-4" /> Export

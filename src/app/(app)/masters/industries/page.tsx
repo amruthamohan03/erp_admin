@@ -70,6 +70,7 @@ export default function IndustriesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/industries/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

@@ -70,6 +70,7 @@ export default function OriginsPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/origins/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

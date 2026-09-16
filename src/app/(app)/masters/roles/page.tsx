@@ -53,6 +53,7 @@ export default function RolesPage() {
       </div>
 
       <DataTable<Role>
+        exportHref={'/api/v1/masters/roles/export'}
         rows={roles}
         loading={loading}
         rowKey={(r) => r.id}

@@ -21,6 +21,14 @@ interface HistoryRow {
   bcc_rate: string | null;
   updated_at: Date | null;
   rates: Record<number, string | null>;
+  // The comparison as it was STORED for that day (0086), not recomputed here.
+  // It is what the board said when the operator saved it, and the previous BCC
+  // it was measured against may have moved since.
+  highest_bank_id: number | null;
+  highest_bank_rate: string | null;
+  prev_bcc_rate: string | null;
+  prev_bcc_date: string | null;
+  rate_difference: string | null;
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -66,6 +74,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       // The reference is per day, so max() picks it up wherever it was stored.
       bcc_rate: sql<string | null>`max(${bankExchangeRate.bccRate})`,
       updated_at: sql<Date | null>`max(${bankExchangeRate.updatedAt})`,
+      // Stamped identically on every row of a day, so max() reads it back
+      // whichever bank's row it lands on.
+      highest_bank_id: sql<number | null>`max(${bankExchangeRate.highestBankId})`,
+      highest_bank_rate: sql<string | null>`max(${bankExchangeRate.highestBankRate})`,
+      prev_bcc_rate: sql<string | null>`max(${bankExchangeRate.prevBccRate})`,
+      prev_bcc_date: sql<string | null>`to_char(max(${bankExchangeRate.prevBccDate}), 'YYYY-MM-DD')`,
+      rate_difference: sql<string | null>`max(${bankExchangeRate.rateDifference})`,
       banks_quoted: count(),
     })
     .from(bankExchangeRate)
@@ -107,6 +122,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         bcc_rate: d.bcc_rate,
         updated_at: d.updated_at,
         rates: byDate.get(d.exchange_date) ?? {},
+        highest_bank_id: d.highest_bank_id === null ? null : Number(d.highest_bank_id),
+        highest_bank_rate: d.highest_bank_rate,
+        prev_bcc_rate: d.prev_bcc_rate,
+        prev_bcc_date: d.prev_bcc_date,
+        rate_difference: d.rate_difference,
       });
     }
   }

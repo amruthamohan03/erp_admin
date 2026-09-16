@@ -101,6 +101,7 @@ export default function ExpenseTypesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/expense-types/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

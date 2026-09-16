@@ -69,6 +69,7 @@ export default function CurrenciesPage() {
       </div>
 
       <DataTable<CurrencyRow>
+        exportHref={`/api/v1/masters/currencies/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(c) => c.id}

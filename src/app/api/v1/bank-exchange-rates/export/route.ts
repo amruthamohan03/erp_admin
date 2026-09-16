@@ -59,6 +59,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         bank_id: bankExchangeRate.bankId,
         bcc_rate: bankExchangeRate.bccRate,
         bank_rate: bankExchangeRate.bankRate,
+        highest_bank_rate: bankExchangeRate.highestBankRate,
+        prev_bcc_rate: bankExchangeRate.prevBccRate,
+        rate_difference: bankExchangeRate.rateDifference,
       })
       .from(bankExchangeRate)
       .where(where)
@@ -67,15 +70,34 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const currencyName = currency[0]?.short ?? '';
 
-  // Pivot: date → { bcc, per-bank rate }.
-  const byDate = new Map<string, { bcc: string | null; rates: Map<number, string | null> }>();
+  // Pivot: date → { bcc, per-bank rate, and the day's stored comparison }.
+  interface Bucket {
+    bcc: string | null;
+    rates: Map<number, string | null>;
+    highest: string | null;
+    prevBcc: string | null;
+    diff: string | null;
+  }
+  const byDate = new Map<string, Bucket>();
   for (const r of rows) {
-    const bucket = byDate.get(r.exchange_date) ?? { bcc: null, rates: new Map() };
+    const bucket: Bucket = byDate.get(r.exchange_date) ?? {
+      bcc: null,
+      rates: new Map(),
+      highest: null,
+      prevBcc: null,
+      diff: null,
+    };
     if (!bucket.bcc && r.bcc_rate && Number(r.bcc_rate) > 0) bucket.bcc = r.bcc_rate;
+    // Stamped identically across a day, so the first row carrying one wins.
+    bucket.highest ??= r.highest_bank_rate;
+    bucket.prevBcc ??= r.prev_bcc_rate;
+    bucket.diff ??= r.rate_difference;
     bucket.rates.set(r.bank_id, r.bank_rate);
     byDate.set(r.exchange_date, bucket);
   }
 
+  // The reference sheet's trailing three, in its order and under its names — a
+  // spreadsheet is compared against the one it replaces, so the headings match.
   const columns: XlsxColumn[] = [
     { key: 'exchange_date', header: 'Date', width: 13 },
     { key: 'currency', header: 'Currency', width: 10 },
@@ -85,7 +107,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       header: (b.bank_name ?? `Bank ${b.id}`).toUpperCase(),
       width: 14,
     })),
-    { key: 'best', header: 'Best Rate', width: 14 },
+    { key: 'highest_rate', header: 'Highest Rate', width: 14 },
+    { key: 'highest_bank', header: 'Highest Bank', width: 18 },
+    { key: 'prev_bcc', header: 'Prev BCC', width: 12 },
+    { key: 'difference', header: 'Difference', width: 12 },
   ];
 
   const num = (v: string | null | undefined): number | null => {
@@ -112,7 +137,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           best = { name: b.bank_name ?? `Bank ${b.id}`, rate };
         }
       }
-      row.best = best ? best.name : '';
+      // The STORED highest where the day has one, falling back to the rates in
+      // front of us for days saved before 0086 existed. Same figure either way;
+      // the fallback only matters for history that predates the column.
+      row.highest_rate = num(bucket.highest) ?? best?.rate ?? null;
+      row.highest_bank = best ? best.name.toUpperCase() : '';
+      row.prev_bcc = num(bucket.prevBcc);
+      // A day with no previous BCC has no difference — blank, not zero, which
+      // would read as "no movement" rather than "nothing to compare with".
+      row.difference = num(bucket.prevBcc) === null ? null : Number(bucket.diff ?? 0);
       return row;
     });
 

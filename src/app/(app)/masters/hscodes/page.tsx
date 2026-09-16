@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
+import { Leaf, Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -15,6 +16,7 @@ interface Row {
   hscode_dci: string | null;
   hscode_dcl: string | null;
   hscode_tpi: string | null;
+  requires_green_certificate: boolean;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -89,6 +91,7 @@ export default function HscodesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/hscodes/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}
@@ -109,6 +112,23 @@ export default function HscodesPage() {
             className: 'font-mono text-xs',
             render: (r: Row) => fmt(r[f.key as RateKey]),
           })),
+          {
+            key: 'requires_green_certificate',
+            header: 'Green Cert.',
+            align: 'center' as const,
+            sortable: true,
+            // A badge only when it is required. Printing "No" on every other row
+            // makes the column a wall of noise, and the thing an operator scans
+            // for is the exception (§4.25's "scanned, not read").
+            render: (r: Row) =>
+              r.requires_green_certificate ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                  <Leaf className="h-3 w-3" /> Required
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
         ]}
         actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
         server={{
@@ -168,6 +188,7 @@ function FormModal({
     hscode_dcl: row?.hscode_dcl ?? '0.00',
     hscode_tpi: row?.hscode_tpi ?? '0.00',
   });
+  const [greenCert, setGreenCert] = useState(row?.requires_green_certificate ?? false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -181,7 +202,9 @@ function FormModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (status === 'taken') {
-      setError('Already exists');
+      // §4.23 — name the field and the value. "Already exists" left the operator
+      // to work out which of the six inputs it meant.
+      setError(`HS Code Number “${number.trim()}” is already in use. Enter a different number.`);
       return;
     }
     setSaving(true);
@@ -197,11 +220,18 @@ function FormModal({
         body: JSON.stringify({
           hscode_number: number,
           ...rates,
+          requires_green_certificate: greenCert,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+        // The server's sentence first — it names the field and the fix. The
+        // fallback used to be "Save failed", which §4.23 lists as a defect by
+        // name: it tells the operator something broke and nothing else.
+        setError(
+          json.error?.message ||
+            'This HS code could not be saved. Check the number and the rate percentages, then try again.',
+        );
         return;
       }
       onSaved();
@@ -261,6 +291,22 @@ function FormModal({
               </div>
             ))}
           </div>
+          {/* §4.11 — a boolean setting is a Toggle, never a checkbox. */}
+          <div className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+            <div className="space-y-0.5">
+              <span className="label mb-0 block">Green Certificate</span>
+              <p className="text-xs text-muted-foreground">
+                Goods under this code cannot be declared without an environmental
+                clearance certificate.
+              </p>
+            </div>
+            <Toggle
+              checked={greenCert}
+              onChange={setGreenCert}
+              aria-label="Requires a Green Certificate"
+            />
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

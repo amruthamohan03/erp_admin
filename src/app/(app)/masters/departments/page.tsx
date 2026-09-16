@@ -70,6 +70,7 @@ export default function DepartmentsPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/departments/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

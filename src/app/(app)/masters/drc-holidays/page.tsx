@@ -210,6 +210,7 @@ export default function DrcHolidaysPage() {
         />
       ) : (
       <DataTable<Row>
+        exportHref={`/api/v1/masters/drc-holidays/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

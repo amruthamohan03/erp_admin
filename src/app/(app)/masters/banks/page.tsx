@@ -73,6 +73,7 @@ export default function BanksPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/banks/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(b) => b.id}

@@ -63,6 +63,7 @@ export default function ClearingBasissPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/clearing-bases/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

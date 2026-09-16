@@ -108,6 +108,7 @@ export default function OfficeLocationsPage() {
       </div>
 
       <DataTable<OfficeLocationRow>
+        exportHref={`/api/v1/masters/office-locations/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(o) => o.id}

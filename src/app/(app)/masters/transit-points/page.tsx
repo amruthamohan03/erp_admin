@@ -104,6 +104,7 @@ export default function TransitPointsPage() {
       </div>
 
       <DataTable<TransitPointRow>
+        exportHref={`/api/v1/masters/transit-points/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(t) => t.id}

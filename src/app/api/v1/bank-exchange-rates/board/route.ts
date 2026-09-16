@@ -5,6 +5,7 @@ import { bankExchangeRate, banklistMaster, currencyMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { NotFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { highestQuote, previousBcc, rateDifference } from '@/db/queries/bankExchangeRates';
 import {
   bankExchangeRateBoardDeleteSchema,
   bankExchangeRateBoardQuerySchema,
@@ -120,12 +121,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     )
     .limit(1);
 
+  // The day's comparison: which bank is highest, and how that sits against the
+  // last BCC published before this day. Recomputed from what is on the board
+  // right now rather than read back from the stored columns, so the figures
+  // match the grid even on a day saved before those columns existed (0086).
+  const highest = highestQuote(
+    banks
+      .filter((b) => b.bank_rate !== null)
+      .map((b) => ({ bank_id: b.bank_id, bank_rate: Number(b.bank_rate) })),
+  );
+  const previous = await previousBcc(currencyId, q.date);
+
   return ok({
     exchange_date: q.date,
     // The RESOLVED currency, not the requested one — the caller adopts it.
     currency_id: currencyId,
     bcc_rate: reference?.bcc_rate ?? null,
     banks,
+    highest_bank_id: highest.bank_id,
+    highest_bank_rate: highest.rate,
+    prev_bcc_rate: previous.rate,
+    prev_bcc_date: previous.date,
+    rate_difference: rateDifference(highest.rate, previous.rate),
   });
 });
 
@@ -160,6 +177,25 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       );
     const beforeById = new Map(before.map((r) => [r.bank_id, r]));
 
+    // The day's comparison, computed ONCE from the whole submission and stamped
+    // on every row of the day — which is what main does, and why: these columns
+    // describe the DAY, so a reader who picks up any single row gets the same
+    // answer. Banks the board does not offer are excluded before the winner is
+    // chosen, so a stale tab cannot crown a bank that is no longer an exchange
+    // source.
+    const quoted = data.rates.filter((r) => allowedById.has(r.bank_id));
+    const highest = highestQuote(quoted);
+    const previous = await previousBcc(data.currency_id, data.exchange_date, tx);
+    const difference = rateDifference(highest.rate, previous.rate);
+
+    const dayStamp = {
+      highestBankId: highest.bank_id > 0 ? highest.bank_id : null,
+      highestBankRate: highest.rate > 0 ? String(highest.rate) : null,
+      prevBccRate: previous.rate > 0 ? String(previous.rate) : null,
+      prevBccDate: previous.date,
+      rateDifference: previous.rate > 0 ? String(difference) : null,
+    };
+
     let created = 0;
     let updated = 0;
     const skipped: number[] = [];
@@ -173,6 +209,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       const values = {
         bccRate: String(data.bcc_rate),
         bankRate: String(entry.bank_rate),
+        ...dayStamp,
         updatedBy: session.uid,
         updatedAt: new Date(),
       };
@@ -208,7 +245,12 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // number on exactly the rows nobody looked at.
     await tx
       .update(bankExchangeRate)
-      .set({ bccRate: String(data.bcc_rate), updatedBy: session.uid, updatedAt: new Date() })
+      .set({
+        bccRate: String(data.bcc_rate),
+        ...dayStamp,
+        updatedBy: session.uid,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(bankExchangeRate.exchangeDate, data.exchange_date),
@@ -226,7 +268,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       after: { bcc_rate: data.bcc_rate, rates: data.rates },
     });
 
-    return { created, updated, skipped };
+    return {
+      created,
+      updated,
+      skipped,
+      // Echoed back so the screen can repaint the comparison from the server's
+      // answer rather than recomputing it and risking a different one.
+      highest_bank_id: highest.bank_id,
+      highest_bank_rate: highest.rate,
+      prev_bcc_rate: previous.rate,
+      prev_bcc_date: previous.date,
+      rate_difference: difference,
+    };
   });
 
   return ok(result);

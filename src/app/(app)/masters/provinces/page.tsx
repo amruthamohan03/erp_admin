@@ -96,6 +96,7 @@ export default function ProvincesPage() {
       </div>
 
       <DataTable<Row>
+        exportHref={`/api/v1/masters/provinces/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

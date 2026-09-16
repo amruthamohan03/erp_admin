@@ -72,6 +72,7 @@ export default function ClearingStatusesPage() {
       </div>
 
       <DataTable<ClearingStatusRow>
+        exportHref={`/api/v1/masters/clearing-statuses/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(c) => c.id}

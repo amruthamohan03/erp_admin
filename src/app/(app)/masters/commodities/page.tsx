@@ -70,6 +70,7 @@ export default function CommoditiesPage() {
       </div>
 
       <DataTable<CommodityRow>
+        exportHref={`/api/v1/masters/commodities/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(c) => c.id}

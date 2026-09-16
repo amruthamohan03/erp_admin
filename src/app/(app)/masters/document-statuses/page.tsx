@@ -96,6 +96,7 @@ export default function DocumentStatusesPage() {
       </div>
 
       <DataTable<DocumentStatusRow>
+        exportHref={`/api/v1/masters/document-statuses/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(item) => item.id}

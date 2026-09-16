@@ -6,6 +6,7 @@ import {
   type TypeOfGoodsMasterInsert,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { goodsTypeUpdateSchema } from '@/schemas';
 
@@ -61,11 +62,20 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   patch.updatedBy = session.uid;
   patch.updatedAt = sql`CURRENT_TIMESTAMP` as unknown as Date;
 
-  const [row] = await db
-    .update(typeOfGoodsMaster)
-    .set(patch)
-    .where(eq(typeOfGoodsMaster.id, id))
-    .returning({ id: typeOfGoodsMaster.id });
+  let row: { id: number } | undefined;
+  try {
+    [row] = await db
+      .update(typeOfGoodsMaster)
+      .set(patch)
+      .where(eq(typeOfGoodsMaster.id, id))
+      .returning({ id: typeOfGoodsMaster.id });
+  } catch (err) {
+    // Same guard as the create path (0085): renaming a goods type onto another
+    // one's code must say so rather than surfacing a bare constraint name.
+    const dup = uniqueViolationResponse(err, 'Short Name');
+    if (dup) return dup;
+    throw err;
+  }
 
   if (!row) throw new NotFoundError();
   return ok({ id: row.id });

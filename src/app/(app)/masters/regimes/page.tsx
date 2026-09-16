@@ -94,6 +94,7 @@ export default function RegimesPage() {
       </div>
 
       <DataTable<RegimeRow>
+        exportHref={`/api/v1/masters/regimes/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

@@ -76,6 +76,7 @@ export default function QuotationCategoriesPage() {
       </div>
 
       <DataTable<QuotationCategoryRow>
+        exportHref={`/api/v1/masters/quotation-categories/export?q=${encodeURIComponent(search)}`}
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}

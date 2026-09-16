@@ -22,7 +22,6 @@ const EXPECTED_PATHS: Record<string, ReadonlyArray<string>> = {
   '/me/password': ['put'],
   '/me/avatar': ['post', 'delete'],
   '/me/signature': ['post', 'delete'],
-  '/translate': ['post'],
   '/role-menu-mapping': ['get', 'put'],
   '/role-dashboard-card-mapping': ['get', 'put'],
   // §4.33 — the six reference formats. No post/delete: the set of references is
@@ -45,7 +44,6 @@ const EXPECTED_SCHEMAS = [
   'PreferencesUpdateInput',
   'ProfileUpdateInput',
   'ProfileResponse',
-  'TranslateBatchInput',
   'UserCreateInput',
   'UserUpdateInput',
   'UserListQuery',
