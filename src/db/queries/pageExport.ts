@@ -16,7 +16,7 @@ import { masterPage, masterPageAccordion, masterPageAccordionField, usersT } fro
 import { getPageTarget } from '@/lib/pages/targets';
 import { getSoftDeleteResource } from '@/db/queries/softDelete';
 import { formatDate } from '@/lib/formatDate';
-import type { XlsxColumn, XlsxSheet } from '@/lib/xlsx';
+import type { XlsxColumn, XlsxRowTone, XlsxSheet } from '@/lib/xlsx';
 
 interface FieldDef {
   name: string;
@@ -116,6 +116,34 @@ export interface PageExportOptions {
   limit?: number;
   /** Sheet name; defaults to the page title. */
   sheetName?: string;
+  /**
+   * Shade each row by what the record IS (§4.20's reasoning, in a spreadsheet).
+   *
+   * Handed the RAW database row, not the formatted one: by the time a cell has
+   * been through `cell()` a date is a `DD-MM-YYYY` string and a foreign key is a
+   * label, so a rule like "expiring within 30 days" would have to parse its way
+   * back to the values it started from.
+   */
+  rowTone?: (raw: Record<string, unknown>) => XlsxRowTone | null;
+  /**
+   * Columns to select and export ON TOP of the page's own fields.
+   *
+   * A page field is something an operator TYPES, so a column the system derives
+   * or maintains is absent from the form and therefore absent from the export —
+   * `license_t.status` is the case that exposed this: the licences sheet had no
+   * Status column at all, and a `rowTone` rule that depended on it silently saw
+   * `undefined` and painted nothing.
+   *
+   * `value` computes the cell from the raw row, so a column can be derived
+   * (EXPIRED is a date passing, not a stored value) rather than only copied.
+   */
+  extraColumns?: Array<{
+    /** Real column on the target table — selected so `value` can read it. */
+    name: string;
+    header: string;
+    width?: number;
+    value?: (raw: Record<string, unknown>) => unknown;
+  }>;
 }
 
 /**
@@ -187,6 +215,12 @@ export async function buildPageExportSheet(
   const idColumn = columnsByName.get('id');
   if (idColumn) selection.id = idColumn;
 
+  // Extra columns the page does not define. Selected even when only the tone
+  // rule reads them; one that names no real column is dropped rather than
+  // producing invalid SQL, matching how unknown page fields are handled above.
+  const extras = (opts.extraColumns ?? []).filter((e) => columnsByName.has(e.name));
+  for (const e of extras) selection[e.name] = columnsByName.get(e.name) as PgColumn;
+
   const displayColumn = columnsByName.get('display');
   const where = displayColumn
     ? and(eq(displayColumn, 'Y'), ...(opts.where ? [opts.where] : []))
@@ -238,12 +272,19 @@ export async function buildPageExportSheet(
   const columns: XlsxColumn[] = [
     { key: 'id', header: 'ID', width: 8 },
     ...fields.map((f) => ({ key: f.name, header: f.label, width: widthFor(f.fieldType) })),
+    ...extras.map((e) => ({ key: e.name, header: e.header, width: e.width ?? 16 })),
   ];
 
+  // The tone is decided from the raw row and remembered by the formatted row's
+  // id, so `rowTone` below can answer without re-deriving anything.
+  const toneById = new Map<unknown, XlsxRowTone | null>();
   const sheetRows = rows.map((raw) => {
     const r = raw as Record<string, unknown>;
     const out: Record<string, unknown> = { id: r.id };
     for (const f of fields) out[f.name] = cell(r[f.name], f, labelMaps.get(f.name));
+    // After the page fields, so an extra may override one that shares its name.
+    for (const e of extras) out[e.name] = e.value ? e.value(r) : r[e.name];
+    if (opts.rowTone) toneById.set(r.id, opts.rowTone(r));
     return out;
   });
 
@@ -251,5 +292,6 @@ export async function buildPageExportSheet(
     name: opts.sheetName ?? pageRow.title,
     columns,
     rows: sheetRows,
+    ...(opts.rowTone ? { rowTone: (row: Record<string, unknown>) => toneById.get(row.id) ?? null } : {}),
   };
 }

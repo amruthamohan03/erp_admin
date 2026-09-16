@@ -555,6 +555,8 @@ The standard behaviour a list page gets for free, and must never re-implement:
 | Loading | skeleton rows, never a bare "Loading…" that collapses the layout |
 | Empty state | a sentence naming what is missing and the action that fixes it — never just "No data" |
 | Serial column | `#` from `startIndex + idx + 1`, never the raw primary key (§4.9) |
+| Column filters | a per-column filter row, toggled from the toolbar (§4.25.1) |
+| Column layout | show / hide / reorder, remembered per screen (§4.25.1) |
 | Themes | light and dark, from tokens only (§4.20) |
 
 Columns are declared as data, not markup, so every table shares one rendering path:
@@ -573,6 +575,32 @@ Columns are declared as data, not markup, so every table shares one rendering pa
 ```
 
 Do not add a prop for a one-off visual tweak on a single screen. If two pages genuinely need different behaviour, that is a signal the shared component needs a considered option, not that the page needs its own table.
+
+### 4.25.1 Every table filters by column, and the operator owns the columns
+
+**Every `<DataTable>` offers a per-column filter row and a column chooser, and neither is something a page opts into.** Both live in the shared component, so all sixty-six list screens have them with no call-site change — that is the whole return on §4.25 existing, and a feature added to one table by hand is the drift §4.25 was written to stop.
+
+| Control | What it does |
+| --- | --- |
+| **Filter** (toolbar) | Reveals a box under each column header. Substring, case-insensitive, ANDed across columns, narrowing whatever the global search left. The badge counts the active boxes. |
+| **Columns** (toolbar) | Show / hide any column with a `<Toggle>` (§4.11), reorder with up/down, and Reset back to the table's own layout. |
+
+**A column filter matches what the column DISPLAYS.** Both the filter and the global search go through `cellText`, which contributes a date's `DD-MM-YYYY` form as well as its stored ISO (§4.19) — so typing `30-09-2026` into the Expiry box finds the row that shows `30-09-2026`. Filtering on a value the operator cannot see on screen is the defect this shares its implementation to prevent (§4.15's pairing, applied per column).
+
+**Only VISIBLE columns filter.** A hidden column has no box, so it must not be narrowing the list from somewhere the operator cannot see.
+
+**The layout is a per-operator view preference, not configuration.** One person works the licence list by bank and another by expiry; neither choice belongs to the screen, so it is NOT a master table (§4.1 governs what the business configures, not how one person arranges their own view). It is stored in `localStorage`, keyed by route, which means it does not follow an operator to another machine — an accepted trade-off, and a per-user table is the upgrade path if it stops being one.
+
+Four rules hold this together, and three of them are about a saved layout outliving the code that made it:
+
+1. **A column the layout has never seen is APPENDED, never dropped.** Ship a new column and an operator with a saved view would otherwise never see it, with nothing on screen to explain why.
+2. **A key the table no longer declares is ignored.** A removed column must not leave a hole, or throw, in somebody's saved view.
+3. **Nothing is read from storage until after mount.** Reading it during render gives the server one column set and the browser another — the hydration mismatch `usePagedList` gates against for the same reason.
+4. **A control that cannot act is not rendered.** In server mode the component holds one page, so filtering locally would narrow the page while appearing to narrow the table. The filter row therefore only appears in server mode when the caller wires `onColumnFiltersChange`, exactly as sorting only offers itself when `onSortChange` exists. A control that lies is worse than one that is absent.
+
+Reordering is up/down buttons, not drag-and-drop: dragging needs a dependency (§12), and a drag handle is the one control a keyboard cannot reach.
+
+The rules live in [dataTableColumns.ts](src/lib/dataTableColumns.ts) as pure functions with their own tests — `applyLayout`, `moveColumn`, `matchesColumnFilters`. Do not re-derive any of them at a call site.
 
 ### 4.26 Action colour and icon are configuration, not code
 
@@ -1036,6 +1064,10 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
 - Requests to let `public/` serve uploads directly ("it works locally") → no, Next only serves what was there at build time; uploads go through the route handler (§4.24).
 - Requests to hand-roll a `<table>` for a new list screen → no, use `<DataTable>` (§4.25).
+- Requests to add a column filter or a show/hide/reorder control to ONE table → no, both are in `<DataTable>` already and every list has them (§4.25.1).
+- Requests to filter on a value the column does not display, or to let a hidden column keep narrowing the list → no, a filter matches `cellText` and only visible columns filter (§4.25.1).
+- Requests to filter the loaded page in server mode "so the control does something" → no, that narrows the page while claiming to narrow the table; wire `onColumnFiltersChange` or leave the control off (§4.25.1).
+- Requests to put a per-operator column layout in a `_master_t` table → no, it is a view preference, not configuration (§4.25.1).
 - Requests to put a list screen's create action in the page header, to dress it up as a full-width `card`, or to offer a second "bulk" entry point beside it → no, one `btn-primary btn-sm` in the table's toolbar (§4.35).
 - Requests to let a control widen to fit a long value, or to give a control `flex-1` without `min-w-0` → no, it truncates inside its cell and keeps the full text as its `title` (§4.36).
 - Requests to free a seal (or any in-use resource) without checking which record still holds it, or to free it without also taking it off that record → no, refuse with the file named, then fix both sides in one transaction (§4.37).

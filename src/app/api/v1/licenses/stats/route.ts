@@ -14,20 +14,24 @@ import { licenseCardCondition, type LicenseCardKey } from '@/db/queries/licenseF
 // ACTIVE licence including ones that expired months ago.
 //
 // Buckets, in the order the cards render:
-//   * expired       — ACTIVE but past its expiry date (derived, never stored)
-//   * issued        — ACTIVE and still in date
-//   * approved      — MODIFIED
-//   * pending       — INACTIVE
-//   * cancelled     — ANNULATED
-//   * expiring_soon — in date, but inside the 30-day renewal window
+//   * expired    — ACTIVE but past its expiry date (derived, never stored)
+//   * expiring   — in date, but inside the 30-day renewal window
+//   * active     — ACTIVE and still in date
+//   * annulated  — ANNULATED
+//   * modified   — MODIFIED
+//   * prorogated — PROROGATED
+//
+// `total` is counted separately below rather than listed here: its predicate is
+// "no predicate", and running it through licenseCardCondition would return
+// undefined and silently count the same thing by accident rather than on purpose.
 
 const BUCKETS = [
   'expired',
-  'issued',
-  'approved',
-  'pending',
-  'cancelled',
-  'expiring_soon',
+  'expiring',
+  'active',
+  'annulated',
+  'modified',
+  'prorogated',
 ] as const satisfies readonly LicenseCardKey[];
 
 export const GET = withErrorHandler(async (_req: NextRequest) => {

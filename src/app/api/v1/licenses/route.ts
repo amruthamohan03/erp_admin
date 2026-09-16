@@ -34,6 +34,10 @@ const querySchema = z.object({
   // not a deploy (§4.1).
   use_for: z.enum(['import', 'export']).optional(),
   transport_mode_id: z.coerce.number().int().positive().optional(),
+  // The issuing bank. Paired with kind_id, these are the filter bar's two
+  // narrowing controls since the applied-date range was dropped — both are
+  // columns the grid already shows, which the dates never were.
+  bank_id: z.coerce.number().int().positive().optional(),
   // Status enum from the licenses model: ACTIVE / INACTIVE /
   // ANNULATED / MODIFIED / PROROGATED. No enum check here — unknown
   // values just return 0 rows.
@@ -42,7 +46,10 @@ const querySchema = z.object({
   // buckets /api/v1/licenses/stats counts, so the card list and the
   // card number always agree.
   card: z.string().max(30).optional(),
-  // license_applied_date range (matches the filter bar's Start/End Date).
+  // license_applied_date range. No longer on the filter bar — Kind and Bank took
+  // its place — but kept on the endpoint for reporting callers that ask for a
+  // period. Removing a query parameter breaks anything already sending it, and
+  // this one costs nothing to keep answering.
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -66,6 +73,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     kind_id: searchParams.get('kind_id') ?? undefined,
     use_for: searchParams.get('use_for') ?? undefined,
     transport_mode_id: searchParams.get('transport_mode_id') ?? undefined,
+    bank_id: searchParams.get('bank_id') ?? undefined,
     status: searchParams.get('status') ?? undefined,
     card: searchParams.get('card') ?? undefined,
     start_date: searchParams.get('start_date') ?? undefined,
@@ -103,6 +111,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
   if (q.transport_mode_id) conds.push(eq(licenseT.transportModeId, q.transport_mode_id));
+  if (q.bank_id) conds.push(eq(licenseT.bankId, q.bank_id));
   if (q.status) conds.push(licenseStatusCondition(q.status));
   if (q.start_date) conds.push(gte(licenseT.licenseAppliedDate, q.start_date));
   if (q.end_date) conds.push(lte(licenseT.licenseAppliedDate, q.end_date));

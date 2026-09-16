@@ -624,6 +624,48 @@
       "when": 1784660519423,
       "tag": "0087_hscode_green_certificate",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1784660519424,
+      "tag": "0088_license_dashboard_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1784660519425,
+      "tag": "0089_license_dashboard_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1784660519426,
+      "tag": "0090_client_invoice_bank_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1784660519427,
+      "tag": "0091_goods_type_unique_not_short_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1784660519428,
+      "tag": "0092_goods_short_name_unique_again",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1784660519429,
+      "tag": "0093_cancellation_reason_master",
+      "breakpoints": true
     }
   ]
 }

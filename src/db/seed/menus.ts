@@ -147,6 +147,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Declaration Office', order: 35, url: '/masters/sub-offices' },
   { parent: 'Masters', name: 'Main Office', order: 36, url: '/masters/main-offices' },
   { parent: 'Masters', name: 'Office Location', order: 37, url: '/masters/office-locations' },
+  { parent: 'Masters', name: 'Cancellation Reason', order: 38, url: '/masters/cancellation-reasons' },
   {
     parent: 'Masters',
     name: 'Language Translation',
@@ -171,19 +172,14 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Client Management', name: 'Client Dashboard', order: 47, url: '/clients/dashboard' },
 
   // ── Mapping (original menu_id=80) ───────────────────────────────
-  {
-    parent: 'Mapping',
-    name: 'Client to Bank',
-    order: 2,
-    url: '#',
-    note: 'TODO(port): client_bank_mapping_t not on branch.',
-  },
+  { parent: 'Mapping', name: 'Client to Bank', order: 2, url: '/mapping/clienttobank' },
   { parent: 'Mapping', name: 'Dashboard Cards Mapping', order: 3, url: '/mapping/roletodashboardcard' },
   { parent: 'Mapping', name: 'Role Expense Type Mapping', order: 4, url: '/mapping/roletoexpensetype' },
   { parent: 'Mapping', name: 'Role Menu Mapping', order: 12, url: '/mapping/roletomenu' },
 
   // ── Import License (original menu_id=110) ───────────────────────
   { parent: 'Import License', name: 'Create Import License', order: 1, url: '/licenses/new' },
+  { parent: 'Import License', name: 'License Dashboard', order: 2, url: '/licenses/dashboard' },
   { parent: 'Import License', name: 'Licenses (list)', order: 3, url: '/licenses' },
   {
     parent: 'Import License',

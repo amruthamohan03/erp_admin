@@ -70,9 +70,13 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
       .where(eq(typeOfGoodsMaster.id, id))
       .returning({ id: typeOfGoodsMaster.id });
   } catch (err) {
-    // Same guard as the create path (0085): renaming a goods type onto another
-    // one's code must say so rather than surfacing a bare constraint name.
-    const dup = uniqueViolationResponse(err, 'Short Name');
+    // Same guard as the create path (0091): renaming a goods type onto another
+    // one's name must say so rather than surfacing a bare constraint name.
+    const dup = uniqueViolationResponse(err, {
+      type_of_goods_master_t_type_uq: 'Type',
+      type_of_goods_master_t_short_name_uq: 'Short Name',
+      default: 'Type',
+    });
     if (dup) return dup;
     throw err;
   }

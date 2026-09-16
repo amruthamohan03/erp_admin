@@ -15,6 +15,8 @@ import {
   Clock,
   XCircle,
   CalendarClock,
+  CalendarX,
+  CalendarPlus,
   Layers,
   Eye,
   FileSpreadsheet,
@@ -94,20 +96,26 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Clock,
   XCircle,
   CalendarClock,
+  CalendarX,
+  CalendarPlus,
   FileText,
 };
 
+// Kind and Bank replaced the applied-date range. A date range is a reporting
+// question, and the two things an operator actually narrows this list by are the
+// licence type and the bank that issued it — both already columns in the grid,
+// which the dates never were.
 interface FilterState {
   client_id: string;
   transport_mode_id: string;
-  start_date: string;
-  end_date: string;
+  kind_id: string;
+  bank_id: string;
 }
 const EMPTY_FILTERS: FilterState = {
   client_id: '',
   transport_mode_id: '',
-  start_date: '',
-  end_date: '',
+  kind_id: '',
+  bank_id: '',
 };
 
 type Option = MasterOption;
@@ -125,8 +133,8 @@ function buildParams(f: FilterState): URLSearchParams {
   const p = new URLSearchParams();
   if (f.client_id) p.set('client_id', f.client_id);
   if (f.transport_mode_id) p.set('transport_mode_id', f.transport_mode_id);
-  if (f.start_date) p.set('start_date', f.start_date);
-  if (f.end_date) p.set('end_date', f.end_date);
+  if (f.kind_id) p.set('kind_id', f.kind_id);
+  if (f.bank_id) p.set('bank_id', f.bank_id);
   return p;
 }
 
@@ -140,6 +148,8 @@ export default function LicensesListPage() {
 
   const [clientOpts, setClientOpts] = useState<Option[]>([]);
   const [transportOpts, setTransportOpts] = useState<Option[]>([]);
+  const [kindOpts, setKindOpts] = useState<Option[]>([]);
+  const [bankOpts, setBankOpts] = useState<Option[]>([]);
 
   const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
@@ -220,14 +230,18 @@ export default function LicensesListPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [c, t] = await Promise.all([
+      const [c, t, k, b] = await Promise.all([
         // Clients are labelled by short code app-wide (§4.15).
         fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD),
         fetchOptions('transport-modes', 'transport_mode_name'),
+        fetchOptions('kinds', 'kind_name'),
+        fetchOptions('banks', 'bank_name'),
       ]);
       if (cancelled) return;
       setClientOpts(c);
       setTransportOpts(t);
+      setKindOpts(k);
+      setBankOpts(b);
     })();
     return () => {
       cancelled = true;
@@ -237,8 +251,6 @@ export default function LicensesListPage() {
   const hasActiveFilters = Object.values(applied).some(Boolean);
 
   function applyFilters() {
-    if (draft.start_date && draft.end_date && draft.start_date > draft.end_date)
-      return;
     setApplied(draft);
     setPage(1);
   }
@@ -331,27 +343,25 @@ export default function LicensesListPage() {
             />
           </div>
           <div>
-            <label className="label">Start Date</label>
-            <input
-              type="date"
-              className="input"
-              value={draft.start_date}
-              max={draft.end_date || undefined}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, start_date: e.target.value }))
-              }
+            <label className="label">Kind</label>
+            <SearchableSelect
+              aria-label="Kind"
+              value={draft.kind_id}
+              emptyLabel="All Kinds"
+              placeholder="All Kinds"
+              options={kindOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, kind_id: v }))}
             />
           </div>
           <div>
-            <label className="label">End Date</label>
-            <input
-              type="date"
-              className="input"
-              value={draft.end_date}
-              min={draft.start_date || undefined}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, end_date: e.target.value }))
-              }
+            <label className="label">Bank</label>
+            <SearchableSelect
+              aria-label="Bank"
+              value={draft.bank_id}
+              emptyLabel="All Banks"
+              placeholder="All Banks"
+              options={bankOpts.map((o) => ({ value: String(o.id), label: o.label }))}
+              onChange={(v) => setDraft((d) => ({ ...d, bank_id: v }))}
             />
           </div>
           <div className="flex items-center gap-2">

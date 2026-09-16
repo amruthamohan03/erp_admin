@@ -2,15 +2,23 @@
 
 import clsx from 'clsx';
 import Sidebar from '@/components/layout/Sidebar';
+import MenuProvider from '@/components/layout/MenuProvider';
+import DocumentTitle from '@/components/layout/DocumentTitle';
 import SidebarProvider, { useSidebar } from '@/components/layout/SidebarProvider';
 import Topbar from '@/components/layout/Topbar';
 import Footer from '@/components/layout/Footer';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
-      <ShellFrame>{children}</ShellFrame>
-    </SidebarProvider>
+    // MenuProvider wraps the frame because both the sidebar and the browser-tab
+    // title read the same role-scoped tree — one fetch, one answer (§4.10).
+    <MenuProvider>
+      <SidebarProvider>
+        {/* Renders nothing; keeps document.title in step with the route. */}
+        <DocumentTitle />
+        <ShellFrame>{children}</ShellFrame>
+      </SidebarProvider>
+    </MenuProvider>
   );
 }
 

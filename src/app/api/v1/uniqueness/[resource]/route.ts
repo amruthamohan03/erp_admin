@@ -26,6 +26,7 @@ import {
   groupCompanyMaster,
   doneByMaster,
   feetContainerMaster,
+  cancellationReasonMaster,
   hscodeMaster,
   incotermMaster,
   provinceMaster,
@@ -75,6 +76,16 @@ interface ResourceConfig {
    * a single parent `payment_type_id`.
    */
   scopeColumn?: PgColumn;
+  /**
+   * Extra checkable columns, selected with `?field=`.
+   *
+   * A master can constrain more than one column — Type of Goods constrains both
+   * `goods_type` and `goods_short_name` (0091, 0092) — and each needs its own
+   * live check, or the operator gets a badge on one field and a save-time
+   * rejection on the other. `nameColumn` stays the default so every existing
+   * caller is unaffected.
+   */
+  fields?: Record<string, PgColumn>;
 }
 
 const RESOURCES: Record<string, ResourceConfig> = {
@@ -103,11 +114,23 @@ const RESOURCES: Record<string, ResourceConfig> = {
     idColumn: transportModeMaster.id,
     displayColumn: transportModeMaster.display,
   },
+  'cancellation-reasons': {
+    table: cancellationReasonMaster,
+    nameColumn: cancellationReasonMaster.reasonName,
+    idColumn: cancellationReasonMaster.id,
+    displayColumn: cancellationReasonMaster.display,
+  },
   'goods-types': {
     table: typeOfGoodsMaster,
     nameColumn: typeOfGoodsMaster.goodsType,
     idColumn: typeOfGoodsMaster.id,
     displayColumn: typeOfGoodsMaster.display,
+    // Both columns are constrained (0091 Type, 0092 Short Name), so both get a
+    // live check. `?field=short_name` selects the second.
+    fields: {
+      goods_type: typeOfGoodsMaster.goodsType,
+      short_name: typeOfGoodsMaster.goodsShortName,
+    },
   },
   'quotation-categories': {
     table: quotationCategoryMaster,
@@ -396,10 +419,25 @@ export const GET = withErrorHandler(
       );
     }
 
-    // Case-insensitive exact match — operators care about visual
-    // duplicates, not Postgres collation rules.
+    // Which column to check. Defaults to the resource's main name column, so a
+    // caller that does not ask for one behaves exactly as before.
+    const fieldKey = searchParams.get('field');
+    const column = fieldKey ? config.fields?.[fieldKey] : config.nameColumn;
+    if (!column) {
+      throw new BadRequestError(
+        `Unknown field "${fieldKey}" for resource: ${resource}`,
+      );
+    }
+
+    // Case-insensitive exact match — operators care about visual duplicates,
+    // not Postgres collation rules.
+    //
+    // `btrim` on BOTH sides so this agrees with the unique indexes, which are
+    // all `UPPER(BTRIM(col))`. Without it a stored " CO " looked available to
+    // the live check and was then refused on save — the live badge saying one
+    // thing and the database another is worse than no badge at all.
     const conds: SQL[] = [
-      sql`lower(${config.nameColumn}) = lower(${name})`,
+      sql`lower(btrim(${column})) = lower(btrim(${name}))`,
     ];
     if (config.displayColumn) {
       conds.push(eq(config.displayColumn, 'Y'));

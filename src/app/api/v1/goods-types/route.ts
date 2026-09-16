@@ -81,10 +81,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
     return ok(row, 201);
   } catch (err) {
-    // The short name is a unique code (0085). Without this the operator gets
-    // "Resource already exists" from the generic handler, which names neither
+    // Type is the unique field (0091 — 0085 had put it on Short Name, which is
+    // not the field the form's live badge checks). Without this the operator
+    // gets the generic handler's "Resource already exists", which names neither
     // the field nor the value (§4.23).
-    const dup = uniqueViolationResponse(err, 'Short Name');
+    const dup = uniqueViolationResponse(err, {
+      type_of_goods_master_t_type_uq: 'Type',
+      type_of_goods_master_t_short_name_uq: 'Short Name',
+      default: 'Type',
+    });
     if (dup) return dup;
     throw err;
   }
