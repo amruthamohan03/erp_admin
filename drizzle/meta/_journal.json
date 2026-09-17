@@ -666,6 +666,27 @@
       "when": 1784660519429,
       "tag": "0093_cancellation_reason_master",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1789623644802,
+      "tag": "0094_payment_request_resubmit",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1789629141547,
+      "tag": "0095_quotation_transaction_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1789633687213,
+      "tag": "0096_invoice_grid_field",
+      "breakpoints": true
     }
   ]
 }

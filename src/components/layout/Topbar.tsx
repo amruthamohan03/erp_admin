@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
@@ -105,6 +106,7 @@ export default function Topbar() {
       {/* Controls read as white glass on the gradient; their dropdowns still open
           on the themed popover. */}
       <div className="flex shrink-0 items-center gap-1 [&_button]:text-white [&_button:hover]:bg-white/15 [&_button:hover]:text-white">
+        <LanguageSwitcher />
         <ThemeToggle />
 
         {me && (
@@ -116,7 +118,8 @@ export default function Topbar() {
                   <AvatarFallback className="bg-white/20 text-xs text-white">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="hidden text-start leading-tight md:block">
-                  <div className="max-w-[12rem] truncate text-sm font-medium">
+                  {/* A person's name is data, not prose — never translated. */}
+                  <div className="max-w-[12rem] truncate text-sm font-medium" translate="no">
                     {me.full_name}
                   </div>
                   <div className="truncate text-xs text-white/70">{me.role_name}</div>
@@ -126,7 +129,7 @@ export default function Topbar() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col">
-                  <span>{me.full_name}</span>
+                  <span translate="no">{me.full_name}</span>
                   <span className="text-xs font-normal text-muted-foreground">{me.role_name}</span>
                 </div>
               </DropdownMenuLabel>

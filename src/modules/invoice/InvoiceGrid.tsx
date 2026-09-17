@@ -8,7 +8,7 @@
 //
 // Totals here are BASIC (sum of qty·taux, 16% TVA when flagged). Client-specific
 // special-item rules are deferred — see the module notes in the schema files.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Save, RefreshCw, Loader2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
@@ -82,21 +82,156 @@ function recompute(it: GridItem): GridItem {
   return { ...it, subtotal_usd: subtotal, tva_usd: tva, total_usd: round2(subtotal + tva) };
 }
 
-export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId: number }) {
-  const base = `/api/v1/${kind}-invoices/${invoiceId}`;
+/** What the EMBEDDED grid holds as its form value. */
+export interface InvoiceGridValue {
+  quotation_id: number | null;
+  items: GridItem[];
+  mcaDetails: GridMca[];
+}
+
+interface InvoiceGridProps {
+  kind: Kind;
+  /** 0 or NaN while creating — the embedded grid works without a saved row. */
+  invoiceId: number;
+  /**
+   * Present ⇒ EMBEDDED inside the transaction page: the value is lifted into the
+   * page's form state, the grid's own Save disappears, and the page's single
+   * Save writes header and children in one transaction (§4.17).
+   *
+   * Absent ⇒ standalone, owning its own load and save against
+   * `/{kind}-invoices/{id}/grid`. That mode is what every caller used before the
+   * grid moved into the form, and the endpoint still serves API-only callers.
+   */
+  value?: InvoiceGridValue;
+  onChange?: (value: InvoiceGridValue) => void;
+  readonly?: boolean;
+  /** The client chosen on the header accordion — scopes both pickers. */
+  clientId?: number | null;
+}
+
+export default function InvoiceGrid({
+  kind,
+  invoiceId,
+  value,
+  onChange,
+  readonly: readonlyProp,
+  clientId,
+}: InvoiceGridProps) {
+  const embedded = typeof onChange === 'function';
+  const savedId = Number.isInteger(invoiceId) && invoiceId > 0 ? invoiceId : null;
+  const base = `/api/v1/${kind}-invoices/${savedId ?? 0}`;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<GridData | null>(null);
-  const [items, setItems] = useState<GridItem[]>([]);
-  const [mca, setMca] = useState<GridMca[]>([]);
-  const [quotationId, setQuotationId] = useState<string>('');
+  const [ownItems, setOwnItems] = useState<GridItem[]>([]);
+  const [ownMca, setOwnMca] = useState<GridMca[]>([]);
+  const [ownQuotationId, setOwnQuotationId] = useState<string>('');
   const [addMcaId, setAddMcaId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Embedded, the three editable collections live in the page's form state, so
+  // every edit must go back out through `onChange` rather than into local state —
+  // otherwise the page's Save would write what it was last told, not what is on
+  // screen, and its dirty tracking would never notice a change.
+  //
+  // Memoised, and that is not a micro-optimisation: `setItems` and `setMca`
+  // below close over these, and every callback that calls a setter lists it as a
+  // dependency. A fresh array identity on each render would rebuild that whole
+  // chain each time, and a HANDLER that did not rebuild would keep a setter
+  // closed over a stale `value` — so a second quick edit would be written on top
+  // of the first one's starting state and silently lose it.
+  const items = useMemo(
+    () => (embedded ? (value?.items ?? []) : ownItems),
+    [embedded, value?.items, ownItems],
+  );
+  const mca = useMemo(
+    () => (embedded ? (value?.mcaDetails ?? []) : ownMca),
+    [embedded, value?.mcaDetails, ownMca],
+  );
+  const quotationId = embedded
+    ? value?.quotation_id == null ? '' : String(value.quotation_id)
+    : ownQuotationId;
+
+  // The LATEST value, read at call time. The setters below are what every edit
+  // handler depends on, so they must not capture a value that a sibling edit has
+  // already superseded.
+  const latest = useRef<InvoiceGridValue>({ quotation_id: null, items: [], mcaDetails: [] });
+  // Synced in an effect, not during render: a ref written while rendering is a
+  // value React may never commit. Every reader below is an event handler, which
+  // runs after commit, so the effect has always landed by then.
+  useEffect(() => {
+    latest.current = {
+      quotation_id: value?.quotation_id ?? null,
+      items: value?.items ?? [],
+      mcaDetails: value?.mcaDetails ?? [],
+    };
+  }, [value]);
+
+  const emit = useCallback(
+    (next: Partial<InvoiceGridValue>) => {
+      const merged = { ...latest.current, ...next };
+      // Advanced immediately, not left to the effect: two setters called from
+      // one handler both run before React re-renders, so without this the second
+      // would compose against the pre-edit value and drop the first's change.
+      latest.current = merged;
+      onChange?.(merged);
+    },
+    [onChange],
+  );
+
+  const setItems = useCallback(
+    (update: GridItem[] | ((prev: GridItem[]) => GridItem[])) => {
+      if (!embedded) { setOwnItems(update); return; }
+      emit({ items: typeof update === 'function' ? update(latest.current.items) : update });
+    },
+    [embedded, emit],
+  );
+
+  const setMca = useCallback(
+    (update: GridMca[] | ((prev: GridMca[]) => GridMca[])) => {
+      if (!embedded) { setOwnMca(update); return; }
+      emit({ mcaDetails: typeof update === 'function' ? update(latest.current.mcaDetails) : update });
+    },
+    [embedded, emit],
+  );
+
+  const setQuotationId = useCallback(
+    (next: string) => {
+      if (!embedded) { setOwnQuotationId(next); return; }
+      emit({ quotation_id: next ? Number(next) : null });
+    },
+    [embedded, emit],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    // Embedded: the VALUE comes from the page, so only the pickers are fetched —
+    // and they are scoped to the client, which is what lets the grid work on a
+    // brand-new invoice that has no row to read from yet.
+    if (embedded) {
+      const res = await safeFetchJson<{
+        clientQuotations: GridData['clientQuotations'];
+        availableMcas: GridData['availableMcas'];
+      }>(`/api/v1/invoice-grid-pickers?kind=${kind}${clientId ? `&client_id=${clientId}` : ''}`);
+      if (!res.ok) {
+        setError(res.message);
+        setLoading(false);
+        return;
+      }
+      setData({
+        header: { id: savedId ?? 0, client_id: clientId ?? null, license_id: null, validated: 0 },
+        items: [],
+        mcaDetails: [],
+        clientQuotations: res.data.clientQuotations,
+        availableMcas: res.data.availableMcas,
+      });
+      setLoading(false);
+      return;
+    }
+
     const res = await safeFetchJson<GridData>(`${base}/grid`);
     if (!res.ok) {
       setError(res.message);
@@ -104,17 +239,17 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
       return;
     }
     setData(res.data);
-    setItems(res.data.items.map(recompute));
-    setMca(res.data.mcaDetails);
+    setOwnItems(res.data.items.map(recompute));
+    setOwnMca(res.data.mcaDetails);
     setLoading(false);
-  }, [base]);
+  }, [base, embedded, kind, clientId, savedId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (Number.isInteger(invoiceId) && invoiceId > 0) void load();
-  }, [load, invoiceId]);
+    if (embedded || savedId !== null) void load();
+  }, [load, embedded, savedId]);
 
-  const readonly = (data?.header.validated ?? 0) >= 1;
+  const readonly = readonlyProp ?? (data?.header.validated ?? 0) >= 1;
 
   const totals = useMemo(() => {
     const subtotal = round2(items.reduce((s, it) => s + it.subtotal_usd, 0));
@@ -152,7 +287,7 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
     }
     setItems(res.data.map(recompute));
     setNotice(`Loaded ${res.data.length} item(s) from quotation.`);
-  }, [quotationId]);
+  }, [quotationId, setItems]);
 
   const addMca = useCallback(async () => {
     const id = Number(addMcaId);
@@ -174,19 +309,19 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
     }
     setMca((prev) => [...prev, row]);
     setAddMcaId('');
-  }, [addMcaId, kind, mca.length]);
+  }, [addMcaId, kind, mca.length, setMca]);
 
   const removeMca = useCallback((idx: number) => {
     setMca((prev) => prev.filter((_, i) => i !== idx));
-  }, []);
+  }, [setMca]);
 
   const patchItem = useCallback((idx: number, patch: Partial<GridItem>) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? recompute({ ...it, ...patch }) : it)));
-  }, []);
+  }, [setItems]);
 
   const patchMca = useCallback((idx: number, patch: Partial<GridMca>) => {
     setMca((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
-  }, []);
+  }, [setMca]);
 
   const addBlankItem = useCallback(() => {
     setItems((prev) => [
@@ -198,11 +333,11 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
         tva_usd: 0, subtotal_usd: 0, total_usd: 0,
       }),
     ]);
-  }, []);
+  }, [setItems]);
 
   const removeItem = useCallback((idx: number) => {
     setItems((prev) => prev.filter((_, i) => i !== idx));
-  }, []);
+  }, [setItems]);
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -459,7 +594,12 @@ export default function InvoiceGrid({ kind, invoiceId }: { kind: Kind; invoiceId
         </div>
       </div>
 
-      {!readonly && (
+      {/* §4.17 — EMBEDDED, this grid has no Save of its own: the page's single
+          Save writes the header and these children in one transaction. A second
+          Save here is the defect this move exists to remove — two controls
+          writing the same invoice, where saving one silently discarded the
+          other's edits, and neither existed at all on /new. */}
+      {!embedded && !readonly && (
         <div className="flex justify-end">
           <button type="button" onClick={save} disabled={saving}
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-50">

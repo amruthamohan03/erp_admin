@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { orderOptions, optionRows, type SelectOption } from '@/lib/selectOptions';
+import { labelOf, orderOptions, optionRows, type SelectOption } from '@/lib/selectOptions';
 
 // §4.16 — one rule decides the order of every dropdown in the app. If this
 // changes, every picker on every screen changes with it, so it is pinned here.
@@ -71,5 +71,41 @@ describe('optionRows', () => {
     expect(optionRows({ ok: false, error: { message: 'nope' } })).toEqual([]);
     expect(optionRows({ ok: true, data: null })).toEqual([]);
     expect(optionRows(undefined)).toEqual([]);
+  });
+});
+
+describe('labelOf', () => {
+  it('takes the first field that carries something', () => {
+    expect(labelOf({ id: 4, unit_code: 'KG', unit_name: 'Kilogram' }, ['unit_code', 'unit_name']))
+      .toBe('KG');
+  });
+
+  // The defect this exists for: unit_master_t has an OPTIONAL short code beside
+  // a required name, every live row's code is null, and asking for the code
+  // alone rendered the quotation grid's Unit picker as "1, 2, 3, …".
+  it('falls through to the next field when the preferred one is null', () => {
+    expect(labelOf({ id: 4, unit_code: null, unit_name: 'CIF' }, ['unit_code', 'unit_name']))
+      .toBe('CIF');
+  });
+
+  it('treats blank and whitespace as absent, not as a label', () => {
+    // An option labelled '   ' is indistinguishable from its neighbours, which
+    // is the same failure as labelling it with an id.
+    expect(labelOf({ id: 7, code: '', name: 'Per Truck' }, ['code', 'name'])).toBe('Per Truck');
+    expect(labelOf({ id: 7, code: '   ', name: 'Per Truck' }, ['code', 'name'])).toBe('Per Truck');
+  });
+
+  it('accepts a numeric label rather than skipping past it', () => {
+    // 'PER 1' style units really are stored as bare numbers on this data.
+    expect(labelOf({ id: 9, unit_name: 1 }, ['unit_name'])).toBe('1');
+  });
+
+  it('falls back to the id only when every candidate is empty', () => {
+    expect(labelOf({ id: 12, unit_code: null, unit_name: null }, ['unit_code', 'unit_name']))
+      .toBe('12');
+  });
+
+  it('still works with a single field, the way most callers ask', () => {
+    expect(labelOf({ id: 3, department_name: 'Finance' }, ['department_name'])).toBe('Finance');
   });
 });

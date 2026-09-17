@@ -37,6 +37,28 @@ import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive
 import { assertPartielleCapacity } from '@/db/queries/partielle';
 import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
+import {
+  computeQuotationSave,
+  parseQuotationLines,
+  replaceQuotationLines,
+  type QuotationComputed,
+} from '@/db/queries/quotationPage';
+import {
+  computeGrid,
+  invoiceKindForSlug,
+  parseInvoiceGridValue,
+  writeGridChildren,
+  type GridItem,
+  type InvoiceKind,
+} from '@/db/queries/invoices';
+import type { GridSaveInput } from '@/schemas/invoiceGrid';
+import {
+  STAGE_COLUMNS,
+  canEditRequest,
+  isEditableState,
+  willResubmitOnSave,
+  type PaymentApprovalState,
+} from '@/lib/payments/stages';
 
 type Ctx = { params: Promise<{ slug: string; id: string }> };
 
@@ -247,6 +269,38 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (partielleError) return fail(partielleError, 422, { field: 'inspection_reports' });
   }
 
+  // §4.37 — the list hides Edit once the Department has approved and for anyone
+  // but the requester, and this is the same rule on the door rather than on the
+  // handle. A stale tab, a bookmarked /payments/42, or a direct POST all reach
+  // here, and a check that lives only in the UI is not a check.
+  //
+  // `before` is the stored row, so this reads the approval state as it is NOW,
+  // not as the submission claims it to be.
+  //
+  // `resubmitting` is carried down to the write: saving a REJECTED request is
+  // what sends it back round the chain, so the same read decides both.
+  let resubmitting = false;
+  if (slug === 'payment' && !isCreate && before) {
+    const state = before as unknown as PaymentApprovalState;
+    const createdBy = before['created_by'] as number | null | undefined;
+
+    if (!isEditableState(state)) {
+      return fail(
+        'This request has been approved by the Department and can no longer be edited. ' +
+          'Ask an approver to reject it if it needs correcting.',
+        422,
+      );
+    }
+    if (!canEditRequest(state, createdBy, session.uid)) {
+      return fail(
+        'Only the person who raised a payment request can edit it. ' +
+          'Reject it with a reason if it needs correcting.',
+        403,
+      );
+    }
+    resubmitting = willResubmitOnSave(state);
+  }
+
   // A payment request's references must exist in the tracking table for its
   // client and must not already be consumed by another request with the same
   // expense type. Page-specific like the two rules above, and enforced here so a
@@ -258,6 +312,53 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     // code rather than from a configured field, so it is not part of the
     // whitelist above — the column name is a literal, never client input.
     patch['mca_ref'] = firstMcaRef(patch['mca_data']);
+  }
+
+  // §2 step 2 — a quotation's totals are DERIVED from its lines, so they are
+  // recomputed here from the merged context and spliced into the patch; a
+  // submitted total is ignored. The lines themselves are written after the
+  // header, inside the same transaction (see the write below).
+  //
+  // Not expressible as a `derive` row (§4.12) because the arithmetic needs two
+  // database reads — the kind's NAME, which picks the pricing path, and which
+  // categories are flagged customs.
+  let quotationSave: QuotationComputed | null = null;
+  if (slug === 'quotation') {
+    // `items` absent means the grid was never part of this submission — leave
+    // the stored lines alone rather than reading silence as "delete them all".
+    const submittedLines = 'items' in mergedSubmitted
+      ? parseQuotationLines(mergedSubmitted['items'])
+      : isCreate
+        ? []
+        : null;
+    if (submittedLines !== null) {
+      quotationSave = await computeQuotationSave(evalContext, submittedLines);
+      Object.assign(patch, quotationSave.columns);
+    }
+  }
+
+  // §2 step 5 — an invoice's MCA rows and priced lines, through the same virtual
+  // field. Its header totals are derived the same way a quotation's are, so they
+  // are computed here and spliced into the patch rather than trusted.
+  const invoiceKind = invoiceKindForSlug(slug);
+  let invoiceGrid: { kind: InvoiceKind; payload: GridSaveInput; items: GridItem[] } | null = null;
+  if (invoiceKind && 'invoice_grid' in mergedSubmitted) {
+    // §4.37 — the standalone /grid route refuses to edit a validated invoice, so
+    // this door is closed too. `before` is the stored row, so it reads the state
+    // as it IS rather than as the submission claims.
+    if (!isCreate && Number(before?.['validated'] ?? 0) >= 1) {
+      return fail(
+        'This invoice has been validated and its lines can no longer be changed.',
+        422,
+        { field: 'invoice_grid' },
+      );
+    }
+    const payload = parseInvoiceGridValue(mergedSubmitted['invoice_grid']);
+    if (payload) {
+      const computed = computeGrid(invoiceKind, payload);
+      Object.assign(patch, computed.columns);
+      invoiceGrid = { kind: invoiceKind, payload, items: computed.items };
+    }
   }
 
   // 7) Transactional write + audit.
@@ -301,6 +402,34 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       );
       setEntries.push(sql`${sql.identifier('updated_by')} = ${session.uid}`);
       setEntries.push(sql`${sql.identifier('updated_at')} = CURRENT_TIMESTAMP`);
+
+      // Correcting a REJECTED payment request and saving it IS the
+      // re-submission (main's `$wasRejected` branch in PaymentController::store).
+      // Every stage flag, timestamp, approver and note goes back to pending, so
+      // the corrected request starts again at Department rather than re-entering
+      // mid-chain carrying an approval given for different numbers.
+      //
+      // In the SAME statement as the user's edit: two statements would leave a
+      // window where the request is corrected but still reads as rejected, and
+      // a failure between them would strand it there permanently.
+      if (resubmitting) {
+        for (const col of Object.values(STAGE_COLUMNS)) {
+          setEntries.push(
+            sql`${sql.identifier(col.approval)} = NULL`,
+            sql`${sql.identifier(col.at)} = NULL`,
+            sql`${sql.identifier(col.by)} = NULL`,
+            sql`${sql.identifier(col.notes)} = NULL`,
+          );
+        }
+        // The reset erases the rejection entirely, so these three columns (0094)
+        // and the audit entry below are all that remain of the round-trip.
+        setEntries.push(
+          sql`${sql.identifier('resubmitted_at')} = CURRENT_TIMESTAMP`,
+          sql`${sql.identifier('resubmitted_by')} = ${session.uid}`,
+          sql`${sql.identifier('resubmit_count')} = COALESCE(resubmit_count, 0) + 1`,
+        );
+      }
+
       const setSql = sql.join(setEntries, sql`, `);
 
       await tx.execute(
@@ -331,6 +460,26 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       }
     }
 
+    // The quotation's lines, replaced wholesale in the SAME transaction as the
+    // header they price. Two statements would let a header land carrying totals
+    // that its stored lines do not add up to — which is exactly the state a
+    // quotation must never be readable in.
+    if (quotationSave) {
+      await replaceQuotationLines(tx, savedId, quotationSave.items, session.uid);
+    }
+
+    // Same transaction as the header whose totals they produced — see above.
+    if (invoiceGrid) {
+      await writeGridChildren(
+        tx,
+        invoiceGrid.kind,
+        savedId,
+        invoiceGrid.items,
+        invoiceGrid.payload,
+        session.uid,
+      );
+    }
+
     // §4.10: audit row, same transaction.
     await recordAudit(tx, {
       actorId: session.uid,
@@ -346,6 +495,9 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
         accordions: submittedSlugs,
         // For per-field reconstruction in the audit detail UI.
         fields: Object.keys(patch),
+        // `before` above holds the rejection this save erased — its stage, its
+        // reason and its timestamp — which exists nowhere else afterwards.
+        ...(resubmitting ? { resubmitted: true } : {}),
       },
     });
 
@@ -368,7 +520,10 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     });
   }
 
-  return ok({ id: newId }, isCreate ? 201 : 200);
+  // `resubmitted` lets the caller say what actually happened — "sent back to
+  // Department for approval" rather than a bare "Saved", which would not tell
+  // the requester their correction has re-entered the chain.
+  return ok({ id: newId, ...(resubmitting ? { resubmitted: true } : {}) }, isCreate ? 201 : 200);
 });
 
 /**

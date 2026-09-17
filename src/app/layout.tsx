@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import BrandingProvider from '@/components/providers/BrandingProvider';
 import ThemeProvider from '@/components/providers/ThemeProvider';
+import TranslateProvider from '@/components/providers/TranslateProvider';
+import { defaultLocale, isLocale, LOCALE_COOKIE, localeDirs } from '@/i18n/config';
 import { loadBranding } from '@/db/queries/branding';
 import { BRANDING_DEFAULTS, brandingCssVars } from '@/lib/branding';
 import { loadActionStyles } from '@/db/queries/actionStyles';
@@ -56,16 +59,25 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The operator's language, chosen from the Topbar and kept in a cookie so the
+  // FIRST response already carries it — resolving it in the browser would render
+  // the whole app in English and then rewrite it, on every navigation.
+  const store = await cookies();
+  const cookieLocale = store.get(LOCALE_COOKIE)?.value;
+  const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
+  const dir = localeDirs[locale];
+
   // Resolved server-side so the configured palette is in the first HTML response —
   // a client-side apply would flash the default brand on every navigation.
   const [branding, actionStyles] = await Promise.all([loadBranding(), loadActionStyles()]);
 
   return (
-    // The app ships in English. The machine-translation layer that used to swap
-    // this per request is gone: it re-translated the DOM on every navigation,
-    // which fought the renderer, and it could silently rewrite operator data —
-    // a client short name or an MCA reference is not prose to be translated.
-    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={dir}
+      className={`${sans.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* Tabler Icons webfont - powers the `ti ti-*` icon classes from menu_master_t */}
         <link
@@ -92,7 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider>
           <BrandingProvider branding={branding}>
-            {children}
+            <TranslateProvider initialLocale={locale}>{children}</TranslateProvider>
           </BrandingProvider>
         </ThemeProvider>
       </body>

@@ -86,6 +86,13 @@ export const paymentRequest = pgTable(
     paidApprovedBy: integer('paid_approved_by').references(() => usersT.id, { onDelete: 'set null' }),
     paidNotes: text('paid_notes'),
 
+    // A rejected request that was corrected and sent round again (0094). The
+    // stage flags above are all reset by that, so this is the only evidence in
+    // the row itself that the request has been here before.
+    resubmittedAt: timestamp('resubmitted_at', { withTimezone: false }),
+    resubmittedBy: integer('resubmitted_by').references(() => usersT.id, { onDelete: 'set null' }),
+    resubmitCount: integer('resubmit_count').notNull().default(0),
+
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id, { onDelete: 'set null' }),
     updatedBy: integer('updated_by').references(() => usersT.id, { onDelete: 'set null' }),

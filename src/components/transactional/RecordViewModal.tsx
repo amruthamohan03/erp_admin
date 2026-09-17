@@ -11,6 +11,15 @@ import { companionOf } from '@/lib/pages/companion';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
+/** Two decimals with separators, the way every amount in this app is read. */
+const money = (v: unknown): string => {
+  const n = Number(v);
+  return (Number.isFinite(n) ? n : 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 // A read-only "beautiful" record viewer for any transactional page. Instead of
 // re-rendering the edit form with disabled inputs, it reuses the exact same
 // config the form uses — /api/v1/pages/<slug>?entity_id=<id> returns the
@@ -30,6 +39,20 @@ interface RecordViewModalProps {
   editHref?: string;
   onExport?: () => void;
   onClose: () => void;
+  /**
+   * Module-specific content rendered after the accordions.
+   *
+   * For state that belongs to the record but is NOT a form field, and so has no
+   * page config to be rendered from: the payment request's approval trail is the
+   * live case — who approved which stage, when, and what they wrote. That is the
+   * half of a payment request people open the viewer to read, and it can never
+   * appear through `page.accordions` because it is workflow state, not input.
+   *
+   * A slot rather than a per-module branch inside this component: every approval
+   * chain will want the same thing, and the alternative is this file growing a
+   * `slug === 'payment'` case (§4.8).
+   */
+  extra?: React.ReactNode;
 }
 
 
@@ -39,7 +62,9 @@ function getString(props: Record<string, unknown> | null, key: string): string |
 }
 
 // Field types that hold long text and read better spanning the full row.
-const WIDE_TYPES = new Set(['textarea', 'seal-picker', 'checkbox-group', 'remark-log']);
+const WIDE_TYPES = new Set([
+  'textarea', 'seal-picker', 'checkbox-group', 'remark-log', 'mca-grid', 'quotation-items',
+]);
 
 
 export default function RecordViewModal({
@@ -49,6 +74,7 @@ export default function RecordViewModal({
   editHref,
   onExport,
   onClose,
+  extra,
 }: RecordViewModalProps): React.ReactElement {
   const [page, setPage] = useState<PageDef | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -193,6 +219,85 @@ export default function RecordViewModal({
           </ul>
         );
       }
+      // §4.5 — a repeating JSONB group reads as its rows, not as its JSON. Without
+      // this case the default branch stringified the array, so the payment
+      // request's references came out as "[object Object],[object Object]" —
+      // which is exactly what the viewer is opened to read.
+      case 'mca-grid': {
+        const lines = Array.isArray(v) ? (v as Array<{ mca_ref?: string; amount?: number }>) : [];
+        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        const total = lines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+        return (
+          <div className="overflow-x-auto">
+            <table className="table-base text-xs">
+              <thead>
+                <tr>
+                  <th className="w-10">#</th>
+                  <th>Reference</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line, i) => (
+                  <tr key={`${line.mca_ref ?? ''}-${i}`}>
+                    <td className="text-muted-foreground">{i + 1}</td>
+                    <td className="font-mono">{line.mca_ref ?? '—'}</td>
+                    <td className="text-right tabular-nums">{money(line.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold">
+                  <td />
+                  <td>Total</td>
+                  <td className="text-right tabular-nums">{money(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        );
+      }
+      // §4.5 — a quotation's priced lines read as a table. Without this case the
+      // default branch stringifies the array, which is what the payment grid did
+      // before it was given one.
+      case 'quotation-items': {
+        const lines = Array.isArray(v)
+          ? (v as Array<Record<string, unknown>>)
+          : [];
+        const priced = lines.filter((l) => l.item_id);
+        if (priced.length === 0) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="overflow-x-auto">
+            <table className="table-base text-xs">
+              <thead>
+                <tr>
+                  <th className="w-10">#</th>
+                  <th>Item</th>
+                  <th className="text-right">Qty</th>
+                  <th className="text-right">Rate</th>
+                  <th className="text-center">TVA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priced.map((l, i) => (
+                  <tr key={i}>
+                    <td className="text-muted-foreground">{i + 1}</td>
+                    {/* The id, because the viewer holds the form's values and
+                        not the joined master names. The detail endpoint is
+                        where a named line list comes from. */}
+                    <td className="font-mono">#{String(l.item_id)}</td>
+                    <td className="text-right tabular-nums">{money(l.quantity ?? 1)}</td>
+                    <td className="text-right tabular-nums">
+                      {money(l.rate_cdf || l.cost_usd || l.taux_usd)}
+                    </td>
+                    <td className="text-center">{l.has_tva ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
       case 'textarea':
         return <span className="whitespace-pre-wrap">{String(v)}</span>;
       default:
@@ -298,6 +403,9 @@ export default function RecordViewModal({
                   </section>
                 );
               })}
+
+              {/* Record state that is not a form field — see `extra` above. */}
+              {extra}
             </div>
           )}
         </div>
