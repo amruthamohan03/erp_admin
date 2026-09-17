@@ -30,7 +30,7 @@ const ARSP_RATE = 0.012;
 // uppercased name; that's fragile (renaming "Export" → "Sortie" silently
 // flips the math) but identical to legacy behavior. The /masters/kinds
 // admin page warns about this.
-function detectKind(kindName: string): {
+export function detectKind(kindName: string): {
   isExport: boolean;
   isImportDefinitive: boolean;
 } {
@@ -40,6 +40,28 @@ function detectKind(kindName: string): {
     // Matches both "DEFINITIVE" and main's legacy typo "DEFINITVE".
     isImportDefinitive: k.includes('DEFINIT'),
   };
+}
+
+/**
+ * Which of the three column sets a line uses.
+ *
+ * Named, and decided in one place, because the CHOICE drives three things that
+ * must agree: which columns the grid shows, which numbers the operator types,
+ * and which columns get written. The grid asking this question separately from
+ * the server is how a screen ends up showing USD while the row saves CDF.
+ */
+export type LineMode = 'cdf' | 'export' | 'standard';
+
+export function lineMode(
+  kindName: string,
+  isCustomsCategory: boolean,
+): LineMode {
+  const { isExport, isImportDefinitive } = detectKind(kindName);
+  // Import-Definitive only changes the CUSTOMS category; its other categories
+  // stay on the standard qty × taux columns.
+  if (isImportDefinitive && isCustomsCategory) return 'cdf';
+  if (isExport) return 'export';
+  return 'standard';
 }
 
 export const quotationItemSchema = z.object({
@@ -98,6 +120,181 @@ export interface BuildQuotationResult {
 }
 
 /**
+ * What one line contributes to the header totals, alongside its own columns.
+ *
+ * `arspBase` is separate from `subUsd` because ARSP is charged on the
+ * VAT-eligible portion only — a line with `has_tva` off adds to the subtotal
+ * but not to the ARSP base.
+ */
+export interface LineComputation {
+  values: QuotationItemValues;
+  subUsd: number;
+  vatUsd: number;
+  subCdf: number;
+  vatCdf: number;
+  arspBase: number;
+}
+
+/**
+ * One line's stored columns and its contribution to the totals.
+ *
+ * Extracted from `buildQuotation` so the BROWSER can call it too: the items
+ * grid needs each row's computed cells (TVA, line total) as the operator
+ * types, and the summary needs the same running totals the server will store.
+ * Re-deriving either in the UI is how a screen comes to show one number and
+ * the database to hold another (§4.10) — this module is pure and its only
+ * `@/db/schema` import is `import type`, so it costs the bundle nothing.
+ *
+ * The unused set of columns is written as '0' rather than left null, matching
+ * main: a quotation line always has a full row, and a null there would be
+ * indistinguishable from "not yet calculated".
+ */
+/**
+ * A line loose enough for either caller.
+ *
+ * The SERVER hands over Zod-coerced numbers; the GRID hands over the raw
+ * strings its inputs hold, because an empty box has to stay empty rather than
+ * become a zero somebody has to delete. `num()` below flattens both, so the
+ * parameter accepts both rather than forcing one side to convert first — the
+ * conversion is this function's job and doing it twice is where they diverge.
+ */
+export interface ComputableLine {
+  category_id?: number | null;
+  item_id?: number | null;
+  unit_id?: number | null;
+  currency_id?: number | null;
+  has_tva?: boolean;
+  quantity?: string | number;
+  cost_usd?: string | number;
+  taux_usd?: string | number;
+  cif_split?: string | number;
+  percentage?: string | number;
+  rate_cdf?: string | number;
+}
+
+export function computeLine(it: ComputableLine, mode: LineMode): LineComputation {
+  const common = {
+    categoryId: it.category_id ?? null,
+    itemId: it.item_id ?? null,
+    unitId: it.unit_id ?? null,
+    currencyId: it.currency_id ?? null,
+    hasTva: !!it.has_tva,
+  };
+  const zero = { subUsd: 0, vatUsd: 0, subCdf: 0, vatCdf: 0, arspBase: 0 };
+
+  if (mode === 'cdf') {
+    const rate = num(it.rate_cdf);
+    const vat = round2(rate * VAT_RATE);
+    return {
+      ...zero,
+      values: {
+        ...common,
+        quantity: '1',
+        tauxUsd: '0',
+        costUsd: '0',
+        subtotalUsd: '0',
+        tvaUsd: '0',
+        totalUsd: '0',
+        cifSplit: dec(num(it.cif_split)),
+        percentage: dec(num(it.percentage), 4),
+        rateCdf: dec(rate),
+        vatCdf: dec(vat),
+        totalCdf: dec(rate + vat),
+      },
+      subCdf: rate,
+      vatCdf: vat,
+    };
+  }
+
+  if (mode === 'export') {
+    const cost = num(it.cost_usd);
+    const tva = common.hasTva ? round2(cost * VAT_RATE) : 0;
+    return {
+      ...zero,
+      values: {
+        ...common,
+        quantity: '1',
+        costUsd: dec(cost),
+        subtotalUsd: dec(cost),
+        tauxUsd: '0',
+        tvaUsd: dec(tva),
+        totalUsd: dec(cost + tva),
+        cifSplit: '0',
+        percentage: '0',
+        rateCdf: '0',
+        vatCdf: '0',
+        totalCdf: '0',
+      },
+      subUsd: cost,
+      vatUsd: tva,
+      arspBase: common.hasTva ? cost : 0,
+    };
+  }
+
+  const qty = num(it.quantity);
+  const taux = num(it.taux_usd);
+  const line = qty * taux;
+  const tva = common.hasTva ? round2(line * VAT_RATE) : 0;
+  return {
+    ...zero,
+    values: {
+      ...common,
+      quantity: dec(qty),
+      tauxUsd: dec(taux),
+      costUsd: '0',
+      subtotalUsd: '0',
+      tvaUsd: dec(tva),
+      totalUsd: dec(line + tva),
+      cifSplit: '0',
+      percentage: '0',
+      rateCdf: '0',
+      vatCdf: '0',
+      totalCdf: '0',
+    },
+    subUsd: line,
+    vatUsd: tva,
+    arspBase: common.hasTva ? line : 0,
+  };
+}
+
+/** The header figures, given what the lines contributed. Shared with the grid's summary. */
+export function headerTotals(
+  parts: readonly Pick<LineComputation, 'subUsd' | 'vatUsd' | 'subCdf' | 'vatCdf' | 'arspBase'>[],
+  arspEnabled: boolean,
+): {
+  subUsd: number;
+  vatUsd: number;
+  arspAmount: number;
+  totalUsd: number;
+  subCdf: number;
+  vatCdf: number;
+  totalCdf: number;
+} {
+  let subUsd = 0;
+  let vatUsd = 0;
+  let subCdf = 0;
+  let vatCdf = 0;
+  let arspBase = 0;
+  for (const p of parts) {
+    subUsd += p.subUsd;
+    vatUsd += p.vatUsd;
+    subCdf += p.subCdf;
+    vatCdf += p.vatCdf;
+    arspBase += p.arspBase;
+  }
+  const arspAmount = arspEnabled ? round2(arspBase * ARSP_RATE) : 0;
+  return {
+    subUsd,
+    vatUsd,
+    arspAmount,
+    totalUsd: subUsd + vatUsd + arspAmount,
+    subCdf,
+    vatCdf,
+    totalCdf: subCdf + vatCdf,
+  };
+}
+
+/**
  * Compose a quotation header + line items from the validated client body.
  *
  * @param input          — Zod-parsed quotation body
@@ -116,117 +313,36 @@ export function buildQuotation(
   kindName: string,
   customsByCat: Map<number, boolean>,
 ): BuildQuotationResult {
-  const { isExport, isImportDefinitive } = detectKind(kindName);
-  const arspEnabled = input.arsp === 'Enabled';
-
-  let subUsd = 0;
-  let vatUsd = 0;
-  let subCdf = 0;
-  let vatCdf = 0;
-  let arspBase = 0;
-
-  const items: QuotationItemValues[] = [];
-
+  // One pass through `computeLine`, then `headerTotals` — the same two
+  // functions the items grid calls, so what the operator watched add up on
+  // screen is arithmetically the row that gets stored.
+  const parts: LineComputation[] = [];
   for (const it of input.items) {
     if (!it.item_id) continue; // skip empty rows (no description chosen)
-    const isCustoms = it.category_id
-      ? !!customsByCat.get(it.category_id)
-      : false;
-
-    const common = {
-      categoryId: it.category_id ?? null,
-      itemId: it.item_id ?? null,
-      unitId: it.unit_id ?? null,
-      currencyId: it.currency_id ?? null,
-      hasTva: !!it.has_tva,
-    };
-
-    if (isImportDefinitive && isCustoms) {
-      const rate = num(it.rate_cdf);
-      const vat = round2(rate * VAT_RATE);
-      items.push({
-        ...common,
-        quantity: '1',
-        tauxUsd: '0',
-        costUsd: '0',
-        subtotalUsd: '0',
-        tvaUsd: '0',
-        totalUsd: '0',
-        cifSplit: dec(num(it.cif_split)),
-        percentage: dec(num(it.percentage), 4),
-        rateCdf: dec(rate),
-        vatCdf: dec(vat),
-        totalCdf: dec(rate + vat),
-      });
-      subCdf += rate;
-      vatCdf += vat;
-    } else if (isExport) {
-      const cost = num(it.cost_usd);
-      const tva = common.hasTva ? round2(cost * VAT_RATE) : 0;
-      items.push({
-        ...common,
-        quantity: '1',
-        costUsd: dec(cost),
-        subtotalUsd: dec(cost),
-        tauxUsd: '0',
-        tvaUsd: dec(tva),
-        totalUsd: dec(cost + tva),
-        cifSplit: '0',
-        percentage: '0',
-        rateCdf: '0',
-        vatCdf: '0',
-        totalCdf: '0',
-      });
-      subUsd += cost;
-      vatUsd += tva;
-      if (common.hasTva) arspBase += cost;
-    } else {
-      const qty = num(it.quantity);
-      const taux = num(it.taux_usd);
-      const line = qty * taux;
-      const tva = common.hasTva ? round2(line * VAT_RATE) : 0;
-      items.push({
-        ...common,
-        quantity: dec(qty),
-        tauxUsd: dec(taux),
-        costUsd: '0',
-        subtotalUsd: '0',
-        tvaUsd: dec(tva),
-        totalUsd: dec(line + tva),
-        cifSplit: '0',
-        percentage: '0',
-        rateCdf: '0',
-        vatCdf: '0',
-        totalCdf: '0',
-      });
-      subUsd += line;
-      vatUsd += tva;
-      if (common.hasTva) arspBase += line;
-    }
+    const isCustoms = it.category_id ? !!customsByCat.get(it.category_id) : false;
+    parts.push(computeLine(it, lineMode(kindName, isCustoms)));
   }
 
-  const arspAmount = arspEnabled ? round2(arspBase * ARSP_RATE) : 0;
-  const totalUsd = subUsd + vatUsd + arspAmount;
-  const totalCdf = subCdf + vatCdf;
+  const t = headerTotals(parts, input.arsp === 'Enabled');
 
   const header: QuotationHeaderValues = {
     clientId: input.client_id,
     quotationRef: input.quotation_ref,
     quotationDate: input.quotation_date ?? null,
-    subTotal: dec(subUsd),
-    vatAmount: dec(vatUsd),
-    arspAmount: dec(arspAmount),
-    totalAmount: dec(totalUsd),
-    subTotalCdf: dec(subCdf),
-    vatAmountCdf: dec(vatCdf),
-    totalAmountCdf: dec(totalCdf),
+    subTotal: dec(t.subUsd),
+    vatAmount: dec(t.vatUsd),
+    arspAmount: dec(t.arspAmount),
+    totalAmount: dec(t.totalUsd),
+    subTotalCdf: dec(t.subCdf),
+    vatAmountCdf: dec(t.vatCdf),
+    totalAmountCdf: dec(t.totalCdf),
     arsp: input.arsp ?? 'Disabled',
     kindId: input.kind_id ?? null,
     transportModeId: input.transport_mode_id ?? null,
     goodsTypeId: input.goods_type_id ?? null,
   };
 
-  return { header, items };
+  return { header, items: parts.map((p) => p.values) };
 }
 
 // Internal constants exported for tests so the suite catches if someone

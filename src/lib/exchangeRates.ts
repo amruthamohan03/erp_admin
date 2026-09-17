@@ -65,9 +65,69 @@ export function compareBoard(bcc: number | null, rates: readonly BoardRate[]): B
   };
 }
 
-/** Kill the float noise `2905.5 - 2850.25` leaves behind before it reaches a cell. */
-function round4(n: number): number {
+/** Kill the float noise `2905.5 - 2850.25` leaves behind before it reaches a cell.
+ *  Exported because it is the scale the `numeric(10,4)` columns store at, so the
+ *  server rounds to the same place. */
+export function round4(n: number): number {
   return Math.round(n * 10_000) / 10_000;
+}
+
+// ---------------------------------------------------------------------------
+// The board's two STORED facts: which bank quoted highest, and how that sits
+// against the last BCC published before the day.
+//
+// They live in this pure module rather than beside the queries that write them
+// because all three readers need them and one of them is the browser: the board
+// screen repaints Highest and Diff on every keystroke, and it cannot import
+// `db/queries/bankExchangeRates` without dragging the pg Pool into the client
+// bundle. `bankExchangeRates.ts` re-exports these, so the route and the tests
+// are unchanged and there is still exactly one implementation (§4.10).
+
+/** A bank's quote, as the board posts it. */
+export interface QuotedRate {
+  bank_id: number;
+  bank_rate: number;
+}
+
+export interface HighestQuote {
+  /** 0 when nothing positive was quoted — main's sentinel, kept so the
+   *  stored column means the same thing it always did. */
+  bank_id: number;
+  rate: number;
+}
+
+/**
+ * The highest quote on a board.
+ *
+ * Strictly greater, so the FIRST bank to reach the winning number keeps it when
+ * two match. That is main's behaviour and it is the stable choice: re-saving an
+ * unchanged board must not move the highlight between two banks quoting the
+ * same rate.
+ *
+ * Non-positive quotes are not candidates — a bank left blank is "no quote", not
+ * a quote of zero, and zero must never be reported as the day's best rate.
+ */
+export function highestQuote(rates: readonly QuotedRate[]): HighestQuote {
+  let best: HighestQuote = { bank_id: 0, rate: 0 };
+  for (const r of rates) {
+    const value = Number(r.bank_rate);
+    if (Number.isFinite(value) && value > best.rate) {
+      best = { bank_id: r.bank_id, rate: value };
+    }
+  }
+  return best;
+}
+
+/**
+ * How far the day's best bank rate sits above the last published BCC.
+ *
+ * Zero when there is no previous BCC — main's rule, and the right one: with
+ * nothing to compare against, "no difference" is the only honest answer, and the
+ * screen shows a dash rather than a number in that case.
+ */
+export function rateDifference(highest: number, previous: number): number {
+  if (!(previous > 0)) return 0;
+  return round4(highest - previous);
 }
 
 /** `numeric(10,4)` arrives from the driver as a string; '' and null are "not entered". */

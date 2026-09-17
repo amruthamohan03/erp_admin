@@ -61,24 +61,49 @@ export function optionRows(json: unknown): Array<Record<string, unknown>> {
 }
 
 /**
+ * The first of `keys` that the row actually carries, else the id.
+ *
+ * Several masters have an optional short code alongside a required name —
+ * `unit_master_t.unit_code` beside `unit_name` is the live case — and asking for
+ * the code alone is a trap: when the column is null for EVERY row, the id
+ * fallback turns the whole dropdown into a list of bare numbers. That is what
+ * the quotation grid's Unit picker did, and it is the failure the id fallback
+ * was supposed to prevent rather than cause.
+ *
+ * So the preferred label comes first and the guaranteed one second. The id
+ * remains the last resort — an option with no label at all is indistinguishable
+ * from its neighbours — but reaching it now means the row has nothing to show,
+ * which is a data problem worth seeing rather than a shape the caller asked for.
+ */
+export function labelOf(row: Record<string, unknown>, keys: readonly string[]): string {
+  for (const key of keys) {
+    const v = row[key];
+    if (typeof v === 'string' && v.trim() !== '') return v;
+    if (typeof v === 'number') return String(v);
+  }
+  return String(row.id);
+}
+
+/**
  * Fetch `/api/v1/{source}` and project each row to `{ id, label }`.
  *
- * `label` falls back to the id rather than rendering blank — an option the user
- * cannot tell apart from its neighbours is worse than an ugly one.
+ * `labelKey` may be one field or an ordered list of candidates — see `labelOf`
+ * for why a master with an optional code wants the list form.
  *
  * Returns [] on failure. A dropdown that cannot load is a data problem for the
  * page to surface, not a reason to throw through a filter bar's render.
  */
 export async function fetchMasterOptions(
   source: string,
-  labelKey: string,
+  labelKey: string | readonly string[],
 ): Promise<MasterOption[]> {
+  const keys = typeof labelKey === 'string' ? [labelKey] : labelKey;
   try {
     const sep = source.includes('?') ? '&' : '?';
     const res = await fetch(`/api/v1/${source}${sep}pageSize=${OPTIONS_PAGE_SIZE}`);
     return optionRows(await res.json()).map((row) => ({
       id: row.id as number,
-      label: String(row[labelKey] ?? row.id),
+      label: labelOf(row, keys),
     }));
   } catch {
     return [];

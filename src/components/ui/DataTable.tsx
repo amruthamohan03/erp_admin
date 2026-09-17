@@ -427,8 +427,13 @@ export default function DataTable<T>({
                       </td>
                     )}
                     {visibleColumns.map((c) => (
+                      // `data-no-translate` — a body cell holds operator data, and
+                      // the language switcher must not rewrite it. A client's short
+                      // name, an MCA reference or a tonnage is not prose; the column
+                      // HEADER above it is, and that one still translates.
                       <td
                         key={c.key}
+                        data-no-translate
                         className={[ALIGN[c.align ?? 'left'], c.className ?? ''].join(' ').trim()}
                       >
                         {c.render ? c.render(row, idx) : cellText(row, c) || '—'}

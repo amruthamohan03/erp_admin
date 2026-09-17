@@ -15,7 +15,16 @@
 // Below it, the same data pivoted into history: one row per date, one column per
 // bank, so a bank's behaviour reads down a column and a day reads across.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Eraser, RefreshCw, Save, Trash2, TrendingUp } from 'lucide-react';
+import {
+  Download,
+  Eraser,
+  RefreshCw,
+  Save,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  X,
+} from 'lucide-react';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
@@ -23,7 +32,14 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDate, formatDateTime, todayIso } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
-import { compareBoard, formatDelta, formatRate, toRate } from '@/lib/exchangeRates';
+import {
+  compareBoard,
+  formatDelta,
+  formatRate,
+  highestQuote,
+  rateDifference,
+  toRate,
+} from '@/lib/exchangeRates';
 
 interface BoardBank {
   bank_id: number;
@@ -109,6 +125,28 @@ export default function BankExchangeRatesPage() {
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
 
+  /**
+   * What the BCC box is currently showing and where it came from.
+   *
+   * The caption is the whole value of the lookup button: a number that appeared
+   * in a field is indistinguishable from one somebody typed, and the two are
+   * answerable to different people. `from e-MCF` / `DGI (2026-09-17)` says the
+   * rate is the published one; the refusal message says it is not and why
+   * (§4.23), rather than leaving the box silently empty.
+   */
+  const [bccNote, setBccNote] = useState('');
+  const [bccFetching, setBccFetching] = useState(false);
+
+  /**
+   * The history day the board was opened from, or null when it is showing today.
+   *
+   * Editing a past day is just the board pointed at another date — there is no
+   * separate edit screen — but that is invisible once the page has scrolled, and
+   * an operator who then types today's rates into September's board has no way to
+   * tell. The badge says which day is open and Cancel goes back to today.
+   */
+  const [editDay, setEditDay] = useState<string | null>(null);
+
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyBanks, setHistoryBanks] = useState<HistoryBank[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -175,6 +213,9 @@ export default function BankExchangeRatesPage() {
         ? Number(res.data.bcc_rate).toFixed(2)
         : '';
       setBcc(stored);
+      // The loaded value is whatever was saved, so the provenance caption from a
+      // previous lookup no longer describes it.
+      setBccNote('');
       const next: Draft = {};
       for (const b of res.data.banks) {
         const r = toRate(b.bank_rate);
@@ -251,15 +292,76 @@ export default function BankExchangeRatesPage() {
    * `highestQuote`'s rule (strictly-greater, blanks are not quotes) is the
    * server's, so the green here and the stored winner cannot disagree (§4.10).
    */
-  const liveHighest = useMemo(() => {
-    let best = { bank_id: 0, rate: 0 };
-    for (const b of board?.banks ?? []) {
-      const value = toRate(draft[b.bank_id]);
-      if (value !== null && value > best.rate) best = { bank_id: b.bank_id, rate: value };
-    }
-    return best;
-  }, [board, draft]);
+  const liveHighest = useMemo(
+    () =>
+      highestQuote(
+        (board?.banks ?? []).map((b) => ({
+          bank_id: b.bank_id,
+          bank_rate: toRate(draft[b.bank_id]) ?? 0,
+        })),
+      ),
+    [board, draft],
+  );
 
+  const highestBankName = useMemo(
+    () =>
+      (board?.banks ?? []).find((b) => b.bank_id === liveHighest.bank_id)?.bank_name ?? null,
+    [board, liveHighest],
+  );
+
+  /**
+   * The previous day's BCC reference, and the gap the day's best bank leaves
+   * against it. Both come from the server's answer for this date, so "previous"
+   * means the same thing on the board as it does in the stored history column.
+   */
+  const prevBcc = board?.prev_bcc_rate ?? 0;
+  const liveDiff = prevBcc > 0 ? rateDifference(liveHighest.rate, prevBcc) : null;
+
+  /**
+   * Ask DGI what the BCC published, and fill the box with it.
+   *
+   * `force=1` because a click means "look again" — the cache is there to spare
+   * the round trip on a page load, not to answer a deliberate refresh. The route
+   * answers with a rate or with a sentence saying why there is none; neither is
+   * an error, and neither may overwrite a rate the operator already typed with
+   * a blank.
+   */
+  async function lookupBcc() {
+    if (!date || !currencyLabel) return;
+    setBccFetching(true);
+    try {
+      const res = await safeFetchJson<{
+        rate: number | null;
+        source: string | null;
+        date: string;
+        cached: boolean;
+        message?: string;
+      }>(
+        `/api/v1/bank-exchange-rates/bcc?currency=${encodeURIComponent(currencyLabel)}&date=${date}&force=1`,
+      );
+      if (!res.ok) {
+        setBccNote(res.message);
+        return;
+      }
+      if (res.data.rate === null) {
+        setBccNote(res.data.message ?? `No published ${currencyLabel} rate for this day.`);
+        return;
+      }
+      setBcc(res.data.rate.toFixed(2));
+      setBccNote(`from ${res.data.source ?? 'DGI'}`);
+    } finally {
+      setBccFetching(false);
+    }
+  }
+
+  /** Open a history day on the board above, where it can be corrected and re-saved. */
+  function editHistoryDay(row: HistoryRow) {
+    setDate(row.exchange_date);
+    setEditDay(row.exchange_date);
+    // Without this the click looks like it did nothing: the board it just
+    // changed is a screen's worth of scrolling away.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   async function save() {
     if (!board) return;
@@ -379,12 +481,18 @@ export default function BankExchangeRatesPage() {
         const rate = toRate(r.rates[b.id]);
         const reference = toRate(r.bcc_rate);
         const beats = rate !== null && reference !== null && rate > reference;
+        // Two greens, the same pair the board uses: beating the BCC reference is
+        // worth knowing, but the day's WINNER is what the row is scanned for, so
+        // it carries the stronger mark.
+        const isHighest = r.highest_bank_id !== null && r.highest_bank_id === b.id;
         return (
           <span
             className={
-              beats
-                ? 'rounded px-1.5 py-0.5 font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300'
-                : 'text-muted-foreground'
+              isHighest
+                ? 'rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-900 dark:bg-emerald-500/25 dark:text-emerald-200'
+                : beats
+                  ? 'rounded px-1.5 py-0.5 font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300'
+                  : 'text-muted-foreground'
             }
           >
             {formatRate(rate)}
@@ -392,6 +500,72 @@ export default function BankExchangeRatesPage() {
         );
       },
     })),
+    {
+      key: 'highest',
+      header: 'Highest',
+      align: 'right',
+      className: 'font-mono whitespace-nowrap',
+      // Sorted and searched on the winning NUMBER — the bank's name is the
+      // caption underneath, and sorting a column of names by rate would surprise.
+      value: (r) => toRate(r.highest_bank_rate) ?? '',
+      render: (r) => {
+        const rate = toRate(r.highest_bank_rate);
+        if (rate === null) return <span className="text-muted-foreground">—</span>;
+        const bank = historyBanks.find((b) => b.id === r.highest_bank_id);
+        return (
+          <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+            {formatRate(rate)}
+            {bank?.bank_name && (
+              <span className="ms-1 text-[10px] font-normal uppercase text-muted-foreground">
+                {bank.bank_name}
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'prev_bcc_rate',
+      header: 'Prev BCC',
+      align: 'right',
+      className: 'font-mono text-muted-foreground',
+      value: (r) => toRate(r.prev_bcc_rate) ?? '',
+      // The date it was published rides as the tooltip: the column is narrow and
+      // the number is what the difference beside it was measured against.
+      render: (r) => (
+        <span title={r.prev_bcc_date ? formatDate(r.prev_bcc_date) : undefined}>
+          {formatRate(toRate(r.prev_bcc_rate))}
+        </span>
+      ),
+    },
+    {
+      key: 'rate_difference',
+      header: 'Diff',
+      align: 'right',
+      className: 'font-mono whitespace-nowrap',
+      value: (r) => (r.rate_difference === null ? '' : Number(r.rate_difference)),
+      render: (r) => {
+        // Not `toRate`: that treats 0 and negatives as "not entered", which is
+        // right for a rate and wrong for a difference — a day that moved DOWN
+        // must show as a fall, not as a blank.
+        if (r.rate_difference === null) return <span className="text-muted-foreground">—</span>;
+        const diff = Number(r.rate_difference);
+        if (!Number.isFinite(diff) || diff === 0) {
+          return <span className="text-muted-foreground">{formatRate(0)}</span>;
+        }
+        const up = diff > 0;
+        return (
+          <span
+            className={`inline-flex items-center gap-1 font-semibold ${
+              up ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+            }`}
+          >
+            {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {formatDelta(diff)}
+          </span>
+        );
+      },
+    },
     {
       key: 'updated_at',
       header: 'Updated',
@@ -414,7 +588,26 @@ export default function BankExchangeRatesPage() {
       {/* ---- The day's board ------------------------------------------- */}
       <div className="card mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="font-semibold text-foreground">Bank Exchange Rate Management</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold text-foreground">Bank Exchange Rate Management</h2>
+            {editDay && editDay === date && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                Editing {formatDate(editDay)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditDay(null);
+                    setDate(today);
+                  }}
+                  aria-label="Stop editing this day and go back to today"
+                  title="Back to today"
+                  className="rounded-full p-0.5 hover:bg-amber-500/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             {currencyLabel ? `${currencyLabel} per unit — ` : ''}a bank above the BCC reference is
             worth changing money with, so it shows green.
@@ -457,8 +650,14 @@ export default function BankExchangeRatesPage() {
                       <span className="block truncate">{(b.bank_name ?? `Bank ${b.bank_id}`).toUpperCase()}</span>
                     </th>
                   ))}
-                  <th className="border border-border px-3 py-2 text-center font-semibold" style={{ minWidth: 180 }}>
-                    Action
+                  {/* The two answers the operator came for, at the end of the row
+                      they are computed from — which bank to use, and whether the
+                      day has moved since the last published reference. */}
+                  <th className="border border-border px-3 py-2 text-left font-semibold" style={{ minWidth: 150 }}>
+                    Highest
+                  </th>
+                  <th className="border border-border px-3 py-2 text-left font-semibold" style={{ minWidth: 160 }}>
+                    Diff vs Prev BCC
                   </th>
                 </tr>
               </thead>
@@ -477,7 +676,12 @@ export default function BankExchangeRatesPage() {
                       className="input min-w-0"
                       value={date}
                       max={today || undefined}
-                      onChange={(e) => setDate(e.target.value)}
+                      onChange={(e) => {
+                        setDate(e.target.value);
+                        // Picked by hand, so the board is no longer the history
+                        // row it was opened from.
+                        setEditDay(null);
+                      }}
                     />
                     <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(date)}</p>
                   </td>
@@ -499,24 +703,44 @@ export default function BankExchangeRatesPage() {
                     <label htmlFor="bcc-rate" className="sr-only">
                       BCC rate
                     </label>
-                    <input
-                      id="bcc-rate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      placeholder="0.00"
-                      aria-invalid={bcc !== '' && toRate(bcc) === null}
-                      className={`input min-w-0 text-right font-mono font-semibold ${
-                        verdict.bccIsBest && toRate(bcc) !== null
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                          : ''
-                      }`}
-                      value={bcc}
-                      onChange={(e) => setBcc(e.target.value)}
-                    />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {verdict.bccIsBest && toRate(bcc) !== null ? 'Best on the board' : 'Reference'}
+                    {/* §4.36 — `min-w-0` on the input, `shrink-0` on the button:
+                        an <input>'s intrinsic minimum is ~20 characters, so
+                        without it the pair widens the whole column. */}
+                    <div className="flex items-center gap-1">
+                      <input
+                        id="bcc-rate"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        placeholder="0.00"
+                        aria-invalid={bcc !== '' && toRate(bcc) === null}
+                        className={`input min-w-0 flex-1 text-right font-mono font-semibold ${
+                          verdict.bccIsBest && toRate(bcc) !== null
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                            : ''
+                        }`}
+                        value={bcc}
+                        onChange={(e) => {
+                          setBcc(e.target.value);
+                          // Typed over, so it is no longer the published figure.
+                          setBccNote('');
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void lookupBcc()}
+                        disabled={bccFetching || !currencyLabel}
+                        title={`Fetch the published ${currencyLabel || ''} rate for this day`.trim()}
+                        aria-label="Fetch the published BCC rate for this day"
+                        className="btn-neutral btn-icon shrink-0 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${bccFetching ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground" title={bccNote || undefined}>
+                      {bccNote ||
+                        (verdict.bccIsBest && toRate(bcc) !== null ? 'Best on the board' : 'Reference')}
                     </p>
                   </td>
 
@@ -570,31 +794,59 @@ export default function BankExchangeRatesPage() {
                     );
                   })}
 
-                  {/* Save and Clear live in the row, beside the values they act
-                      on — the reference screen puts them here rather than in the
-                      bar below, which carries Load Rate and Export instead. */}
-                  <td className="border border-border p-2 text-center align-top">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void save()}
-                        disabled={saving || boardLoading || !board}
-                        // §4.26 — `btn-save` reads --action-save from
-                        // action_style_master_t, so this colour is an admin's row
-                        // edit under Settings → Application rather than a hex
-                        // pinned to this one screen.
-                        className="btn-save btn-sm disabled:opacity-50"
+                  {/* Recomputed from the boxes as they are typed, not read back
+                      from the loaded board: the reason to watch this cell is to
+                      see the winner change while entering rates, and a figure
+                      that only moved after Save would describe the last board. */}
+                  <td className="border border-border p-2 align-top">
+                    {liveHighest.bank_id > 0 ? (
+                      <>
+                        <p className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                          {formatRate(liveHighest.rate)}
+                        </p>
+                        <p
+                          className="mt-1 truncate text-[11px] text-muted-foreground"
+                          title={highestBankName ?? undefined}
+                        >
+                          {(highestBankName ?? `Bank ${liveHighest.bank_id}`).toUpperCase()}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-mono text-sm text-muted-foreground">—</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">No rate entered</p>
+                      </>
+                    )}
+                  </td>
+
+                  <td className="border border-border p-2 align-top">
+                    {liveDiff === null || liveHighest.rate <= 0 ? (
+                      <p className="font-mono text-sm text-muted-foreground">—</p>
+                    ) : (
+                      <p
+                        className={`flex items-center gap-1 font-mono text-sm font-semibold ${
+                          liveDiff > 0
+                            ? 'text-emerald-700 dark:text-emerald-300'
+                            : liveDiff < 0
+                              ? 'text-red-700 dark:text-red-300'
+                              : 'text-muted-foreground'
+                        }`}
                       >
-                        <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setClearAsk(true)}
-                        className="btn-secondary btn-sm"
-                      >
-                        <Eraser className="h-4 w-4" /> Clear
-                      </button>
-                    </div>
+                        {liveDiff > 0 ? (
+                          <TrendingUp className="h-3.5 w-3.5" />
+                        ) : liveDiff < 0 ? (
+                          <TrendingDown className="h-3.5 w-3.5" />
+                        ) : null}
+                        {formatDelta(liveDiff) || formatRate(0)}
+                      </p>
+                    )}
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {prevBcc > 0
+                        ? `Prev BCC ${formatRate(prevBcc)}${
+                            board?.prev_bcc_date ? ` · ${formatDate(board.prev_bcc_date)}` : ''
+                          }`
+                        : 'No earlier BCC on file'}
+                    </p>
                   </td>
                 </tr>
               </tbody>
@@ -613,8 +865,10 @@ export default function BankExchangeRatesPage() {
                     }`
                   : 'Enter the BCC reference and each bank’s rate to compare them.'}
             </p>
-            {/* Load Rate and Export only — Save and Clear sit in the row itself. */}
-            <div className="flex items-center gap-2">
+            {/* Every action on the board, in one bar, ending on Save — the row
+                above is for values. Save last because it is the one that
+                commits, and the one the operator reaches for by position. */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void loadBoard()}
@@ -623,9 +877,23 @@ export default function BankExchangeRatesPage() {
               >
                 <RefreshCw className={`h-4 w-4 ${boardLoading ? 'animate-spin' : ''}`} /> Load Rate
               </button>
+              <button type="button" onClick={() => setClearAsk(true)} className="btn-secondary btn-sm">
+                <Eraser className="h-4 w-4" /> Clear
+              </button>
               <a href={exportHref} className="btn-excel btn-sm">
                 <Download className="h-4 w-4" /> Export
               </a>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={saving || boardLoading || !board}
+                // §4.26 — `btn-save` reads --action-save from
+                // action_style_master_t, so this colour is an admin's row edit
+                // under Settings → Application rather than a hex pinned here.
+                className="btn-save btn-sm disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </div>
           </>
@@ -647,7 +915,15 @@ export default function BankExchangeRatesPage() {
             : 'No rates on file yet — enter a day above and save it.'
         }
         columns={historyColumns}
-        actions={(r) => ({ remove: () => setConfirmDelete(r) })}
+        // Edit opens the day on the board above — there is no second screen, and
+        // correcting a mis-typed rate is the reason anybody looks at this grid.
+        // Delete stays beside it: it is the only way to take a day off the board
+        // (§4.27), and the reference screen having only Edit is not a reason to
+        // remove a working capability.
+        actions={(r) => ({
+          edit: () => editHistoryDay(r),
+          remove: () => setConfirmDelete(r),
+        })}
         server={{
           page,
           pageSize,

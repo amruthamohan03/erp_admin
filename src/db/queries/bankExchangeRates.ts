@@ -6,44 +6,20 @@ import { bankExchangeRate } from '@/db/schema';
 // BankExchangeRateController: which bank quoted highest, and how that compares
 // with the last BCC rate published before the day being entered.
 //
-// They live here rather than in the board route because the board WRITES them,
-// the history grid READS them and the export prints them. Three copies of
-// "highest wins, ties go to the first" is three chances to disagree (§4.10).
-
-/** A bank's quote, as the board posts it. */
-export interface QuotedRate {
-  bank_id: number;
-  bank_rate: number;
-}
-
-export interface HighestQuote {
-  /** 0 when nothing positive was quoted — main's sentinel, kept so the
-   *  stored column means the same thing it always did. */
-  bank_id: number;
-  rate: number;
-}
-
-/**
- * The highest quote on a board.
- *
- * Strictly greater, so the FIRST bank to reach the winning number keeps it when
- * two match. That is main's behaviour and it is the stable choice: re-saving an
- * unchanged board must not move the highlight between two banks quoting the
- * same rate.
- *
- * Non-positive quotes are not candidates — a bank left blank is "no quote", not
- * a quote of zero, and zero must never be reported as the day's best rate.
- */
-export function highestQuote(rates: readonly QuotedRate[]): HighestQuote {
-  let best: HighestQuote = { bank_id: 0, rate: 0 };
-  for (const r of rates) {
-    const value = Number(r.bank_rate);
-    if (Number.isFinite(value) && value > best.rate) {
-      best = { bank_id: r.bank_id, rate: value };
-    }
-  }
-  return best;
-}
+// The DB-touching half is here; the two pure rules are in
+// [exchangeRates.ts](src/lib/exchangeRates.ts) and re-exported below, because
+// the board SCREEN needs them too — it repaints Highest and Diff as the operator
+// types — and a client component cannot import this module without pulling the
+// pg Pool into the bundle. Re-exporting rather than copying keeps "highest wins,
+// ties go to the first" stated once (§4.10), and keeps this module the single
+// import site every existing caller already uses.
+export {
+  highestQuote,
+  rateDifference,
+  round4,
+  type HighestQuote,
+  type QuotedRate,
+} from '@/lib/exchangeRates';
 
 export interface PreviousBcc {
   rate: number;
@@ -86,21 +62,4 @@ export async function previousBcc(
 
   if (!row) return { rate: 0, date: null };
   return { rate: Number(row.bcc_rate ?? 0), date: row.exchange_date };
-}
-
-/**
- * How far the day's best bank rate sits above the last published BCC.
- *
- * Zero when there is no previous BCC — main's rule, and the right one: with
- * nothing to compare against, "no difference" is the only honest answer, and the
- * screen shows a dash rather than a number in that case.
- */
-export function rateDifference(highest: number, previous: number): number {
-  if (!(previous > 0)) return 0;
-  return round4(highest - previous);
-}
-
-/** Money-scale rounding, matching the numeric(10,4) the columns store. */
-export function round4(n: number): number {
-  return Math.round(n * 10000) / 10000;
 }

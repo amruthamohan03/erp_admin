@@ -1072,6 +1072,10 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to let a control widen to fit a long value, or to give a control `flex-1` without `min-w-0` → no, it truncates inside its cell and keeps the full text as its `title` (§4.36).
 - Requests to free a seal (or any in-use resource) without checking which record still holds it, or to free it without also taking it off that record → no, refuse with the file named, then fix both sides in one transaction (§4.37).
 - Requests to find a seal in a comma-joined column with `LIKE '%n%'` → no, split the column and compare whole entries — otherwise seal 12 matches seal 123 (§4.37).
+- Requests to hide an action in the UI without the route refusing it too → no, a stale tab, a bookmarked URL and a direct POST all reach the handler; the check goes in the route and the UI reads the same rule (§4.37).
+- Requests to re-derive a payment request's status, or whether it may still be edited, at a call site → no, `paymentStatus` / `canEditRequest` in [stages.ts](src/lib/payments/stages.ts) are what the grid, the save route and the export all read, or the grid offers an Edit the server refuses (§4.10, §4.37).
+- Requests to let an Excel export accept fewer filters than the list it exports → no, both parse the same schema, or the sheet silently omits rows with nothing on it to say so (§4.15).
+- Requests to clear a workflow's approval flags without recording that it happened → no, the reset destroys the rejection reason, its stage and its timestamp; keep a counter on the row and the full before-state in the audit log (§4.28).
 - Requests to hardcode an action colour or icon "just on this screen" → no, it is a row in `action_style_master_t` (§4.26).
 - Requests to hard-delete a record on the normal Delete action, or to gate restore/permanent-delete behind `can_delete` → no, three operations, three permissions (§4.27).
 - Requests to skip the audit entry "because it is only a read/export/print" → no, those are logged too (§4.28).

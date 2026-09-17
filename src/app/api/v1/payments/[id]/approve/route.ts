@@ -4,7 +4,8 @@ import { db } from '@/lib/db';
 import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { paymentApproveSchema } from '@/schemas';
 import { getRoleStageInfo } from '@/db/queries/payments';
-import { STAGE_COLUMNS, checkApprovable, type PaymentApprovalState } from '@/lib/payments/stages';
+import { STAGE_COLUMNS, STAGE_LABELS, checkApprovable, type PaymentApprovalState } from '@/lib/payments/stages';
+import { recordAudit } from '@/lib/audit/recordAudit';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -54,6 +55,20 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   }
   sets.push(sql`updated_by = ${session.uid}`, sql`updated_at = now()`);
 
-  await db.execute(sql`UPDATE payment_request_t SET ${sql.join(sets, sql`, `)} WHERE id = ${id}`);
-  return ok({ id, stage });
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`UPDATE payment_request_t SET ${sql.join(sets, sql`, `)} WHERE id = ${id}`);
+    // §4.28 — an approval is the most consequential action this module has, and
+    // it was the one action not being logged. In the same transaction as the
+    // UPDATE, so there can be no approval without its entry.
+    await recordAudit(tx, {
+      actorId: session.uid,
+      action: 'approve',
+      entityType: 'payment_request',
+      entityId: String(id),
+      before: payment,
+      after: { [col.approval]: 1 },
+      metadata: { stage, cash_collector: body.cash_collector ?? null, chargeback: body.chargeback ?? null },
+    });
+  });
+  return ok({ id, stage, stage_label: STAGE_LABELS[stage] });
 });

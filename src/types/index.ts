@@ -62,7 +62,25 @@ export type FieldType =
   /** A dated remarks log — many {date, remark} entries, stored as JSONB. */
   | 'remark-log'
   | 'partielle-picker'
-  | 'mca-grid';
+  | 'mca-grid'
+  /**
+   * A quotation's priced line items, grouped by category.
+   *
+   * Unlike the other repeating groups here it is NOT a JSONB column — the rows
+   * live in `quotation_items_t` because they are reported on across quotations
+   * (§4.5's exception). The field is virtual and the page save route's
+   * quotation hook persists it.
+   */
+  | 'quotation-items'
+  /**
+   * An invoice's MCA detail rows and priced line items, edited together.
+   *
+   * Like `quotation-items` these are child tables rather than a JSONB column
+   * (§4.5's exception), so the field is virtual and the page save route's
+   * invoice hook persists it. It replaced a SECOND grid that rendered below the
+   * form with its own Save — two controls writing one invoice (§4.17).
+   */
+  | 'invoice-grid';
 
 export interface PageFieldDef {
   id: number;

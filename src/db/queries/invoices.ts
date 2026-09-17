@@ -11,8 +11,8 @@
 // splitting, autres-taxes recalculation) are deferred — see the module notes in
 // exportInvoices.ts / importInvoices.ts.
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import type { GridSaveInput } from '@/schemas/invoiceGrid';
+import { db, type Transaction } from '@/lib/db';
+import { gridSaveSchema, type GridSaveInput } from '@/schemas/invoiceGrid';
 import {
   exportInvoices,
   exportInvoiceMcaDetails,
@@ -278,6 +278,29 @@ export async function gridData(kind: InvoiceKind, invoiceId: number): Promise<Gr
   };
 }
 
+/**
+ * The pickers the grid renders, for a CLIENT rather than an invoice.
+ *
+ * `gridData` can only answer this for an invoice that already exists, which is
+ * exactly the case a NEW invoice is not. Both underlying queries key off the
+ * client alone, so the grid can populate its dropdowns from the client chosen
+ * on the header accordion — the same way the payment grid scopes itself to the
+ * client on its form — and the items can be filled in before the first save.
+ */
+export async function gridPickers(
+  kind: InvoiceKind,
+  clientId: number | null,
+): Promise<{
+  clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
+  availableMcas: { id: number; mca_ref: string | null; label: string }[];
+}> {
+  const [quotationsForClient, mcas] = await Promise.all([
+    clientQuotations(clientId),
+    kind === 'export' ? availableExportMcas(clientId) : availableImportMcas(clientId),
+  ]);
+  return { clientQuotations: quotationsForClient, availableMcas: mcas };
+}
+
 async function clientQuotations(
   clientId: number | null,
 ): Promise<{ id: number; quotation_ref: string; quotation_date: string | null }[]> {
@@ -386,19 +409,178 @@ function computeItem(it: GridSaveInput['items'][number]): GridItem {
   };
 }
 
-export async function saveGrid(
+/** What the embedded grid field holds on the transaction page's form. */
+export interface InvoiceGridValue {
+  quotation_id: number | null;
+  items: GridItem[];
+  mcaDetails: GridMca[];
+}
+
+/** The slug ↔ kind map, so neither side of the page hook guesses. */
+export function invoiceKindForSlug(slug: string): InvoiceKind | null {
+  if (slug === 'import-invoices') return 'import';
+  if (slug === 'export-invoices') return 'export';
+  return null;
+}
+
+/**
+ * An invoice's children in the shape the form holds them.
+ *
+ * Loaded by the page's GET so the grid opens already populated — a grid that
+ * fetched its own value would start empty, and a save in that instant would
+ * read the operator's silence as "delete every line".
+ */
+export async function loadInvoiceGridValue(
   kind: InvoiceKind,
   invoiceId: number,
-  payload: GridSaveInput,
-  uid: number,
-): Promise<GridSaveResult> {
+): Promise<InvoiceGridValue> {
+  const data = await gridData(kind, invoiceId);
+  if (!data) return { quotation_id: null, items: [], mcaDetails: [] };
+  const table = kind === 'export' ? sql`export_invoices_t` : sql`import_invoices_t`;
+  const rows = await db.execute(
+    sql`SELECT quotation_id FROM ${table} WHERE id = ${invoiceId} LIMIT 1`,
+  );
+  const quotationId = (rows as unknown as { rows: { quotation_id: number | null }[] }).rows[0]
+    ?.quotation_id;
+  return {
+    quotation_id: quotationId ?? null,
+    items: data.items,
+    mcaDetails: data.mcaDetails,
+  };
+}
+
+/**
+ * The submitted grid value, coerced through the same schema the `/grid` route
+ * parses. Untrusted input reaching a generic runtime gets the same treatment it
+ * would through the dedicated endpoint — and every figure is recomputed by
+ * `computeGrid` regardless of what was sent.
+ */
+export function parseInvoiceGridValue(value: unknown): GridSaveInput | null {
+  let raw = value;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!raw || typeof raw !== 'object') return null;
+  const parsed = gridSaveSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The header columns a grid determines, keyed by DB column name.
+ *
+ * Returned rather than written so the caller owns the UPDATE. The transaction
+ * page needs them spliced into its own single UPDATE (§4.17) — a second
+ * statement would either overwrite a header field the operator had just typed,
+ * or leave the header carrying totals its stored lines do not add up to.
+ */
+export interface GridComputation {
+  items: GridItem[];
+  columns: Record<string, unknown>;
+  result: GridSaveResult;
+}
+
+/**
+ * Everything the grid decides, with no database access.
+ *
+ * Pure so it can run before the write — the page route needs the header columns
+ * in hand while it is still building its patch. `weight` and the three
+ * `calculated_*` totals are DERIVED: the operator types quantities and rates,
+ * never a total, so a submitted value for any of them is ignored.
+ */
+export function computeGrid(kind: InvoiceKind, payload: GridSaveInput): GridComputation {
   const items = payload.items.map(computeItem);
   const subtotal = round2(items.reduce((s, it) => s + it.subtotal_usd, 0));
   const tva = round2(items.reduce((s, it) => s + it.tva_usd, 0));
   const total = round2(subtotal + tva);
   const weight = round2(payload.mcaDetails.reduce((s, m) => s + N(m.weight), 0));
 
+  const columns: Record<string, unknown> =
+    kind === 'export'
+      ? {
+          quotation_id: payload.quotation_id ?? null,
+          fob_usd: String(total),
+          total_weight: String(weight),
+        }
+      : {
+          quotation_id: payload.quotation_id ?? null,
+          // The selected MCAs are recorded as a CSV on the header, which is what
+          // every reader of this table already expects.
+          mca_ids:
+            payload.mcaDetails
+              .map((m) => m.mca_id)
+              .filter((v): v is number => Number.isInteger(v) && (v as number) > 0)
+              .join(',') || null,
+          poids_kg: String(weight),
+          calculated_sub_total: String(subtotal),
+          calculated_vat_amount: String(tva),
+          calculated_total_amount: String(total),
+        };
+
+  return {
+    items,
+    columns,
+    result: { subtotal_usd: subtotal, tva_usd: tva, total_usd: total, total_weight: weight },
+  };
+}
+
+/**
+ * Replace the invoice's CHILD rows inside the caller's transaction.
+ *
+ * Header columns are deliberately NOT written here — see `computeGrid`. Split
+ * apart so the transaction page can write children and header in one statement
+ * each, both inside its own single transaction, while the standalone `/grid`
+ * route keeps working unchanged through `saveGrid` below.
+ */
+export async function writeGridChildren(
+  tx: Transaction,
+  kind: InvoiceKind,
+  invoiceId: number,
+  items: GridItem[],
+  payload: GridSaveInput,
+  uid: number,
+): Promise<void> {
+  await writeChildren(tx, kind, invoiceId, items, payload, uid);
+}
+
+export async function saveGrid(
+  kind: InvoiceKind,
+  invoiceId: number,
+  payload: GridSaveInput,
+  uid: number,
+): Promise<GridSaveResult> {
+  const { items, columns, result } = computeGrid(kind, payload);
+
   await db.transaction(async (tx) => {
+    await writeChildren(tx, kind, invoiceId, items, payload, uid);
+    // The legacy route owns its own header UPDATE; the page route splices the
+    // same columns into its patch instead.
+    const sets = Object.entries(columns).map(
+      ([col, value]) => sql`${sql.identifier(col)} = ${value}`,
+    );
+    sets.push(sql`updated_by = ${uid}`, sql`updated_at = now()`);
+    const table = kind === 'export' ? sql`export_invoices_t` : sql`import_invoices_t`;
+    await tx.execute(
+      sql`UPDATE ${table} SET ${sql.join(sets, sql`, `)} WHERE id = ${invoiceId}`,
+    );
+  });
+
+  return result;
+}
+
+/** The child-table half, shared by both entry points above (§4.10). */
+async function writeChildren(
+  tx: Transaction,
+  kind: InvoiceKind,
+  invoiceId: number,
+  items: GridItem[],
+  payload: GridSaveInput,
+  uid: number,
+): Promise<void> {
+  {
     if (kind === 'export') {
       await tx.delete(exportInvoiceItems).where(eq(exportInvoiceItems.exportInvoiceId, invoiceId));
       await tx.delete(exportInvoiceMcaDetails).where(eq(exportInvoiceMcaDetails.exportInvoiceId, invoiceId));
@@ -455,16 +637,6 @@ export async function saveGrid(
           })),
         );
       }
-      await tx
-        .update(exportInvoices)
-        .set({
-          quotationId: payload.quotation_id ?? null,
-          fobUsd: String(total),
-          totalWeight: String(weight),
-          updatedBy: uid,
-          updatedAt: new Date(),
-        })
-        .where(eq(exportInvoices.id, invoiceId));
     } else {
       // Import: items in child table; selected MCAs recorded as a CSV on header.
       await tx
@@ -496,27 +668,8 @@ export async function saveGrid(
           })),
         );
       }
-      const mcaIds = payload.mcaDetails
-        .map((m) => m.mca_id)
-        .filter((v): v is number => Number.isInteger(v) && (v as number) > 0)
-        .join(',');
-      await tx
-        .update(importInvoices)
-        .set({
-          quotationId: payload.quotation_id ?? null,
-          mcaIds: mcaIds || null,
-          poidsKg: String(weight),
-          calculatedSubTotal: String(subtotal),
-          calculatedVatAmount: String(tva),
-          calculatedTotalAmount: String(total),
-          updatedBy: uid,
-          updatedAt: new Date(),
-        })
-        .where(eq(importInvoices.id, invoiceId));
     }
-  });
-
-  return { subtotal_usd: subtotal, tva_usd: tva, total_usd: total, total_weight: weight };
+  }
 }
 
 // ---------------------------------------------------------------------------

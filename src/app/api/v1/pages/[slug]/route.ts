@@ -19,6 +19,8 @@ import {
 import { ok, fail, requireAuth, isResponse } from '@/lib/api';
 import { fetchEntityValues, safeColumnsFor, getPageTarget } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
+import { loadQuotationLines } from '@/db/queries/quotationPage';
+import { invoiceKindForSlug, loadInvoiceGridValue } from '@/db/queries/invoices';
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -252,6 +254,25 @@ async function loadPage(
     const safe = safeColumnsFor(slug, allFieldNames);
     const row = await fetchEntityValues(slug, entityId, safe);
     if (row) values = row;
+
+    // §4.12 read hook — the quotation's `items` field is VIRTUAL: its rows live
+    // in `quotation_items_t`, so `safeColumnsFor` has no column to select and
+    // the grid would open empty on an existing quotation.
+    //
+    // Loaded here rather than fetched by the grid itself so the form holds the
+    // real lines from its first render: a grid that fetched its own value would
+    // start at `[]`, and a save in that instant would take the operator's
+    // silence for "remove every line".
+    if (slug === 'quotation' && row) {
+      values.items = await loadQuotationLines(entityId);
+    }
+
+    // Same shape for an invoice's MCA rows and priced lines — both child tables,
+    // both edited through one virtual `invoice_grid` field.
+    const invoiceKind = invoiceKindForSlug(slug);
+    if (invoiceKind && row) {
+      values.invoice_grid = await loadInvoiceGridValue(invoiceKind, entityId);
+    }
   }
 
   return ok({

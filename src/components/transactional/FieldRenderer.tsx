@@ -5,6 +5,9 @@ import { Check, FileText, Plus, Settings, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/components/transactional/PartielleManageModal';
 import McaRefGrid from '@/modules/payments/McaRefGrid';
+import QuotationItemsGrid from '@/modules/quotations/QuotationItemsGrid';
+import InvoiceGrid, { type InvoiceGridValue } from '@/modules/invoice/InvoiceGrid';
+import type { QuotationLine } from '@/lib/quotations/line';
 import type { McaLine, RemarkLine } from '@/db/schema';
 import RemarkLog from '@/components/transactional/RemarkLog';
 import SealPickerControl from '@/components/ui/SealPickerControl';
@@ -248,6 +251,42 @@ export default function FieldRenderer({
           paymentId={entityId && entityId !== 'new' ? Number(entityId) : null}
         />
       );
+
+    // §2 step 2 — a quotation's priced lines. Reads the KIND off the header
+    // accordion, because that is what decides whether a line is priced in
+    // qty × taux, a single export cost, or Congolese francs.
+    case 'quotation-items':
+      return (
+        <QuotationItemsGrid
+          value={Array.isArray(value) ? (value as QuotationLine[]) : []}
+          onChange={(lines) => onChange(lines)}
+          readonly={readonly}
+          invalid={invalid}
+          kindId={toId(values?.['kind_id'])}
+          arsp={typeof values?.['arsp'] === 'string' ? (values['arsp'] as string) : null}
+        />
+      );
+
+    // §2 step 5 — an invoice's MCA rows and priced lines. Reads the client off
+    // the header accordion so both its pickers scope themselves as it changes,
+    // which is also what lets it work before the invoice has been saved once.
+    case 'invoice-grid': {
+      const gridValue = (value ?? null) as InvoiceGridValue | null;
+      // Which side of the business this invoice is, from the field's own props —
+      // configuration, not a guess from the route (§4.1). Import is the default
+      // because it is the larger module and the one this field was added for.
+      const gridKind = field.props?.['kind'] === 'export' ? 'export' : 'import';
+      return (
+        <InvoiceGrid
+          kind={gridKind}
+          invoiceId={entityId && entityId !== 'new' ? Number(entityId) : 0}
+          value={gridValue ?? { quotation_id: null, items: [], mcaDetails: [] }}
+          onChange={(v) => onChange(v)}
+          readonly={readonly}
+          clientId={toId(values?.['client_id'])}
+        />
+      );
+    }
 
     case 'remark-log':
       return (

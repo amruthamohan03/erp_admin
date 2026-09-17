@@ -7,7 +7,7 @@ import { type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 // restructure export names: clientMaster (client_master_t), licenseT (license_t),
 // importT (imports_t), exportT (exports_t).
-import { clientMaster, licenseT, importT, exportT, paymentRequest, localsT, exportInvoices, importInvoices } from '@/db/schema';
+import { clientMaster, licenseT, importT, exportT, paymentRequest, localsT, exportInvoices, importInvoices, quotations } from '@/db/schema';
 
 interface PageTarget {
   table: PgTable;
@@ -49,6 +49,14 @@ const TARGETS: Record<string, PageTarget> = {
   'import-invoices': {
     table: importInvoices,
     allowedColumns: new Set(Object.values(getTableColumns(importInvoices)).map((c) => c.name)),
+  },
+  // The line items are deliberately ABSENT from this set: they live in
+  // `quotation_items_t`, so the `items` field has no column here and the
+  // whitelist drops it from the patch. The save route's quotation hook carries
+  // it instead — see db/queries/quotationPage.ts.
+  quotation: {
+    table: quotations,
+    allowedColumns: new Set(Object.values(getTableColumns(quotations)).map((c) => c.name)),
   },
 };
 
