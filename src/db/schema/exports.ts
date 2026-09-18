@@ -19,6 +19,7 @@ import {
   varchar,
   text,
   integer,
+  boolean,
   jsonb,
   date,
   numeric,
@@ -150,6 +151,10 @@ export const exportT = pgTable(
 
     // ── Status & Remarks ──
     clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
+    // Held back from the "pending for invoicing" export, with the reason. The same
+    // pair Import tracking carries (imports_t), added for the export side in 0098.
+    invExportDisabled: boolean('inv_export_disabled').notNull().default(false),
+    invExportDisabledRemark: varchar('inv_export_disabled_remark', { length: 500 }),
     // A dated remarks log — many entries, each with its own date and text.
     // Migration 0061 converted this from text to jsonb, matching what Import's
     // column became in 0059. Free text already stored became the first entry

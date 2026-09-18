@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { isResponse, requireAuth, withErrorHandler } from '@/lib/api';
-import { buildXlsx, dateStamp, xlsxResponse, type XlsxColumn } from '@/lib/xlsx';
+import {
+  buildXlsx,
+  dateStamp,
+  xlsxResponse,
+  XLSX_USD_ACCOUNTING,
+  type XlsxColumn,
+} from '@/lib/xlsx';
 import { recordAudit } from '@/lib/audit/recordAudit';
 
 // GET /api/v1/quotations/export — the client-wise quotation summary.
@@ -53,6 +59,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
              tm.transport_mode_name
       FROM quotations_t q
       LEFT JOIN client_master_t c ON c.id = q.client_id
+      -- main joined transit_point_master_t here; in this schema
+      -- client_master_t.office_location_id is a foreign key to
+      -- main_office_master_t, so that is the table the id actually names.
       LEFT JOIN main_office_master_t mo ON mo.id = c.office_location_id
       LEFT JOIN transport_mode_master_t tm ON tm.id = q.transport_mode_id
       LEFT JOIN type_of_goods_master_t gt ON gt.id = q.goods_type_id
@@ -79,13 +88,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     byQuotation.set(s.quotation_id, bucket);
   }
 
+  // main's layout: the four descriptive columns under a cyan header, the money
+  // columns under a red one, accounting format with a $, a bold Total, thin
+  // borders throughout and a tall wrapped header row.
+  const TEXT_HEADER = 'FF00B0F0';
+  const MONEY_HEADER = 'FFC00000';
+  const text = (key: string, header: string, width: number): XlsxColumn => ({
+    key, header, width, headerFill: TEXT_HEADER, align: 'center',
+  });
+  const money = (key: string, header: string, bold = false): XlsxColumn => ({
+    key, header, width: 17, headerFill: MONEY_HEADER, align: 'right',
+    numFmt: XLSX_USD_ACCOUNTING, bold,
+  });
   const columns: XlsxColumn[] = [
-    { key: 'client_code', header: 'Client Code', width: 14 },
-    { key: 'location', header: 'Location', width: 18 },
-    { key: 'product', header: 'Product', width: 16 },
-    { key: 'transport', header: 'Mode of Transport', width: 18 },
-    ...cats.map((c) => ({ key: `cat_${c.id}`, header: c.category_name, width: 18 })),
-    { key: 'total', header: 'Total', width: 16 },
+    text('client_code', 'Client Code', 14),
+    text('location', 'Location', 16),
+    text('product', 'Product', 12),
+    text('transport', 'Mode of Transport', 14),
+    ...cats.map((c) => money(`cat_${c.id}`, c.category_name)),
+    money('total', 'Total', true),
   ];
 
   const rows = quotations.map((q) => {
@@ -120,7 +141,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     metadata: { rows: rows.length, categories: cats.map((c) => c.category_name) },
   });
 
-  const buf = await buildXlsx([{ name: 'SUMMARY', columns, rows }]);
-  const res = xlsxResponse(buf, `quotations_summary_${dateStamp()}.xlsx`);
+  const buf = await buildXlsx([
+    { name: 'SUMMARY', columns, rows, borders: true, headerHeight: 38 },
+  ]);
+  // main's name; the stamp stays the sortable YYYYMMDD every export uses (§4.19).
+  const res = xlsxResponse(buf, `Quotations_Summary_${dateStamp()}.xlsx`);
   return new NextResponse(res.body, { status: res.status, headers: res.headers });
 });

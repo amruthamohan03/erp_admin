@@ -182,7 +182,13 @@ export default function Accordion({
                     readonly ||
                     field.permission === 'view' ||
                     state.readonly ||
-                    (field.derive != null && !isEditableDerive(parseDerive(field.derive)))
+                    (field.derive != null && !isEditableDerive(parseDerive(field.derive))) ||
+                    // `props.readOnly` — the SYSTEM fills this field (an invoice's
+                    // kind, goods and transport come from its MCA files), so the
+                    // operator does not type it. Display-only: unlike a
+                    // `readonlyWhen` condition, the value is still submitted and
+                    // saved, exactly as a non-editable derive's is.
+                    field.props?.['readOnly'] === true
                   }
                   requiredOverride={state.required}
                   minBound={state.min}
@@ -192,6 +198,11 @@ export default function Accordion({
                   entityId={entityId}
                   values={values}
                   invalid={invalidFields?.has(field.name)}
+                  // Each key through the same path as a keystroke, so the page's
+                  // dirty flag, derives and error-clearing see it as an edit.
+                  onFieldsChange={(patch) => {
+                    for (const [name, v] of Object.entries(patch)) onChange(name, v);
+                  }}
                 />
                 </PairedField>
                 {invalidFields?.has(field.name) && (

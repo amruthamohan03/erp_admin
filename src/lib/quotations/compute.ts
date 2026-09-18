@@ -37,8 +37,12 @@ export function detectKind(kindName: string): {
   const k = (kindName || '').toUpperCase();
   return {
     isExport: k.includes('EXPORT'),
-    // Matches both "DEFINITIVE" and main's legacy typo "DEFINITVE".
-    isImportDefinitive: k.includes('DEFINIT'),
+    // Matches both "DEFINITIVE" and main's legacy typo "DEFINITVE" — and must
+    // also say IMPORT. The live kinds are "IMPORT DEFINITVE" *and* "EXPORT
+    // DEFINITVE", so matching 'DEFINIT' alone put an Export-Definitive
+    // quotation's customs lines on the CDF columns. main never did: it keyed
+    // the CDF path to the Import-Definitive kind alone.
+    isImportDefinitive: k.includes('IMPORT') && k.includes('DEFINIT'),
   };
 }
 
@@ -231,7 +235,10 @@ export function computeLine(it: ComputableLine, mode: LineMode): LineComputation
     };
   }
 
-  const qty = num(it.quantity);
+  // QTY is a whole number — main stores `toInt(quantity)` and prices the header
+  // from `intval(quantity)`. Truncated here, the one place both the grid and the
+  // server read it, so a typed 2.5 cannot show 2.5 × rate on screen and store 2.
+  const qty = Math.trunc(num(it.quantity));
   const taux = num(it.taux_usd);
   const line = qty * taux;
   const tva = common.hasTva ? round2(line * VAT_RATE) : 0;
@@ -255,6 +262,50 @@ export function computeLine(it: ComputableLine, mode: LineMode): LineComputation
     vatUsd: tva,
     arspBase: common.hasTva ? line : 0,
   };
+}
+
+const blank = (v: unknown): boolean => v === undefined || v === null || String(v).trim() === '';
+
+/**
+ * Why a quotation's lines cannot be saved, or null when they can.
+ *
+ * main's three rules, in its order:
+ *
+ *   1. at least one line, anywhere — "At least one item is required in any
+ *      category";
+ *   2. every line on screen has a description (its select is `required`, so
+ *      the browser would not submit a half-filled row);
+ *   3. an export line has a COST/USD (that input is `required` too).
+ *
+ * Rule 2 replaces this module's older habit of silently dropping a line with no
+ * description. main refused it; dropping it meant a row the operator could see
+ * vanished on save with nothing said.
+ *
+ * Messages name the category and the line within it, as the operator sees
+ * them (§4.23) — "line 2 of Agency Fees", not "items[7]".
+ */
+export function quotationLinesProblem(
+  lines: readonly ComputableLine[],
+  modeOf: (categoryId: number | null | undefined) => LineMode,
+  categoryName: (categoryId: number | null | undefined) => string,
+): string | null {
+  if (lines.length === 0) return 'At least one item is required in any category.';
+
+  const seen = new Map<number | null, number>();
+  for (const line of lines) {
+    const cat = line.category_id ?? null;
+    const n = (seen.get(cat) ?? 0) + 1;
+    seen.set(cat, n);
+    const where = `Line ${n} of ${categoryName(cat) || 'the quotation'}`;
+
+    if (!line.item_id) {
+      return `${where} has no description — choose one, or remove the line.`;
+    }
+    if (modeOf(cat) === 'export' && blank(line.cost_usd)) {
+      return `${where} has no Cost/USD — enter the cost, or remove the line.`;
+    }
+  }
+  return null;
 }
 
 /** The header figures, given what the lines contributed. Shared with the grid's summary. */

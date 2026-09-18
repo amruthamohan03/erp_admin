@@ -38,6 +38,13 @@ interface FieldRendererProps {
   // §4.18 — the server rejected this field on the last save; highlight it even
   // though the browser's own `:user-invalid` may not have fired.
   invalid?: boolean;
+  /**
+   * Write OTHER fields of the form, keyed by field name. For a composite field
+   * whose content determines header values — an invoice's MCA files decide its
+   * kind, goods, transport and weights. Each key goes through the page's normal
+   * change path, so dirty tracking and derives behave as if it were typed.
+   */
+  onFieldsChange?: (patch: Record<string, unknown>) => void;
 }
 
 type Props = Record<string, unknown> | null;
@@ -83,6 +90,7 @@ export default function FieldRenderer({
   maxBound,
   values,
   invalid,
+  onFieldsChange,
 }: FieldRendererProps) {
   const effectiveRequired = requiredOverride ?? field.required;
   // Spread into every control, so the §4.18 error highlight reaches each field type
@@ -284,6 +292,15 @@ export default function FieldRenderer({
           onChange={(v) => onChange(v)}
           readonly={readonly}
           clientId={toId(values?.['client_id'])}
+          // Export lists only the files on the header's licence, as main did.
+          licenseId={toId(values?.['license_id'])}
+          // The customs category is entered in CDF and shown in USD at the
+          // DGDA rate on the Financial section — main's category-1 conversion.
+          dgdaRate={Number(values?.['rate_cdf_inv']) || 0}
+          // The files decide the header (kind, goods, transport; for Import
+          // also FOB, weight, duty, trucks, references), so picking one writes
+          // those fields — main's loadMCADetails.
+          onHeaderPatch={onFieldsChange}
         />
       );
     }

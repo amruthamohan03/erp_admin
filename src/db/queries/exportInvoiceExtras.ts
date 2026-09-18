@@ -7,6 +7,7 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { exportInvoices } from '@/db/schema';
+import { pendingInvoiceCount } from './invoicePending';
 
 const N = (v: unknown): number => {
   const n = Number(v);
@@ -38,19 +39,12 @@ export async function exportInvoiceStats(): Promise<ExportInvoiceStats> {
     FROM ${exportInvoices} inv
     WHERE inv.display = 'Y'`);
 
-  // Pending for invoicing: export MCA files with a quittance that no invoice has
-  // consumed yet (export_invoice_mca_details_t links them by mca_id).
-  const pend = await db.execute(sql`
-    SELECT count(*)::int AS n
-    FROM exports_t e
-    WHERE e.display = 'Y'
-      AND e.quittance_date IS NOT NULL
-      AND e.id NOT IN (
-        SELECT DISTINCT mca_id FROM export_invoice_mca_details_t WHERE mca_id IS NOT NULL
-      )`);
+  // Pending for invoicing — one rule with the pending modal and the grid's file
+  // picker (invoicePending.ts). A file on a DELETED invoice is pending again; the
+  // old `NOT IN (all details)` kept it counted as invoiced forever.
+  const p = await pendingInvoiceCount('export');
 
   const r = (inv as unknown as { rows: Record<string, number>[] }).rows[0] ?? {};
-  const p = (pend as unknown as { rows: { n: number }[] }).rows[0]?.n ?? 0;
   return {
     total: N(r.total),
     validated: N(r.validated),

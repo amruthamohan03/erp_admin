@@ -15,18 +15,23 @@
 // `quotations_t`, so the runtime's column whitelist drops it from the patch and
 // these functions carry it instead — the same shape as the export page's seal
 // synchronisation, which is the other page-specific side effect in that route.
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { db, type Transaction } from '@/lib/db';
 import {
   kindMaster,
   quotationCategoryMaster,
   quotationItems,
+  quotations,
 } from '@/db/schema';
 import {
   buildQuotation,
+  lineMode,
   quotationBodySchema,
+  quotationLinesProblem,
   type QuotationItemValues,
 } from '@/lib/quotations/compute';
+import { parseDerive, renderTemplate } from '@/lib/pages/derive';
+import { getDeriveSource } from '@/lib/pages/deriveSources';
 import type { QuotationLine } from '@/lib/quotations/line';
 
 export type { QuotationLine };
@@ -131,6 +136,12 @@ export function parseQuotationLines(value: unknown): QuotationLine[] {
 export interface QuotationComputed {
   columns: Record<string, string>;
   items: QuotationItemValues[];
+  /**
+   * Why these lines cannot be saved, or null — main's line rules, judged on the
+   * lines AS SUBMITTED (see `quotationLinesProblem`). The caller refuses the
+   * save on a non-null value; nothing here writes.
+   */
+  problem: string | null;
 }
 
 /**
@@ -165,11 +176,23 @@ export async function computeQuotationSave(
   // Which categories are customs is a MASTER FLAG, not a name match. main
   // tested `stripos(name, 'CUSTOMS')`, so renaming the category in French
   // silently moved every line onto the USD columns.
-  const customsRows = await db
-    .select({ id: quotationCategoryMaster.id })
-    .from(quotationCategoryMaster)
-    .where(eq(quotationCategoryMaster.isCustoms, true));
-  const customsByCat = new Map<number, boolean>(customsRows.map((r) => [r.id, true]));
+  const categoryRows = await db
+    .select({
+      id: quotationCategoryMaster.id,
+      name: quotationCategoryMaster.categoryName,
+      isCustoms: quotationCategoryMaster.isCustoms,
+    })
+    .from(quotationCategoryMaster);
+  const customsByCat = new Map<number, boolean>(
+    categoryRows.filter((r) => r.isCustoms).map((r) => [r.id, true]),
+  );
+  const nameByCat = new Map<number, string>(categoryRows.map((r) => [r.id, r.name ?? '']));
+
+  const problem = quotationLinesProblem(
+    lines,
+    (cat) => lineMode(kindName, cat ? !!customsByCat.get(cat) : false),
+    (cat) => (cat ? (nameByCat.get(cat) ?? '') : ''),
+  );
 
   const body = quotationBodySchema.parse({
     client_id: ctx.client_id,
@@ -195,7 +218,52 @@ export async function computeQuotationSave(
       total_amount_cdf: String(header.totalAmountCdf),
     },
     items,
+    problem,
   };
+}
+
+/**
+ * The quotation's reference, rebuilt on the server from the pickers.
+ *
+ * The form fills it through the field's `template` derive, but an async derive
+ * is not re-run on save — so without this a stale or tampered value would be
+ * stored as-is. Resolved through the SAME source and the SAME configured
+ * template, so the server cannot name a quotation differently from the screen.
+ *
+ * Null when a picker is still empty, exactly as the form blanks it.
+ */
+export async function quotationRefFor(
+  values: Record<string, unknown>,
+  deriveRaw: unknown,
+): Promise<string | null> {
+  const spec = parseDerive(deriveRaw);
+  if (!spec || spec.kind !== 'template') return null;
+  const source = getDeriveSource(spec.source);
+  if (!source) return null;
+  const tokens = await source.resolve(values, { entityId: null });
+  if (!tokens) return null;
+  const ref = renderTemplate(spec.template, tokens).trim();
+  return ref || null;
+}
+
+/**
+ * Whether another live quotation already carries this reference — main's
+ * `checkRefUnique`. The record being edited is excluded; a deleted quotation
+ * (`display = 'N'`) frees its reference, as it did in main.
+ */
+export async function quotationRefTaken(ref: string, selfId: number | null): Promise<boolean> {
+  const [row] = await db
+    .select({ id: quotations.id })
+    .from(quotations)
+    .where(
+      and(
+        eq(quotations.quotationRef, ref),
+        eq(quotations.display, 'Y'),
+        selfId === null ? undefined : ne(quotations.id, selfId),
+      ),
+    )
+    .limit(1);
+  return !!row;
 }
 
 /**

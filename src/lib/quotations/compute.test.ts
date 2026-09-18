@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildQuotation,
+  detectKind,
+  lineMode,
   quotationBodySchema,
+  quotationLinesProblem,
   __TEST__,
+  type LineMode,
   type QuotationBody,
 } from './compute';
 
@@ -88,6 +92,26 @@ describe('detectKind via kindName (substring on uppercased)', () => {
     expect(header.subTotalCdf).toBe('500.00');
   });
 
+  // The live kind list has BOTH "IMPORT DEFINITVE" and "EXPORT DEFINITVE".
+  // Matching 'DEFINIT' alone sent the export's customs lines to CDF.
+  it('"EXPORT DEFINITVE" + customs → export path, never CDF', () => {
+    expect(detectKind('EXPORT DEFINITVE')).toEqual({ isExport: true, isImportDefinitive: false });
+    expect(lineMode('EXPORT DEFINITVE', true)).toBe('export');
+    const { items, header } = buildQuotation(
+      base([{ item_id: 1, category_id: 7, cost_usd: 40, rate_cdf: 999 }]),
+      'EXPORT DEFINITVE',
+      WITH_CUSTOMS(7),
+    );
+    expect(items[0].costUsd).toBe('40.00');
+    expect(header.subTotalCdf).toBe('0.00');
+    expect(header.subTotal).toBe('40.00');
+  });
+
+  it('"IMPORT DEFINITVE" only switches the CUSTOMS category to CDF', () => {
+    expect(lineMode('IMPORT DEFINITVE', true)).toBe('cdf');
+    expect(lineMode('IMPORT DEFINITVE', false)).toBe('standard');
+  });
+
   it('"Import Temporary" → default path (not import-definitive)', () => {
     const { header } = buildQuotation(
       base([{ item_id: 1, quantity: 2, taux_usd: 10 }]),
@@ -109,6 +133,18 @@ describe('default path (qty × taux)', () => {
     expect(header.subTotal).toBe('75.00');
     expect(header.vatAmount).toBe('0.00');
     expect(header.totalAmount).toBe('75.00');
+  });
+
+  // main: `toInt(quantity)` on the line, `intval(quantity)` on the header.
+  it('prices a whole-number QTY — a fractional one is truncated, line and header alike', () => {
+    const { items, header } = buildQuotation(
+      base([{ item_id: 1, quantity: 2.9, taux_usd: 10, has_tva: true }]),
+      '',
+      NO_CUSTOMS,
+    );
+    expect(items[0].quantity).toBe('2.00');
+    expect(items[0].totalUsd).toBe('23.20');
+    expect(header.subTotal).toBe('20.00');
   });
 
   it('adds 16% VAT only when has_tva=true', () => {
@@ -469,6 +505,40 @@ describe('header passthrough', () => {
     expect(header.transportModeId).toBeNull();
     expect(header.goodsTypeId).toBeNull();
     expect(header.quotationDate).toBeNull();
+  });
+});
+
+describe('quotationLinesProblem (main\'s save-time line rules)', () => {
+  const names = new Map<number | null, string>([[1, 'Government Taxes & Duties'], [4, 'Agency Fees']]);
+  const name = (id: number | null | undefined) => names.get(id ?? null) ?? '';
+  const mode = (m: LineMode) => () => m;
+
+  it('refuses a quotation with no lines at all', () => {
+    expect(quotationLinesProblem([], mode('standard'), name)).toBe(
+      'At least one item is required in any category.',
+    );
+  });
+
+  it('refuses a line with no description, naming its category and position', () => {
+    const lines = [
+      { category_id: 4, item_id: 9 },
+      { category_id: 1, item_id: 3 },
+      { category_id: 4, item_id: null },
+    ];
+    expect(quotationLinesProblem(lines, mode('standard'), name)).toBe(
+      'Line 2 of Agency Fees has no description — choose one, or remove the line.',
+    );
+  });
+
+  it('refuses an export line with no Cost/USD, and only an export line', () => {
+    const lines = [{ category_id: 4, item_id: 9, cost_usd: '' }];
+    expect(quotationLinesProblem(lines, mode('export'), name)).toMatch(/has no Cost\/USD/);
+    expect(quotationLinesProblem(lines, mode('standard'), name)).toBeNull();
+  });
+
+  it('accepts a complete set of lines', () => {
+    const lines = [{ category_id: 4, item_id: 9, cost_usd: '0' }];
+    expect(quotationLinesProblem(lines, mode('export'), name)).toBeNull();
   });
 });
 

@@ -1,6 +1,8 @@
 // §4.12 — GET the structure of a transactional page (accordions + fields),
 // already filtered by what the calling user's role can see. If ?entity_id=...
-// is provided, current values from the target table are bundled in.
+// is provided, current values from the target table are bundled in; with
+// ?copy_from=... (and no entity_id) a NEW record's form opens pre-filled from
+// that one.
 //
 // Response shape (PageFetchResponse in src/types):
 //   { page: { id, slug, title, route, accordions: [{ ...acc, permission, fields: [...] }] }, values: { ... } }
@@ -19,6 +21,7 @@ import {
 import { ok, fail, requireAuth, isResponse } from '@/lib/api';
 import { fetchEntityValues, safeColumnsFor, getPageTarget } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
+import { isAsyncDerive, parseDerive } from '@/lib/pages/derive';
 import { loadQuotationLines } from '@/db/queries/quotationPage';
 import { invoiceKindForSlug, loadInvoiceGridValue } from '@/db/queries/invoices';
 
@@ -43,8 +46,18 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     );
   }
 
+  // `copy_from` opens a NEW record pre-filled from an existing one — main's
+  // Copy action on the quotation list. Only meaningful on a create.
+  const copyFromRaw = searchParams.get('copy_from');
+  if (copyFromRaw !== null && !(Number.isInteger(Number(copyFromRaw)) && Number(copyFromRaw) > 0)) {
+    return fail(`copy_from must be a numeric record id; got '${copyFromRaw}'`, 400);
+  }
+  const copyFrom = copyFromRaw !== null && (entityIdRaw === null || entityIdRaw === 'new')
+    ? Number(copyFromRaw)
+    : null;
+
   try {
-    return await loadPage(slug, session.role_id, entityIdRaw);
+    return await loadPage(slug, session.role_id, entityIdRaw, copyFrom);
   } catch (err) {
     // Defensive: anything that throws inside this handler MUST still produce a
     // JSON response. If our own error analysis throws, fall back to a bare 500.
@@ -120,6 +133,7 @@ async function loadPage(
   slug: string,
   roleId: number,
   entityIdRaw: string | null,
+  copyFrom: number | null,
 ) {
   // 1) Load the page row.
   const [page] = await db
@@ -247,9 +261,13 @@ async function loadPage(
 
   // 4) If an entity id is supplied, fetch values for the visible columns only.
   // entityIdRaw was already validated to be null, 'new', or a numeric string.
+  //
+  // A copy reads its source through exactly this path, so it can carry nothing
+  // the role could not already see by opening that record.
   let values: Record<string, unknown> = {};
-  if (entityIdRaw && entityIdRaw !== 'new') {
-    const entityId = Number(entityIdRaw);
+  const readId = entityIdRaw && entityIdRaw !== 'new' ? Number(entityIdRaw) : copyFrom;
+  if (readId !== null) {
+    const entityId = readId;
     const allFieldNames = accordions.flatMap((a) => a.fields.map((f) => f.name));
     const safe = safeColumnsFor(slug, allFieldNames);
     const row = await fetchEntityValues(slug, entityId, safe);
@@ -269,9 +287,26 @@ async function loadPage(
 
     // Same shape for an invoice's MCA rows and priced lines — both child tables,
     // both edited through one virtual `invoice_grid` field.
+    // Not on a copy: an invoice's MCA rows claim tracking files, and a second
+    // invoice silently claiming the same ones is not a copy anybody wants.
     const invoiceKind = invoiceKindForSlug(slug);
-    if (invoiceKind && row) {
+    if (invoiceKind && row && copyFrom === null) {
       values.invoice_grid = await loadInvoiceGridValue(invoiceKind, entityId);
+    }
+  }
+
+  // A copy is a NEW record. It keeps what the operator chose and drops what
+  // the record was GIVEN: its id, and every async-derived field — a generated
+  // reference is regenerated from the copied pickers (so a duplicate is caught
+  // by the save, not smuggled in), and an `@init` prefill such as a date
+  // defaulting to today fires again. main's copyQuotation did the same by hand:
+  // it blanked the reference and reset the date to today.
+  if (copyFrom !== null) {
+    delete values.id;
+    for (const acc of accordions) {
+      for (const f of acc.fields) {
+        if (isAsyncDerive(parseDerive(f.derive))) delete values[f.name];
+      }
     }
   }
 

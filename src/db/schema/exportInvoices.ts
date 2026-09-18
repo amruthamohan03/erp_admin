@@ -28,6 +28,20 @@ export const exportInvoices = pgTable(
     quotationVatAmount: numeric('quotation_vat_amount', { precision: 15, scale: 2 }),
     quotationTotalAmount: numeric('quotation_total_amount', { precision: 15, scale: 2 }),
     arsp: varchar('arsp', { length: 20 }).default('Disabled'),
+    // main's "Mode de paiement" — the value DGI is told the invoice is settled by.
+    paymentMode: varchar('payment_mode', { length: 30 }).notNull().default('CREDIT'),
+    // The BCC CDF/USD rate on the invoice date, fetched from dgi_currency_rate_t
+    // and editable. Distinct from each MCA row's DGDA rate (`bcc_rate` below).
+    liveBccRate: numeric('live_bcc_rate', { precision: 18, scale: 4 }),
+    // Free comments A–H, printed on the facture. A is reserved (AO clients).
+    cmta: varchar('cmta', { length: 100 }),
+    cmtb: varchar('cmtb', { length: 100 }),
+    cmtc: varchar('cmtc', { length: 100 }),
+    cmtd: varchar('cmtd', { length: 100 }),
+    cmte: varchar('cmte', { length: 100 }),
+    cmtf: varchar('cmtf', { length: 100 }),
+    cmtg: varchar('cmtg', { length: 100 }),
+    cmth: varchar('cmth', { length: 100 }),
     dgiCode: varchar('dgi_code', { length: 100 }),
     dgiAmount: numeric('dgi_amount', { precision: 15, scale: 2 }).default('0'),
     normalizedBy: integer('normalized_by'),

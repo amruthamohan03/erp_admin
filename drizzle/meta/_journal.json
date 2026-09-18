@@ -687,6 +687,27 @@
       "when": 1789633687213,
       "tag": "0096_invoice_grid_field",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789718668242,
+      "tag": "0097_quotation_ref_and_date_derive",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1789720286853,
+      "tag": "0098_invoice_form_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1789720286854,
+      "tag": "0099_invoice_transaction_pages",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,7 @@
 // special-item rules (RIE/RLS/FSR, OGEFREM-container & CEEC-weight matching, CIF
 // splitting, autres-taxes recalculation) are deferred — see the module notes in
 // exportInvoices.ts / importInvoices.ts.
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '@/lib/db';
 import { gridSaveSchema, type GridSaveInput } from '@/schemas/invoiceGrid';
 import {
@@ -160,6 +160,12 @@ export interface GridItem {
   tva_usd: number;
   subtotal_usd: number;
   total_usd: number;
+  /** Import's customs category, billed in CDF (main's category-1 columns). */
+  cif_split: number;
+  percentage: number;
+  rate_cdf: number;
+  vat_cdf: number;
+  total_cdf: number;
 }
 
 export interface GridMca {
@@ -181,6 +187,9 @@ export interface GridMca {
   container: string | null;
   weight: number;
   buyer: string | null;
+  /** Export: the DGDA rate this file's liquidation converts at. */
+  bcc_rate: number;
+  feet_container_id: number | null;
   ceec_amount: number;
   cgea_amount: number;
   occ_amount: number;
@@ -227,7 +236,7 @@ export async function gridData(kind: InvoiceKind, invoiceId: number): Promise<Gr
       .orderBy(exportInvoiceMcaDetails.displayOrder, exportInvoiceMcaDetails.id);
 
     const quotations = await clientQuotations(inv.client_id);
-    const mcas = await availableExportMcas(inv.client_id);
+    const mcas = await availableExportMcas(inv.client_id, { licenseId: inv.license_id, invoiceId });
 
     return {
       header: { id: inv.id, client_id: inv.client_id, license_id: inv.license_id, validated: N(inv.validated) },
@@ -257,7 +266,7 @@ export async function gridData(kind: InvoiceKind, invoiceId: number): Promise<Gr
     .orderBy(importInvoiceItems.sortOrder, importInvoiceItems.id);
 
   const quotations = await clientQuotations(inv.client_id);
-  const mcas = await availableImportMcas(inv.client_id);
+  const mcas = await availableImportMcas(inv.client_id, { invoiceId });
 
   // Import stores selected MCAs as a CSV of imports_t ids; surface them as
   // pseudo GridMca rows so the grid can render/toggle them uniformly.
@@ -290,15 +299,29 @@ export async function gridData(kind: InvoiceKind, invoiceId: number): Promise<Gr
 export async function gridPickers(
   kind: InvoiceKind,
   clientId: number | null,
+  scope: McaScope = {},
 ): Promise<{
   clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
   availableMcas: { id: number; mca_ref: string | null; label: string }[];
 }> {
   const [quotationsForClient, mcas] = await Promise.all([
     clientQuotations(clientId),
-    kind === 'export' ? availableExportMcas(clientId) : availableImportMcas(clientId),
+    kind === 'export' ? availableExportMcas(clientId, scope) : availableImportMcas(clientId, scope),
   ]);
   return { clientQuotations: quotationsForClient, availableMcas: mcas };
+}
+
+/**
+ * Narrows the MCA picker the way main's getMCAReferences does.
+ *
+ * `invoiceId` is the invoice being edited: its OWN files stay offered, so
+ * reopening a saved invoice does not hide the files it already carries.
+ * `licenseId` scopes an export invoice to the licence on its header — main
+ * listed only that licence's files.
+ */
+export interface McaScope {
+  licenseId?: number | null;
+  invoiceId?: number | null;
 }
 
 async function clientQuotations(
@@ -311,29 +334,104 @@ async function clientQuotations(
   return (rows as unknown as { rows: { id: number; quotation_ref: string; quotation_date: string | null }[] }).rows;
 }
 
+// ---------------------------------------------------------------------------
+// WHICH FILES CAN STILL BE INVOICED — one definition, three readers: the grid's
+// file picker, the "Pending for Invoicing" count, and the pending list/export.
+// They disagreed before this (the count excluded clearing status 4, IN TRANSIT,
+// where main excludes CANCELLED), so the card and the picker offered different
+// files. Fixed table aliases: `i` for imports_t, `e` for exports_t.
+// ---------------------------------------------------------------------------
+
+/**
+ * An import file cleared through customs: live, quittanced, not cancelled.
+ * Cancelled is matched by the status NAME, not by id 7 as main did, so a
+ * database that numbers the master differently still gets the same answer.
+ */
+export const IMPORT_FILE_CLEARED = sql`
+  i.display = 'Y'
+  AND i.quittance_date IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM clearing_status_master_t cs
+    WHERE cs.id = i.clearing_status AND upper(trim(cs.clearing_status)) = 'CANCELLED')`;
+
+/** No live import invoice other than `selfId` lists this file in its `mca_ids`. */
+export function importFileNotInvoiced(selfId = 0): SQL {
+  // Split and compared by whole entry — `LIKE '%12%'` would call file 12
+  // invoiced when only file 123 is (§4.37).
+  return sql`NOT EXISTS (
+    SELECT 1 FROM import_invoices_t inv
+    WHERE inv.display = 'Y' AND inv.id <> ${selfId}
+      AND i.id::text = ANY (string_to_array(replace(COALESCE(inv.mca_ids, ''), ' ', ''), ',')))`;
+}
+
+/** An export file cleared through customs: live and quittanced. */
+export const EXPORT_FILE_CLEARED = sql`e.display = 'Y' AND e.quittance_date IS NOT NULL`;
+
+/** No live export invoice other than `selfId` carries this file. */
+export function exportFileNotInvoiced(selfId = 0): SQL {
+  return sql`NOT EXISTS (
+    SELECT 1 FROM export_invoice_mca_details_t d
+    JOIN export_invoices_t x ON x.id = d.export_invoice_id AND x.display = 'Y'
+    WHERE d.mca_id = e.id AND d.export_invoice_id <> ${selfId})`;
+}
+
+/**
+ * main's availability rule for an export file: cleared (it has a quittance
+ * date), on the invoice's licence when one is chosen, and not already on
+ * another live export invoice.
+ */
 async function availableExportMcas(
   clientId: number | null,
+  { licenseId, invoiceId }: McaScope = {},
 ): Promise<{ id: number; mca_ref: string | null; label: string }[]> {
   if (!clientId) return [];
+  const self = invoiceId && invoiceId > 0 ? invoiceId : 0;
   const rows = await db.execute(sql`
-    SELECT id, mca_ref, buyer, invoice FROM exports_t
-    WHERE client_id = ${clientId} AND display = 'Y' AND mca_ref IS NOT NULL AND mca_ref <> ''
-    ORDER BY id DESC LIMIT 500`);
-  return (rows as unknown as { rows: { id: number; mca_ref: string | null; buyer: string | null; invoice: string | null }[] }).rows.map(
-    (r) => ({ id: r.id, mca_ref: r.mca_ref, label: `${r.mca_ref ?? r.id}${r.buyer ? ` — ${r.buyer}` : ''}` }),
+    SELECT e.id, e.mca_ref, e.buyer, e.weight
+    FROM exports_t e
+    WHERE e.client_id = ${clientId}
+      AND ${EXPORT_FILE_CLEARED}
+      AND e.mca_ref IS NOT NULL AND e.mca_ref <> ''
+      ${licenseId ? sql`AND e.license_id = ${licenseId}` : sql``}
+      AND ${exportFileNotInvoiced(self)}
+    ORDER BY e.id DESC LIMIT 500`);
+  return (rows as unknown as { rows: { id: number; mca_ref: string | null; buyer: string | null; weight: unknown }[] }).rows.map(
+    (r) => ({
+      id: r.id,
+      mca_ref: r.mca_ref,
+      label: `${r.mca_ref ?? r.id}${r.buyer ? ` — ${r.buyer}` : ''}${N(r.weight) > 0 ? ` · ${N(r.weight).toFixed(3)} MT` : ''}`,
+    }),
   );
 }
 
+/**
+ * main's availability rule for an import file: cleared (quittanced, not
+ * cancelled) and not already recorded on another live import invoice.
+ */
 async function availableImportMcas(
   clientId: number | null,
+  { invoiceId }: McaScope = {},
 ): Promise<{ id: number; mca_ref: string | null; label: string }[]> {
   if (!clientId) return [];
+  const self = invoiceId && invoiceId > 0 ? invoiceId : 0;
   const rows = await db.execute(sql`
-    SELECT id, mca_ref, supplier, invoice FROM imports_t
-    WHERE client_id = ${clientId} AND display = 'Y' AND mca_ref IS NOT NULL AND mca_ref <> ''
-    ORDER BY id DESC LIMIT 500`);
-  return (rows as unknown as { rows: { id: number; mca_ref: string | null; supplier: string | null }[] }).rows.map(
-    (r) => ({ id: r.id, mca_ref: r.mca_ref, label: `${r.mca_ref ?? r.id}${r.supplier ? ` — ${r.supplier}` : ''}` }),
+    SELECT i.id, i.mca_ref, i.supplier, i.fob, i.weight
+    FROM imports_t i
+    WHERE i.client_id = ${clientId}
+      AND ${IMPORT_FILE_CLEARED}
+      AND i.mca_ref IS NOT NULL AND i.mca_ref <> ''
+      AND ${importFileNotInvoiced(self)}
+    ORDER BY i.id DESC LIMIT 500`);
+  return (rows as unknown as { rows: { id: number; mca_ref: string | null; supplier: string | null; fob: unknown; weight: unknown }[] }).rows.map(
+    (r) => ({
+      id: r.id,
+      mca_ref: r.mca_ref,
+      label: [
+        r.mca_ref ?? String(r.id),
+        N(r.fob) > 0 ? `FOB $${N(r.fob).toFixed(2)}` : '',
+        N(r.weight) > 0 ? `${N(r.weight).toFixed(2)} kg` : '',
+      ].filter(Boolean).join(' · '),
+    }),
   );
 }
 
@@ -345,6 +443,7 @@ export async function quotationItemsForGrid(quotationId: number): Promise<GridIt
     SELECT qi.id AS quotation_item_id, qi.category_id, qi.item_id, qi.unit_id, qi.unit_text,
            qi.quantity, qi.taux_usd, qi.cost_usd, qi.currency_id, qi.has_tva, qi.tva_usd,
            qi.subtotal_usd, qi.total_usd,
+           qi.cif_split, qi.percentage, qi.rate_cdf, qi.vat_cdf, qi.total_cdf,
            cat.category_name, cat.category_header, COALESCE(cat.display_order, 999) AS display_order,
            it.item_name
     FROM quotation_items_t qi
@@ -371,6 +470,11 @@ export async function quotationItemsForGrid(quotationId: number): Promise<GridIt
     tva_usd: N(r.tva_usd),
     subtotal_usd: N(r.subtotal_usd),
     total_usd: N(r.total_usd),
+    cif_split: N(r.cif_split),
+    percentage: N(r.percentage),
+    rate_cdf: N(r.rate_cdf),
+    vat_cdf: N(r.vat_cdf),
+    total_cdf: N(r.total_cdf),
   }));
 }
 
@@ -406,6 +510,13 @@ function computeItem(it: GridSaveInput['items'][number]): GridItem {
     tva_usd: tva,
     subtotal_usd: subtotal,
     total_usd: round2(subtotal + tva),
+    // The CDF side is entered, not multiplied out: main's category-1 row takes a
+    // rate and a VAT and its total is their sum. The submitted total is ignored.
+    cif_split: N(it.cif_split),
+    percentage: N(it.percentage),
+    rate_cdf: round2(N(it.rate_cdf)),
+    vat_cdf: round2(N(it.vat_cdf)),
+    total_cdf: round2(N(it.rate_cdf) + N(it.vat_cdf)),
   };
 }
 
@@ -414,6 +525,8 @@ export interface InvoiceGridValue {
   quotation_id: number | null;
   items: GridItem[];
   mcaDetails: GridMca[];
+  /** Import only — the customs category shown ('S') or hidden ('H'). */
+  first_categoty_edited?: 'H' | 'S';
 }
 
 /** The slug ↔ kind map, so neither side of the page hook guesses. */
@@ -436,16 +549,21 @@ export async function loadInvoiceGridValue(
 ): Promise<InvoiceGridValue> {
   const data = await gridData(kind, invoiceId);
   if (!data) return { quotation_id: null, items: [], mcaDetails: [] };
-  const table = kind === 'export' ? sql`export_invoices_t` : sql`import_invoices_t`;
   const rows = await db.execute(
-    sql`SELECT quotation_id FROM ${table} WHERE id = ${invoiceId} LIMIT 1`,
+    kind === 'export'
+      ? sql`SELECT quotation_id, NULL::text AS first_categoty_edited FROM export_invoices_t WHERE id = ${invoiceId} LIMIT 1`
+      : sql`SELECT quotation_id, first_categoty_edited FROM import_invoices_t WHERE id = ${invoiceId} LIMIT 1`,
   );
-  const quotationId = (rows as unknown as { rows: { quotation_id: number | null }[] }).rows[0]
-    ?.quotation_id;
+  const row = (rows as unknown as {
+    rows: { quotation_id: number | null; first_categoty_edited: string | null }[];
+  }).rows[0];
   return {
-    quotation_id: quotationId ?? null,
+    quotation_id: row?.quotation_id ?? null,
     items: data.items,
     mcaDetails: data.mcaDetails,
+    ...(kind === 'import'
+      ? { first_categoty_edited: row?.first_categoty_edited === 'H' ? ('H' as const) : ('S' as const) }
+      : {}),
   };
 }
 
@@ -498,26 +616,56 @@ export function computeGrid(kind: InvoiceKind, payload: GridSaveInput): GridComp
   const total = round2(subtotal + tva);
   const weight = round2(payload.mcaDetails.reduce((s, m) => s + N(m.weight), 0));
 
+  const mcaIds = payload.mcaDetails
+    .map((m) => m.mca_id)
+    .filter((v): v is number => Number.isInteger(v) && (v as number) > 0);
+
   const columns: Record<string, unknown> =
     kind === 'export'
       ? {
           quotation_id: payload.quotation_id ?? null,
-          fob_usd: String(total),
           total_weight: String(weight),
+          // main's total_duty_cdf: every file's five government charges, in CDF.
+          total_duty_cdf: String(
+            round2(
+              payload.mcaDetails.reduce(
+                (s, m) =>
+                  s + N(m.ceec_amount) + N(m.cgea_amount) + N(m.occ_amount) + N(m.lmc_amount) + N(m.ogefrem_amount),
+                0,
+              ),
+            ),
+          ),
+          quotation_sub_total: String(subtotal),
+          quotation_vat_amount: String(tva),
+          quotation_total_amount: String(total),
         }
       : {
           quotation_id: payload.quotation_id ?? null,
           // The selected MCAs are recorded as a CSV on the header, which is what
-          // every reader of this table already expects.
-          mca_ids:
-            payload.mcaDetails
-              .map((m) => m.mca_id)
-              .filter((v): v is number => Number.isInteger(v) && (v as number) > 0)
-              .join(',') || null,
-          poids_kg: String(weight),
+          // every reader of this table already expects; the first is the
+          // primary `mca_id`, as main wrote it.
+          mca_ids: mcaIds.join(',') || null,
+          mca_id: mcaIds[0] ?? null,
+          // `poids_kg` is NOT written here. It used to be — as the sum of the
+          // MCA rows' weights — but an import MCA row carries no weight (the
+          // file's weight is a header field, auto-filled from the files and
+          // editable), so every save silently zeroed the weight the operator
+          // had in front of them.
+          //
+          // main's calculated_* are the USD categories only; the customs
+          // category is CDF and is carried in calculated_total_cdf, and only
+          // while it is shown on the invoice.
           calculated_sub_total: String(subtotal),
           calculated_vat_amount: String(tva),
           calculated_total_amount: String(total),
+          calculated_total_cdf: String(
+            (payload.first_categoty_edited ?? 'S') === 'H'
+              ? 0
+              : round2(items.reduce((s, it) => s + it.total_cdf, 0)),
+          ),
+          ...(payload.first_categoty_edited
+            ? { first_categoty_edited: payload.first_categoty_edited }
+            : {}),
         };
 
   return {
@@ -571,6 +719,12 @@ export async function saveGrid(
   return result;
 }
 
+/** main's Liquidation USD: the file's CDF liquidation at its own DGDA rate. */
+export function liquidationUsd(m: { liquidation_amount?: unknown; bcc_rate?: unknown }): number {
+  const rate = N(m.bcc_rate);
+  return rate > 0 ? round2(N(m.liquidation_amount) / rate) : 0;
+}
+
 /** The child-table half, shared by both entry points above (§4.10). */
 async function writeChildren(
   tx: Transaction,
@@ -620,7 +774,11 @@ async function writeChildren(
             liquidationNo: m.liquidation_no,
             liquidationDate: m.liquidation_date || null,
             liquidationAmount: String(N(m.liquidation_amount)),
-            liquidationUsd: String(N(m.liquidation_usd)),
+            // Recomputed, never trusted: main's Liquidation USD = CDF ÷ the
+            // file's DGDA rate, and 0 while no rate is set.
+            liquidationUsd: String(liquidationUsd(m)),
+            bccRate: String(N(m.bcc_rate)),
+            feetContainerId: m.feet_container_id ?? null,
             quittanceNo: m.quittance_no,
             quittanceDate: m.quittance_date || null,
             horse: m.horse,
@@ -663,6 +821,11 @@ async function writeChildren(
             tvaUsd: String(it.tva_usd),
             subtotalUsd: String(it.subtotal_usd),
             totalUsd: String(it.total_usd),
+            cifSplit: String(it.cif_split),
+            percentage: String(it.percentage),
+            rateCdf: String(it.rate_cdf),
+            vatCdf: String(it.vat_cdf),
+            totalCdf: String(it.total_cdf),
             sortOrder: it.display_order || i,
             createdBy: uid,
           })),
@@ -712,6 +875,12 @@ function mapExportItem(r: ExportItemRow): GridItem {
     tva_usd: N(r.tvaUsd),
     subtotal_usd: N(r.subtotalUsd),
     total_usd: N(r.totalUsd),
+    // An export line is USD throughout; its table has no CDF columns.
+    cif_split: 0,
+    percentage: 0,
+    rate_cdf: 0,
+    vat_cdf: 0,
+    total_cdf: 0,
   };
 }
 
@@ -735,6 +904,11 @@ function mapImportItem(r: ImportItemRow): GridItem {
     tva_usd: N(r.tvaUsd),
     subtotal_usd: N(r.subtotalUsd),
     total_usd: N(r.totalUsd),
+    cif_split: N(r.cifSplit),
+    percentage: N(r.percentage),
+    rate_cdf: N(r.rateCdf),
+    vat_cdf: N(r.vatCdf),
+    total_cdf: N(r.totalCdf),
   };
 }
 
@@ -758,6 +932,8 @@ function mapExportMca(r: ExportMcaRow): GridMca {
     container: r.container,
     weight: N(r.weight),
     buyer: r.buyer,
+    bcc_rate: N(r.bccRate),
+    feet_container_id: r.feetContainerId,
     ceec_amount: N(r.ceecAmount),
     cgea_amount: N(r.cgeaAmount),
     occ_amount: N(r.occAmount),
@@ -785,6 +961,8 @@ function emptyMca(mcaId: number): GridMca {
     container: null,
     weight: 0,
     buyer: null,
+    bcc_rate: 0,
+    feet_container_id: null,
     ceec_amount: 0,
     cgea_amount: 0,
     occ_amount: 0,
@@ -800,7 +978,7 @@ export async function exportMcaPrefill(mcaId: number): Promise<Partial<GridMca> 
            declaration_reference AS declaration_no, to_char(dgda_in_date,'YYYY-MM-DD') AS declaration_date,
            liquidation_reference AS liquidation_no, to_char(liquidation_date,'YYYY-MM-DD') AS liquidation_date,
            liquidation_amount, quittance_reference AS quittance_no, to_char(quittance_date,'YYYY-MM-DD') AS quittance_date,
-           horse, trailer_1, trailer_2, container,
+           horse, trailer_1, trailer_2, container, feet_container,
            ceec_amount, cgea_amount, occ_amount, lmc_amount, ogefrem_amount
     FROM exports_t WHERE id = ${mcaId} LIMIT 1`);
   const r = (rows as unknown as { rows: Record<string, unknown>[] }).rows[0];
@@ -821,10 +999,206 @@ export async function exportMcaPrefill(mcaId: number): Promise<Partial<GridMca> 
     container: (r.container as string) ?? null,
     weight: N(r.weight),
     buyer: (r.buyer as string) ?? null,
+    feet_container_id: r.feet_container == null ? null : N(r.feet_container),
     ceec_amount: N(r.ceec_amount),
     cgea_amount: N(r.cgea_amount),
     occ_amount: N(r.occ_amount),
     lmc_amount: N(r.lmc_amount),
     ogefrem_amount: N(r.ogefrem_amount),
   };
+}
+
+// ---------------------------------------------------------------------------
+// HEADER FROM FILES — what the selected MCA files say the invoice header is
+// ---------------------------------------------------------------------------
+
+/**
+ * The header an invoice takes from the files on it, plus the quotation it
+ * prices against.
+ *
+ * `patch` is keyed by the header's DB column names — the same names the form's
+ * fields carry — so the grid can hand it straight to the form. Only columns the
+ * files actually determine appear; a key the files say nothing about is absent,
+ * never blanked, so an operator's own entry is not wiped by picking a file.
+ */
+export interface McaHeaderPatch {
+  patch: Record<string, string | number | null>;
+  /** The quotation main would auto-select, or null when it would not pick one. */
+  quotation_id: number | null;
+}
+
+const str = (v: unknown): string | null =>
+  v === null || v === undefined || String(v).trim() === '' ? null : String(v);
+
+export async function mcaHeaderPatch(
+  kind: InvoiceKind,
+  clientId: number | null,
+  mcaIds: number[],
+): Promise<McaHeaderPatch> {
+  const ids = mcaIds.filter((n) => Number.isInteger(n) && n > 0);
+  if (!clientId || ids.length === 0) return { patch: {}, quotation_id: null };
+
+  if (kind === 'export') {
+    // main fills the header from the FIRST file selected: kind, goods and
+    // transport, which also decide the quotation and the reference suffix.
+    const rows = await db.execute(sql`
+      SELECT e.kind, e.type_of_goods, e.transport_mode, l.kind_id AS license_kind
+      FROM exports_t e
+      LEFT JOIN license_t l ON l.id = e.license_id
+      WHERE e.id = ${ids[0]} LIMIT 1`);
+    const r = (rows as unknown as { rows: Record<string, unknown>[] }).rows[0];
+    if (!r) return { patch: {}, quotation_id: null };
+    const kindId = r.kind == null ? (r.license_kind == null ? null : N(r.license_kind)) : N(r.kind);
+    const goodsId = r.type_of_goods == null ? null : N(r.type_of_goods);
+    const transportId = r.transport_mode == null ? null : N(r.transport_mode);
+    const patch: McaHeaderPatch['patch'] = {};
+    if (kindId) patch.kind_id = kindId;
+    if (goodsId) patch.goods_type_id = goodsId;
+    if (transportId) patch.transport_mode_id = transportId;
+    return {
+      patch,
+      quotation_id: await matchQuotation(clientId, kindId, goodsId, transportId, 'fallback'),
+    };
+  }
+
+  // Import: main's mergeMCAData — the first file's scalars, the files' sums.
+  const rows = await db.execute(sql`
+    SELECT i.id, i.fob, i.fret, i.weight, i.m3, i.liquidation_amount,
+           COALESCE(l.kind_id, i.kind) AS kind_id,
+           COALESCE(l.type_of_goods_id, i.type_of_goods) AS goods_type_id,
+           i.transport_mode AS transport_mode_id,
+           i.horse, i.trailer_1, i.trailer_2, i.container, i.wagon,
+           i.airway_bill, i.airway_bill_weight,
+           i.invoice AS facture_pfi_no, i.po_ref, i.inspection_reports AS bivac_inspection,
+           i.declaration_reference AS declaration_no,
+           to_char(i.dgda_in_date, 'YYYY-MM-DD') AS declaration_date,
+           i.liquidation_reference AS liquidation_no,
+           to_char(i.liquidation_date, 'YYYY-MM-DD') AS liquidation_date,
+           i.quittance_reference AS quittance_no,
+           to_char(i.quittance_date, 'YYYY-MM-DD') AS quittance_date,
+           to_char(i.dgda_out_date, 'YYYY-MM-DD') AS dispatch_deliver_date,
+           cm.commodity_name
+    FROM imports_t i
+    LEFT JOIN license_t l ON l.id = i.license_id
+    LEFT JOIN commodity_master_t cm ON cm.id = i.commodity
+    WHERE i.id IN (${sql.join(ids.map((n) => sql`${n}`), sql`, `)})
+    ORDER BY i.id DESC`);
+  const list = (rows as unknown as { rows: Record<string, unknown>[] }).rows;
+  if (list.length === 0) return { patch: {}, quotation_id: null };
+  const first = list[0];
+
+  const [client] = (
+    (await db.execute(sql`SELECT liquidation_paid_by FROM client_master_t WHERE id = ${clientId}`)) as unknown as {
+      rows: { liquidation_paid_by: unknown }[];
+    }
+  ).rows;
+  const sum = (key: string): number => round2(list.reduce((s, r) => s + N(r[key]), 0));
+  const commodities = [...new Set(list.map((r) => str(r.commodity_name)).filter((v): v is string => !!v))];
+
+  const kindId = first.kind_id == null ? null : N(first.kind_id);
+  const goodsId = first.goods_type_id == null ? null : N(first.goods_type_id);
+  const transportId = first.transport_mode_id == null ? null : N(first.transport_mode_id);
+
+  const patch: McaHeaderPatch['patch'] = {
+    kind_id: kindId,
+    goods_type_id: goodsId,
+    transport_mode_id: transportId,
+    fob_usd: sum('fob'),
+    fret_usd: sum('fret'),
+    poids_kg: sum('weight'),
+    produit: commodities.join(', ') || null,
+    // main leaves the duty blank when the CLIENT pays the liquidation itself
+    // (liquidation_paid_by 1): there is nothing for the agency to bill.
+    total_duty_cdf: N(client?.liquidation_paid_by) === 1 ? null : sum('liquidation_amount'),
+    // Fuel (goods type 3) is billed per M3; main only fills it for that type.
+    m3: goodsId === 3 ? sum('m3') : null,
+    facture_pfi_no: str(first.facture_pfi_no),
+    po_ref: str(first.po_ref),
+    bivac_inspection: str(first.bivac_inspection),
+    declaration_no: str(first.declaration_no),
+    declaration_date: str(first.declaration_date),
+    liquidation_no: str(first.liquidation_no),
+    liquidation_date: str(first.liquidation_date),
+    quittance_no: str(first.quittance_no),
+    quittance_date: str(first.quittance_date),
+    dispatch_deliver_date: str(first.dispatch_deliver_date),
+    horse: str(first.horse),
+    trailer_1: str(first.trailer_1),
+    trailer_2: str(first.trailer_2),
+    container: str(first.container),
+    wagon: str(first.wagon),
+    airway_bill: str(first.airway_bill),
+    airway_bill_weight: first.airway_bill_weight == null ? null : N(first.airway_bill_weight),
+  };
+
+  const quotationId = await matchQuotation(clientId, kindId, goodsId, transportId, 'exact');
+  if (quotationId) {
+    const [q] = (
+      (await db.execute(sql`SELECT arsp FROM quotations_t WHERE id = ${quotationId}`)) as unknown as {
+        rows: { arsp: string | null }[];
+      }
+    ).rows;
+    if (q?.arsp) patch.arsp = q.arsp;
+  }
+  return { patch, quotation_id: quotationId };
+}
+
+/**
+ * The quotation an invoice prices against, as main chose it.
+ *
+ *   exact    — Import: the client's quotations for this kind, transport AND
+ *              goods; picked only when exactly one matches, otherwise left for
+ *              the operator (main listed the matches and auto-selected a lone
+ *              one).
+ *   fallback — Export: kind + goods + transport, then kind + transport, then
+ *              kind alone, then the client's most recent — main's
+ *              autoMatchQuotation, which always lands on something.
+ */
+export async function matchQuotation(
+  clientId: number,
+  kindId: number | null,
+  goodsId: number | null,
+  transportId: number | null,
+  mode: 'exact' | 'fallback',
+): Promise<number | null> {
+  const rows = (
+    (await db.execute(sql`
+      SELECT id, kind_id, goods_type_id, transport_mode_id
+      FROM quotations_t
+      WHERE client_id = ${clientId} AND display = 'Y'
+      ORDER BY quotation_date DESC NULLS LAST, id DESC`)) as unknown as {
+      rows: { id: number; kind_id: number | null; goods_type_id: number | null; transport_mode_id: number | null }[];
+    }
+  ).rows;
+  const same = (a: number | null, b: number | null) => a != null && b != null && N(a) === N(b);
+  const full = rows.filter(
+    (q) => same(q.kind_id, kindId) && same(q.goods_type_id, goodsId) && same(q.transport_mode_id, transportId),
+  );
+  if (mode === 'exact') return full.length === 1 ? full[0].id : null;
+  return (
+    full[0]?.id ??
+    rows.find((q) => same(q.kind_id, kindId) && same(q.transport_mode_id, transportId))?.id ??
+    rows.find((q) => same(q.kind_id, kindId))?.id ??
+    rows[0]?.id ??
+    null
+  );
+}
+
+/**
+ * The licences an import invoice covers, from its files — main's `license_ids`
+ * CSV and the primary `license_id`. main made the operator tick licences before
+ * files; every file belongs to exactly one licence, so the set is determined by
+ * the files and is recorded rather than asked for twice.
+ */
+export async function importLicenseColumns(mcaIds: number[]): Promise<Record<string, unknown>> {
+  const ids = mcaIds.filter((n) => Number.isInteger(n) && n > 0);
+  if (ids.length === 0) return { license_ids: null, license_id: null };
+  const rows = (
+    (await db.execute(sql`
+      SELECT DISTINCT license_id FROM imports_t
+      WHERE id IN (${sql.join(ids.map((n) => sql`${n}`), sql`, `)}) AND license_id IS NOT NULL
+      ORDER BY license_id`)) as unknown as { rows: { license_id: number }[] }
+  ).rows;
+  const licenceIds = rows.map((r) => N(r.license_id));
+  return { license_ids: licenceIds.join(',') || null, license_id: licenceIds[0] ?? null };
 }
