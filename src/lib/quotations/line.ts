@@ -31,13 +31,21 @@ export interface QuotationLine {
   rate_cdf: string;
 }
 
-/** An empty line for a category — every numeric box starts blank, never 0.00. */
-export function emptyQuotationLine(categoryId: number): QuotationLine {
+/**
+ * An empty line for a category — every numeric box starts blank, never 0.00.
+ *
+ * `currencyId` is the currency a new line starts on. main preselects USD; the
+ * caller resolves which id that is from the master, so no id is assumed here.
+ */
+export function emptyQuotationLine(
+  categoryId: number,
+  currencyId: number | null = null,
+): QuotationLine {
   return {
     category_id: categoryId,
     item_id: null,
     unit_id: null,
-    currency_id: null,
+    currency_id: currencyId,
     has_tva: false,
     quantity: '',
     cost_usd: '',

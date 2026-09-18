@@ -23,6 +23,12 @@ import Accordion, { type ResolvedField } from './Accordion';
 interface TransactionalPageProps {
   slug: string;
   entityId: string;
+  /**
+   * On a create, the id of a record to pre-fill from — a list's Copy action.
+   * The server drops the source's id and its generated fields; see the page
+   * GET route.
+   */
+  copyFrom?: string | null;
 }
 
 /**
@@ -53,7 +59,8 @@ function withFieldDefaults(
   return next;
 }
 
-export default function TransactionalPage({ slug, entityId }: TransactionalPageProps) {
+export default function TransactionalPage({ slug, entityId, copyFrom = null }: TransactionalPageProps) {
+  const copying = entityId === 'new' && !!copyFrom;
   const router = useRouter();
   const pathname = usePathname();
   const [page, setPage] = useState<PageDef | null>(null);
@@ -78,9 +85,11 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const url = entityId === 'new'
-      ? `/api/v1/pages/${slug}`
-      : `/api/v1/pages/${slug}?entity_id=${entityId}`;
+    const url = entityId !== 'new'
+      ? `/api/v1/pages/${slug}?entity_id=${entityId}`
+      : copying
+        ? `/api/v1/pages/${slug}?copy_from=${encodeURIComponent(copyFrom ?? '')}`
+        : `/api/v1/pages/${slug}`;
     const result = await safeFetchJson<PageFetchResponse>(url);
     if (!result.ok) {
       setError(
@@ -111,10 +120,12 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     // extent visible from the start, and the operator collapses what they don't
     // need rather than hunting for what they do.
     setOpenSlugs(new Set(result.data.page.accordions.map((a) => a.slug)));
-    setDirty(false);
+    // A copy is unsaved work from its first render — nothing it shows is on
+    // file yet, and leaving the page clean would let it be abandoned unasked.
+    setDirty(copying);
     setInvalidFields(new Set());
     setLoading(false);
-  }, [slug, entityId]);
+  }, [slug, entityId, copying, copyFrom]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
@@ -235,9 +246,14 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
   //
   // Only blanks are touched, and only the read-only mirrors (see
   // `authoritativeFields`), so nothing the record already holds is overwritten.
+  //
+  // A COPY takes the same path: it opens with its pickers already chosen and its
+  // generated reference cleared by the server, so nothing would ever change to
+  // rebuild it. Filling here puts the reference back — and a copy whose pickers
+  // are unchanged then shows the duplicate the save will refuse, as main did.
   const fillRan = useRef(false);
   useEffect(() => {
-    if (!page || entityId === 'new' || fillRan.current) return;
+    if (!page || (entityId === 'new' && !copying) || fillRan.current) return;
     const ready = [...asyncTriggers].filter(
       (t) => t !== INIT_TRIGGER && values[t] !== null && values[t] !== undefined && values[t] !== '',
     );
@@ -247,7 +263,7 @@ export default function TransactionalPage({ slug, entityId }: TransactionalPageP
     fillRan.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     for (const trigger of ready) void runAsyncDerive(trigger, values, 'fill');
-  }, [page, entityId, asyncTriggers, runAsyncDerive, values]);
+  }, [page, entityId, copying, asyncTriggers, runAsyncDerive, values]);
 
   const handleFieldChange = useCallback((fieldName: string, value: unknown) => {
     setDirty(true);

@@ -11,7 +11,22 @@ export interface XlsxColumn {
   key: string;
   header: string;
   width?: number;
+  /**
+   * Header cell fill as ARGB, for a sheet whose headers are colour-coded by
+   * what the column holds (the quotation summary's text vs money columns).
+   * Defaults to the shared header colour.
+   */
+  headerFill?: string;
+  /** Excel number format for the body cells, e.g. an accounting format. */
+  numFmt?: string;
+  /** Horizontal alignment of the body cells. Defaults to Excel's own. */
+  align?: 'left' | 'center' | 'right';
+  /** Bold body cells — a Total column. */
+  bold?: boolean;
 }
+
+/** Excel's accounting format with a leading $ — negatives in brackets, zero as a dash. */
+export const XLSX_USD_ACCOUNTING = '_("$"* #,##0_);_("$"* \\(#,##0\\);_("$"* "-"??_);_(@_)';
 
 /**
  * A row's background, as one of a few named tones rather than a raw colour.
@@ -45,6 +60,10 @@ export interface XlsxSheet {
    * the record ("this licence has expired") instead of about its position.
    */
   rowTone?: (row: Record<string, unknown>) => XlsxRowTone | null;
+  /** Thin black borders on every cell, header included. */
+  borders?: boolean;
+  /** Header row height in points (default 24). */
+  headerHeight?: number;
 }
 
 // Excel sheet names: max 31 chars, none of \ / ? * [ ] :
@@ -72,12 +91,24 @@ export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
     const ws = wb.addWorksheet(name);
     ws.columns = s.columns.map((c) => ({ header: c.header, key: c.key, width: c.width ?? 18 }));
 
+    // Per-column body styling. Set on the COLUMN, so every row added below —
+    // data and totals alike — inherits it without a second loop. BEFORE the
+    // header is styled: a column style also rewrites the header cell that
+    // already exists, and would otherwise strip its white bold font.
+    s.columns.forEach((c, i) => {
+      const col = ws.getColumn(i + 1);
+      if (c.numFmt) col.numFmt = c.numFmt;
+      if (c.align) col.alignment = { horizontal: c.align };
+      if (c.bold) col.font = { bold: true };
+    });
+
     const header = ws.getRow(1);
     header.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-    header.height = 24;
-    header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } };
+    header.height = s.headerHeight ?? 24;
+    header.eachCell((cell, colNumber) => {
+      const argb = s.columns[colNumber - 1]?.headerFill ?? 'FF667EEA';
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
     });
 
     for (const r of s.rows) {
@@ -99,6 +130,15 @@ export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
       tr.font = { bold: true };
       tr.eachCell((cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+      });
+    }
+
+    if (s.borders && s.columns.length > 0) {
+      const thin = { style: 'thin' as const, color: { argb: 'FF000000' } };
+      ws.eachRow({ includeEmpty: false }, (row) => {
+        for (let c = 1; c <= s.columns.length; c += 1) {
+          row.getCell(c).border = { top: thin, left: thin, bottom: thin, right: thin };
+        }
       });
     }
 

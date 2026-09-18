@@ -5,7 +5,13 @@ import { CornerDownLeft, Plus, Trash2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
-import { computeLine, headerTotals, lineMode, type LineMode } from '@/lib/quotations/compute';
+import {
+  computeLine,
+  detectKind,
+  headerTotals,
+  lineMode,
+  type LineMode,
+} from '@/lib/quotations/compute';
 import { emptyQuotationLine, type QuotationLine } from '@/lib/quotations/line';
 
 // §2 step 2 — a quotation's priced lines, grouped by category, rendered inside
@@ -82,10 +88,14 @@ function Computed({ value, tone }: { value: string; tone?: 'total' | 'cdf' }) {
   );
 }
 
-/** Column headers per mode — kept beside the row renderer so they cannot drift. */
+/**
+ * Column headers per mode, worded exactly as main's quotation screen — kept
+ * beside the row renderer so they cannot drift. The operators know these
+ * columns by these names; "TOTAL EN USD" is what they say, not "Total USD".
+ */
 const HEADERS: Record<LineMode, string[]> = {
-  standard: ['Description', 'Unit', 'Qty', 'Taux/USD', 'Currency', 'TVA', 'TVA/USD', 'Total USD'],
-  export: ['Description', 'Unit', 'Cost/USD', 'Subtotal USD', 'Currency', 'TVA', 'TVA-16', 'Total USD'],
+  standard: ['Description', 'Unit', 'Qty', 'Taux/USD', 'Currency', 'TVA', 'TVA/USD', 'Total en USD'],
+  export: ['Description', 'Unit', 'Cost/USD', 'Subtotal USD', 'Currency', 'TVA', 'TVA-16', 'Total en USD'],
   cdf: ['Description', 'Unit', 'CIF/Split', '%', 'Rate/CDF', 'VAT/CDF', 'Total/CDF'],
 };
 
@@ -175,8 +185,18 @@ export default function QuotationItemsGrid({
     setKindName(kindId === null ? '' : (kinds.get(kindId) ?? ''));
   }, [kindId, kinds]);
 
+  // main preselects USD on every new line. Resolved from the master by its code
+  // rather than assumed to be id 1, so a database seeded in another order still
+  // gets dollars (§4.1).
+  const usdId = useMemo(() => {
+    const usd = currencies.find((c) => c.label.trim().toUpperCase() === 'USD');
+    return usd ? Number(usd.value) : null;
+  }, [currencies]);
+
   /**
-   * Seed one blank line per category the first time a kind is chosen.
+   * Seed ONE blank line, in the first category, the first time a kind is chosen
+   * — main's `addImportItem(categories[0])` / `addEDItem(categories[0])`. The
+   * operator adds the rest with each category's +.
    *
    * Only when the grid is genuinely empty and only once, so it cannot fight an
    * operator who has deliberately deleted every row.
@@ -186,8 +206,8 @@ export default function QuotationItemsGrid({
     if (seeded.current || readonly || loading) return;
     if (lines.length > 0 || categories.length === 0 || !kindName) return;
     seeded.current = true;
-    onChange(categories.map((c) => emptyQuotationLine(c.id)));
-  }, [lines.length, categories, kindName, readonly, loading, onChange]);
+    onChange([emptyQuotationLine(categories[0].id, usdId)]);
+  }, [lines.length, categories, kindName, readonly, loading, onChange, usdId]);
 
   const modeFor = (cat: Category): LineMode => lineMode(kindName, cat.is_customs);
 
@@ -206,8 +226,6 @@ export default function QuotationItemsGrid({
     [computed, lines, arsp],
   );
 
-  const showCdfSummary = categories.some((c) => modeFor(c) === 'cdf') && totals.totalCdf > 0;
-
   function patch(index: number, change: Partial<QuotationLine>): void {
     onChange(lines.map((l, i) => (i === index ? { ...l, ...change } : l)));
   }
@@ -215,7 +233,7 @@ export default function QuotationItemsGrid({
   function addLine(categoryId: number, afterIndex?: number): void {
     const next = [...lines];
     const at = afterIndex === undefined ? next.length : afterIndex + 1;
-    next.splice(at, 0, emptyQuotationLine(categoryId));
+    next.splice(at, 0, emptyQuotationLine(categoryId, usdId));
     onChange(next);
   }
 
@@ -223,16 +241,18 @@ export default function QuotationItemsGrid({
     onChange(lines.filter((_, i) => i !== index));
   }
 
-  /** The descriptions a category offers for the current kind. */
+  /**
+   * The descriptions a category offers for the current kind.
+   *
+   * 'I' and 'E' mark which side an item may be quoted on, and main filters on
+   * them strictly: an export quotation lists `item_type` containing E, anything
+   * else lists I. Every live item carries at least one of the two letters.
+   */
   function itemOptions(categoryId: number): SelectOption[] {
-    // 'I' and 'E' mark which side an item may be quoted on. An item with
-    // neither letter is offered on both rather than nowhere — legacy rows have
-    // a blank type, and hiding them would make old quotations uneditable.
-    const wantsExport = modeFor({ id: categoryId, is_customs: false } as Category) === 'export';
-    const letter = wantsExport ? 'E' : 'I';
+    const letter = detectKind(kindName).isExport ? 'E' : 'I';
     return items
       .filter((i) => i.category_id === categoryId)
-      .filter((i) => i.item_type === '' || i.item_type.toUpperCase().includes(letter))
+      .filter((i) => i.item_type.toUpperCase().includes(letter))
       .map((i) => ({ value: String(i.id), label: i.name }));
   }
 
@@ -259,6 +279,11 @@ export default function QuotationItemsGrid({
       className={`space-y-5 ${invalid ? 'rounded-md ring-2 ring-destructive/40' : ''}`}
       aria-invalid={invalid || undefined}
     >
+      {/* main titles the grid by which side of the business it prices. */}
+      <h3 className="text-sm font-semibold text-foreground">
+        {detectKind(kindName).isExport ? 'Export Items (ED)' : 'Quotation Items'}
+      </h3>
+
       {categories.map((cat) => {
         const mode = modeFor(cat);
         const grid = COLUMNS[mode];
@@ -333,8 +358,9 @@ export default function QuotationItemsGrid({
 
                       {mode === 'standard' && (
                         <>
+                          {/* Whole numbers only — see computeLine. */}
                           <input
-                            type="number" step="0.01" min="0" placeholder="0.00"
+                            type="number" step="1" min="0" placeholder="0" inputMode="numeric"
                             className="input h-9 min-w-0 text-right font-mono text-xs"
                             aria-label="Quantity" disabled={readonly}
                             value={line.quantity}
@@ -463,28 +489,16 @@ export default function QuotationItemsGrid({
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Summary
         </h4>
+        {/* main's four summary rows, USD only. The CDF totals of an
+            Import-Definitive quotation are still computed and stored — the
+            list's Total CDF column shows them — but main's form never
+            summarised them, and this one follows it. */}
         <dl className="space-y-1.5 text-sm">
           <Row label="Sub-Total (USD)" value={money(totals.subUsd)} />
           <Row label="VAT (16%)" value={money(totals.vatUsd)} />
-          <Row
-            label="ARSP (1.2%)"
-            value={money(totals.arspAmount)}
-            hint={arsp === 'Enabled' ? undefined : 'Disabled on this quotation'}
-          />
-          <Row label="Total (USD)" value={money(totals.totalUsd)} emphasis />
-          {showCdfSummary && (
-            <>
-              <div className="!mt-3 border-t border-border pt-2" />
-              <Row label="Sub-Total (CDF)" value={money(totals.subCdf)} />
-              <Row label="VAT (CDF)" value={money(totals.vatCdf)} />
-              <Row label="Total (CDF)" value={money(totals.totalCdf)} emphasis />
-            </>
-          )}
+          <Row label="ARSP (1.2%)" value={money(totals.arspAmount)} />
+          <Row label="TOTAL EN USD" value={money(totals.totalUsd)} emphasis />
         </dl>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Recomputed on save from the lines above — the stored totals are the server&rsquo;s own
-          arithmetic, never a figure sent from this screen.
-        </p>
       </div>
     </div>
   );
@@ -493,19 +507,16 @@ export default function QuotationItemsGrid({
 function Row({
   label,
   value,
-  hint,
   emphasis,
 }: {
   label: string;
   value: string;
-  hint?: string;
   emphasis?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className={emphasis ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
         {label}
-        {hint && <span className="ms-2 text-[11px] italic text-muted-foreground">({hint})</span>}
       </dt>
       <dd
         className={`font-mono tabular-nums ${emphasis ? 'text-base font-bold text-foreground' : 'text-foreground'}`}

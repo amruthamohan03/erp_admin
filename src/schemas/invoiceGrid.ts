@@ -24,6 +24,14 @@ export const gridItemSchema = z.object({
   tva_usd: num.default(0),
   subtotal_usd: num.default(0),
   total_usd: num.default(0),
+  // Import's customs category is billed in CDF, not USD (main's category-1
+  // columns). total_cdf is recomputed as rate + vat on save; the submitted one
+  // is ignored.
+  cif_split: num.default(0),
+  percentage: num.default(0),
+  rate_cdf: num.default(0),
+  vat_cdf: num.default(0),
+  total_cdf: num.default(0),
 });
 
 export const gridMcaSchema = z.object({
@@ -45,6 +53,10 @@ export const gridMcaSchema = z.object({
   container: nstr,
   weight: num.default(0),
   buyer: nstr,
+  // Export: the DGDA rate this file's liquidation is converted at. Liquidation
+  // USD is recomputed from it on save (CDF ÷ rate).
+  bcc_rate: num.default(0),
+  feet_container_id: z.number().int().nullable().optional(),
   ceec_amount: num.default(0),
   cgea_amount: num.default(0),
   occ_amount: num.default(0),
@@ -54,6 +66,9 @@ export const gridMcaSchema = z.object({
 
 export const gridSaveSchema = z.object({
   quotation_id: z.number().int().nullable().optional(),
+  // Import: whether the customs (CDF) category is on the invoice — 'S' shown,
+  // 'H' hidden. main's `first_categoty_edited` (sic), column name kept.
+  first_categoty_edited: z.enum(['H', 'S']).optional(),
   mcaDetails: z.array(gridMcaSchema).default([]),
   items: z.array(gridItemSchema).default([]),
 });

@@ -6,6 +6,7 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { importInvoices, usersT } from '@/db/schema';
+import { pendingInvoiceCount } from './invoicePending';
 
 const N = (v: unknown): number => {
   const n = Number(v);
@@ -37,24 +38,12 @@ export async function importInvoiceStats(): Promise<ImportInvoiceStats> {
     FROM ${importInvoices} inv
     WHERE inv.display = 'Y'`);
 
-  // Pending for invoicing: cleared MCA files (quittance issued, not cancelled,
-  // importable kind, not export-disabled) that no invoice has consumed yet.
-  const pend = await db.execute(sql`
-    SELECT count(DISTINCT i.id)::int AS n
-    FROM imports_t i
-    WHERE i.display = 'Y'
-      AND i.quittance_date IS NOT NULL
-      AND (i.clearing_status IS NULL OR i.clearing_status <> 4)
-      AND i.kind IN (1, 2, 5, 6)
-      AND (i.inv_export_disabled = false OR i.inv_export_disabled IS NULL)
-      AND NOT EXISTS (
-        SELECT 1 FROM import_invoices_t x
-        WHERE x.display = 'Y' AND x.mca_ids IS NOT NULL AND x.mca_ids <> ''
-          AND (',' || x.mca_ids || ',') LIKE ('%,' || i.id || ',%')
-      )`);
+  // Pending for invoicing — one rule with the pending modal and the grid's file
+  // picker (invoicePending.ts). This used to exclude clearing status 4 (IN
+  // TRANSIT) instead of CANCELLED, so the card counted files the picker hid.
+  const p = await pendingInvoiceCount('import');
 
   const r = (inv as unknown as { rows: Record<string, number>[] }).rows[0] ?? {};
-  const p = (pend as unknown as { rows: { n: number }[] }).rows[0]?.n ?? 0;
   return {
     total: N(r.total),
     validated: N(r.validated),

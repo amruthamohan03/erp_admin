@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Boxes, CalendarClock, FileSpreadsheet, FileText, Layers, Plus, Send } from 'lucide-react';
+import { Boxes, CalendarClock, Copy, FileSpreadsheet, FileText, Layers, Plus, Send } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
@@ -171,9 +171,11 @@ export default function QuotationsPage() {
         title="Quotations List"
         searchPlaceholder="Search reference, client, kind…"
         emptyMessage="No quotations yet — create the first one."
-        // The client-wise summary: one row per quotation, a column per
-        // category, customs excluded. Same filter the grid is showing.
-        exportHref={`/api/v1/quotations/export${activeCard !== 'all' ? `?card=${activeCard}` : ''}`}
+        // main's "Export Excel (Client-wise)": one SUMMARY sheet of every live
+        // quotation, sorted by client code, a column per category with customs
+        // excluded. It never took a filter, so no card is passed — sending one
+        // the route ignores would promise a narrower sheet than it delivers.
+        exportHref="/api/v1/quotations/export"
         toolbar={
           // §4.35 — one create action, in the table's toolbar, last in the row.
           <Link href="/quotations/new" className="btn-primary btn-sm">
@@ -183,7 +185,7 @@ export default function QuotationsPage() {
         columns={[
           {
             key: 'quotation_ref',
-            header: 'Reference',
+            header: 'Ref',
             sortable: true,
             className: 'font-mono font-semibold',
           },
@@ -211,7 +213,8 @@ export default function QuotationsPage() {
             align: 'right',
             sortable: true,
             className: 'tabular-nums font-semibold',
-            render: (r) => money(r.total_amount),
+            // main prints the currency after the figure: "1,250.00 USD".
+            render: (r) => `${money(r.total_amount)} USD`,
           },
           {
             key: 'total_amount_cdf',
@@ -224,7 +227,7 @@ export default function QuotationsPage() {
             render: (r) =>
               Number(r.total_amount_cdf) > 0 ? (
                 <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                  {money(r.total_amount_cdf)}
+                  {money(r.total_amount_cdf)} CDF
                 </span>
               ) : (
                 <span className="text-muted-foreground">—</span>
@@ -235,6 +238,20 @@ export default function QuotationsPage() {
           view: () => setViewId(r.id),
           edit: `/quotations/${r.id}`,
           remove: () => setConfirmDelete(r),
+          // main's Copy: a new quotation pre-filled from this one — pickers,
+          // lines and ARSP — dated today, with its reference rebuilt. Sky, as
+          // main's btn-info, and outside the reserved view/edit/delete hues
+          // (§4.20).
+          extra: (
+            <Link
+              href={`/quotations/new?copy=${r.id}`}
+              title="Copy"
+              aria-label={`Copy quotation ${r.quotation_ref}`}
+              className="ico ms-1 text-sky-600 hover:bg-accent dark:text-sky-400"
+            >
+              <Copy className="h-4 w-4" />
+            </Link>
+          ),
         })}
       />
 

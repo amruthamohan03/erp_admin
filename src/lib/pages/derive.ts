@@ -20,8 +20,12 @@ export interface StatusMapDerive {
 
 export interface FormulaDerive {
   kind: 'formula';
-  op: 'subtract' | 'add' | 'sum';
+  // `multiply` is a product of every operand — CIF (CDF) = CIF (USD) × rate. An
+  // operand that is blank counts as 0, so the product is 0 until all are filled.
+  op: 'subtract' | 'add' | 'sum' | 'multiply';
   fields: string[];
+  /** Round the result to this many decimals (money columns want 2). */
+  decimals?: number;
 }
 
 // Tiered lookup: pick the first matching rule and resolve a value. A rule (or the
@@ -172,9 +176,16 @@ export function computePureDerive(spec: DeriveSpec | null, values: Values): stri
   if (spec.kind === 'formula') {
     const nums = spec.fields.map((f) => num(values[f]));
     if (nums.length === 0) return undefined;
-    if (spec.op === 'subtract') return nums.reduce((a, b) => a - b);
-    // add and sum both total the operands.
-    return nums.reduce((a, b) => a + b, 0);
+    const raw =
+      spec.op === 'subtract'
+        ? nums.reduce((a, b) => a - b)
+        : spec.op === 'multiply'
+          ? nums.reduce((a, b) => a * b, 1)
+          : // add and sum both total the operands.
+            nums.reduce((a, b) => a + b, 0);
+    if (spec.decimals === undefined) return raw;
+    const f = 10 ** spec.decimals;
+    return Math.round(raw * f) / f;
   }
   if (spec.kind === 'tiered') {
     const base = spec.base ? num(values[spec.base]) : 0;

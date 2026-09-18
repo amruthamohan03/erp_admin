@@ -154,8 +154,68 @@ const SOURCES: Record<string, DeriveSource> = {
       const id = toId(values['client_id']);
       if (!id) return null;
       return queryOne(sql`
-        SELECT liquidation_paid_by, license_cleared_by
+        SELECT liquidation_paid_by, license_cleared_by, invoice_template
         FROM client_master_t WHERE id = ${id} LIMIT 1`);
+    },
+  },
+
+  // The BCC CDF/USD rate an invoice is priced at — main's getLiveBccRate: the
+  // nearest cached rate ON OR BEFORE the invoice date, so a weekend or a holiday
+  // takes the last business day's rate rather than none. With no invoice date
+  // on the form (Import has none) the question is asked of today.
+  //
+  // Reads the cache only. The e-MCF fetch that fills it lives with the bank
+  // exchange-rate screen; a derive must not call an outside service on every
+  // keystroke of the field that triggers it.
+  bcc_rate: {
+    async resolve(values) {
+      const raw = values['invoice_date'];
+      const asOf =
+        typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null;
+      return queryOne(sql`
+        SELECT rate::float8 AS rate, to_char(rate_date, 'YYYY-MM-DD') AS rate_date
+        FROM dgi_currency_rate_t
+        WHERE currency_code = 'USD'
+          AND rate_date <= COALESCE(${asOf}::date, CURRENT_DATE)
+        ORDER BY rate_date DESC
+        LIMIT 1`);
+    },
+  },
+
+  // A quotation's reference is the four pickers' LABELS joined — main's
+  // `${client}-${kind}-${transport}-${goods}`, e.g. "NMI-IMPORT DEFINITVE-ROAD-
+  // COPPER". The arrangement is the field's `template` (config); this only says
+  // what each token reads.
+  //
+  // It is not one of §4.33's sequenced references: there is no counter, a
+  // quotation is named by what it prices, and two with the same four pickers
+  // are the SAME quotation — which is why the save refuses a duplicate rather
+  // than numbering it.
+  //
+  // All-or-nothing, as main's `generateQuotationRef` blanks the field until all
+  // four are chosen: a reference with a hole in it is a different reference.
+  quotation_ref: {
+    async resolve(values) {
+      const client = toId(values['client_id']);
+      const kind = toId(values['kind_id']);
+      const transport = toId(values['transport_mode_id']);
+      const goods = toId(values['goods_type_id']);
+      if (!client || !kind || !transport || !goods) return null;
+      const row = await queryOne(sql`
+        SELECT
+          (SELECT short_name          FROM client_master_t         WHERE id = ${client})    AS client,
+          (SELECT kind_name           FROM kind_master_t           WHERE id = ${kind})      AS kind,
+          (SELECT transport_mode_name FROM transport_mode_master_t WHERE id = ${transport}) AS transport,
+          (SELECT goods_type          FROM type_of_goods_master_t  WHERE id = ${goods})     AS goods`);
+      if (!row) return null;
+      const tokens = ['client', 'kind', 'transport', 'goods'] as const;
+      const trimmed: Record<string, string> = {};
+      for (const t of tokens) {
+        const v = row[t] === null || row[t] === undefined ? '' : String(row[t]).trim();
+        if (!v) return null;
+        trimmed[t] = v;
+      }
+      return trimmed;
     },
   },
 };

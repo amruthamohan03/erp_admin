@@ -40,11 +40,14 @@ import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 import {
   computeQuotationSave,
   parseQuotationLines,
+  quotationRefFor,
+  quotationRefTaken,
   replaceQuotationLines,
   type QuotationComputed,
 } from '@/db/queries/quotationPage';
 import {
   computeGrid,
+  importLicenseColumns,
   invoiceKindForSlug,
   parseInvoiceGridValue,
   writeGridChildren,
@@ -236,6 +239,32 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (computed !== undefined) patch[f.name] = computed;
   }
 
+  // §2 step 2 — a quotation's reference is rebuilt HERE from its four pickers,
+  // through the field's own configured template, before the required check
+  // below judges it. The form fills it through an async derive, and async
+  // derives are not re-run on save, so the stored value would otherwise be
+  // whatever the browser sent.
+  //
+  // Then main's `checkRefUnique`: two live quotations with the same four pickers
+  // are the same quotation, so the second is refused with main's own wording —
+  // it tells the operator which lever to pull.
+  if (slug === 'quotation') {
+    const refField = fields.find((f) => f.name === 'quotation_ref');
+    const ref = refField ? await quotationRefFor(evalContext, refField.derive) : null;
+    if (ref) {
+      patch['quotation_ref'] = ref;
+      evalContext['quotation_ref'] = ref;
+      if (await quotationRefTaken(ref, entityId)) {
+        return fail(
+          `Quotation reference ${ref} already exists. ` +
+            'Change the Client, Kind, Transport or Type of Goods to create a different combination.',
+          422,
+          { field: 'quotation_ref' },
+        );
+      }
+    }
+  }
+
   // 5) Validation — required + min/max — only over fields that are editable AND
   //    currently visible. resolveFieldState already forces required=false for a
   //    hidden field, so a section the kind hides won't block the save.
@@ -333,6 +362,9 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
         : null;
     if (submittedLines !== null) {
       quotationSave = await computeQuotationSave(evalContext, submittedLines);
+      // main's line rules: at least one line, every line described, every
+      // export line costed. Refused before anything is written.
+      if (quotationSave.problem) return fail(quotationSave.problem, 422, { field: 'items' });
       Object.assign(patch, quotationSave.columns);
     }
   }
@@ -357,6 +389,17 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (payload) {
       const computed = computeGrid(invoiceKind, payload);
       Object.assign(patch, computed.columns);
+      // An import invoice's licences are the licences of its files — main's
+      // `license_ids` CSV plus the primary `license_id`, recorded from the
+      // files rather than asked for a second time.
+      if (invoiceKind === 'import') {
+        Object.assign(
+          patch,
+          await importLicenseColumns(
+            payload.mcaDetails.map((m) => m.mca_id).filter((v): v is number => typeof v === 'number'),
+          ),
+        );
+      }
       invoiceGrid = { kind: invoiceKind, payload, items: computed.items };
     }
   }
