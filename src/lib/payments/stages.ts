@@ -1,7 +1,17 @@
 import { PAYMENT_STAGES, type PaymentStage } from '@/db/schema';
+import { applicableStages, DEFAULT_STAGES, type StageDef } from './stageConfig';
+
+// The Payment Request approval chain's RULES, over the chain's CONFIG.
+//
+// Which stages exist, their order, their names and which payment types they
+// apply to all come from payment_stage_master_t (§4.1) and arrive here as a
+// `StageDef[]`. Nothing below names a stage — the chain is walked in the order
+// the master gives. Every function takes the stage list, and defaults to the
+// seeded chain so a caller that has not loaded it still gets the right answer.
 
 // Column names per approval stage. under_process breaks the `*_approved_*`
 // naming (it uses `under_process` / `under_process_by`), so keep an explicit map.
+// This is the one fixed thing: each slot is a set of columns on the table.
 export const STAGE_COLUMNS: Record<PaymentStage, { approval: string; at: string; by: string; notes: string }> = {
   dept: { approval: 'dept_approval', at: 'dept_approved_at', by: 'dept_approved_by', notes: 'dept_notes' },
   finance: { approval: 'finance_approval', at: 'finance_approved_at', by: 'finance_approved_by', notes: 'finance_notes' },
@@ -29,39 +39,21 @@ export interface PaymentApprovalState {
  * have a number and no page config to hand — the list badge, the Excel export,
  * the references modal.
  *
- * TODO(config): move to `pay_for_master_t` so the two stop being two. It is a
- * closed set that main hardcodes and that nothing configures today, so a master
- * table would be config nobody edits — but the moment a sixth category is
- * wanted, this array and the seed's `options_static` are the two places that
- * have to agree, and that is the point at which it should become a row (§4.1).
+ * TODO(config): move to `pay_for_master_t` so the two stop being two.
  */
 export const PAY_FOR_LABELS = ['Import', 'Export', 'Local', 'Other', 'Pre Payment'] as const;
 
-/** What each stage is called on screen, in a spreadsheet, and in a message. */
-export const STAGE_LABELS: Record<PaymentStage, string> = {
-  dept: 'Department',
-  finance: 'Finance',
-  management: 'Management',
-  under_process: 'Under Process',
-  paid: 'Paid',
-};
-
 /** One stage's tri-state flag off a row, whatever shape the row arrived in. */
-function flagOf(p: PaymentApprovalState, stage: PaymentStage): number | null {
-  switch (stage) {
-    case 'dept':
-      return p.dept_approval;
-    case 'finance':
-      return p.finance_approval;
-    case 'management':
-      return p.management_approval;
-    case 'under_process':
-      return p.under_process;
-    case 'paid':
-      return p.paid_approval;
-  }
+export function flagOf(p: PaymentApprovalState, stage: PaymentStage): number | null {
+  const v = (p as unknown as Record<string, unknown>)[STAGE_COLUMNS[stage].approval];
+  return v == null ? null : Number(v);
 }
 
+/**
+ * Rejected at ANY slot — including one since switched off. A rejection that was
+ * recorded stays a rejection; turning the stage off later must not quietly
+ * un-reject a request nobody corrected.
+ */
 export function isRejected(p: PaymentApprovalState): boolean {
   return PAYMENT_STAGES.some((s) => flagOf(p, s) === -1);
 }
@@ -74,71 +66,44 @@ export function rejectedStage(p: PaymentApprovalState): PaymentStage | null {
 /**
  * Whether the request's STATE permits editing, ignoring who is asking.
  *
- * Two rules, and the order between them is the whole point:
- *
- *   1. Once the DEPARTMENT has approved, the request is locked. An approver
- *      signed off on a beneficiary, an amount and an expense type; letting the
- *      requester change any of those afterwards would carry that signature onto
- *      a document nobody approved.
- *   2. A REJECTED request is editable again, wherever in the chain it was
- *      rejected — that is what rejection is FOR. It has been handed back to be
- *      corrected, so a dept approval further up the chain no longer stands in
- *      the way, and saving it clears the whole chain back to pending anyway
- *      (see `willResubmitOnSave`).
- *
- * So rejection wins over the lock. Without rule 2 a request rejected by Finance
- * would be frozen with nobody able to act on it: the requester could not fix it
- * and no approver could advance it.
+ *   1. Once the FIRST stage of its chain has approved, the request is locked —
+ *      an approver signed off on a beneficiary, an amount and an expense type.
+ *   2. A REJECTED request is editable again, wherever it was rejected — that is
+ *      what rejection is FOR. Saving it clears the chain (`willResubmitOnSave`).
  */
-export function isEditableState(p: PaymentApprovalState): boolean {
+export function isEditableState(p: PaymentApprovalState, stages: readonly StageDef[] = DEFAULT_STAGES): boolean {
   if (isRejected(p)) return true;
-  return p.dept_approval !== 1;
+  const first = applicableStages(stages, p.payment_type)[0];
+  return !first || flagOf(p, first.stage) !== 1;
 }
 
 /**
- * Whether THIS user may edit the request.
- *
- * The state has to allow it AND the user has to be the one who raised it. The
- * second half is not a permission check that the stage→role map could express:
- * a request is a person's own statement of what they need paid, and an approver
- * who disagrees with it rejects it with a reason rather than rewriting it into
- * something the requester never asked for. Approving something you edited
- * yourself is the specific outcome this prevents.
- *
- * `createdBy` is null on rows whose author has been removed; nobody inherits the
- * request, so it is no longer editable by anyone. Rejecting it remains possible,
- * which is the right escape hatch.
+ * Whether THIS user may edit the request: the state allows it AND they raised
+ * it. An approver who disagrees rejects with a reason rather than rewriting the
+ * request into something the requester never asked for.
  */
 export function canEditRequest(
   p: PaymentApprovalState,
   createdBy: number | null | undefined,
   userId: number,
+  stages: readonly StageDef[] = DEFAULT_STAGES,
 ): boolean {
   if (createdBy == null || createdBy !== userId) return false;
-  return isEditableState(p);
+  return isEditableState(p, stages);
 }
 
-/**
- * Whether saving this request will send it back round the approval chain.
- *
- * Re-submission is not a separate action — correcting a rejected request and
- * saving it IS the re-submission, which is main's behaviour and the right one:
- * an edit followed by a second, separate "now really send it" click is a state
- * where the request has been fixed and nobody is looking at it. The save clears
- * every stage flag so the corrected request starts again at Department.
- */
+/** Saving a rejected request IS its re-submission — the save clears every flag. */
 export function willResubmitOnSave(p: PaymentApprovalState): boolean {
   return isRejected(p);
 }
 
-export type PaymentStatusKey =
-  | 'rejected'
-  | 'paid'
-  | 'waiting_dept'
-  | 'waiting_finance'
-  | 'waiting_mgmt'
-  | 'waiting_under_process'
-  | 'waiting_payment';
+/**
+ * `rejected`, `paid` (the chain is complete), or `waiting_<stage>`.
+ *
+ * `paid` names the finished state for historical reasons — the list, the cards
+ * and the export already filter on it. Its LABEL is the last stage's name.
+ */
+export type PaymentStatusKey = 'rejected' | 'paid' | `waiting_${PaymentStage}`;
 
 export interface PaymentStatus {
   key: PaymentStatusKey;
@@ -148,59 +113,62 @@ export interface PaymentStatus {
 }
 
 /**
- * The row's derived status.
+ * The row's derived status: the first stage of its chain not yet approved.
  *
- * Here rather than on the list page because three readers need the same answer:
- * the grid's badge, the Excel export's Status column, and the status-count
- * cards' SQL buckets. Two of those used to derive it independently and the
- * third in SQL — the keys below are deliberately the same strings
- * `statusCond()` filters on, so a card and the badge it filters to cannot
- * disagree (§4.10).
+ * `paymentStatusSql` in db/queries/payments.ts is this same walk as a SQL CASE,
+ * built from the same StageDef list — so a card and the badge it filters to
+ * cannot disagree (§4.10).
  */
-export function paymentStatus(p: PaymentApprovalState): PaymentStatus {
+export function paymentStatus(p: PaymentApprovalState, stages: readonly StageDef[] = DEFAULT_STAGES): PaymentStatus {
   if (isRejected(p)) return { key: 'rejected', label: 'Rejected', stage: null };
-  if (p.paid_approval === 1) return { key: 'paid', label: 'Paid', stage: null };
-  if (p.dept_approval == null) return { key: 'waiting_dept', label: 'Pending Dept', stage: 'dept' };
-  if (p.finance_approval == null)
-    return { key: 'waiting_finance', label: 'Pending Finance', stage: 'finance' };
-  if (p.management_approval == null)
-    return { key: 'waiting_mgmt', label: 'Pending Mgmt', stage: 'management' };
-  if (p.payment_type === 'Bank' && p.under_process == null)
-    return { key: 'waiting_under_process', label: 'Under Process', stage: 'under_process' };
-  return { key: 'waiting_payment', label: 'Pending Payment', stage: 'paid' };
+  const chain = applicableStages(stages, p.payment_type);
+  for (const s of chain) {
+    if (flagOf(p, s.stage) !== 1) return { key: `waiting_${s.stage}`, label: s.pending_label, stage: s.stage };
+  }
+  return { key: 'paid', label: chain.at(-1)?.label ?? 'Completed', stage: null };
 }
 
 /**
- * Validate that `stage` may be approved now. Returns an error message, or null
- * when the transition is allowed. Mirrors main's validateApprovalWorkflow +
- * under_process rules.
+ * Validate that `stage` may be approved now. Returns a message naming what is
+ * missing, or null when the transition is allowed.
  */
-export function checkApprovable(stage: PaymentStage, p: PaymentApprovalState): string | null {
+export function checkApprovable(
+  stage: PaymentStage,
+  p: PaymentApprovalState,
+  stages: readonly StageDef[] = DEFAULT_STAGES,
+): string | null {
   if (isRejected(p)) return 'This request was rejected at an earlier stage.';
-  const done = (v: number | null) => v === 1;
+  const def = stages.find((s) => s.stage === stage);
+  if (!def) return `The ${stage.replace('_', ' ')} stage is switched off in Payment Stages.`;
+  if (def.payment_type && def.payment_type !== p.payment_type) {
+    return `${def.label} applies to ${def.payment_type} payments only.`;
+  }
+  if (flagOf(p, stage) === 1) return `${def.label} has already approved this request.`;
 
-  switch (stage) {
-    case 'dept':
-      if (done(p.dept_approval)) return 'Department has already approved this request.';
-      break;
-    case 'finance':
-      if (!done(p.dept_approval)) return 'Department approval is required first.';
-      if (done(p.finance_approval)) return 'Finance has already approved this request.';
-      break;
-    case 'management':
-      if (!done(p.dept_approval) || !done(p.finance_approval)) return 'Department and Finance approval are required first.';
-      if (done(p.management_approval)) return 'Management has already approved this request.';
-      break;
-    case 'under_process':
-      if (p.payment_type !== 'Bank') return 'Under Process applies to Bank payments only.';
-      if (!done(p.dept_approval) || !done(p.finance_approval) || !done(p.management_approval)) return 'All prior approvals are required first.';
-      if (done(p.under_process)) return 'This payment is already Under Process.';
-      break;
-    case 'paid':
-      if (!done(p.dept_approval) || !done(p.finance_approval) || !done(p.management_approval)) return 'All prior approvals are required before marking as Paid.';
-      if (p.payment_type === 'Bank' && !done(p.under_process)) return 'Bank payments must be Under Process before being marked Paid.';
-      if (done(p.paid_approval)) return 'This payment is already marked as Paid.';
-      break;
+  const chain = applicableStages(stages, p.payment_type);
+  const missing = chain.slice(0, chain.findIndex((s) => s.stage === stage)).filter((s) => flagOf(p, s.stage) !== 1);
+  if (missing.length > 0) {
+    return `${missing.map((s) => s.label).join(' and ')} approval ${missing.length === 1 ? 'is' : 'are'} required first.`;
+  }
+  return null;
+}
+
+/**
+ * Whether `stage` may be rejected now — only the stage the request is waiting
+ * on. Rejecting an earlier, already-approved stage would rewrite a decision; a
+ * later one has not been reached.
+ */
+export function checkRejectable(
+  stage: PaymentStage,
+  p: PaymentApprovalState,
+  stages: readonly StageDef[] = DEFAULT_STAGES,
+): string | null {
+  if (isRejected(p)) return 'This request has already been rejected.';
+  const status = paymentStatus(p, stages);
+  if (status.stage == null) return 'This request has completed its approvals and can no longer be rejected.';
+  if (status.stage !== stage) {
+    const current = stages.find((s) => s.stage === status.stage)?.label ?? status.stage;
+    return `This request is waiting on ${current}, not on this stage.`;
   }
   return null;
 }

@@ -85,14 +85,11 @@ export default function ClientsPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Users className="h-6 w-6 text-primary-600" />
           Clients
         </h1>
-        <Link href="/masters/clients/new" className="btn-primary">
-          <Plus className="h-4 w-4" /> New Client
-        </Link>
       </div>
 
       <DataTable<ClientRow>
@@ -101,6 +98,12 @@ export default function ClientsPage() {
         rowKey={(c) => c.id}
         searchPlaceholder="Search company, code, contact, email, phone..."
         exportHref={`/api/v1/clients/export?${new URLSearchParams({ q: search }).toString()}`}
+        // §4.35 — the create action lives with the list it adds to.
+        toolbar={
+          <Link href="/masters/clients/new" className="btn-primary btn-sm">
+            <Plus className="h-4 w-4" /> New Client
+          </Link>
+        }
         emptyMessage={
           <>
             No clients yet.{' '}

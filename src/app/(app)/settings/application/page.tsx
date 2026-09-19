@@ -28,6 +28,7 @@ interface SettingsForm {
   sidebar_bg: string;
   sidebar_fg: string;
   footer_text: string;
+  letterhead_text: string;
 }
 
 // Mirrors the shipped defaults rather than restating them, so "Reset to defaults"
@@ -44,6 +45,7 @@ const DEFAULTS: SettingsForm = {
   sidebar_bg: BRANDING_DEFAULTS.sidebar_bg,
   sidebar_fg: BRANDING_DEFAULTS.sidebar_fg,
   footer_text: BRANDING_DEFAULTS.footer_text ?? '',
+  letterhead_text: BRANDING_DEFAULTS.letterhead_text ?? '',
 };
 
 /** The shape the API takes, built from the form's '' -> null convention. */
@@ -59,6 +61,7 @@ function toPayload(form: SettingsForm) {
     sidebar_bg: form.sidebar_bg.trim().toLowerCase(),
     sidebar_fg: form.sidebar_fg.trim().toLowerCase(),
     footer_text: form.footer_text.trim() || null,
+    letterhead_text: form.letterhead_text.trim() || null,
   };
 }
 
@@ -105,6 +108,7 @@ export default function ApplicationSettingsPage() {
           sidebar_bg: d.sidebar_bg ?? DEFAULTS.sidebar_bg,
           sidebar_fg: d.sidebar_fg ?? DEFAULTS.sidebar_fg,
           footer_text: d.footer_text ?? '',
+          letterhead_text: d.letterhead_text ?? '',
         });
         setMissingFiles({
           logo: !!j.meta?.logo_file_missing,
@@ -264,6 +268,18 @@ export default function ApplicationSettingsPage() {
             hint="Shown across the bottom of every authenticated page. Use {year} to insert the current year."
           />
 
+          <TextField
+            label="Letterhead"
+            value={form.letterhead_text}
+            onChange={(v) => set('letterhead_text', v)}
+            disabled={loading}
+            maxLength={2000}
+            rows={5}
+            placeholder={'Street address\nCity, Country\nRCCM · ID NAT · NIF'}
+            error={fieldErrors.letterhead_text}
+            hint="Printed top-right on generated documents such as the Demande de Fonds — the company address and legal numbers, one per line."
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <FileField
               label="Logo"
@@ -420,6 +436,7 @@ function TextField({
   placeholder,
   hint,
   error,
+  rows,
 }: {
   label: string;
   value: string;
@@ -430,20 +447,26 @@ function TextField({
   placeholder?: string;
   hint?: string;
   error?: string;
+  /** More than 1 — a multi-line value, rendered as a textarea. */
+  rows?: number;
 }) {
+  const shared = {
+    className: 'input',
+    value,
+    disabled,
+    required,
+    maxLength,
+    placeholder,
+    'aria-invalid': error ? true : undefined,
+  } as const;
   return (
     <div>
       <label className={required ? 'label required' : 'label'}>{label}</label>
-      <input
-        className="input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        required={required}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        aria-invalid={error ? true : undefined}
-      />
+      {rows && rows > 1 ? (
+        <textarea {...shared} rows={rows} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <input {...shared} onChange={(e) => onChange(e.target.value)} />
+      )}
       <FieldError message={error} />
       {hint && !error && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>

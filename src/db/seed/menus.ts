@@ -165,6 +165,8 @@ const CHILDREN: ChildSpec[] = [
   // Read by the delay KPIs to exclude non-working days, and republished by the
   // DRC each year — so it needs a screen, not a hand-edited table (§4.1).
   { parent: 'Masters', name: 'DRC Public Holidays', order: 204, url: '/masters/drc-holidays' },
+  // §4.6 — the Payment Request approval chain (0103).
+  { parent: 'Masters', name: 'Payment Stages', order: 205, url: '/masters/payment-stages' },
   { parent: 'Masters', name: 'Application Settings', order: 206, url: '/settings/application' },
 
   // ── Client Management (original menu_id=2) ──────────────────────
@@ -175,6 +177,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Mapping', name: 'Client to Bank', order: 2, url: '/mapping/clienttobank' },
   { parent: 'Mapping', name: 'Dashboard Cards Mapping', order: 3, url: '/mapping/roletodashboardcard' },
   { parent: 'Mapping', name: 'Role Expense Type Mapping', order: 4, url: '/mapping/roletoexpensetype' },
+  { parent: 'Mapping', name: 'Role Payment Stage Mapping', order: 5, url: '/mapping/roletopaymentstage' },
   { parent: 'Mapping', name: 'Role Menu Mapping', order: 12, url: '/mapping/roletomenu' },
 
   // ── Import License (original menu_id=110) ───────────────────────

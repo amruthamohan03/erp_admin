@@ -19,6 +19,7 @@
     "setup:db": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/setup-db.ts",
     "reseed:nav": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reseed-navigation.ts",
     "reseed:cards": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reseed-dashboard-cards.ts",
+    "reseed:sample": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reseed-sample-data.ts",
     "dispatch:notifications": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/dispatch-notifications.ts",
     "seed": "node scripts/seed-admin.js",
     "openapi": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-openapi.ts",

@@ -16,7 +16,6 @@
 // bank, so a bank's behaviour reads down a column and a day reads across.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Download,
   Eraser,
   RefreshCw,
   Save,
@@ -880,9 +879,6 @@ export default function BankExchangeRatesPage() {
               <button type="button" onClick={() => setClearAsk(true)} className="btn-secondary btn-sm">
                 <Eraser className="h-4 w-4" /> Clear
               </button>
-              <a href={exportHref} className="btn-excel btn-sm">
-                <Download className="h-4 w-4" /> Export
-              </a>
               <button
                 type="button"
                 onClick={() => void save()}
@@ -906,6 +902,8 @@ export default function BankExchangeRatesPage() {
         loading={historyLoading}
         rowKey={(r) => r.exchange_date}
         title="Exchange Rate History"
+        // §4.25 — the export belongs to the list it exports.
+        exportHref={exportHref}
         searchPlaceholder="Search date (30-06-2026)..."
         // Names the currency, because an empty grid here almost always means
         // "nothing quoted in THIS currency", not "nothing on file" (§4.25).

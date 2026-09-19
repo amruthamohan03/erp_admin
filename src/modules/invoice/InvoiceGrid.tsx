@@ -27,11 +27,12 @@
 // Every figure shown here is recomputed by the server on save (`computeGrid`);
 // nothing typed into a total is trusted.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, ListPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, Eye, EyeOff, ListPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
+import { fetchMasterOptions } from '@/lib/selectOptions';
 
 type Kind = 'export' | 'import';
 
@@ -234,6 +235,13 @@ export default function InvoiceGrid({
   const [notice, setNotice] = useState<string | null>(null);
   const [addMcaId, setAddMcaId] = useState('');
   const [commonRate, setCommonRate] = useState('');
+  // Import — currency short names for the lines' CURRENCY column (main shows
+  // it beside TAUX/USD). Read from the currency master, never hardcoded.
+  const [currencyNames, setCurrencyNames] = useState<Map<number, string>>(new Map());
+  // main's "Hide Zeros": zero-value liquidation lines leave the invoice while
+  // hidden — main drops them from the save — and come back on "Show All". The
+  // stash keeps each one's position so restoring does not reorder the table.
+  const [zeroStash, setZeroStash] = useState<{ idx: number; it: GridItem }[] | null>(null);
 
   const items = useMemo(() => (Array.isArray(value.items) ? value.items : []), [value.items]);
   const mca = useMemo(() => (Array.isArray(value.mcaDetails) ? value.mcaDetails : []), [value.mcaDetails]);
@@ -301,6 +309,17 @@ export default function InvoiceGrid({
     };
   }, [kind, clientId, licenseId, savedId]);
 
+  useEffect(() => {
+    if (kind !== 'import') return;
+    let live = true;
+    void fetchMasterOptions('currencies', 'currency_short_name').then((rows) => {
+      if (live) setCurrencyNames(new Map(rows.map((r) => [Number(r.id), r.label])));
+    });
+    return () => {
+      live = false;
+    };
+  }, [kind]);
+
   /** Import's CDF columns apply to the customs category only. */
   const isCdf = useCallback(
     (it: GridItem) => kind === 'import' && it.category_id != null && customsCats.has(it.category_id),
@@ -317,6 +336,8 @@ export default function InvoiceGrid({
       }
       let lines = res.data.map(normaliseItem);
       if (kind === 'export') lines = applyExportUnits(lines, files);
+      // Fresh lines replace the table, so nothing stashed belongs to it any more.
+      setZeroStash(null);
       emit({ quotation_id: id, items: lines });
       setNotice(`Loaded ${lines.length} line(s) from the quotation.`);
     },
@@ -435,6 +456,32 @@ export default function InvoiceGrid({
   );
 
   const removeItem = useCallback((idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx)), [setItems]);
+
+  const isZeroCdf = useCallback((it: GridItem) => isCdf(it) && round2(it.total_cdf) === 0, [isCdf]);
+
+  /** main's Hide Zeros / Show All on the customs category. */
+  const toggleZeros = useCallback(() => {
+    if (zeroStash) {
+      setItems((prev) => {
+        const next = [...prev];
+        for (const { idx, it } of zeroStash) next.splice(Math.min(idx, next.length), 0, it);
+        return next;
+      });
+      setZeroStash(null);
+      return;
+    }
+    const cur = latest.current.items ?? [];
+    const zero = cur.map((it, idx) => ({ it, idx })).filter(({ it }) => isZeroCdf(it));
+    if (zero.length === 0) {
+      setNotice('No liquidation line totals 0 — nothing to hide.');
+      return;
+    }
+    setItems((prev) => prev.filter((it) => !isZeroCdf(it)));
+    setZeroStash(zero);
+  }, [zeroStash, isZeroCdf, setItems]);
+
+  const currencyOf = (it: GridItem): string =>
+    (it.currency_id != null ? currencyNames.get(it.currency_id) : undefined) ?? 'USD';
 
   const addBlankItem = useCallback(() => {
     setItems((prev) => [
@@ -589,7 +636,7 @@ export default function InvoiceGrid({
               className="input h-8 w-36 min-w-0 text-right"
             />
             <button type="button" onClick={applyCommonRate} disabled={mca.length === 0} className="btn-neutral btn-sm disabled:opacity-50">
-              Apply to all selected
+              <Check className="h-4 w-4" /> Apply to All Selected
             </button>
             <span className="ms-auto text-[11px] italic text-sky-700 dark:text-sky-300">
               The DGDA rate converts each file&rsquo;s liquidation to USD; the BCC rate on the header prices the invoice.
@@ -734,6 +781,19 @@ export default function InvoiceGrid({
                   <div className="flex items-center justify-between gap-2 bg-primary-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
                     <span>{g.header}</span>
                     {g.cdf && !readonly && (
+                      <span className="flex items-center gap-1.5">
+                      {customsShown && (
+                        <button
+                          type="button"
+                          onClick={toggleZeros}
+                          aria-pressed={!!zeroStash}
+                          className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold ${zeroStash ? 'border-white/60 bg-white/40' : 'border-white/40 bg-white/20 hover:bg-white/30'}`}
+                          title={zeroStash ? 'Put the zero-value lines back on the invoice' : 'Leave lines whose Total/CDF is 0 off the invoice'}
+                        >
+                          {zeroStash ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                          {zeroStash ? `Show All (${zeroStash.length} hidden)` : 'Hide Zeros'}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => emit({ first_categoty_edited: customsShown ? 'H' : 'S' })}
@@ -743,6 +803,7 @@ export default function InvoiceGrid({
                         {customsShown ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                         {customsShown ? 'Hide' : 'Show'}
                       </button>
+                      </span>
                     )}
                   </div>
                   {g.cdf && !customsShown ? (
@@ -777,6 +838,7 @@ export default function InvoiceGrid({
                               <>
                                 <th className="text-right">Qty</th>
                                 <th className="text-right">Taux/USD</th>
+                                <th className="text-center">Currency</th>
                                 <th className="text-center">TVA</th>
                                 <th className="text-right">TVA/USD</th>
                                 <th className="text-right">Total en USD</th>
@@ -811,6 +873,9 @@ export default function InvoiceGrid({
                                 <>
                                   <NumCell v={it.quantity} step="0.001" ro={readonly} label="Quantity" onChange={(v) => patchItem(idx, { quantity: v })} />
                                   <NumCell v={it.taux_usd} step="0.0001" ro={readonly} label="Rate in USD" onChange={(v) => patchItem(idx, { taux_usd: v, cost_usd: v })} />
+                                  {kind === 'import' && (
+                                    <td className="text-center text-[10px] font-medium uppercase text-muted-foreground">{currencyOf(it)}</td>
+                                  )}
                                   <td className="text-center">
                                     <Toggle size="sm" checked={!!it.has_tva} disabled={readonly} aria-label={`TVA on ${it.item_name ?? 'line'}`} onChange={(v) => patchItem(idx, { has_tva: v ? 1 : 0 })} />
                                   </td>
@@ -833,8 +898,8 @@ export default function InvoiceGrid({
                           <tr className="bg-muted/50 font-semibold">
                             {/* Label spans every column before the money ones:
                                 CDF — Description, Unit, CIF, %; USD — Description,
-                                Unit, Qty, Rate, TVA toggle. */}
-                            <td colSpan={g.cdf ? 4 : 5} className="text-right">
+                                Unit, Qty, Rate, (import: Currency,) TVA toggle. */}
+                            <td colSpan={g.cdf ? 4 : kind === 'import' ? 6 : 5} className="text-right">
                               Sub-total ({g.cdf ? 'CDF' : 'USD'})
                             </td>
                             {g.cdf ? (

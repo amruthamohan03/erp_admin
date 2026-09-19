@@ -388,6 +388,21 @@ export default function SealsPage() {
         </div>
         <DataTable<SealMasterRow>
           exportHref={'/api/v1/masters/seals/export'}
+          // §4.35 — New sits with the list it adds to; it opens the form panel
+          // above, which is where this screen edits a batch.
+          toolbar={
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setFormOpen(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="btn-primary btn-sm"
+            >
+              <Plus className="h-4 w-4" /> New Seal
+            </button>
+          }
           rows={masters}
           rowKey={(m) => m.id}
           searchPlaceholder="Search location, sub office..."

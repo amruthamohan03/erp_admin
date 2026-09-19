@@ -37,6 +37,12 @@ interface AccordionProps {
   // §4.11 — entity context passed down to file fields for S3 upload keying.
   entityType?: string;
   entityId?: string;
+  /**
+   * §4.1/§4.12 — `props.dense` on the section. Lays the fields out as
+   * label-beside-control rows rather than the five-per-row grid, which is what a
+   * narrow side rail needs. Set in config, never per call site.
+   */
+  dense?: boolean;
 }
 
 const COL_CLASS: Record<string, string> = {
@@ -71,6 +77,7 @@ export default function Accordion({
   accentIndex = 0,
   entityType,
   entityId,
+  dense = false,
 }: AccordionProps) {
   const readonly = accordion.permission === 'view';
   const accent = accentFor(accentIndex);
@@ -153,14 +160,22 @@ export default function Accordion({
 
       {open && (
         <div className="p-4 pt-4 border-t border-border">
-          <div className="flex flex-wrap -mx-2">
+          <div className={dense ? '' : 'flex flex-wrap -mx-2'}>
             {laidOut.map(({ field, state }) => (
-              <div key={field.id} className={`${colClassFor(field.props)} mb-3`}>
+              <div
+                key={field.id}
+                className={dense ? 'field-row' : `${colClassFor(field.props)} mb-3`}
+              >
                 {/* §4.18 — the `required` class renders the star; never type one
                     into the label text. */}
                 <label htmlFor={field.name} className={clsx('label', state.required && 'required')}>
                   {field.label}
                 </label>
+                {/* Dense rows put the control in the second grid cell, so it needs
+                    a box of its own; stacked fields must NOT get one, hence
+                    `display: contents` — the wrapper disappears from layout and
+                    the markup stays identical for every other page. */}
+                <div className={dense ? 'min-w-0' : 'contents'}>
                 <PairedField
                   companion={companions.get(field.name)}
                   values={values}
@@ -208,6 +223,7 @@ export default function Accordion({
                 {invalidFields?.has(field.name) && (
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">This field needs a value.</p>
                 )}
+                </div>
               </div>
             ))}
           </div>

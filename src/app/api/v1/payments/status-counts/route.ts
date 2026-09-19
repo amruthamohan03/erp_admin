@@ -3,6 +3,7 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { paymentExportQuerySchema } from '@/schemas';
 import { paymentQueryInput } from '@/lib/payments/query';
 import { getRoleStageInfo, getStatusCounts } from '@/db/queries/payments';
+import { loadPaymentStages } from '@/db/queries/paymentStages';
 
 // GET /api/v1/payments/status-counts?from=&to=&client_id=&… — the 7 stat-card
 // buckets + total, scoped to what the caller's role can see AND narrowed by the
@@ -20,5 +21,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const filters = paymentExportQuerySchema.parse(paymentQueryInput(searchParams));
 
   const roleInfo = await getRoleStageInfo(session.role_id);
-  return ok(await getStatusCounts(roleInfo, session.uid, filters));
+  // One bucket per ACTIVE stage (payment_stage_master_t), plus total / paid / rejected.
+  return ok(await getStatusCounts(roleInfo, session.uid, await loadPaymentStages(), filters));
 });

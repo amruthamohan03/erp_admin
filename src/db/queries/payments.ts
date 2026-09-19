@@ -4,53 +4,50 @@
 // hardcoded role ids.
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { paymentStageRole, type PaymentStage } from '@/db/schema';
+import { PAYMENT_STAGES } from '@/db/schema';
+import { STAGE_COLUMNS } from '@/lib/payments/stages';
+import type { StageDef } from '@/lib/payments/stageConfig';
+import { getRoleStageInfo, visibilitySql, type RoleStageInfo } from './paymentStages';
 
-// ---- role → stage config -----------------------------------------------------
+// Re-exported: every payment route already imports the role lookup from here.
+export { getRoleStageInfo, type RoleStageInfo };
 
-export interface RoleStageInfo {
-  stages: Set<PaymentStage>;
-  // A role mapped to any stage is an "approver" and sees every request.
-  isApprover: boolean;
+// ---- status buckets ------------------------------------------------------------
+
+/** A column reference, qualified by `alias` when there is one. */
+function col(alias: string | null, name: string): SQL {
+  return alias ? sql`${sql.identifier(alias)}.${sql.identifier(name)}` : sql`${sql.identifier(name)}`;
 }
 
-export async function getRoleStageInfo(roleId: number): Promise<RoleStageInfo> {
-  const rows = await db
-    .select({ stage: paymentStageRole.stage })
-    .from(paymentStageRole)
-    .where(sql`${paymentStageRole.roleId} = ${roleId} AND ${paymentStageRole.display} = 'Y'`);
-  const stages = new Set(rows.map((r) => r.stage as PaymentStage));
-  return { stages, isApprover: stages.size > 0 };
+/**
+ * A request's status key, as SQL: `rejected`, `waiting_<stage>` or `paid`.
+ *
+ * The same walk `paymentStatus` makes in TypeScript — any rejection first, then
+ * the first stage of the configured chain that applies to the row's payment type
+ * and is not yet approved — built from the same StageDef list, so a card and the
+ * badge it filters to cannot disagree (§4.10).
+ *
+ * The THEN literals are inlined rather than bound: a bound parameter in a CASE
+ * branch has no type Postgres can infer. They come from the closed stage set, so
+ * nothing operator-typed reaches `sql.raw`.
+ */
+export function paymentStatusSql(stages: readonly StageDef[], alias: string | null = 'pr'): SQL {
+  const rejected = sql.join(
+    PAYMENT_STAGES.map((s) => sql`${col(alias, STAGE_COLUMNS[s].approval)} = -1`),
+    sql` OR `,
+  );
+  const whens = stages
+    .filter((s) => (PAYMENT_STAGES as readonly string[]).includes(s.stage))
+    .map((s) => {
+      const applies = s.payment_type ? sql`${col(alias, 'payment_type')} = ${s.payment_type} AND ` : sql``;
+      return sql`WHEN ${applies}${col(alias, STAGE_COLUMNS[s.stage].approval)} IS DISTINCT FROM 1 THEN ${sql.raw(`'waiting_${s.stage}'`)}`;
+    });
+  return sql`(CASE WHEN ${rejected} THEN 'rejected' ${sql.join(whens, sql` `)} ELSE 'paid' END)`;
 }
 
-// Visibility: approvers see all; everyone else only what they created.
-function visibilityCond(roleInfo: RoleStageInfo, userId: number): SQL {
-  return roleInfo.isApprover ? sql`TRUE` : sql`pr.created_by = ${userId}`;
-}
-
-// ---- status bucket fragments (against the `pr` alias) ------------------------
-
-const REJECTED = sql`(pr.dept_approval = -1 OR pr.finance_approval = -1 OR pr.management_approval = -1 OR pr.under_process = -1 OR pr.paid_approval = -1)`;
-
-function statusCond(filter: string): SQL | null {
-  switch (filter) {
-    case 'waiting_dept':
-      return sql`(pr.dept_approval IS NULL AND COALESCE(pr.finance_approval,0) <> -1 AND COALESCE(pr.management_approval,0) <> -1 AND COALESCE(pr.under_process,0) <> -1 AND COALESCE(pr.paid_approval,0) <> -1)`;
-    case 'waiting_finance':
-      return sql`(pr.dept_approval=1 AND pr.finance_approval IS NULL AND COALESCE(pr.management_approval,0) <> -1 AND COALESCE(pr.under_process,0) <> -1 AND COALESCE(pr.paid_approval,0) <> -1)`;
-    case 'waiting_mgmt':
-      return sql`(pr.dept_approval=1 AND pr.finance_approval=1 AND pr.management_approval IS NULL AND COALESCE(pr.under_process,0) <> -1 AND COALESCE(pr.paid_approval,0) <> -1)`;
-    case 'waiting_under_process':
-      return sql`(pr.payment_type='Bank' AND pr.dept_approval=1 AND pr.finance_approval=1 AND pr.management_approval=1 AND pr.under_process IS NULL AND COALESCE(pr.paid_approval,0) <> -1)`;
-    case 'waiting_payment':
-      return sql`(((pr.payment_type='Cash' AND pr.dept_approval=1 AND pr.finance_approval=1 AND pr.management_approval=1) OR (pr.payment_type='Bank' AND pr.dept_approval=1 AND pr.finance_approval=1 AND pr.management_approval=1 AND pr.under_process=1)) AND pr.paid_approval IS NULL)`;
-    case 'paid':
-      return sql`pr.paid_approval=1`;
-    case 'rejected':
-      return REJECTED;
-    default:
-      return null; // 'all'
-  }
+function statusCond(filter: string, stages: readonly StageDef[]): SQL | null {
+  if (!filter || filter === 'all') return null;
+  return sql`${paymentStatusSql(stages)} = ${filter}`;
 }
 
 const JOINS = sql`
@@ -141,25 +138,17 @@ function narrowingConditions(f: PaymentFilters): SQL[] {
   return parts;
 }
 
-function filterConditions(f: PaymentFilters): SQL[] {
+function filterConditions(f: PaymentFilters, stages: readonly StageDef[]): SQL[] {
   const parts = narrowingConditions(f);
-  const sc = statusCond(f.status_filter ?? 'all');
+  const sc = statusCond(f.status_filter ?? 'all', stages);
   if (sc) parts.push(sc);
   return parts;
 }
 
-// ---- status counts (7 buckets + total) --------------------------------------
+// ---- status counts (one per configured bucket + total) ------------------------
 
-export interface PaymentStatusCounts {
-  total: number;
-  waiting_dept: number;
-  waiting_finance: number;
-  waiting_mgmt: number;
-  waiting_under_process: number;
-  waiting_payment: number;
-  paid: number;
-  rejected: number;
-}
+/** `total`, `paid`, `rejected`, and `waiting_<stage>` for every active stage. */
+export type PaymentStatusCounts = Record<string, number>;
 
 /**
  * The eight card figures, over the SAME rows the grid is showing.
@@ -177,28 +166,24 @@ export interface PaymentStatusCounts {
 export async function getStatusCounts(
   roleInfo: RoleStageInfo,
   userId: number,
+  stages: readonly StageDef[],
   filters: PaymentFilters = {},
 ): Promise<PaymentStatusCounts> {
-  const where = whereClause([visibilityCond(roleInfo, userId), ...narrowingConditions(filters)]);
-  // COALESCE on every SUM, and it is load-bearing: SUM over ZERO rows is NULL,
-  // not 0. Before the cards took filters they were never asked about an empty
-  // set, so this never showed; now a date range with nothing in it is one click
-  // away, and the route would answer `{"total":0,"paid":null,…}` against a type
-  // that promises numbers.
+  const where = whereClause([visibilitySql(roleInfo, userId), ...narrowingConditions(filters)]);
   const res = await db.execute(sql`
-    SELECT
-      COUNT(*)::int AS total,
-      COALESCE(SUM(CASE WHEN ${statusCond('waiting_dept')} THEN 1 ELSE 0 END), 0)::int AS waiting_dept,
-      COALESCE(SUM(CASE WHEN ${statusCond('waiting_finance')} THEN 1 ELSE 0 END), 0)::int AS waiting_finance,
-      COALESCE(SUM(CASE WHEN ${statusCond('waiting_mgmt')} THEN 1 ELSE 0 END), 0)::int AS waiting_mgmt,
-      COALESCE(SUM(CASE WHEN ${statusCond('waiting_under_process')} THEN 1 ELSE 0 END), 0)::int AS waiting_under_process,
-      COALESCE(SUM(CASE WHEN ${statusCond('waiting_payment')} THEN 1 ELSE 0 END), 0)::int AS waiting_payment,
-      COALESCE(SUM(CASE WHEN pr.paid_approval=1 THEN 1 ELSE 0 END), 0)::int AS paid,
-      COALESCE(SUM(CASE WHEN ${REJECTED} THEN 1 ELSE 0 END), 0)::int AS rejected
-    ${JOINS} ${where}
+    SELECT st, COUNT(*)::int AS n FROM (
+      SELECT ${paymentStatusSql(stages)} AS st ${JOINS} ${where}
+    ) x GROUP BY st
   `);
-  const row = (res as unknown as { rows: PaymentStatusCounts[] }).rows[0];
-  return row ?? { total: 0, waiting_dept: 0, waiting_finance: 0, waiting_mgmt: 0, waiting_under_process: 0, waiting_payment: 0, paid: 0, rejected: 0 };
+  // Every configured bucket is present, at zero when empty, so a card reads 0
+  // rather than blank.
+  const counts: PaymentStatusCounts = { total: 0, paid: 0, rejected: 0 };
+  for (const s of stages) counts[`waiting_${s.stage}`] = 0;
+  for (const r of (res as unknown as { rows: { st: string; n: number }[] }).rows) {
+    counts[r.st] = (counts[r.st] ?? 0) + r.n;
+    counts.total += r.n;
+  }
+  return counts;
 }
 
 // ---- list (joined, filtered, paginated) -------------------------------------
@@ -219,6 +204,7 @@ export interface PaymentListRow {
   /** How many times a rejection sent this back to be corrected (0094). */
   resubmit_count: number;
   department_name: string | null;
+  location_id: number | null;
   location_name: string | null;
   dept_approval: number | null;
   finance_approval: number | null;
@@ -230,18 +216,19 @@ export interface PaymentListRow {
 export async function listPayments(
   roleInfo: RoleStageInfo,
   userId: number,
+  stages: readonly StageDef[],
   filters: PaymentFilters,
   limit: number,
   offset: number,
 ): Promise<{ items: PaymentListRow[]; total: number }> {
-  const where = whereClause([visibilityCond(roleInfo, userId), ...filterConditions(filters)]);
+  const where = whereClause([visibilitySql(roleInfo, userId), ...filterConditions(filters, stages)]);
 
   const countRes = await db.execute(sql`SELECT COUNT(*)::int AS total ${JOINS} ${where}`);
   const total = (countRes as unknown as { rows: { total: number }[] }).rows[0]?.total ?? 0;
 
   const res = await db.execute(sql`
     SELECT pr.id, pr.requestee, pr.beneficiary, pr.pay_for, pr.payment_type, pr.amount,
-           pr.created_at, pr.created_by, pr.resubmit_count,
+           pr.created_at, pr.created_by, pr.resubmit_count, pr.location_id,
            pr.dept_approval, pr.finance_approval, pr.management_approval, pr.under_process, pr.paid_approval,
            d.department_name, mo.main_location_name AS location_name,
            c.short_name AS client_name, cu.currency_short_name, ex.expense_type_name,
@@ -295,10 +282,11 @@ export interface PaymentExportRow extends PaymentListRow {
 export async function exportPayments(
   roleInfo: RoleStageInfo,
   userId: number,
+  stages: readonly StageDef[],
   filters: PaymentFilters,
   limit: number,
 ): Promise<PaymentExportRow[]> {
-  const where = whereClause([visibilityCond(roleInfo, userId), ...filterConditions(filters)]);
+  const where = whereClause([visibilitySql(roleInfo, userId), ...filterConditions(filters, stages)]);
   const res = await db.execute(sql`
     SELECT pr.id, pr.requestee, pr.beneficiary, pr.pay_for, pr.payment_type, pr.amount,
            pr.created_at, pr.created_by, pr.resubmit_count, pr.resubmitted_at,
@@ -349,7 +337,12 @@ export async function getPaymentDetail(id: number): Promise<Record<string, unkno
            u2.full_name AS finance_approved_by_name,
            u3.full_name AS management_approved_by_name,
            u4.full_name AS under_process_by_name,
-           u5.full_name AS paid_approved_by_name
+           u5.full_name AS paid_approved_by_name,
+           uc.full_name AS created_by_name,
+           -- The four attachments' original names, so the viewer can show
+           -- "Document 1 (.pdf)" — the columns hold files_t ids as text.
+           f1.original_name AS file1_name, f2.original_name AS file2_name,
+           f3.original_name AS file3_name, f4.original_name AS file4_name
     FROM payment_request_t pr
     LEFT JOIN department_master_t d ON d.id = pr.department
     LEFT JOIN client_master_t c ON c.id = pr.client_id
@@ -361,6 +354,11 @@ export async function getPaymentDetail(id: number): Promise<Record<string, unkno
     LEFT JOIN users_t u3 ON u3.id = pr.management_approved_by
     LEFT JOIN users_t u4 ON u4.id = pr.under_process_by
     LEFT JOIN users_t u5 ON u5.id = pr.paid_approved_by
+    LEFT JOIN users_t uc ON uc.id = pr.created_by
+    LEFT JOIN files_t f1 ON f1.id::text = pr.file1_path
+    LEFT JOIN files_t f2 ON f2.id::text = pr.file2_path
+    LEFT JOIN files_t f3 ON f3.id::text = pr.file3_path
+    LEFT JOIN files_t f4 ON f4.id::text = pr.file4_path
     WHERE pr.id = ${id} LIMIT 1
   `);
   const rows = (res as unknown as { rows: Record<string, unknown>[] }).rows;
@@ -374,19 +372,23 @@ export interface PaymentDashboard {
     total_payments: number; total_amount: number; paid: number; rejected: number;
     pending: number; today: number; this_week: number; this_month: number; this_year: number;
   };
-  status_cards: Array<{ status_name: string; count: number }>;
+  /** One row per status present, labelled and toned from the stage master. */
+  status_cards: Array<{ status_key: string; status_name: string; tone: string; count: number }>;
   monthly: Array<{ month_name: string; total: number; revenue: number }>;
   top_clients: Array<{ company_name: string; total: number; revenue: number }>;
 }
 
-export async function getPaymentDashboard(): Promise<PaymentDashboard> {
+export async function getPaymentDashboard(stages: readonly StageDef[]): Promise<PaymentDashboard> {
+  // One status definition for the whole dashboard — the same CASE the list's
+  // cards count with, so "Paid 12" here is "Paid 12" there.
+  const status = paymentStatusSql(stages, null);
   const kpiRes = await db.execute(sql`
     SELECT
       COUNT(*)::int AS total_payments,
       COALESCE(SUM(amount),0)::float AS total_amount,
-      SUM(CASE WHEN paid_approval=1 THEN 1 ELSE 0 END)::int AS paid,
-      SUM(CASE WHEN dept_approval=-1 OR finance_approval=-1 OR management_approval=-1 OR under_process=-1 OR paid_approval=-1 THEN 1 ELSE 0 END)::int AS rejected,
-      SUM(CASE WHEN paid_approval IS NULL AND NOT (dept_approval=-1 OR finance_approval=-1 OR management_approval=-1 OR under_process=-1 OR paid_approval=-1) THEN 1 ELSE 0 END)::int AS pending,
+      COALESCE(SUM(CASE WHEN ${status} = 'paid' THEN 1 ELSE 0 END), 0)::int AS paid,
+      COALESCE(SUM(CASE WHEN ${status} = 'rejected' THEN 1 ELSE 0 END), 0)::int AS rejected,
+      COALESCE(SUM(CASE WHEN ${status} LIKE 'waiting_%' THEN 1 ELSE 0 END), 0)::int AS pending,
       SUM(CASE WHEN created_at::date = current_date THEN 1 ELSE 0 END)::int AS today,
       SUM(CASE WHEN date_trunc('week', created_at) = date_trunc('week', current_date) THEN 1 ELSE 0 END)::int AS this_week,
       SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', current_date) THEN 1 ELSE 0 END)::int AS this_month,
@@ -395,21 +397,18 @@ export async function getPaymentDashboard(): Promise<PaymentDashboard> {
   `);
   const kpi = (kpiRes as unknown as { rows: PaymentDashboard['kpi'][] }).rows[0];
 
-  // Status breakdown by derived label.
+  // Status breakdown — keys from SQL, names and hues from the stage master.
   const statusRes = await db.execute(sql`
-    SELECT label AS status_name, COUNT(*)::int AS count FROM (
-      SELECT CASE
-        WHEN dept_approval=-1 OR finance_approval=-1 OR management_approval=-1 OR under_process=-1 OR paid_approval=-1 THEN 'Rejected'
-        WHEN paid_approval=1 THEN 'Paid'
-        WHEN payment_type='Bank' AND management_approval=1 AND under_process=1 THEN 'Under Process'
-        WHEN dept_approval=1 AND finance_approval=1 AND management_approval=1 THEN 'Pending Payment'
-        WHEN dept_approval=1 AND finance_approval=1 THEN 'Pending Mgmt'
-        WHEN dept_approval=1 THEN 'Pending Finance'
-        ELSE 'Pending Dept' END AS label
-      FROM payment_request_t
-    ) s GROUP BY label ORDER BY count DESC
+    SELECT st, COUNT(*)::int AS count FROM (SELECT ${status} AS st FROM payment_request_t WHERE display = 'Y') s
+    GROUP BY st ORDER BY count DESC
   `);
-  const status_cards = (statusRes as unknown as { rows: PaymentDashboard['status_cards'] }).rows;
+  const last = stages.at(-1);
+  const status_cards = (statusRes as unknown as { rows: { st: string; count: number }[] }).rows.map((r) => {
+    const def = stages.find((d) => `waiting_${d.stage}` === r.st);
+    if (def) return { status_key: r.st, status_name: def.pending_label, tone: def.tone, count: r.count };
+    if (r.st === 'rejected') return { status_key: r.st, status_name: 'Rejected', tone: 'rose', count: r.count };
+    return { status_key: r.st, status_name: last?.label ?? 'Completed', tone: 'emerald', count: r.count };
+  });
 
   const monthlyRes = await db.execute(sql`
     SELECT to_char(date_trunc('month', created_at), 'Mon YYYY') AS month_name,

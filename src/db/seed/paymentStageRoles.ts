@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { paymentStageRole } from '@/db/schema';
 import type { Database, Transaction } from '@/lib/db';
 
@@ -30,9 +29,11 @@ export async function seedPaymentStageRoles(db: Database | Transaction): Promise
     // created_by is left null: seedMasters runs against a database that may not
     // have the admin user yet (scripts/seed-admin.js is a separate command), and
     // stamping a non-existent user id fails the FK to users_t.
+    // Location left NULL — every office — which is what these grants meant
+    // before grants could be scoped. The unique index is on an expression
+    // (COALESCE(location_id, 0), 0103), which an ON CONFLICT column target cannot
+    // name, so an existing grant is simply kept: re-seeding must not undo an
+    // administrator's edits anyway.
     .values(DEFAULTS.map((d) => ({ stage: d.stage, roleId: d.roleId })))
-    .onConflictDoUpdate({
-      target: [paymentStageRole.stage, paymentStageRole.roleId],
-      set: { updatedAt: sql`now()` },
-    });
+    .onConflictDoNothing();
 }

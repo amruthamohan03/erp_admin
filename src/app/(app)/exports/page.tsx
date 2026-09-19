@@ -245,17 +245,10 @@ export default function ExportsListPage() {
   return (
     <>
       {/* ---- Header ---- */}
-      <div className="card p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="card p-4 mb-4">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Truck className="h-5 w-5 text-primary-600" /> Export Management
         </h1>
-        <a
-          href={`/api/v1/exports/export?${buildParams().toString()}`}
-          title="Excel — flat list (respects filters)"
-          className="btn-excel btn-sm"
-        >
-          <FileSpreadsheet className="h-4 w-4" /> Export ALL to Excel
-        </a>
       </div>
 
       {/* ---- Status cards (clickable filters) ---- */}
@@ -382,6 +375,7 @@ export default function ExportsListPage() {
         title="Export List"
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No export files match these filters — clear them, or create one."
+        exportHref={`/api/v1/exports/export?${buildParams().toString()}`}
         toolbar={
           <>
             {/* §8 — enabled only when a "pending" status card is active. The

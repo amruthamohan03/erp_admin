@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import RecordViewModal from '@/components/transactional/RecordViewModal';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
-import ApprovalTrail from '@/modules/payments/ApprovalTrail';
+import FileUpload, { type FileUploadValue } from '@/components/ui/FileUpload';
+import PaymentViewModal from '@/modules/payments/PaymentViewModal';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
@@ -32,10 +32,25 @@ import {
   canEditRequest,
   paymentStatus,
   willResubmitOnSave,
-  type PaymentStatusKey,
+  type PaymentStatus,
   type PaymentApprovalState,
 } from '@/lib/payments/stages';
+import {
+  DEFAULT_STAGES,
+  DONE_TONE,
+  REJECTED_TONE,
+  badgeClass,
+  cardGradient,
+  type StageDef,
+  type ToneKey,
+} from '@/lib/payments/stageConfig';
 import type { PaymentStage } from '@/db/schema';
+
+/** A grant from payment_stage_role_master_t — null location is every office. */
+interface StageGrant {
+  stage: PaymentStage;
+  location_id: number | null;
+}
 
 // Payment Request — the multi-stage approval list (§2 step 6). The form
 // (create/edit) is a transaction page (/payments/new, /payments/[id]); this
@@ -61,6 +76,7 @@ interface Row extends PaymentApprovalState {
   created_by: number | null;
   resubmit_count: number;
   department_name: string | null;
+  location_id: number | null;
   location_name: string | null;
 }
 
@@ -70,27 +86,26 @@ interface McaLine {
   amount: number;
 }
 
-const CARDS: Array<{ key: string; label: string; grad: string }> = [
-  { key: 'all', label: 'Total', grad: 'from-indigo-500 to-violet-600' },
-  { key: 'waiting_dept', label: 'Pending Dept', grad: 'from-amber-500 to-orange-500' },
-  { key: 'waiting_finance', label: 'Pending Finance', grad: 'from-cyan-500 to-sky-600' },
-  { key: 'waiting_mgmt', label: 'Pending Mgmt', grad: 'from-violet-500 to-purple-600' },
-  { key: 'waiting_under_process', label: 'Under Process', grad: 'from-sky-500 to-blue-600' },
-  { key: 'waiting_payment', label: 'Pending Payment', grad: 'from-orange-500 to-amber-600' },
-  { key: 'paid', label: 'Paid', grad: 'from-emerald-500 to-teal-600' },
-  { key: 'rejected', label: 'Rejected', grad: 'from-rose-500 to-red-600' },
-];
+/**
+ * The stat cards: Total, one per ACTIVE stage of the chain, the finished state
+ * and Rejected. Built from payment_stage_master_t (§4.1) — adding, renaming,
+ * reordering or switching off a stage there changes this row with no deploy.
+ */
+function buildCards(stages: readonly StageDef[]): Array<{ key: string; label: string; grad: string }> {
+  return [
+    { key: 'all', label: 'Total', grad: cardGradient('indigo') },
+    ...stages.map((s) => ({ key: `waiting_${s.stage}`, label: s.pending_label, grad: cardGradient(s.tone) })),
+    { key: 'paid', label: stages.at(-1)?.label ?? 'Completed', grad: cardGradient(DONE_TONE) },
+    { key: 'rejected', label: 'Rejected', grad: cardGradient(REJECTED_TONE) },
+  ];
+}
 
-/** §4.32 — the badge hue per derived status, both themes stated. */
-const STATUS_CLASS: Record<PaymentStatusKey, string> = {
-  rejected: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
-  paid: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
-  waiting_dept: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
-  waiting_finance: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30',
-  waiting_mgmt: 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-500/30',
-  waiting_under_process: 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30',
-  waiting_payment: 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-500/30',
-};
+/** §4.32 — a status's badge hue: the stage's configured tone while waiting. */
+function statusTone(st: PaymentStatus, stages: readonly StageDef[]): ToneKey {
+  if (st.key === 'rejected') return REJECTED_TONE;
+  if (st.key === 'paid') return DONE_TONE;
+  return stages.find((s) => s.stage === st.stage)?.tone ?? 'slate';
+}
 
 function fmt(v: string | number | null | undefined): string {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
@@ -180,7 +195,11 @@ export default function PaymentsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [perms, setPerms] = useState<{ stages: PaymentStage[] }>({ stages: [] });
+  /** The configured chain and this role's grants — see /payments/permissions. */
+  const [perms, setPerms] = useState<{ stages: readonly StageDef[]; grants: StageGrant[] }>({
+    stages: DEFAULT_STAGES,
+    grants: [],
+  });
 
   // Options for the filter bar. Fetched once; a dropdown that cannot load comes
   // back empty rather than throwing through the bar's render.
@@ -206,8 +225,11 @@ export default function PaymentsPage() {
   const [act, setAct] = useState<{ row: Row; stage: PaymentStage } | null>(null);
   const [reason, setReason] = useState('');
   const [cashCollector, setCashCollector] = useState('');
-  /** Department approval may attach a chargeback; blank means none. */
+  /** A stage configured to take one may attach a chargeback; blank means none. */
   const [chargeback, setChargeback] = useState('');
+  /** Proof of payment, on the stage configured to take documents. */
+  const [doc3, setDoc3] = useState<FileUploadValue | null>(null);
+  const [doc4, setDoc4] = useState<FileUploadValue | null>(null);
   const [busy, setBusy] = useState(false);
 
   // §4.22 — every create/update/delete ends in an acknowledged dialog.
@@ -274,11 +296,11 @@ export default function PaymentsPage() {
   // never refetched, so they are not part of `load`.
   useEffect(() => {
     void (async () => {
-      const res = await safeFetchJson<{ stages: PaymentStage[]; user_id: number }>(
+      const res = await safeFetchJson<{ stages: StageDef[]; grants: StageGrant[]; user_id: number }>(
         '/api/v1/payments/permissions',
       );
       if (res.ok) {
-        setPerms({ stages: res.data.stages });
+        setPerms({ stages: res.data.stages, grants: res.data.grants });
         setUserId(res.data.user_id);
       }
       const opt = (rows: { id: number; label: string }[]): SelectOption[] =>
@@ -352,10 +374,12 @@ export default function PaymentsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             stage: act.stage,
-            cash_collector: cashCollector || undefined,
-            // Department approval is where a chargeback is decided. Blank means
-            // none — not zero, which would read as "charged back nothing".
-            chargeback: act.stage === 'dept' && chargeback.trim() !== '' ? chargeback : undefined,
+            cash_collector: actDef?.requires_cash_collector ? cashCollector || undefined : undefined,
+            // Blank means no chargeback — not zero, which would read as
+            // "charged back nothing".
+            chargeback: actDef?.captures_chargeback && chargeback.trim() !== '' ? chargeback : undefined,
+            file3_path: actDef?.captures_documents && doc3 ? String(doc3.id) : undefined,
+            file4_path: actDef?.captures_documents && doc4 ? String(doc4.id) : undefined,
           }),
         },
       );
@@ -413,7 +437,15 @@ export default function PaymentsPage() {
     }
   }
 
-  const canStage = useMemo(() => new Set(perms.stages), [perms.stages]);
+  /** May this role act on `stage` for a request raised at this location? */
+  const canAct = useCallback(
+    (stage: PaymentStage, locationId: number | null): boolean =>
+      perms.grants.some((g) => g.stage === stage && (g.location_id == null || g.location_id === locationId)),
+    [perms.grants],
+  );
+  const cards = useMemo(() => buildCards(perms.stages), [perms.stages]);
+  /** The stage config for the open approve dialog. */
+  const actDef = act ? perms.stages.find((s) => s.stage === act.stage) : undefined;
 
   /**
    * How many filters differ from the opening view.
@@ -482,7 +514,7 @@ export default function PaymentsPage() {
 
       {/* Stat cards / status filter */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 mb-4">
-        {CARDS.map((card) => {
+        {cards.map((card) => {
           const value = card.key === 'all' ? (counts.total ?? 0) : (counts[card.key] ?? 0);
           const active = statusFilter === card.key;
           return (
@@ -676,13 +708,13 @@ export default function PaymentsPage() {
           {
             key: 'status',
             header: 'Status',
-            value: (r) => paymentStatus(r).label,
+            value: (r) => paymentStatus(r, perms.stages).label,
             render: (r) => {
-              const st = paymentStatus(r);
+              const st = paymentStatus(r, perms.stages);
               return (
                 <span className="inline-flex items-center gap-1">
                   <span
-                    className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[st.key]}`}
+                    className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass(statusTone(st, perms.stages))}`}
                     // Says what Edit will do to a rejected row, where the
                     // operator is already looking to find out why it stopped.
                     title={
@@ -716,12 +748,12 @@ export default function PaymentsPage() {
           },
         ]}
         actions={(r) => {
-          const st = paymentStatus(r);
-          const canAct = st.stage != null && canStage.has(st.stage);
+          const st = paymentStatus(r, perms.stages);
+          const actable = st.stage != null && canAct(st.stage, r.location_id);
           // Editing is the requester's own, and only until the Department signs
           // off. A rejection hands it back, and saving the correction is what
           // sends it round again — there is no separate re-submit step.
-          const editable = userId !== null && canEditRequest(r, r.created_by, userId);
+          const editable = userId !== null && canEditRequest(r, r.created_by, userId, perms.stages);
           return {
             view: () => void openDetail(r.id, 'record'),
             edit: editable ? `/payments/${r.id}` : undefined,
@@ -740,7 +772,7 @@ export default function PaymentsPage() {
                 >
                   <Printer className="h-3.5 w-3.5" />
                 </a>
-                {canAct && st.stage && (
+                {actable && st.stage && (
                   <button
                     type="button"
                     onClick={() => {
@@ -748,6 +780,8 @@ export default function PaymentsPage() {
                       setReason('');
                       setCashCollector('');
                       setChargeback('');
+                      setDoc3(null);
+                      setDoc4(null);
                     }}
                     title={`Act: ${st.label}`}
                     className="btn-approve btn-sm ms-1 h-7 px-2 text-[11px]"
@@ -771,28 +805,9 @@ export default function PaymentsPage() {
       />
 
 
-      {/* ---- The record, as every other module shows one ------------------ */}
+      {/* ---- The request, laid out as main's Payment Request Details ---- */}
       {viewId !== null && viewMode === 'record' && (
-        <RecordViewModal
-          slug="payment"
-          entityId={viewId}
-          title={`Payment Request #${viewId}`}
-          // The same rule the row's Edit follows — the viewer must not offer a
-          // door the save route will refuse.
-          editHref={
-            detail &&
-            userId !== null &&
-            canEditRequest(
-              detail as unknown as PaymentApprovalState,
-              detail.created_by as number | null,
-              userId,
-            )
-              ? `/payments/${viewId}`
-              : undefined
-          }
-          onClose={closeDetail}
-          extra={detail ? <ApprovalTrail row={detail} /> : null}
-        />
+        <PaymentViewModal id={viewId} detail={detail} stages={perms.stages} onClose={closeDetail} />
       )}
 
       {/* ---- The references behind the count ------------------------------ */}
@@ -910,8 +925,8 @@ export default function PaymentsPage() {
         >
           <div className="card my-auto w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-4 text-white">
-              <h2 className="font-semibold capitalize">
-                {act.stage.replace('_', ' ')} — Payment #{act.row.id}
+              <h2 className="font-semibold">
+                {actDef?.label ?? act.stage} — Payment #{act.row.id}
               </h2>
               <button type="button" onClick={() => setAct(null)} className="rounded-md p-1 hover:bg-white/20" title="Close">
                 <X className="h-5 w-5" />
@@ -921,9 +936,9 @@ export default function PaymentsPage() {
               <div className="text-sm text-muted-foreground">
                 {act.row.beneficiary} · {fmt(act.row.amount)} {act.row.currency_short_name} · {act.row.payment_type}
               </div>
-              {/* Chargeback is decided at Department approval — the stage that
-                  judges whether the cost belongs to a client rather than to us. */}
-              {act.stage === 'dept' && (
+              {/* What each stage asks for is its row in Masters → Payment
+                  Stages — chargeback, cash collector, proof of payment. */}
+              {actDef?.captures_chargeback && (
                 <div>
                   <label htmlFor="chargeback" className="label">
                     Chargeback <span className="text-muted-foreground">(leave blank for none)</span>
@@ -944,7 +959,7 @@ export default function PaymentsPage() {
                   </p>
                 </div>
               )}
-              {act.stage === 'paid' && (
+              {actDef?.requires_cash_collector && (
                 <div>
                   <label htmlFor="cash-collector" className="label required">Cash Collector</label>
                   <input
@@ -954,6 +969,28 @@ export default function PaymentsPage() {
                     value={cashCollector}
                     onChange={(e) => setCashCollector(e.target.value)}
                     placeholder="Collector name"
+                  />
+                </div>
+              )}
+              {actDef?.captures_documents && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <FileUpload
+                    label="Document 3"
+                    value={doc3}
+                    onChange={setDoc3}
+                    entityType="page:payment"
+                    entityId={String(act.row.id)}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    maxBytes={5 * 1024 * 1024}
+                  />
+                  <FileUpload
+                    label="Document 4"
+                    value={doc4}
+                    onChange={setDoc4}
+                    entityType="page:payment"
+                    entityId={String(act.row.id)}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    maxBytes={5 * 1024 * 1024}
                   />
                 </div>
               )}

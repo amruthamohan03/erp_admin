@@ -24,6 +24,7 @@ export function brandingFromRow(row: ApplicationSettingsRow): Branding {
     sidebar_bg: row.sidebarBg,
     sidebar_fg: row.sidebarFg,
     footer_text: row.footerText,
+    letterhead_text: row.letterheadText,
   };
 }
 

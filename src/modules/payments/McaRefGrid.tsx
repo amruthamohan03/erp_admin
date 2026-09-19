@@ -210,7 +210,6 @@ export default function McaRefGrid({
   // colour at all — so the text and its tone are set together or not at all.
   const [notice, setNotice] = useState<Notice | null>(null);
   const say = (text: string, tone: Notice['tone'] = 'info'): void => setNotice({ text, tone });
-  const [bulkRows, setBulkRows] = useState('');
   const [importing, setImporting] = useState(false);
 
   /** The Select modal: open state, what the server offered, its search and ticks. */
@@ -296,29 +295,17 @@ export default function McaRefGrid({
     onChange(next);
   }
 
-  /** Add N blank rows, the way the reference app's number box does. Blank = 1. */
-  function addBlankRows(): void {
-    const raw = bulkRows.trim();
-    const n = raw === '' ? 1 : Number(raw);
-    if (!Number.isInteger(n) || n <= 0) {
-      say(`Enter how many rows to add — a whole number from 1 to ${MAX_REFS}.`, 'warn');
-      return;
-    }
-    const room = MAX_REFS - lines.length;
-    if (room <= 0) {
+  /**
+   * Add one blank row. There is no "how many" box: it was a number input
+   * starting at 0 that operators read as a field of the grid, and Select /
+   * import cover adding many references at once.
+   */
+  function addBlankRow(): void {
+    if (lines.length >= MAX_REFS) {
       say(`This grid holds ${MAX_REFS} references and already has ${lines.length}.`, 'warn');
       return;
     }
-    if (n > room) {
-      say(`${n} rows would pass the ${MAX_REFS}-reference limit — there is room for ${room}.`, 'warn');
-      return;
-    }
-    const blanks = Array.from({ length: n }, (_, i) => ({
-      mca_ref: auto ? autoRef(payFor, locationName, lines.length + i + 1) : '',
-      amount: 0,
-    }));
-    commit([...lines, ...blanks]);
-    setBulkRows('');
+    commit([...lines, { mca_ref: auto ? autoRef(payFor, locationName, lines.length + 1) : '', amount: 0 }]);
     setNotice(null);
   }
 
@@ -590,20 +577,7 @@ export default function McaRefGrid({
       {!readonly && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/40 p-2">
           <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="mca-bulk-rows" className="sr-only">
-              Number of blank rows to add
-            </label>
-            <input
-              id="mca-bulk-rows"
-              type="number"
-              min={1}
-              max={MAX_REFS}
-              value={bulkRows}
-              onChange={(e) => setBulkRows(e.target.value)}
-              placeholder="0"
-              className="input h-9 w-20 min-w-0 text-center"
-            />
-            <button type="button" onClick={addBlankRows} className="btn-primary btn-sm">
+            <button type="button" onClick={addBlankRow} className="btn-primary btn-sm">
               <Plus className="h-4 w-4" /> {auto ? 'Generate' : 'Add'}
             </button>
             {!auto && (

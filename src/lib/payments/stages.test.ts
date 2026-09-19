@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   canEditRequest,
+  checkApprovable,
+  checkRejectable,
   isEditableState,
   isRejected,
   paymentStatus,
@@ -8,6 +10,7 @@ import {
   willResubmitOnSave,
   type PaymentApprovalState,
 } from './stages';
+import { DEFAULT_STAGES, type StageDef } from './stageConfig';
 
 // The rules three callers depend on agreeing: the list grid (what it offers),
 // the page save route (what it allows) and the resubmit route (what it accepts).
@@ -135,13 +138,58 @@ describe('paymentStatus', () => {
     const approved = { dept_approval: 1, finance_approval: 1, management_approval: 1 };
     expect(paymentStatus(row({ ...approved, payment_type: 'Bank' })).key).toBe('waiting_under_process');
     // Cash skips it entirely and goes straight to payment.
-    expect(paymentStatus(row({ ...approved, payment_type: 'Cash' })).key).toBe('waiting_payment');
+    expect(paymentStatus(row({ ...approved, payment_type: 'Cash' })).key).toBe('waiting_paid');
     // …and a Bank payment that HAS been processed moves on too.
-    expect(paymentStatus(row({ ...approved, payment_type: 'Bank', under_process: 1 })).key).toBe('waiting_payment');
+    expect(paymentStatus(row({ ...approved, payment_type: 'Bank', under_process: 1 })).key).toBe('waiting_paid');
   });
 
   it('reports a paid request as finished, with nothing left to act on', () => {
     const r = row({ dept_approval: 1, finance_approval: 1, management_approval: 1, paid_approval: 1 });
     expect(paymentStatus(r)).toEqual({ key: 'paid', label: 'Paid', stage: null });
+  });
+});
+
+// The chain is configuration (payment_stage_master_t) — these pin that the
+// rules follow the config rather than a list of stage names in the code.
+describe('a configured chain', () => {
+  const withoutFinance: StageDef[] = DEFAULT_STAGES.filter((st) => st.stage !== 'finance');
+  const renamed: StageDef[] = DEFAULT_STAGES.map((st) =>
+    st.stage === 'dept' ? { ...st, pending_label: 'Awaiting HOD' } : st,
+  );
+
+  it('skips a stage that is switched off', () => {
+    expect(paymentStatus(row({ dept_approval: 1 }), withoutFinance).stage).toBe('management');
+    expect(checkApprovable('management', row({ dept_approval: 1 }), withoutFinance)).toBeNull();
+    expect(checkApprovable('finance', row({ dept_approval: 1 }), withoutFinance)).toMatch(/switched off/);
+  });
+
+  it('labels the status from the master', () => {
+    expect(paymentStatus(base, renamed).label).toBe('Awaiting HOD');
+  });
+
+  it('refuses to approve out of order, naming what is missing', () => {
+    expect(checkApprovable('management', base)).toMatch(/Department and Finance/);
+    expect(checkApprovable('dept', base)).toBeNull();
+  });
+
+  it('keeps a Bank-only stage off Cash requests', () => {
+    const approved = row({ dept_approval: 1, finance_approval: 1, management_approval: 1 });
+    expect(checkApprovable('under_process', approved)).toMatch(/Bank payments only/);
+    expect(checkApprovable('paid', approved)).toBeNull();
+  });
+
+  it('rejects only at the stage the request is waiting on', () => {
+    expect(checkRejectable('dept', base)).toBeNull();
+    expect(checkRejectable('finance', base)).toMatch(/waiting on Department/);
+    expect(checkRejectable('dept', row({ dept_approval: -1 }))).toMatch(/already been rejected/);
+  });
+
+  it('locks editing once the FIRST configured stage approves', () => {
+    expect(isEditableState(row({ dept_approval: 1 }), withoutFinance)).toBe(false);
+    const financeFirst = DEFAULT_STAGES.map((st) => (st.stage === 'finance' ? { ...st, sort_order: 1 } : st)).sort(
+      (a, b) => a.sort_order - b.sort_order,
+    );
+    expect(isEditableState(row({ dept_approval: 1 }), financeFirst)).toBe(true);
+    expect(isEditableState(row({ finance_approval: 1 }), financeFirst)).toBe(false);
   });
 });
