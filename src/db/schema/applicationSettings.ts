@@ -37,6 +37,9 @@ export const applicationSettingsMaster = pgTable(
     sidebarBg: varchar('sidebar_bg', { length: 20 }).notNull().default('#151a30'),
     sidebarFg: varchar('sidebar_fg', { length: 20 }).notNull().default('#e2e8f0'),
     footerText: text('footer_text'),
+    // Company address and legal numbers, one per line — the top-right block of
+    // generated documents (the Demande de Fonds). NULL prints no block.
+    letterheadText: text('letterhead_text'),
     updatedBy: integer('updated_by').references(() => usersT.id, {
       onDelete: 'set null',
     }),

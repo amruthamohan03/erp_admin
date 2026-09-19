@@ -625,8 +625,15 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
       disabled={readonly || (source != null && loading)}
       value={asString(value)}
       emptyLabel="— Select —"
+      // A configured `props.placeholder` says where an empty value comes from —
+      // the invoice's Kind / Goods / Transport read "From MCA" until files are
+      // picked, rather than a "— Select —" on a control that cannot be opened.
       placeholder={
-        source != null && loading ? 'Loading…' : loadError ? 'Options unavailable' : '— Select —'
+        source != null && loading
+          ? 'Loading…'
+          : loadError
+            ? 'Options unavailable'
+            : (getString(field.props, 'placeholder') ?? '— Select —')
       }
       options={options.map((opt) => ({ value: String(opt.value), label: String(opt.label) }))}
       onChange={(v) => onChange(v === '' ? null : v)}

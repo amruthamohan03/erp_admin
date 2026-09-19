@@ -1066,7 +1066,11 @@ export async function mcaHeaderPatch(
     SELECT i.id, i.fob, i.fret, i.weight, i.m3, i.liquidation_amount,
            COALESCE(l.kind_id, i.kind) AS kind_id,
            COALESCE(l.type_of_goods_id, i.type_of_goods) AS goods_type_id,
-           i.transport_mode AS transport_mode_id,
+           -- The file's own mode first (a licence can be cleared by road one
+           -- trip and rail the next), the licence's when the file has none —
+           -- kind and goods already fall back the same way, and a blank
+           -- Transport Mode on a filed invoice was the result of not doing so.
+           COALESCE(i.transport_mode, l.transport_mode_id) AS transport_mode_id,
            i.horse, i.trailer_1, i.trailer_2, i.container, i.wagon,
            i.airway_bill, i.airway_bill_weight,
            i.invoice AS facture_pfi_no, i.po_ref, i.inspection_reports AS bivac_inspection,

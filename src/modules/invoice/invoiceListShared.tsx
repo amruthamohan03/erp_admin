@@ -4,8 +4,18 @@
 // cards (the Pending card opens the pending modal, the rest filter the list), the
 // validation badge, the created-date range, and the validate / DGI-verify /
 // delete row actions with their confirmation and outcome dialogs.
-import { useState, type ReactNode } from 'react';
-import { Check, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { useState, type ComponentType, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Clock,
+  FileCheck,
+  FileText,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import clsx from 'clsx';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
@@ -23,20 +33,50 @@ export interface InvoiceCounts {
 
 export const EMPTY_COUNTS: InvoiceCounts = { total: 0, validated: 0, not_validated: 0, dgi_verified: 0, pending_invoicing: 0 };
 
-const CARDS: Array<{ key: string; label: string; grad: string; stat: keyof InvoiceCounts; filter?: InvoiceFilter }> = [
-  { key: 'pending', label: 'Pending for Invoicing', grad: 'from-sky-500 to-blue-600', stat: 'pending_invoicing' },
-  { key: 'not-validated', label: 'Not Validated', grad: 'from-amber-500 to-orange-500', stat: 'not_validated', filter: 'not-validated' },
-  { key: 'validated', label: 'Validated', grad: 'from-emerald-500 to-teal-600', stat: 'validated', filter: 'validated' },
-  { key: 'dgi-verified', label: 'DGI Verified', grad: 'from-violet-600 to-purple-700', stat: 'dgi_verified', filter: 'dgi-verified' },
-  { key: 'all', label: 'Total Invoices', grad: 'from-indigo-500 to-violet-600', stat: 'total', filter: 'all' },
-];
+interface StatCard {
+  key: string;
+  label: string;
+  /** Solid mid-tone tile behind a white glyph — allowed a fixed hue by §4.32,
+   *  because the glyph sits on a known ground rather than on the page. */
+  grad: string;
+  icon: ComponentType<{ className?: string }>;
+  stat: keyof InvoiceCounts;
+  filter?: InvoiceFilter;
+}
 
+const CARD: Record<string, StatCard> = {
+  pending: { key: 'pending', label: 'Pending for Invoicing', grad: 'from-sky-500 to-blue-600', icon: Clock, stat: 'pending_invoicing' },
+  validated: { key: 'validated', label: 'Validated', grad: 'from-emerald-500 to-green-600', icon: CheckCircle2, stat: 'validated', filter: 'validated' },
+  'not-validated': { key: 'not-validated', label: 'Not Validated', grad: 'from-amber-500 to-orange-500', icon: AlertTriangle, stat: 'not_validated', filter: 'not-validated' },
+  'dgi-verified': { key: 'dgi-verified', label: 'DGI Verified', grad: 'from-red-700 to-red-900', icon: FileCheck, stat: 'dgi_verified', filter: 'dgi-verified' },
+  all: { key: 'all', label: 'Total Invoices', grad: 'from-indigo-500 to-violet-600', icon: FileText, stat: 'total', filter: 'all' },
+};
+
+// main orders the two lists differently — import reads Validated before Not
+// Validated, export the other way round — so the order belongs to the module
+// rather than to the shared component.
+const ORDER: Record<InvoiceKind, string[]> = {
+  import: ['pending', 'validated', 'not-validated', 'dgi-verified', 'all'],
+  export: ['pending', 'not-validated', 'validated', 'dgi-verified', 'all'],
+};
+
+/**
+ * main's stat row: a plain card carrying a small coloured icon tile, the figure
+ * in full-strength foreground and its name beneath in muted small caps. The
+ * whole card is the filter, and the active one is ringed and ticked.
+ *
+ * The card is a surface, not a colour — `card` and `text-foreground` rather than
+ * a saturated ground with white type (§4.20/§4.32), so a row of five reads as
+ * five figures instead of five blocks of colour, and it still works in dark mode.
+ */
 export function InvoiceStatCards({
+  kind,
   counts,
   filter,
   onFilter,
   onPending,
 }: {
+  kind: InvoiceKind;
   counts: InvoiceCounts;
   filter: InvoiceFilter;
   onFilter: (f: InvoiceFilter) => void;
@@ -44,23 +84,41 @@ export function InvoiceStatCards({
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
-      {CARDS.map((card) => {
+      {ORDER[kind].map((key) => {
+        const card = CARD[key]!;
         const active = !!card.filter && filter === card.filter;
+        const Icon = card.icon;
         return (
           <button
             key={card.key}
             type="button"
             onClick={() => (card.filter ? onFilter(card.filter) : onPending())}
-            className={`relative text-left rounded-xl bg-gradient-to-br ${card.grad} text-white p-3 shadow-sm transition hover:shadow-md ${active ? 'ring-2 ring-offset-2 ring-foreground/40' : ''}`}
+            aria-pressed={card.filter ? active : undefined}
+            className={clsx(
+              'card relative p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md',
+              active && 'ring-2 ring-primary border-primary',
+            )}
             title={card.filter ? `Filter: ${card.label}` : 'Open the files waiting to be invoiced'}
           >
             {active && (
-              <span className="absolute right-2 top-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-card text-foreground shadow">
+              <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
                 <Check className="h-3.5 w-3.5" strokeWidth={3} />
               </span>
             )}
-            <div className="text-2xl font-bold leading-none">{counts[card.stat]}</div>
-            <div className="text-[11px] mt-1 opacity-90 uppercase tracking-wide">{card.label}</div>
+            <span
+              className={clsx(
+                'mb-2 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm',
+                card.grad,
+              )}
+            >
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="text-2xl font-bold leading-none tabular-nums text-foreground">
+              {counts[card.stat].toLocaleString('en-US')}
+            </div>
+            <div className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {card.label}
+            </div>
           </button>
         );
       })}
@@ -93,12 +151,16 @@ export function DateRangeFilter({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="text-xs text-muted-foreground" htmlFor="inv-date-from">From</label>
-      <input id="inv-date-from" type="date" className="input h-8 w-auto min-w-0 text-sm" value={from} max={to || undefined}
-        onChange={(e) => onChange(e.target.value, to)} />
-      <label className="text-xs text-muted-foreground" htmlFor="inv-date-to">To</label>
-      <input id="inv-date-to" type="date" className="input h-8 w-auto min-w-0 text-sm" value={to} min={from || undefined}
-        onChange={(e) => onChange(from, e.target.value)} />
+      <input id="inv-date-from" type="date" aria-label="From date" title="From date" className="input h-8 w-auto min-w-0 text-sm"
+        value={from} max={to || undefined} onChange={(e) => onChange(e.target.value, to)} />
+      <span className="text-xs text-muted-foreground">to</span>
+      <input id="inv-date-to" type="date" aria-label="To date" title="To date" className="input h-8 w-auto min-w-0 text-sm"
+        value={to} min={from || undefined} onChange={(e) => onChange(from, e.target.value)} />
+      {/* main's clear-date button — one click back to every date. */}
+      <button type="button" onClick={() => onChange('', '')} disabled={!from && !to} title="Clear date filter"
+        aria-label="Clear date filter" className="btn-neutral btn-icon disabled:opacity-50">
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

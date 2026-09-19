@@ -4,7 +4,9 @@ import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { paymentExportQuerySchema } from '@/schemas';
 import { paymentQueryInput } from '@/lib/payments/query';
 import { getRoleStageInfo, exportPayments, type PaymentExportRow } from '@/db/queries/payments';
-import { paymentStatus, PAY_FOR_LABELS } from '@/lib/payments/stages';
+import { paymentStatus, PAY_FOR_LABELS, STAGE_COLUMNS } from '@/lib/payments/stages';
+import { loadPaymentStages } from '@/db/queries/paymentStages';
+import type { StageDef } from '@/lib/payments/stageConfig';
 import { buildXlsx, xlsxResponse, dateStamp, type XlsxRowTone } from '@/lib/xlsx';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import { recordAudit } from '@/lib/audit/recordAudit';
@@ -58,8 +60,17 @@ function toneOf(row: Record<string, unknown>): XlsxRowTone | null {
 }
 
 /** One spreadsheet row per request, with every id already resolved to a name. */
-function sheetRow(r: PaymentExportRow): Record<string, unknown> {
-  const status = paymentStatus(r);
+function sheetRow(r: PaymentExportRow, stages: readonly StageDef[]): Record<string, unknown> {
+  const status = paymentStatus(r, stages);
+  const raw = r as unknown as Record<string, unknown>;
+  // Each configured stage's who / when / note, keyed by its own columns.
+  const trail: Record<string, unknown> = {};
+  for (const s of stages) {
+    const c = STAGE_COLUMNS[s.stage];
+    trail[c.at] = stamp(raw[c.at]);
+    trail[`${c.by}_name`] = raw[`${c.by}_name`] ?? '';
+    trail[c.notes] = raw[c.notes] ?? '';
+  }
   return {
     id: r.id,
     created_at: day(r.created_at),
@@ -85,21 +96,7 @@ function sheetRow(r: PaymentExportRow): Record<string, unknown> {
     created_by_name: r.created_by_name ?? '',
     resubmit_count: r.resubmit_count,
     resubmitted_at: stamp(r.resubmitted_at),
-    dept_approved_at: stamp(r.dept_approved_at),
-    dept_approved_by_name: r.dept_approved_by_name ?? '',
-    dept_notes: r.dept_notes ?? '',
-    finance_approved_at: stamp(r.finance_approved_at),
-    finance_approved_by_name: r.finance_approved_by_name ?? '',
-    finance_notes: r.finance_notes ?? '',
-    management_approved_at: stamp(r.management_approved_at),
-    management_approved_by_name: r.management_approved_by_name ?? '',
-    management_notes: r.management_notes ?? '',
-    under_process_at: stamp(r.under_process_at),
-    under_process_by_name: r.under_process_by_name ?? '',
-    under_process_notes: r.under_process_notes ?? '',
-    paid_approved_at: stamp(r.paid_approved_at),
-    paid_approved_by_name: r.paid_approved_by_name ?? '',
-    paid_notes: r.paid_notes ?? '',
+    ...trail,
   };
 }
 
@@ -125,22 +122,19 @@ const COLUMNS = [
   { key: 'created_by_name', header: 'Raised By', width: 20 },
   { key: 'resubmit_count', header: 'Re-submissions', width: 14 },
   { key: 'resubmitted_at', header: 'Re-submitted On', width: 18 },
-  { key: 'dept_approved_at', header: 'Dept On', width: 18 },
-  { key: 'dept_approved_by_name', header: 'Dept By', width: 20 },
-  { key: 'dept_notes', header: 'Dept Note', width: 28 },
-  { key: 'finance_approved_at', header: 'Finance On', width: 18 },
-  { key: 'finance_approved_by_name', header: 'Finance By', width: 20 },
-  { key: 'finance_notes', header: 'Finance Note', width: 28 },
-  { key: 'management_approved_at', header: 'Management On', width: 18 },
-  { key: 'management_approved_by_name', header: 'Management By', width: 20 },
-  { key: 'management_notes', header: 'Management Note', width: 28 },
-  { key: 'under_process_at', header: 'Under Process On', width: 18 },
-  { key: 'under_process_by_name', header: 'Under Process By', width: 20 },
-  { key: 'under_process_notes', header: 'Under Process Note', width: 28 },
-  { key: 'paid_approved_at', header: 'Paid On', width: 18 },
-  { key: 'paid_approved_by_name', header: 'Paid By', width: 20 },
-  { key: 'paid_notes', header: 'Paid Note', width: 28 },
 ];
+
+/** Who / when / note per configured stage, headed with the stage's own name. */
+function trailColumns(stages: readonly StageDef[]) {
+  return stages.flatMap((st) => {
+    const c = STAGE_COLUMNS[st.stage];
+    return [
+      { key: c.at, header: `${st.label} On`, width: 18 },
+      { key: `${c.by}_name`, header: `${st.label} By`, width: 20 },
+      { key: c.notes, header: `${st.label} Note`, width: 28 },
+    ];
+  });
+}
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
@@ -150,12 +144,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const filters = paymentExportQuerySchema.parse(paymentQueryInput(searchParams));
 
   const roleInfo = await getRoleStageInfo(session.role_id);
+  const stages = await loadPaymentStages();
   // One over the cap, so a full page is distinguishable from a page that was cut.
-  const rows = await exportPayments(roleInfo, session.uid, filters, MAX_ROWS + 1);
+  const rows = await exportPayments(roleInfo, session.uid, stages, filters, MAX_ROWS + 1);
   const truncated = rows.length > MAX_ROWS;
   const included = truncated ? rows.slice(0, MAX_ROWS) : rows;
 
-  const sheetRows = included.map(sheetRow);
+  const sheetRows = included.map((r) => sheetRow(r, stages));
   if (truncated) {
     sheetRows.push({
       id: '',
@@ -180,7 +175,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       : '';
 
   const buf = await buildXlsx([
-    { name: 'Payment Requests', columns: COLUMNS, rows: sheetRows, rowTone: toneOf },
+    { name: 'Payment Requests', columns: [...COLUMNS, ...trailColumns(stages)], rows: sheetRows, rowTone: toneOf },
   ]);
   // Re-wrapped as a NextResponse because `withErrorHandler` is typed to it; the
   // body and headers are xlsxResponse's own (same as the other export routes).

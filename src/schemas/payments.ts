@@ -3,9 +3,14 @@ import { PAYMENT_STAGES } from '@/db/schema';
 
 // Payment Request — request schemas (§4.7).
 
+/**
+ * The status buckets a list may be narrowed to: every request, the finished
+ * ones, the rejected ones, or those waiting on one stage. The stages are the
+ * five slots — which of them are ACTIVE is payment_stage_master_t's business, and
+ * a filter naming an inactive stage simply matches nothing.
+ */
 export const paymentStatusFilters = [
-  'all', 'waiting_dept', 'waiting_finance', 'waiting_mgmt',
-  'waiting_under_process', 'waiting_payment', 'paid', 'rejected',
+  'all', 'paid', 'rejected', ...PAYMENT_STAGES.map((s) => `waiting_${s}` as const),
 ] as const;
 
 /** ISO `YYYY-MM-DD`, the shape `<input type="date">` submits and Postgres reads. */
@@ -23,7 +28,10 @@ const isoDate = z
  */
 export const paymentFilterSchema = z.object({
   q: z.string().trim().max(100).optional(),
-  status_filter: z.enum(paymentStatusFilters).default('all'),
+  status_filter: z
+    .string()
+    .refine((v) => (paymentStatusFilters as readonly string[]).includes(v), 'Choose a status card to filter by.')
+    .default('all'),
   /** The REQUEST date — when it was raised, not when it was approved or paid. */
   from: isoDate,
   to: isoDate,
@@ -70,12 +78,18 @@ export type PaymentExportQuery = z.infer<typeof paymentExportQuerySchema>;
 // second way to do one thing (§4.10) and a state where the request is fixed but
 // still sitting in Rejected because nobody pressed the other button.
 
-// Approve one stage. `cash_collector` is required by the paid stage; extra
-// per-stage fields (chargeback for dept) ride along and are ignored elsewhere.
+/** A files_t id, as the upload route returns it and the file*_path columns store it. */
+const fileId = z.string().regex(/^d+$/u, 'Upload the document again — the file reference is not valid.').max(20);
+
+// Approve one stage. Which of the extras a stage takes — a chargeback, a cash
+// collector, Documents 3 and 4 — is its row in payment_stage_master_t; the
+// route reads that and ignores what the stage does not take.
 export const paymentApproveSchema = z.object({
   stage: z.enum(PAYMENT_STAGES),
   cash_collector: z.string().trim().max(100).optional(),
   chargeback: z.coerce.number().min(0).optional(),
+  file3_path: fileId.optional(),
+  file4_path: fileId.optional(),
 });
 export type PaymentApprove = z.infer<typeof paymentApproveSchema>;
 

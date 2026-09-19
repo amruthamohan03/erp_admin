@@ -37,6 +37,8 @@ import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive
 import { assertPartielleCapacity } from '@/db/queries/partielle';
 import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
+import { loadPaymentStages } from '@/db/queries/paymentStages';
+import { applicableStages } from '@/lib/payments/stageConfig';
 import {
   computeQuotationSave,
   parseQuotationLines,
@@ -312,15 +314,19 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   if (slug === 'payment' && !isCreate && before) {
     const state = before as unknown as PaymentApprovalState;
     const createdBy = before['created_by'] as number | null | undefined;
+    // The chain is config (payment_stage_master_t) — the lock is "the first
+    // stage of THIS request's chain has approved", whatever that stage is called.
+    const stages = await loadPaymentStages();
 
-    if (!isEditableState(state)) {
+    if (!isEditableState(state, stages)) {
+      const first = applicableStages(stages, state.payment_type)[0]?.label ?? 'the first approver';
       return fail(
-        'This request has been approved by the Department and can no longer be edited. ' +
+        `This request has been approved by ${first} and can no longer be edited. ` +
           'Ask an approver to reject it if it needs correcting.',
         422,
       );
     }
-    if (!canEditRequest(state, createdBy, session.uid)) {
+    if (!canEditRequest(state, createdBy, session.uid, stages)) {
       return fail(
         'Only the person who raised a payment request can edit it. ' +
           'Reject it with a reason if it needs correcting.',

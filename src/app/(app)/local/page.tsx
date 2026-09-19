@@ -124,6 +124,11 @@ export default function LocalPage() {
         title="Locals List"
         searchPlaceholder="Search reference, horse, transporter, client…"
         emptyMessage="No local tracking records yet — create the first one."
+        // The sheet carries the rows on screen: same search, same location card.
+        exportHref={`/api/v1/locals/export?${new URLSearchParams({
+          ...(search.trim() ? { q: search.trim() } : {}),
+          ...(locationFilter > 0 ? { location_filter: String(locationFilter) } : {}),
+        }).toString()}`}
         toolbar={
           // §4.35 — the create action belongs to the list it adds to, not to the
           // page header.

@@ -355,6 +355,25 @@
      a new one back in. */
   .card { @apply rounded-lg border border-border bg-card text-card-foreground shadow-sm; }
 
+  /* §4.12 — a section whose page config declares `dense` draws its fields as
+     label-beside-control ROWS instead of the wrapped five-per-row grid. That is
+     the shape a narrow rail needs: main's importinvoice.php stacks FOB / FRET /
+     ASSURANCE / DGDA RATE down a 25% column, and a label sitting above each
+     control there would double the panel's height for nothing.
+
+     The label keeps `.label`'s full-strength foreground (§4.20 — a field label is
+     not secondary information); it is the CELL that is tinted, with `--muted`
+     rather than the fixed slate the legacy screen used, so it follows the
+     configured palette and both themes (§4.32). */
+  .field-row {
+    @apply grid items-center gap-2 border-b border-border py-1.5;
+    grid-template-columns: minmax(6.5rem, 42%) 1fr;
+  }
+  .field-row:last-child { @apply border-b-0; }
+  .field-row > .label {
+    @apply mb-0 self-stretch rounded bg-muted px-2 py-1.5 text-[11px] font-semibold uppercase leading-tight tracking-wide;
+  }
+
   /* A DATA-ENTRY grid, as distinct from `.table-base`'s list of records.
      Where a list is scanned, this is typed into — so it carries a solid brand
      header band and ruled cells, which is what tells an operator at a glance

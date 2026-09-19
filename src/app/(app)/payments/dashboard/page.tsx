@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BarChart3, CreditCard, CircleCheck, XCircle, Clock, Wallet, TrendingUp } from 'lucide-react';
+import { badgeClass, type ToneKey } from '@/lib/payments/stageConfig';
 
 // Payment Dashboard — KPIs, monthly revenue trend, status breakdown, top
 // clients. Data from /api/v1/payments/dashboard. Charts are inline (no new dep).
@@ -12,7 +13,8 @@ interface Dash {
     total_payments: number; total_amount: number; paid: number; rejected: number;
     pending: number; today: number; this_week: number; this_month: number; this_year: number;
   };
-  status_cards: Array<{ status_name: string; count: number }>;
+  /** Name and hue come from the stage master (Masters → Payment Stages). */
+  status_cards: Array<{ status_key: string; status_name: string; tone: ToneKey; count: number }>;
   monthly: Array<{ month_name: string; total: number; revenue: number }>;
   top_clients: Array<{ company_name: string; total: number; revenue: number }>;
 }
@@ -20,15 +22,6 @@ interface Dash {
 const num = (n: number) => (n ?? 0).toLocaleString();
 const money = (n: number) => (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const STATUS_CLS: Record<string, string> = {
-  Paid: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300',
-  Rejected: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300',
-  'Under Process': 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300',
-  'Pending Payment': 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300',
-  'Pending Mgmt': 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300',
-  'Pending Finance': 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300',
-  'Pending Dept': 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300',
-};
 
 export default function PaymentDashboardPage() {
   const [d, setD] = useState<Dash | null>(null);
@@ -119,8 +112,8 @@ export default function PaymentDashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {d.status_cards.map((s) => (
-                    <div key={s.status_name} className="flex items-center justify-between">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLS[s.status_name] ?? 'bg-muted text-foreground'}`}>{s.status_name}</span>
+                    <div key={s.status_key} className="flex items-center justify-between">
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass(s.tone)} border`}>{s.status_name}</span>
                       <span className="font-bold tabular-nums text-foreground">{s.count}</span>
                     </div>
                   ))}

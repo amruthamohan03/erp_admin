@@ -102,6 +102,7 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
       sidebarBg: data.sidebar_bg,
       sidebarFg: data.sidebar_fg,
       footerText: data.footer_text ?? null,
+      letterheadText: data.letterhead_text ?? null,
       updatedBy: session.uid,
       updatedAt: sql`CURRENT_TIMESTAMP`,
     })

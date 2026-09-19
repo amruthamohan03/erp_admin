@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { paymentRequest } from '@/db/schema';
 import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
-import { getRoleStageInfo, getPaymentDetail } from '@/db/queries/payments';
+import { getPaymentDetail } from '@/db/queries/payments';
+import { checkPermission } from '@/lib/auth/permissions';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -23,17 +24,17 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
   return ok(row);
 });
 
-// DELETE /api/v1/payments/{id} — soft delete. Restricted to roles mapped to the
-// 'management' stage (§4.7 — config, not a hardcoded id).
+// DELETE /api/v1/payments/{id} — soft delete (§4.27). Gated on the role's
+// `can_delete` for the Payment Request menu (§4.7), not on holding an approval
+// stage: deciding who may approve and who may delete are separate grants.
 export const DELETE = withErrorHandler(async (_req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
   const id = parseId((await params).id);
   if (!id) return fail('Invalid payment id', 400);
 
-  const roleInfo = await getRoleStageInfo(session.role_id);
-  if (!roleInfo.stages.has('management')) {
-    return fail('You do not have permission to delete payment requests', 403);
+  if (!(await checkPermission(session, '/payments', 'delete'))) {
+    return fail('Your role may not delete payment requests — ask for Delete on Payment Request under Mapping → Role Menu Mapping.', 403);
   }
 
   await db

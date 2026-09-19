@@ -3,6 +3,7 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { paymentListQuerySchema } from '@/schemas';
 import { paymentQueryInput } from '@/lib/payments/query';
 import { getRoleStageInfo, listPayments } from '@/db/queries/payments';
+import { loadPaymentStages } from '@/db/queries/paymentStages';
 
 // GET /api/v1/payments?q=&status_filter=&from=&to=&client_id=&department=
 //                      &pay_for=&payment_type=&currency=&expense_type=&page=&pageSize=
@@ -18,7 +19,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const offset = (q.page - 1) * q.pageSize;
 
   const roleInfo = await getRoleStageInfo(session.role_id);
-  const { items, total } = await listPayments(roleInfo, session.uid, q, q.pageSize, offset);
+  const stages = await loadPaymentStages();
+  const { items, total } = await listPayments(roleInfo, session.uid, stages, q, q.pageSize, offset);
 
   return ok(items, { meta: { total, page: q.page, pageSize: q.pageSize } });
 });

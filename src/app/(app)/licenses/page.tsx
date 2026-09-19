@@ -263,18 +263,10 @@ export default function LicensesListPage() {
 
   return (
     <>
-      <div className="card p-4 mb-4 flex items-center justify-between">
+      <div className="card p-4 mb-4">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary-600" /> Licenses Management
         </h1>
-        <button
-          type="button"
-          onClick={exportAll}
-          title="Export all licenses (respects active filters) to Excel/CSV"
-          className="btn-excel btn-sm"
-        >
-          <FileSpreadsheet className="h-4 w-4" /> Export All to Excel
-        </button>
       </div>
 
       {/* ---- Stat cards (dashboard_card_master_t, category license_dashboard).
@@ -403,6 +395,7 @@ export default function LicensesListPage() {
         }
         searchPlaceholder="Search license, client, bank, invoice..."
         emptyMessage="No licences match these filters — clear them, or create one."
+        onExport={exportAll}
         toolbar={
           // §4.20/§4.25 — the create action lives in the table's toolbar, as a
           // real primary button, next to the export and beside the list it adds

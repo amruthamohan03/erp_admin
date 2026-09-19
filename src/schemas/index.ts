@@ -69,6 +69,7 @@ export * from './drc-holidays';
 export * from './files';
 export * from './bivac';
 export * from './payments';
+export * from './paymentStages';
 export * from './locals';
 export * from './imkpi';
 export * from './audit-log';

@@ -9,6 +9,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { paymentRequest, type McaLine } from '@/db/schema';
 import { isEditableState } from '@/lib/payments/stages';
+import { loadPaymentStages } from './paymentStages';
 
 // Expense type whose duplicate references are explicitly permitted (main's rule).
 // TODO(config): move the dup-exempt expense types to an expense_type_master_t flag.
@@ -79,6 +80,7 @@ export async function mcaGridData(paymentId: number): Promise<McaGridData | null
       expense_type: paymentRequest.expenseType,
       amount: paymentRequest.amount,
       mca_data: paymentRequest.mcaData,
+      paymentType: paymentRequest.paymentType,
       dept: paymentRequest.deptApproval,
       finance: paymentRequest.financeApproval,
       management: paymentRequest.managementApproval,
@@ -92,13 +94,13 @@ export async function mcaGridData(paymentId: number): Promise<McaGridData | null
   // The same rule the list and the save route read — this was a third private
   // copy of "rejected, or not yet through Department" (§4.10).
   const editable = isEditableState({
-    payment_type: null,
+    payment_type: row.paymentType,
     dept_approval: row.dept,
     finance_approval: row.finance,
     management_approval: row.management,
     under_process: row.under,
     paid_approval: row.paid,
-  });
+  }, await loadPaymentStages());
 
   return {
     header: {

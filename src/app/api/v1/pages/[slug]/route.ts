@@ -165,6 +165,7 @@ async function loadPage(
       slug: masterPageAccordion.slug,
       title: masterPageAccordion.title,
       icon: masterPageAccordion.icon,
+      props: masterPageAccordion.props,
       display_order: masterPageAccordion.displayOrder,
       permission: masterPageAccordionRole.permission,
     })
@@ -232,6 +233,8 @@ async function loadPage(
     slug: a.slug,
     title: a.title,
     icon: a.icon,
+    // §4.1 — the page's own layout (which sections share a two-column band).
+    props: a.props ?? null,
     display_order: a.display_order,
     permission: a.permission,
     // Resolve each field's effective permission; drop hidden fields (defense in

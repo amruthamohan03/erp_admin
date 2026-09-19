@@ -6,11 +6,11 @@
 // exports, and the row actions: ALL (print, every page), Edit while not yet
 // validated, Validate, Mark DGI Verified, Delete.
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Plus, FileSpreadsheet, FileText } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
+import InvoiceFormPanel from './InvoiceFormPanel';
 import {
   DateRangeFilter, EMPTY_COUNTS, InvoiceStatCards, useInvoiceRowActions, validationBadge,
   type InvoiceCounts, type InvoiceFilter,
@@ -39,6 +39,10 @@ export default function ExportInvoiceListPage() {
   const [loading, setLoading] = useState(false);
   const [counts, setCounts] = useState<InvoiceCounts>(EMPTY_COUNTS);
   const [pendingOpen, setPendingOpen] = useState(false);
+  // main keeps the form on this page: a panel headed "New Export Invoice", which
+  // the row Edit action reuses for the invoice it was clicked on.
+  const [formId, setFormId] = useState('new');
+  const [formOpen, setFormOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,10 +92,30 @@ export default function ExportInvoiceListPage() {
       </div>
 
       <InvoiceStatCards
+        kind="export"
         counts={counts}
         filter={filter}
         onFilter={(f) => { setFilter(f); setPage(1); }}
         onPending={() => setPendingOpen(true)}
+      />
+
+      <InvoiceFormPanel
+        slug="export-invoices"
+        entityId={formId}
+        open={formOpen}
+        onToggle={() => setFormOpen((v) => !v)}
+        onSaved={() => {
+          setFormOpen(false);
+          setFormId('new');
+          load();
+          loadStats();
+        }}
+        onCancel={() => {
+          setFormOpen(false);
+          setFormId('new');
+        }}
+        createTitle="New Export Invoice"
+        editTitle="Edit Export Invoice"
       />
 
       <DataTable<Row>
@@ -110,9 +134,16 @@ export default function ExportInvoiceListPage() {
             <button type="button" onClick={() => exportProfile('inv')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Export INV
             </button>
-            <Link href="/export-invoices/new" className="btn-primary btn-sm">
+            {/* §4.35 — one create action, last in the toolbar. It opens the
+                panel above rather than navigating, because the form lives on
+                this page. */}
+            <button
+              type="button"
+              onClick={() => { setFormId('new'); setFormOpen(true); }}
+              className="btn-primary btn-sm"
+            >
               <Plus className="h-4 w-4" /> New Export Invoice
-            </Link>
+            </button>
           </>
         }
         columns={[
@@ -131,7 +162,7 @@ export default function ExportInvoiceListPage() {
         ]}
         actions={(r) => ({
           // A validated invoice is final — the save route refuses it too.
-          edit: r.validated === 0 ? `/export-invoices/${r.id}` : undefined,
+          edit: r.validated === 0 ? () => { setFormId(String(r.id)); setFormOpen(true); } : undefined,
           remove: r.validated === 0 ? () => actions.askDelete(r) : undefined,
           extra: (
             <>

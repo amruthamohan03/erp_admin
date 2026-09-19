@@ -30,6 +30,7 @@ export const applicationSettingsUpdateSchema = z.object({
   sidebar_bg: hexColor,
   sidebar_fg: hexColor,
   footer_text: z.string().max(2000).nullable().optional(),
+  letterhead_text: z.string().max(2000, 'Letterhead must be 2000 characters or fewer.').nullable().optional(),
 });
 
 export type ApplicationSettingsUpdate = z.infer<

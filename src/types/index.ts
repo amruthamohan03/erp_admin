@@ -111,6 +111,14 @@ export interface PageAccordionDef {
   slug: string;
   title: string;
   icon: string | null;
+  /**
+   * §4.1 — where the section sits on the page, set per page in
+   * `master_page_accordion_t.props`:
+   *   `panel: 'side' | 'main'` — join the two-column band (narrow rail / wide panel)
+   *   `dense` — draw the section as label-beside-control rows
+   * Absent means what every page did before: full width, stacked.
+   */
+  props: Record<string, unknown> | null;
   display_order: number;
   permission: AccordionPermission;
   fields: PageFieldDef[];

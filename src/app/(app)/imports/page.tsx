@@ -314,18 +314,10 @@ export default function ImportsListPage() {
 
   return (
     <>
-      <div className="card p-4 mb-4 flex items-center justify-between">
+      <div className="card p-4 mb-4">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Truck className="h-5 w-5 text-primary-600" /> Import Management
         </h1>
-        <button
-          type="button"
-          onClick={exportAll}
-          title="Export all imports (respects active filters) to Excel/CSV"
-          className="btn-excel btn-sm"
-        >
-          <FileSpreadsheet className="h-4 w-4" /> Export All to Excel
-        </button>
       </div>
 
       {/* ---- Stat cards (dashboard_card_master_t, category import_dashboard) ---- */}
@@ -474,6 +466,7 @@ export default function ImportsListPage() {
         title="Import List"
         searchPlaceholder="Search MCA ref, client, license, invoice..."
         emptyMessage="No import files match these filters — clear them, or create one."
+        onExport={exportAll}
         toolbar={
           <>
             {/* §9 — enabled only when a "pending" status card is active. The

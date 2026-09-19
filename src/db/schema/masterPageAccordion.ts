@@ -5,6 +5,7 @@ import {
   serial,
   varchar,
   integer,
+  jsonb,
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -22,6 +23,10 @@ export const masterPageAccordion = pgTable(
     title: varchar('title', { length: 200 }).notNull(),
     // Optional Tabler icon class (e.g. 'ti ti-info-circle') for the accordion header.
     icon: varchar('icon', { length: 100 }),
+    // §4.1 — where the section sits on the page: {"panel":"side"|"main"} puts it in
+    // a two-column band, {"dense":1} draws it as label-beside-control rows. NULL is
+    // what every page had before: full width, stacked.
+    props: jsonb('props').$type<Record<string, unknown> | null>(),
     displayOrder: integer('display_order').notNull().default(1),
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id),

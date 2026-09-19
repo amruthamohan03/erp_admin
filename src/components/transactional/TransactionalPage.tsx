@@ -17,6 +17,7 @@ import {
   INIT_TRIGGER,
 } from '@/lib/pages/derive';
 import { parentListRoute } from '@/lib/pages/listRoute';
+import { groupIntoBands, isDense } from '@/lib/pages/layout';
 import type { PageDef, PageFetchResponse } from '@/types';
 import Accordion, { type ResolvedField } from './Accordion';
 
@@ -29,6 +30,17 @@ interface TransactionalPageProps {
    * GET route.
    */
   copyFrom?: string | null;
+  /**
+   * Render the form WITHOUT its page chrome — no back button, no <h1>, and the
+   * action bar inline rather than stuck to the viewport. The invoice lists put
+   * this same form inside a collapsible panel above the table, the way main's
+   * importinvoice.php does, so both shapes run one implementation (§4.10).
+   */
+  embedded?: boolean;
+  /** Embedded only — called when the user acknowledges a successful save. */
+  onSaved?: (id: string) => void;
+  /** Embedded only — called instead of navigating to the list on Cancel. */
+  onCancel?: () => void;
 }
 
 /**
@@ -59,7 +71,14 @@ function withFieldDefaults(
   return next;
 }
 
-export default function TransactionalPage({ slug, entityId, copyFrom = null }: TransactionalPageProps) {
+export default function TransactionalPage({
+  slug,
+  entityId,
+  copyFrom = null,
+  embedded = false,
+  onSaved,
+  onCancel,
+}: TransactionalPageProps) {
   const copying = entityId === 'new' && !!copyFrom;
   const router = useRouter();
   const pathname = usePathname();
@@ -324,6 +343,11 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
     [page],
   );
 
+  // §4.1/§4.12 — the page's own layout. Sections that declare a panel pair into
+  // a two-column band (main's 25% detail rail beside its 75% lines panel); every
+  // other page declares none and keeps stacking full width.
+  const bands = useMemo(() => groupIntoBands(page?.accordions ?? []), [page]);
+
   function toggleAccordion(accSlug: string) {
     setOpenSlugs((prev) => {
       const next = new Set(prev);
@@ -331,6 +355,27 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
       else next.add(accSlug);
       return next;
     });
+  }
+
+  // One definition of a section, used by both band shapes, so a stacked page and
+  // a two-column one can never drift apart in what they pass down (§4.10).
+  function renderAccordion(acc: PageDef['accordions'][number], idx: number) {
+    return (
+      <Accordion
+        key={acc.id}
+        accordion={acc}
+        values={values}
+        onChange={handleFieldChange}
+        resolved={resolvedByAccordion.get(acc.slug) ?? []}
+        open={openSlugs.has(acc.slug)}
+        onToggle={() => toggleAccordion(acc.slug)}
+        invalidFields={invalidFields}
+        accentIndex={idx}
+        entityType={`page:${slug}`}
+        entityId={entityId}
+        dense={isDense(acc.props)}
+      />
+    );
   }
 
   // §4.17 — the page's single save. Every editable section goes up in ONE request,
@@ -411,16 +456,21 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
   return (
     <>
       {/* §4.13 — Back goes to the page's own list view (e.g. /clients) so
-          refresh + back still lands somewhere useful for the user. */}
-      <div className="mb-4">
-        <BackButton fallback={listRoute} />
-      </div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">
-          {page?.title ?? 'Loading...'}
-          {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-muted-foreground">— New</span>}
-        </h1>
-      </div>
+          refresh + back still lands somewhere useful for the user. Embedded, the
+          form is already ON that list, and the panel's own header names it. */}
+      {!embedded && (
+        <>
+          <div className="mb-4">
+            <BackButton fallback={listRoute} />
+          </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-foreground">
+              {page?.title ?? 'Loading...'}
+              {entityId === 'new' && page && <span className="ml-2 text-sm font-normal text-muted-foreground">— New</span>}
+            </h1>
+          </div>
+        </>
+      )}
 
       {loading && (
         <div className="card p-6 text-center text-muted-foreground">Loading page definition...</div>
@@ -435,27 +485,40 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
       {!loading && !error && page && (
         <form onSubmit={(e) => { e.preventDefault(); void handleSave(); }}>
           {/* Bottom padding clears the sticky action bar so the last section's
-              fields are never hidden behind it. */}
-          <div className="pb-24">
-            {page.accordions.map((acc, idx) => (
-              <Accordion
-                key={acc.id}
-                accordion={acc}
-                values={values}
-                onChange={handleFieldChange}
-                resolved={resolvedByAccordion.get(acc.slug) ?? []}
-                open={openSlugs.has(acc.slug)}
-                onToggle={() => toggleAccordion(acc.slug)}
-                invalidFields={invalidFields}
-                accentIndex={idx}
-                entityType={`page:${slug}`}
-                entityId={entityId}
-              />
-            ))}
+              fields are never hidden behind it. Embedded there is no sticky bar
+              to clear — the buttons sit at the end of the panel. */}
+          <div className={embedded ? '' : 'pb-24'}>
+            {bands.map((band, bandIdx) => {
+              if (band.kind === 'full') return renderAccordion(band.entry.accordion, band.entry.index);
+              // A band with only one slot filled still spans the page — an empty
+              // column would otherwise hold a quarter of the form open for nothing.
+              const sideOnly = band.main.length === 0;
+              const mainOnly = band.side.length === 0;
+              return (
+                <div key={`band-${bandIdx}`} className="grid items-start gap-x-4 xl:grid-cols-4">
+                  {band.side.length > 0 && (
+                    <div className={sideOnly ? 'xl:col-span-4' : 'xl:col-span-1'}>
+                      {band.side.map((e) => renderAccordion(e.accordion, e.index))}
+                    </div>
+                  )}
+                  {band.main.length > 0 && (
+                    <div className={mainOnly ? 'xl:col-span-4' : 'xl:col-span-3'}>
+                      {band.main.map((e) => renderAccordion(e.accordion, e.index))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {editableAccordions.length > 0 && (
-            <div className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur sm:-mx-6 sm:px-6">
+            <div
+              className={
+                embedded
+                  ? 'mt-2 border-t border-border pt-3'
+                  : 'sticky bottom-0 z-20 -mx-4 border-t border-border bg-card/95 px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur sm:-mx-6 sm:px-6'
+              }
+            >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 {saveError && (
                   <span className="flex-1 text-sm text-red-600 dark:text-red-400">{saveError}</span>
@@ -476,7 +539,8 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
                   type="button"
                   onClick={() => {
                     if (dirty && !confirm('Discard your unsaved changes?')) return;
-                    router.push(listRoute);
+                    if (embedded) onCancel?.();
+                    else router.push(listRoute);
                   }}
                   disabled={saving}
                   className="btn-secondary sm:w-auto"
@@ -501,7 +565,12 @@ export default function TransactionalPage({ slug, entityId, copyFrom = null }: T
         onDismiss={() => {
           const wasSuccess = saveResult?.status === 'success';
           setSaveResult(null);
-          if (wasSuccess) router.replace(listRoute);
+          if (!wasSuccess) return;
+          // §4.22 — OK is what moves the user on. On a page that means the list;
+          // embedded, the list is already behind the panel, so the owner closes
+          // it and refreshes instead of a navigation that would go nowhere.
+          if (embedded) onSaved?.(entityId);
+          else router.replace(listRoute);
         }}
       />
     </>

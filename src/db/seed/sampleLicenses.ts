@@ -41,7 +41,7 @@ const SAMPLES: SampleLicense[] = [
   // ── Issued (4) ─────────────────────────────────────────────────
   {
     license_no: 'LIC-IB-2026-001',
-    client_code: 'GEC001',
+    client_code: 'GEC',
     type_code: 'IB',
     state: 'issued',
     amount: '250000.00',
@@ -53,7 +53,7 @@ const SAMPLES: SampleLicense[] = [
   },
   {
     license_no: 'LIC-IB-2026-002',
-    client_code: 'IVN002',
+    client_code: 'IVN',
     type_code: 'IB',
     state: 'issued',
     amount: '450000.00',
@@ -67,7 +67,7 @@ const SAMPLES: SampleLicense[] = [
   // typical seeding date so the expiring-soon card lights up.
   {
     license_no: 'LIC-IB-2025-091',
-    client_code: 'TFM003',
+    client_code: 'TFM',
     type_code: 'IB',
     state: 'issued',
     amount: '385000.00',
@@ -79,7 +79,7 @@ const SAMPLES: SampleLicense[] = [
   },
   {
     license_no: 'LIC-EXP-2025-045',
-    client_code: 'PWR007',
+    client_code: 'PWR',
     type_code: 'Export',
     state: 'issued',
     amount: '5200000.00',
@@ -92,7 +92,7 @@ const SAMPLES: SampleLicense[] = [
   // ── Approved (2) ───────────────────────────────────────────────
   {
     license_no: 'LIC-IB-2026-003',
-    client_code: 'BRC004',
+    client_code: 'BRC',
     type_code: 'IB',
     state: 'approved',
     amount: '95000.00',
@@ -104,7 +104,7 @@ const SAMPLES: SampleLicense[] = [
   },
   {
     license_no: 'LIC-EXP-2026-004',
-    client_code: 'CIM008',
+    client_code: 'CIM',
     type_code: 'Export',
     state: 'approved',
     amount: '620000.00',
@@ -117,7 +117,7 @@ const SAMPLES: SampleLicense[] = [
   // ── Pending (3: 2 draft + 1 submitted) ─────────────────────────
   {
     license_no: 'LIC-IB-2026-005',
-    client_code: 'ORN005',
+    client_code: 'ORN',
     type_code: 'IB',
     state: 'draft',
     amount: '165000.00',
@@ -129,7 +129,7 @@ const SAMPLES: SampleLicense[] = [
   },
   {
     license_no: 'LIC-IB-2026-006',
-    client_code: 'AIR006',
+    client_code: 'AIR',
     type_code: 'IB',
     state: 'draft',
     amount: '98000.00',
@@ -141,7 +141,7 @@ const SAMPLES: SampleLicense[] = [
   },
   {
     license_no: 'LIC-EXP-2026-007',
-    client_code: 'IVN002',
+    client_code: 'IVN',
     type_code: 'Export',
     state: 'submitted',
     amount: '1520000.00',
@@ -154,7 +154,7 @@ const SAMPLES: SampleLicense[] = [
   // ── Cancelled (1) ──────────────────────────────────────────────
   {
     license_no: 'LIC-IB-2026-008',
-    client_code: 'MAR009',
+    client_code: 'MAR',
     type_code: 'IB',
     state: 'cancelled',
     amount: '78000.00',

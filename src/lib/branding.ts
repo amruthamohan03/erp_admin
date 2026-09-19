@@ -30,6 +30,7 @@ export interface Branding {
   sidebar_bg: string;
   sidebar_fg: string;
   footer_text: string | null;
+  letterhead_text: string | null;
 }
 
 /**
@@ -49,6 +50,7 @@ export const BRANDING_DEFAULTS: Branding = {
   sidebar_bg: '#151a30',
   sidebar_fg: '#e2e8f0',
   footer_text: '© {year} ERP Admin · All rights reserved.',
+  letterhead_text: null,
 };
 
 function parse(hex: string, fallback: string): Hsl {
