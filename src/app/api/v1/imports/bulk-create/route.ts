@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { importT, exportT, licenseT } from '@/db/schema';
 import {
   ok,
@@ -61,13 +62,13 @@ async function loadLicenseFacts(
       total: sql<string>`COALESCE(SUM(${importT.fob}), 0)`.as('total'),
     })
     .from(importT)
-    .where(and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y')));
+    .where(and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y'), fileNotCancelled(importT.clearingStatus)));
   const [expUsed] = await db
     .select({
       total: sql<string>`COALESCE(SUM(${exportT.fob}), 0)`.as('total'),
     })
     .from(exportT)
-    .where(and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y')));
+    .where(and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y'), fileNotCancelled(exportT.clearingStatus)));
 
   const used = Number(impUsed?.total ?? 0) + Number(expUsed?.total ?? 0);
   return { ...lic, used };

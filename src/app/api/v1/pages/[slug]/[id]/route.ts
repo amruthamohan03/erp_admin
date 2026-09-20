@@ -37,6 +37,8 @@ import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive
 import { assertPartielleCapacity } from '@/db/queries/partielle';
 import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
+import { announceFiche, computeFicheSave } from '@/db/queries/fiches';
+import { announcePayment } from '@/db/queries/payments';
 import { loadPaymentStages } from '@/db/queries/paymentStages';
 import { applicableStages } from '@/lib/payments/stageConfig';
 import {
@@ -392,6 +394,15 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       );
     }
     const payload = parseInvoiceGridValue(mergedSubmitted['invoice_grid']);
+    // main's "At least one MCA Reference is required": an import invoice bills
+    // the files it names, and one naming none bills nothing anyone can trace.
+    if (payload && invoiceKind === 'import' && payload.mcaDetails.length === 0) {
+      return fail(
+        'MCA References: choose at least one file — pick the licence, then the MCA references on it.',
+        422,
+        { field: 'invoice_files' },
+      );
+    }
     if (payload) {
       const computed = computeGrid(invoiceKind, payload);
       Object.assign(patch, computed.columns);
@@ -408,6 +419,16 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       }
       invoiceGrid = { kind: invoiceKind, payload, items: computed.items };
     }
+  }
+
+  // §2 step 3 — a Fiche de Calcul's CIF, coefficient and line figures are
+  // recomputed from the tax_rule_master_t formulas, its file is checked (on the
+  // licence, not cancelled, not already on another fiche), and a create starts
+  // in the workflow's initial state. See db/queries/fiches.ts.
+  if (slug === 'fiche') {
+    const ficheSave = await computeFicheSave(evalContext, entityId, before);
+    if (ficheSave.problem) return fail(ficheSave.problem.message, 422, { field: ficheSave.problem.field });
+    Object.assign(patch, ficheSave.columns);
   }
 
   // 7) Transactional write + audit.
@@ -549,6 +570,15 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
         ...(resubmitting ? { resubmitted: true } : {}),
       },
     });
+
+    // A record entering its approval chain is announced to the roles configured
+    // for it (Masters → Notification Events), in the same transaction.
+    if (slug === 'payment' && (isCreate || resubmitting)) {
+      await announcePayment(tx, isCreate ? 'payment.submitted' : 'payment.resubmitted', savedId, session.uid);
+    }
+    if (slug === 'fiche' && isCreate) {
+      await announceFiche(tx, 'fiche.created', savedId, session.uid);
+    }
 
     return savedId;
   });

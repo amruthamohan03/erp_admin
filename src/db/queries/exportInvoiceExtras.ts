@@ -6,6 +6,7 @@
 // (not a CSV like imports).
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { announceInvoiceStatus } from './invoices';
 import { exportInvoices } from '@/db/schema';
 import { pendingInvoiceCount } from './invoicePending';
 
@@ -177,14 +178,17 @@ export async function updateExportDgiInfo(
     !!input.dgi_code && input.dgi_code.trim() !== '' && input.dgi_amount > 0 && !!input.normalized_by && input.normalized_by > 0;
   const verify = complete && existing.validated === 1;
 
-  await db.execute(sql`
-    UPDATE export_invoices_t SET
-      dgi_code = ${input.dgi_code},
-      dgi_amount = ${input.dgi_amount},
-      normalized_by = ${input.normalized_by},
-      validated = CASE WHEN ${verify} THEN 2 ELSE validated END,
-      updated_by = ${uid},
-      updated_at = now()
-    WHERE id = ${id}`);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      UPDATE export_invoices_t SET
+        dgi_code = ${input.dgi_code},
+        dgi_amount = ${input.dgi_amount},
+        normalized_by = ${input.normalized_by},
+        validated = CASE WHEN ${verify} THEN 2 ELSE validated END,
+        updated_by = ${uid},
+        updated_at = now()
+      WHERE id = ${id}`);
+    if (verify) await announceInvoiceStatus(tx, 'export', id, 1, 2, uid);
+  });
   return { found: true, verified: verify };
 }

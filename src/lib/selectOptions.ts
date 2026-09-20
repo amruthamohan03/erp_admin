@@ -39,7 +39,7 @@ export interface SelectOption {
  * pairs and not others is inconsistent, and the result of an inconsistent
  * comparator is not defined.
  */
-export function orderOptions(options: SelectOption[]): SelectOption[] {
+export function orderOptions<T extends SelectOption>(options: T[]): T[] {
   const byId = options.every((o) => o.value !== '' && Number.isFinite(Number(o.value)));
   if (!byId) return options;
   return options.slice().sort((a, b) => Number(a.value) - Number(b.value));

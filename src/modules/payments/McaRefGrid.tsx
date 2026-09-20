@@ -52,6 +52,8 @@ const SECTION_TITLE = [
 interface Verdict {
   mca_ref: string;
   exists: boolean;
+  /** The file exists but was cancelled (File Cancellation) — not payable. */
+  cancelled?: boolean;
   duplicate: number | null;
   valid: boolean;
 }
@@ -123,7 +125,8 @@ export function importSentence(
 ): string {
   const landedGood = fresh.filter((l) => l.valid).length;
   const missing = fresh.filter((l) => !l.exists).map((l) => l.mca_ref);
-  const claimed = fresh.filter((l) => l.exists && l.duplicate !== null);
+  const cancelled = fresh.filter((l) => l.exists && l.cancelled).map((l) => l.mca_ref);
+  const claimed = fresh.filter((l) => l.exists && !l.cancelled && l.duplicate !== null);
 
   const parts = [
     `${fresh.length} reference${fresh.length === 1 ? '' : 's'} imported from “${data.file_name}”` +
@@ -138,13 +141,16 @@ export function importSentence(
       `${missing.length} not found in the tracking system for this client: ${nameRefs(missing)}.`,
     );
   }
+  if (cancelled.length > 0) {
+    parts.push(`${cancelled.length} cancelled, so no longer payable: ${nameRefs(cancelled)}.`);
+  }
   if (claimed.length > 0) {
     parts.push(
       `${claimed.length} already claimed for this expense type: ` +
         `${nameRefs(claimed.map((l) => `${l.mca_ref} (request #${l.duplicate})`))}.`,
     );
   }
-  if (missing.length > 0 || claimed.length > 0) {
+  if (missing.length > 0 || cancelled.length > 0 || claimed.length > 0) {
     parts.push('The red rows must be corrected or removed before this request can be saved.');
   }
 
@@ -471,6 +477,7 @@ export default function McaRefGrid({
             next[l.mca_ref.trim().toUpperCase()] = {
               mca_ref: l.mca_ref,
               exists: l.exists,
+              cancelled: l.cancelled,
               duplicate: l.duplicate,
               valid: l.valid,
             };
@@ -553,7 +560,7 @@ export default function McaRefGrid({
       icon: <AlertCircle className="h-3.5 w-3.5" />,
       // The two failures read differently because they are fixed differently:
       // a reference that is not there at all versus one that is already spent.
-      text: !v.exists ? 'Not found in tracking' : `Already claimed by #${v.duplicate}`,
+      text: !v.exists ? 'Not found in tracking' : v.cancelled ? 'File cancelled' : `Already claimed by #${v.duplicate}`,
       cls: 'text-red-600 dark:text-red-400',
       tone: 'bad',
     };

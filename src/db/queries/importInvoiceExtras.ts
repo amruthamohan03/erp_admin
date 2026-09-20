@@ -5,6 +5,7 @@
 // to DGI-verified (=2), matching main.
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { announceInvoiceStatus } from './invoices';
 import { importInvoices, usersT } from '@/db/schema';
 import { pendingInvoiceCount } from './invoicePending';
 
@@ -184,22 +185,26 @@ export async function updateDgiInfo(
   uid: number,
 ): Promise<{ found: boolean }> {
   const [existing] = await db
-    .select({ id: importInvoices.id })
+    .select({ id: importInvoices.id, validated: importInvoices.validated })
     .from(importInvoices)
     .where(eq(importInvoices.id, id));
   if (!existing) return { found: false };
 
   const complete =
     !!input.tally_ref && input.tally_ref.trim() !== '' && input.dgi_amount > 0 && !!input.normalized_by && input.normalized_by > 0;
+  const verify = complete && existing.validated === 1;
 
-  await db.execute(sql`
-    UPDATE import_invoices_t SET
-      tally_ref = ${input.tally_ref},
-      dgi_amount = ${input.dgi_amount},
-      normalized_by = ${input.normalized_by},
-      validated = CASE WHEN ${complete} AND validated = 1 THEN 2 ELSE validated END,
-      updated_by = ${uid},
-      updated_at = now()
-    WHERE id = ${id}`);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      UPDATE import_invoices_t SET
+        tally_ref = ${input.tally_ref},
+        dgi_amount = ${input.dgi_amount},
+        normalized_by = ${input.normalized_by},
+        validated = CASE WHEN ${verify} THEN 2 ELSE validated END,
+        updated_by = ${uid},
+        updated_at = now()
+      WHERE id = ${id}`);
+    if (verify) await announceInvoiceStatus(tx, 'import', id, 1, 2, uid);
+  });
   return { found: true };
 }

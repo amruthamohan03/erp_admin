@@ -14,6 +14,7 @@
 
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { usersT } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { buildReference } from '@/db/queries/mcaRefGenerator';
@@ -71,10 +72,12 @@ const SOURCES: Record<string, DeriveSource> = {
       const usedImports = (col: string) => sql`
         (SELECT SUM(${sql.identifier(col)}) FROM imports_t i
           WHERE i.license_id = l.id AND i.display = 'Y'
+            AND ${fileNotCancelled(sql`i.clearing_status`)}
             ${self ? sql`AND i.id <> ${self}` : sql``})`;
       const usedExports = (col: string) => sql`
         (SELECT SUM(${sql.identifier(col)}) FROM exports_t e
-          WHERE e.license_id = l.id AND e.display = 'Y')`;
+          WHERE e.license_id = l.id AND e.display = 'Y'
+            AND ${fileNotCancelled(sql`e.clearing_status`)})`;
 
       return queryOne(sql`
         SELECT l.kind_id, l.type_of_goods_id, l.transport_mode_id, l.currency_id,
@@ -156,6 +159,37 @@ const SOURCES: Record<string, DeriveSource> = {
       return queryOne(sql`
         SELECT liquidation_paid_by, license_cleared_by, invoice_template
         FROM client_master_t WHERE id = ${id} LIMIT 1`);
+    },
+  },
+
+  // §2 step 3 — a Fiche de Calcul copies its figures off the import file it is
+  // raised on (main's getMCADetails). Each fiche field binds one column; the
+  // editable ones are prefills the operator may correct, as main allowed.
+  fiche_file: {
+    async resolve(values) {
+      const id = toId(values['import_id']);
+      if (!id) return null;
+      return queryOne(sql`
+        SELECT i.regime AS regime_id, i.currency AS currency_id, i.transport_mode AS transport_mode_id,
+               i.weight::float8 AS weight, i.fob::float8 AS fob,
+               COALESCE(i.fob_currency, i.currency) AS fob_currency_id,
+               i.fret::float8 AS fret, COALESCE(i.fret_currency, i.currency) AS fret_currency_id,
+               i.insurance_amount::float8 AS insurance_amount,
+               COALESCE(i.insurance_amount_currency, i.currency) AS insurance_currency_id,
+               COALESCE(i.other_charges, 0)::float8 AS other_charges,
+               COALESCE(i.other_charges_currency, i.currency) AS other_charges_currency_id,
+               i.invoice
+        FROM imports_t i WHERE i.id = ${id} LIMIT 1`);
+    },
+  },
+
+  // An incoterm's full wording, shown beside the short code (main's INCOTERM Full).
+  incoterm: {
+    async resolve(values) {
+      const id = toId(values['incoterm_id']);
+      if (!id) return null;
+      return queryOne(sql`
+        SELECT incoterm_full_name FROM incoterm_master_t WHERE id = ${id} LIMIT 1`);
     },
   },
 
@@ -259,6 +293,7 @@ SOURCES.export_mca = referenceSource('export');
 SOURCES.local_lt = referenceSource('local');
 SOURCES.export_invoice_ref = referenceSource('export-invoice');
 SOURCES.import_invoice_ref = referenceSource('import-invoice');
+SOURCES.fiche_ref = referenceSource('fiche');
 
 export function getDeriveSource(name: string): DeriveSource | null {
   return SOURCES[name] ?? null;

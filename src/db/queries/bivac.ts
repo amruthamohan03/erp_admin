@@ -8,6 +8,7 @@
 // main's model.
 import { and, eq, ne, or, ilike, sql, count, desc, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { licenseT, clientMaster, currencyMaster, typeOfGoodsMaster, bivacPartial } from '@/db/schema';
 
 // ---- Licences list (import kinds 1,2) with allocation + usage rollups --------
@@ -69,6 +70,7 @@ function usedSum(col: 'weight' | 'fob'): SQL<string> {
     FROM imports_t i
     INNER JOIN bivac_partial_t p ON i.inspection_reports = p.partial_name
     WHERE p.license_id = ${licenseT.id} AND p.display = 'Y' AND i.display = 'Y'
+      AND ${fileNotCancelled(sql`i.clearing_status`)}
   )`;
 }
 
@@ -143,8 +145,8 @@ export interface BivacPartialView {
 // Shared projection: a PARTIELLE row + its used/remaining/import-count derived
 // from imports_t. `whereSql` scopes it (by license or by id).
 function partialSelect() {
-  const usedW = sql<string>`(SELECT COALESCE(SUM(i.weight),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y')`;
-  const usedF = sql<string>`(SELECT COALESCE(SUM(i.fob),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y')`;
+  const usedW = sql<string>`(SELECT COALESCE(SUM(i.weight),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y' AND ${fileNotCancelled(sql`i.clearing_status`)})`;
+  const usedF = sql<string>`(SELECT COALESCE(SUM(i.fob),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y' AND ${fileNotCancelled(sql`i.clearing_status`)})`;
   return {
     id: bivacPartial.id,
     partial_name: bivacPartial.partialName,

@@ -3,7 +3,8 @@
 // eligibility are config-driven via payment_stage_role_master_t (§4.7) — no
 // hardcoded role ids.
 import { sql, type SQL } from 'drizzle-orm';
-import { db } from '@/lib/db';
+import { db, type Transaction } from '@/lib/db';
+import { raiseEvent } from './notifications';
 import { PAYMENT_STAGES } from '@/db/schema';
 import { STAGE_COLUMNS } from '@/lib/payments/stages';
 import type { StageDef } from '@/lib/payments/stageConfig';
@@ -436,4 +437,42 @@ export async function getPaymentDashboard(stages: readonly StageDef[]): Promise<
     monthly,
     top_clients,
   };
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATIONS
+// ---------------------------------------------------------------------------
+
+/**
+ * Raise a payment request's notification event (submitted, approved at a
+ * stage, rejected) inside the transaction that made the change. The roles told
+ * and the wording are notification_event_master_t rows; this only supplies what
+ * happened: {ref}, {requestee}, {beneficiary}, {amount}, {currency}, plus
+ * whatever the caller adds ({stage}, {reason}).
+ */
+export async function announcePayment(
+  tx: Transaction,
+  eventKey: string,
+  id: number,
+  actorUserId: number,
+  extra: Record<string, string | number | null> = {},
+): Promise<void> {
+  const rows = await tx.execute(sql`
+    SELECT p.requestee, p.beneficiary, p.amount::float8 AS amount, p.created_by, c.currency_short_name AS currency
+    FROM payment_request_t p LEFT JOIN currency_master_t c ON c.id = p.currency
+    WHERE p.id = ${id}`);
+  const p = (rows as unknown as { rows: { requestee: string | null; beneficiary: string | null; amount: number | null; created_by: number | null; currency: string | null }[] }).rows[0];
+  if (!p) return;
+  await raiseEvent(tx, eventKey, {
+    actorUserId,
+    creatorUserId: p.created_by,
+    context: {
+      ref: `#${id}`,
+      requestee: p.requestee,
+      beneficiary: p.beneficiary,
+      amount: (p.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      currency: p.currency,
+      ...extra,
+    },
+  });
 }

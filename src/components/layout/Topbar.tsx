@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import InboxMenu from './InboxMenu';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
 
@@ -108,6 +109,13 @@ export default function Topbar() {
       <div className="flex shrink-0 items-center gap-1 [&_button]:text-white [&_button:hover]:bg-white/15 [&_button:hover]:text-white">
         <LanguageSwitcher />
         <ThemeToggle />
+        {me && (
+          <>
+            {/* Two inboxes, two counts: system alerts, and messages from other roles. */}
+            <InboxMenu kind="event" />
+            <InboxMenu kind="message" />
+          </>
+        )}
 
         {me && (
           <DropdownMenu>

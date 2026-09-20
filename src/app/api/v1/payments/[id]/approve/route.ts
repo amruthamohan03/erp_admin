@@ -7,6 +7,7 @@ import { canActOn, getRoleStageInfo, loadPaymentStages } from '@/db/queries/paym
 import { STAGE_COLUMNS, checkApprovable, type PaymentApprovalState } from '@/lib/payments/stages';
 import { stageLabel } from '@/lib/payments/stageConfig';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { announcePayment } from '@/db/queries/payments';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -86,6 +87,9 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
         file4_path: body.file4_path ?? null,
       },
     });
+    // Each stage is its own event, so the roles told are the ones the NEXT
+    // stage needs — configured under Masters → Notification Events.
+    await announcePayment(tx, `payment.approved.${stage}`, id, session.uid, { stage: label });
   });
   return ok({ id, stage, stage_label: label });
 });

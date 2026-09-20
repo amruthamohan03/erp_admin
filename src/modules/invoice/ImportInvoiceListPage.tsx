@@ -10,7 +10,7 @@ import { Plus, FileText, FileSpreadsheet, Printer } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
-import InvoiceFormPanel from './InvoiceFormPanel';
+import TransactionFormPanel from '@/components/transactional/TransactionFormPanel';
 import {
   DateRangeFilter, EMPTY_COUNTS, InvoiceStatCards, useInvoiceRowActions, validationBadge,
   type InvoiceCounts, type InvoiceFilter,
@@ -105,7 +105,7 @@ export default function ImportInvoiceListPage() {
         onPending={() => setPendingOpen(true)}
       />
 
-      <InvoiceFormPanel
+      <TransactionFormPanel
         slug="import-invoices"
         entityId={formId}
         open={formOpen}

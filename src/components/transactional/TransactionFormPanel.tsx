@@ -1,9 +1,9 @@
 'use client';
 
-// §2 step 5 — the create/edit form as a collapsible panel ABOVE the list, which
-// is where main's importinvoice.php and exportinvoice.php put it: one accordion
-// headed "Add New Import Invoice", and the list's Edit action loads the chosen
-// invoice into that same panel rather than leaving the page.
+// The create/edit form as a collapsible panel ABOVE a list, which is where
+// main's importinvoice.php, exportinvoice.php and fiches.php put it: one
+// accordion headed "Add New …", and the list's Edit action loads the chosen
+// record into that same panel rather than leaving the page.
 //
 // TODO(§4.35): the house rule is that a list's create action is a single
 // `btn-primary btn-sm` in the DataTable toolbar that NAVIGATES to /new. The
@@ -21,8 +21,8 @@ import { ChevronDown, FilePlus2, Pencil } from 'lucide-react';
 import clsx from 'clsx';
 import TransactionalPage from '@/components/transactional/TransactionalPage';
 
-export interface InvoiceFormPanelProps {
-  /** master_page slug — 'import-invoices' | 'export-invoices'. */
+export interface TransactionFormPanelProps {
+  /** master_page slug — 'import-invoices', 'export-invoices', 'fiche'. */
   slug: string;
   /** What the panel is holding: 'new', or the id of the invoice being edited. */
   entityId: string;
@@ -36,7 +36,7 @@ export interface InvoiceFormPanelProps {
   editTitle: string;
 }
 
-export default function InvoiceFormPanel({
+export default function TransactionFormPanel({
   slug,
   entityId,
   open,
@@ -45,7 +45,7 @@ export default function InvoiceFormPanel({
   onCancel,
   createTitle,
   editTitle,
-}: InvoiceFormPanelProps) {
+}: TransactionFormPanelProps) {
   const creating = entityId === 'new';
   const ref = useRef<HTMLDivElement>(null);
   // Once opened, the form STAYS mounted and is only hidden when collapsed.

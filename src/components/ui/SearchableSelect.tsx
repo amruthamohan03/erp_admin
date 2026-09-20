@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { orderOptions, type SelectOption } from '@/lib/selectOptions';
+import { orderOptions, type SelectOption } from '@/lib/selectOptions';
+import { useAnchoredPanel } from './useAnchoredPanel';
 
 // The project's single dropdown control (§4.16). Every pick-one list uses this —
 // a native <select> gives no type-ahead beyond first-letter matching, which is
@@ -14,31 +15,7 @@ import { orderOptions, type SelectOption } from '@/lib/selectOptions';
 // dark mode. Options always render in id order regardless of fetch order — see
 // orderOptions() in @/lib/selectOptions.
 //
-// The panel renders in a portal on `position: fixed`, not as an absolutely
-// positioned child. An in-flow panel is clipped by the first ancestor with a
-// clipping overflow, and the control sits inside three of them: the transaction
-// Accordion card (`overflow-hidden`), every list page's `overflow-x-auto` table
-// wrapper, and the modals. Portalling fixes all of them in one place rather than
-// asking each call site to relax its overflow.
-
-// The list shows up to ten options before it starts scrolling, and shrinks to fit
-// when fewer exist — sized in px because the cap is a row count, not a design token.
-const MAX_VISIBLE_OPTIONS = 10;
-const OPTION_ROW_PX = 32; // px-3 py-1.5 around a text-sm line box
-const MIN_VISIBLE_OPTIONS = 3; // floor when the viewport is tight — the list scrolls
-const SEARCH_ROW_PX = 56; // the search input and its padding, above the list
-const TRIGGER_GAP_PX = 4;
-const VIEWPORT_PAD_PX = 8;
-const MIN_PANEL_WIDTH_PX = 192;
-
-interface PanelPosition {
-  left: number;
-  width: number;
-  /** Exactly one of top/bottom is set — `bottom` anchors a panel that opens upward. */
-  top: number | null;
-  bottom: number | null;
-  maxList: number;
-}
+// The panel renders in a portal on `position: fixed` — see useAnchoredPanel.
 
 /** Kept as an alias so the many existing imports of this name still resolve. */
 export type SearchableSelectOption = SelectOption;
@@ -86,9 +63,13 @@ export default function SearchableSelect({
   // `:user-invalid`. Track engagement ourselves so a required pick the user opened
   // and abandoned reads the same as an empty required <input> (§4.18).
   const [touched, setTouched] = useState(false);
-  const [position, setPosition] = useState<PanelPosition | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const { rootRef, panelRef, position, place } = useAnchoredPanel({
+    open,
+    onDismiss: () => {
+      setOpen(false);
+      setTouched(true);
+    },
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
@@ -103,71 +84,6 @@ export default function SearchableSelect({
     if (!q) return ordered;
     return ordered.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
-
-  // Measure the trigger and decide where the panel goes. Called before the panel
-  // is first shown (so it never paints in the wrong place) and again on scroll or
-  // resize, since a fixed panel does not follow its trigger on its own.
-  const place = useCallback(() => {
-    const trigger = rootRef.current;
-    if (!trigger) return;
-    const r = trigger.getBoundingClientRect();
-
-    const wanted = MAX_VISIBLE_OPTIONS * OPTION_ROW_PX;
-    const below = window.innerHeight - r.bottom - TRIGGER_GAP_PX - VIEWPORT_PAD_PX;
-    const above = r.top - TRIGGER_GAP_PX - VIEWPORT_PAD_PX;
-    // Flip upward only when below genuinely can't hold the panel *and* above is
-    // roomier — flipping into an equally cramped space just moves the problem.
-    const flip = below < wanted + SEARCH_ROW_PX && above > below;
-    const room = (flip ? above : below) - SEARCH_ROW_PX;
-
-    // A very narrow trigger (a rows-per-page selector, or a picker sharing its
-    // cell with a button) still needs a readable list, so the panel has a floor.
-    // When that floor makes it WIDER than the trigger it grows leftward — right
-    // is where the next field in a grid form sits, and a list spilling onto a
-    // neighbouring input reads as a broken layout rather than as a menu.
-    const width = Math.round(Math.max(r.width, MIN_PANEL_WIDTH_PX));
-    const preferred = width > r.width ? r.right - width : r.left;
-    // Then keep it on screen: a control near the right edge used to open a panel
-    // that ran off it, with the far end of every option unreachable.
-    const maxLeft = window.innerWidth - width - VIEWPORT_PAD_PX;
-    const left = Math.round(Math.min(Math.max(preferred, VIEWPORT_PAD_PX), Math.max(maxLeft, VIEWPORT_PAD_PX)));
-
-    setPosition({
-      left,
-      width,
-      top: flip ? null : Math.round(r.bottom + TRIGGER_GAP_PX),
-      bottom: flip ? Math.round(window.innerHeight - r.top + TRIGGER_GAP_PX) : null,
-      maxList: Math.round(
-        Math.max(MIN_VISIBLE_OPTIONS * OPTION_ROW_PX, Math.min(wanted, room)),
-      ),
-    });
-  }, []);
-
-  // Close on outside click. The panel lives in a portal, so it is not inside
-  // rootRef — both subtrees have to count as "inside".
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
-      setOpen(false);
-      setTouched(true);
-    }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
-
-  // Keep the panel pinned to its trigger while the page or any scroll container
-  // moves — `true` catches scrolls on nested containers, which don't bubble.
-  useEffect(() => {
-    if (!open) return;
-    window.addEventListener('scroll', place, true);
-    window.addEventListener('resize', place);
-    return () => {
-      window.removeEventListener('scroll', place, true);
-      window.removeEventListener('resize', place);
-    };
-  }, [open, place]);
 
   // Reset search & focus when the panel opens. The setState here is in response
   // to a prop transition (open false → true), not a cascading render cycle.

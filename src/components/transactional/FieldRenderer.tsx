@@ -7,6 +7,9 @@ import PartielleManageModal from '@/components/transactional/PartielleManageModa
 import McaRefGrid from '@/modules/payments/McaRefGrid';
 import QuotationItemsGrid from '@/modules/quotations/QuotationItemsGrid';
 import InvoiceGrid, { type InvoiceGridValue } from '@/modules/invoice/InvoiceGrid';
+import InvoiceFilesPicker from '@/modules/invoice/InvoiceFilesPicker';
+import FicheItemsGrid from '@/modules/fiche/FicheItemsGrid';
+import type { FicheItem } from '@/db/schema/fiche';
 import type { QuotationLine } from '@/lib/quotations/line';
 import type { McaLine, RemarkLine } from '@/db/schema';
 import RemarkLog from '@/components/transactional/RemarkLog';
@@ -304,6 +307,38 @@ export default function FieldRenderer({
         />
       );
     }
+
+    // §2 step 5 — Import picks its files in the header: licences, then the MCA
+    // references on them. The pick lives in the invoice grid's value, so this
+    // writes that field through the page's change path rather than its own.
+    case 'invoice-files': {
+      const grid = (values?.['invoice_grid'] ?? null) as InvoiceGridValue | null;
+      return (
+        <InvoiceFilesPicker
+          invoiceId={entityId && entityId !== 'new' ? Number(entityId) : 0}
+          clientId={toId(values?.['client_id'])}
+          grid={grid ?? { quotation_id: null, items: [], mcaDetails: [] }}
+          onGridChange={(next) => onFieldsChange?.({ invoice_grid: next })}
+          readonly={readonly}
+          invalid={invalid}
+        />
+      );
+    }
+
+    // §2 step 3 — a Fiche de Calcul's lines. Reads the header (FOB, charges,
+    // rates, currency, regime, provenance, file) and writes CIF and coefficient
+    // back to it — both are computed from the configured tax formulas.
+    case 'fiche-items':
+      return (
+        <FicheItemsGrid
+          value={(Array.isArray(value) ? value : []) as FicheItem[]}
+          onChange={(items) => onChange(items)}
+          readonly={readonly}
+          values={values ?? {}}
+          onFieldsChange={onFieldsChange}
+          invalid={invalid}
+        />
+      );
 
     case 'remark-log':
       return (

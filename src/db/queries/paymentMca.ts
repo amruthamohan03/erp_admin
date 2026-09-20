@@ -10,6 +10,7 @@ import { db } from '@/lib/db';
 import { paymentRequest, type McaLine } from '@/db/schema';
 import { isEditableState } from '@/lib/payments/stages';
 import { loadPaymentStages } from './paymentStages';
+import { fileNotCancelled } from './fileCancellation';
 
 // Expense type whose duplicate references are explicitly permitted (main's rule).
 // TODO(config): move the dup-exempt expense types to an expense_type_master_t flag.
@@ -27,18 +28,11 @@ interface TrackingSource {
 }
 
 /**
- * A CANCELLED file is still payable, and that is the point of cancelling it.
- *
- * Imports used to be filtered with `clearing_status <> 7` (CANCELLED), so a
- * cancelled consignment vanished from the Payment Request picker entirely. That
- * is backwards: work was done, charges were incurred, and the cancellation is
- * precisely the moment somebody needs to raise a request against it. Exports
- * never had the filter, so the two sides of the business behaved differently on
- * the same question.
- *
- * Nothing replaces the filter — cancelled files are simply offered like any
- * other. The one-to-one expense-type rule and the duplicate check still apply,
- * so a cancelled file cannot be claimed twice.
+ * A CANCELLED file takes no further activity — it is neither offered by the
+ * picker nor accepted on save, for Import, Export and Local alike (the File
+ * Cancellation screen, db/queries/fileCancellation.ts). A request that must
+ * cover a file is raised BEFORE it is cancelled: that screen refuses to cancel
+ * a file still named by a live request.
  */
 function sourceFor(payFor: number | null): TrackingSource | null {
   switch (payFor) {
@@ -157,6 +151,7 @@ export async function availableRefs(
     sql`display = 'Y'`,
     sql`${sql.identifier(src.refCol)} IS NOT NULL`,
     sql`${sql.identifier(src.refCol)} <> ''`,
+    fileNotCancelled(sql`${sql.identifier(src.table)}.clearing_status`),
   ];
 
   const rows = await db.execute(sql`
@@ -193,6 +188,7 @@ export async function availableRefs(
 export interface RefVerdict {
   mca_ref: string;
   exists: boolean; // present in the tracking table for this client/pay_for
+  cancelled: boolean; // the file exists but has been cancelled
   duplicate: number | null; // id of another request already using it, or null
   valid: boolean;
 }
@@ -239,8 +235,9 @@ export async function validateRefs({
   if (uniq.length === 0) return [];
   const upper = uniq.map((r) => r.toUpperCase());
 
-  // 1) existence
+  // 1) existence — and cancellation, told apart so the message says which
   const existsSet = new Set<string>();
+  const cancelledSet = new Set<string>();
   const src = sourceFor(payFor);
   if (!src) {
     // Other / Pre-Payment: auto-generated references are always "exists".
@@ -249,10 +246,15 @@ export async function validateRefs({
     const filters = [sql`upper(${sql.identifier(src.refCol)}) IN (${textList(upper)})`, sql`display = 'Y'`];
     if (clientId) filters.push(sql`client_id = ${clientId}`);
       const rows = await db.execute(sql`
-      SELECT DISTINCT upper(${sql.identifier(src.refCol)}) AS ref
+      SELECT upper(${sql.identifier(src.refCol)}) AS ref,
+             bool_and(NOT ${fileNotCancelled(sql`${sql.identifier(src.table)}.clearing_status`)}) AS cancelled
       FROM ${sql.identifier(src.table)}
-      WHERE ${sql.join(filters, sql` AND `)}`);
-    for (const r of (rows as unknown as { rows: { ref: string }[] }).rows) existsSet.add(r.ref);
+      WHERE ${sql.join(filters, sql` AND `)}
+      GROUP BY 1`);
+    for (const r of (rows as unknown as { rows: { ref: string; cancelled: boolean }[] }).rows) {
+      existsSet.add(r.ref);
+      if (r.cancelled) cancelledSet.add(r.ref);
+    }
   }
 
   // 2) duplicates against other requests with the same expense type
@@ -274,8 +276,9 @@ export async function validateRefs({
   return uniq.map((ref) => {
     const up = ref.toUpperCase();
     const exists = existsSet.has(up);
+    const cancelled = cancelledSet.has(up);
     const duplicate = dupMap.get(up) ?? null;
-    return { mca_ref: ref, exists, duplicate, valid: exists && duplicate === null };
+    return { mca_ref: ref, exists, cancelled, duplicate, valid: exists && !cancelled && duplicate === null };
   });
 }
 
@@ -319,7 +322,7 @@ export async function assertPaymentMcaRefs(
   if (bad.length === 0) return null;
 
   const detail = bad
-    .map((v) => `${v.mca_ref} (${!v.exists ? 'not found for this client' : `already used by request #${v.duplicate}`})`)
+    .map((v) => `${v.mca_ref} (${!v.exists ? 'not found for this client' : v.cancelled ? 'the file is cancelled' : `already used by request #${v.duplicate}`})`)
     .join(', ');
   return `Invalid reference${bad.length === 1 ? '' : 's'}: ${detail}`;
 }

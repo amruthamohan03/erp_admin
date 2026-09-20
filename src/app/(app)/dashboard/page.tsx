@@ -2,6 +2,7 @@
 
 import DashboardCardsGrid from '@/components/ui/DashboardCardsGrid';
 import RecentActivity from '@/components/dashboard/RecentActivity';
+import InboxPanel from '@/components/dashboard/InboxPanel';
 
 // Main /dashboard — matches main-branch behavior: no category
 // filter (every card the role can see lands here), flat tile
@@ -13,6 +14,7 @@ export default function DashboardPage() {
     <>
       <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
       <DashboardCardsGrid variant="flat" />
+      <InboxPanel />
       <RecentActivity />
     </>
   );

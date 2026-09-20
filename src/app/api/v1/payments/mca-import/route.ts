@@ -137,6 +137,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       // passing. An unknown verdict rendered green would be the one way a bad
       // row reaches Save wearing the colour that says it is fine.
       exists: v?.exists ?? false,
+      cancelled: v?.cancelled ?? false,
       duplicate: v?.duplicate ?? null,
       valid: v?.valid ?? false,
     };
