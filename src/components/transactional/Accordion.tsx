@@ -168,9 +168,13 @@ export default function Accordion({
               >
                 {/* §4.18 — the `required` class renders the star; never type one
                     into the label text. */}
+                {/* `props.hideLabel` — a composite field that labels its own
+                    controls (the invoice's licence + MCA pickers). */}
+                {field.props?.['hideLabel'] !== true && (
                 <label htmlFor={field.name} className={clsx('label', state.required && 'required')}>
                   {field.label}
                 </label>
+                )}
                 {/* Dense rows put the control in the second grid cell, so it needs
                     a box of its own; stacked fields must NOT get one, hence
                     `display: contents` — the wrapper disappears from layout and

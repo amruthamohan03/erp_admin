@@ -99,9 +99,19 @@ export interface InvoiceGridValue {
   first_categoty_edited?: 'H' | 'S';
 }
 
-interface Pickers {
+/** An MCA file the pickers offer. Import files carry their licence. */
+export interface PickerMca {
+  id: number;
+  mca_ref: string | null;
+  label: string;
+  license_id?: number | null;
+  license_number?: string | null;
+  detail?: string;
+}
+
+export interface Pickers {
   clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
-  availableMcas: { id: number; mca_ref: string | null; label: string }[];
+  availableMcas: PickerMca[];
 }
 
 interface InvoiceGridProps {
@@ -174,7 +184,7 @@ const EXPORT_MCA_COLUMNS: {
   { key: 'ogefrem_amount', label: 'OGEFREM (CDF)', type: 'number', step: '0.01', width: 'w-24' },
 ];
 
-function emptyMca(mcaId: number, order: number): GridMca {
+export function emptyMca(mcaId: number, order: number): GridMca {
   return {
     mca_id: mcaId,
     display_order: order,
@@ -367,6 +377,27 @@ export default function InvoiceGrid({
     },
     [clientId, kind, onHeaderPatch, loadQuotationItems, setItems],
   );
+
+  // Import picks its files in the HEADER (InvoiceFilesPicker — Client, then
+  // licences, then their MCA references, as main laid it out), which writes
+  // `mcaDetails` straight into this field's value. The consequences of a new
+  // file set — header fields filled from the files, the matching quotation
+  // loaded — are still the grid's job, so it watches the set and runs the same
+  // `onFilesChanged` its own picker used to. The first set it sees is the one
+  // the record was opened with, and is not re-applied: re-opening an invoice
+  // must not overwrite what was saved.
+  const mcaKey = kind === 'import' ? mca.map((m) => m.mca_id).join(',') : '';
+  const seenMcaKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (kind !== 'import') return;
+    if (seenMcaKey.current === null) {
+      seenMcaKey.current = mcaKey;
+      return;
+    }
+    if (seenMcaKey.current === mcaKey) return;
+    seenMcaKey.current = mcaKey;
+    void onFilesChanged(latest.current.mcaDetails ?? []);
+  }, [kind, mcaKey, onFilesChanged]);
 
   const addFiles = useCallback(
     async (ids: number[]) => {
@@ -607,6 +638,8 @@ export default function InvoiceGrid({
       )}
 
       {/* ---- MCA files ------------------------------------------------- */}
+      {/* Import picks its files in the header (licences → MCA references). */}
+      {kind === 'export' && (
       <section className="rounded-lg border border-border">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-lg bg-muted px-3 py-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
@@ -733,6 +766,7 @@ export default function InvoiceGrid({
           </ul>
         )}
       </section>
+      )}
 
       {/* ---- Quotation + items ------------------------------------------ */}
       <section className="rounded-lg border border-border">

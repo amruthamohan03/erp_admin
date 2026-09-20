@@ -40,6 +40,7 @@ const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string }> = {
   // §5 — the PARTIELLE (inspection-report) allotment. An import links to one by
   // NAME, so this column is the reference and it is unique app-wide.
   partielle: { table: 'partial_t', column: 'partial_name' },
+  fiche: { table: 'fiche_de_calcul_t', column: 'fiche_reference' },
 };
 
 async function queryOne(exec: Executor, query: ReturnType<typeof sql>): Promise<Row | null> {
@@ -124,6 +125,7 @@ const TOKEN_RESOLVERS: Record<
   'export-invoice': (values, exec) => clientOnlyTokens(values, exec),
   'import-invoice': (values, exec) => clientOnlyTokens(values, exec),
   partielle: partielleTokens,
+  fiche: ficheTokens,
 };
 
 /**
@@ -191,6 +193,20 @@ async function partielleTokens(values: Values, exec: Executor): Promise<McaRefTo
     refcod: upper(row.ref_cod),
     year: currentYear(),
   };
+}
+
+/** A Fiche de Calcul is raised on one import file: its MCA reference and client. */
+async function ficheTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {
+  const importId = toId(values['import_id']);
+  if (!importId) return null;
+  const row = await queryOne(exec, sql`
+    SELECT i.mca_ref, c.short_name AS client_short
+    FROM imports_t i
+    LEFT JOIN client_master_t c ON c.id = i.client_id
+    WHERE i.id = ${importId}
+    LIMIT 1`);
+  if (!row) return null;
+  return { mca: upper(row.mca_ref), client: upper(row.client_short), year: currentYear() };
 }
 
 async function clientOnlyTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {

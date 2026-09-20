@@ -1,4 +1,4 @@
-import jsonLogic from 'json-logic-js';
+import { applyRule, type RuleContext } from './apply';
 import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
@@ -26,22 +26,9 @@ import { NotFoundError } from '@/lib/errors';
 // Code looks rules up by `ruleKey` (stable string), never id. Spec calls it
 // ruleId — ids drift across deployments, keys don't.
 
-export type RuleContext = Record<string, unknown>;
-
-// Apply a JSON Logic expression to a context. Pure — no DB. Useful when the
-// expression is already in hand (e.g. evaluated inline, or piped from a
-// workflow transition row).
-export function applyRule(ruleJson: unknown, context: RuleContext = {}): unknown {
-  if (ruleJson === undefined || ruleJson === null) {
-    throw new Error('applyRule: rule_json is empty');
-  }
-  // json-logic-js accepts the full RulesLogic union; the DB column is jsonb
-  // so it lands here as `unknown`. Cast at this single boundary.
-  return jsonLogic.apply(
-    ruleJson as Parameters<typeof jsonLogic.apply>[0],
-    context,
-  );
-}
+// Apply a JSON Logic expression to a context. Pure — no DB; lives in apply.ts so
+// client code can import it without pulling in the database.
+export { applyRule, type RuleContext } from './apply';
 
 // Fetch a rule row by key. Throws NotFoundError on missing or display='N'.
 export async function loadRule(ruleKey: string): Promise<RuleMasterRow> {

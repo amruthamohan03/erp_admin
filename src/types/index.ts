@@ -80,7 +80,21 @@ export type FieldType =
    * invoice hook persists it. It replaced a SECOND grid that rendered below the
    * form with its own Save — two controls writing one invoice (§4.17).
    */
-  | 'invoice-grid';
+  | 'invoice-grid'
+  /**
+   * An import invoice's files, picked in the header as main did: licences
+   * (many), then the MCA references on them (many). Virtual — it reads and
+   * writes `invoice_grid.mcaDetails`, so it has no column and nothing of its
+   * own to save. Carries its own two labels; configure it with
+   * `props.hideLabel`.
+   */
+  | 'invoice-files'
+  /**
+   * A Fiche de Calcul's lines (§2 step 3) — a JSONB column (§4.5). Its CIF and
+   * DDI come from the tax_rule_master_t formulas, and the grid writes the
+   * header's CIF and coefficient back through the page's change path.
+   */
+  | 'fiche-items';
 
 export interface PageFieldDef {
   id: number;

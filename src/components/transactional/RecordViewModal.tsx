@@ -63,7 +63,7 @@ function getString(props: Record<string, unknown> | null, key: string): string |
 
 // Field types that hold long text and read better spanning the full row.
 const WIDE_TYPES = new Set([
-  'textarea', 'seal-picker', 'checkbox-group', 'remark-log', 'mca-grid', 'quotation-items',
+  'textarea', 'seal-picker', 'checkbox-group', 'remark-log', 'mca-grid', 'quotation-items', 'fiche-items',
 ]);
 
 
@@ -223,6 +223,53 @@ export default function RecordViewModal({
       // this case the default branch stringified the array, so the payment
       // request's references came out as "[object Object],[object Object]" —
       // which is exactly what the viewer is opened to read.
+      // §2 step 3 — a fiche's lines, with the figures the save computed.
+      case 'fiche-items': {
+        const lines = Array.isArray(v)
+          ? (v as Array<{ numero?: number; description?: string; position_tarif?: string; ddi_percent?: number; fob_article?: number; cif_article?: number; ddi?: number }>)
+          : [];
+        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        const sum = (k: 'fob_article' | 'cif_article' | 'ddi'): number => lines.reduce((s, l) => s + (Number(l[k]) || 0), 0);
+        return (
+          <div className="overflow-x-auto">
+            <table className="table-base text-xs">
+              <thead>
+                <tr>
+                  <th className="w-10">#</th>
+                  <th>Description</th>
+                  <th>Position tarifaire</th>
+                  <th className="text-right">DDI %</th>
+                  <th className="text-right">FOB</th>
+                  <th className="text-right">CIF</th>
+                  <th className="text-right">DDI (FC)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l, i) => (
+                  <tr key={i}>
+                    <td className="text-muted-foreground">{l.numero ?? i + 1}</td>
+                    <td>{l.description || '—'}</td>
+                    <td className="font-mono">{l.position_tarif || '—'}</td>
+                    <td className="text-right tabular-nums">{money(l.ddi_percent)}</td>
+                    <td className="text-right tabular-nums">{money(l.fob_article)}</td>
+                    <td className="text-right tabular-nums">{money(l.cif_article)}</td>
+                    <td className="text-right tabular-nums">{money(l.ddi)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold">
+                  <td />
+                  <td colSpan={3}>Total</td>
+                  <td className="text-right tabular-nums">{money(sum('fob_article'))}</td>
+                  <td className="text-right tabular-nums">{money(sum('cif_article'))}</td>
+                  <td className="text-right tabular-nums">{money(sum('ddi'))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        );
+      }
       case 'mca-grid': {
         const lines = Array.isArray(v) ? (v as Array<{ mca_ref?: string; amount?: number }>) : [];
         if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
@@ -376,7 +423,9 @@ export default function RecordViewModal({
                             }
                             const consumed = new Set([...mates.values()].map((m) => m.name));
                             return acc.fields
-                              .filter((f) => !consumed.has(f.name))
+                              // The invoice file picker only edits the grid's
+                              // value — the grid is what the view shows.
+                              .filter((f) => !consumed.has(f.name) && f.field_type !== 'invoice-files')
                               .map((f) => {
                                 const mate = mates.get(f.name);
                                 return (

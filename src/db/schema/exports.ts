@@ -45,6 +45,7 @@ import { transitPointMaster } from './transitPointMaster';
 import { feetContainerMaster } from './feetContainerMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
+import { cancellationReasonMaster } from './cancellationReasonMaster';
 import { truckStatusMaster } from './truckStatusMaster';
 
 export const exportT = pgTable(
@@ -151,6 +152,11 @@ export const exportT = pgTable(
 
     // ── Status & Remarks ──
     clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
+    // Cancellation (File Cancellation screen, db/queries/fileCancellation.ts).
+    // cancellation_reason_id arrived in 0093; the date and who did it in 0106.
+    cancellationReasonId: integer('cancellation_reason_id').references(() => cancellationReasonMaster.id, { onDelete: 'set null' }),
+    cancelledDate: date('cancelled_date'),
+    cancelledBy: integer('cancelled_by').references(() => usersT.id, { onDelete: 'set null' }),
     // Held back from the "pending for invoicing" export, with the reason. The same
     // pair Import tracking carries (imports_t), added for the export side in 0098.
     invExportDisabled: boolean('inv_export_disabled').notNull().default(false),

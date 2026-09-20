@@ -22,6 +22,8 @@ import {
 import { relations, sql } from 'drizzle-orm';
 import { usersT } from './users';
 import { clientMaster } from './clients';
+import { clearingStatusMaster } from './clearingStatusMaster';
+import { cancellationReasonMaster } from './cancellationReasonMaster';
 import { mainOfficeMaster } from './mainOfficeMaster';
 
 export const localsT = pgTable(
@@ -50,6 +52,13 @@ export const localsT = pgTable(
     dispDate: date('disp_date'),
     endOfFormalities: date('end_of_formalities'),
     remarks: text('remarks'),
+    // Added in 0093 (status) and 0106 (date / by); see imports.ts.
+    clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id, { onDelete: 'set null' }),
+    // Cancellation (File Cancellation screen, db/queries/fileCancellation.ts).
+    // cancellation_reason_id arrived in 0093; the date and who did it in 0106.
+    cancellationReasonId: integer('cancellation_reason_id').references(() => cancellationReasonMaster.id, { onDelete: 'set null' }),
+    cancelledDate: date('cancelled_date'),
+    cancelledBy: integer('cancelled_by').references(() => usersT.id, { onDelete: 'set null' }),
     display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdBy: integer('created_by').references(() => usersT.id, { onDelete: 'set null' }),
     updatedBy: integer('updated_by').references(() => usersT.id, { onDelete: 'set null' }),

@@ -44,6 +44,7 @@ import { commodityMaster } from './commodityMaster';
 import { transitPointMaster } from './transitPointMaster';
 import { documentStatusMaster } from './documentStatusMaster';
 import { clearingStatusMaster } from './clearingStatusMaster';
+import { cancellationReasonMaster } from './cancellationReasonMaster';
 import { clearingBasisMaster } from './clearingBasisMaster';
 import { truckStatusMaster } from './truckStatusMaster';
 
@@ -170,6 +171,11 @@ export const importT = pgTable(
     // on create. Presence is enforced via the field's `required` flag on the
     // Status accordion instead (see 0062).
     clearingStatus: integer('clearing_status').references(() => clearingStatusMaster.id),
+    // Cancellation (File Cancellation screen, db/queries/fileCancellation.ts).
+    // cancellation_reason_id arrived in 0093; the date and who did it in 0106.
+    cancellationReasonId: integer('cancellation_reason_id').references(() => cancellationReasonMaster.id, { onDelete: 'set null' }),
+    cancelledDate: date('cancelled_date'),
+    cancelledBy: integer('cancelled_by').references(() => usersT.id, { onDelete: 'set null' }),
     invExportDisabled: boolean('inv_export_disabled').notNull().default(false),
     invExportDisabledRemark: varchar('inv_export_disabled_remark', { length: 500 }),
     // A dated remarks log — many entries, each with its own date and text.

@@ -24,6 +24,7 @@ export const MCA_REF_TARGET_KEYS = [
   'export-invoice',
   'import-invoice',
   'partielle',
+  'fiche',
 ] as const;
 
 export type McaRefTargetKey = (typeof MCA_REF_TARGET_KEYS)[number];
@@ -39,6 +40,10 @@ export const MCA_REF_SEGMENT_TYPES = [
   // master code: it is a full customs reference, spaces and all, so it is kept
   // verbatim rather than sliced.
   'refcod',
+  // §2 step 3 — the MCA reference of the file a record is raised on, verbatim.
+  // A Fiche de Calcul is one per file, so its reference is the file's own with a
+  // prefix, and needs no counter.
+  'mca',
   'year',
   'literal',
   'sequence',
@@ -75,6 +80,8 @@ export interface McaRefTokens {
   transport?: string | null;
   office?: string | null;
   refcod?: string | null;
+  /** The file's MCA reference (Fiche de Calcul). */
+  mca?: string | null;
   /** Always the full four-digit year; the segment slices it to `digits`. */
   year?: string | null;
 }
@@ -100,6 +107,7 @@ const SAMPLE: McaRefTokens = {
   transport: 'R',
   office: 'KINSHASA',
   refcod: 'COD 2026 234480',
+  mca: 'NMI-IDCOR26-0001',
   year: '2026',
 };
 
@@ -161,6 +169,14 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
     fieldLabel: 'PARTIELLE Number',
     hint: "REF. COD (the CRF Reference) and the client code both come from the allotment's licence. Kind, goods and transport are not available here.",
     tokens: ['refcod', 'client', ...ALWAYS],
+    sample: SAMPLE,
+  },
+  fiche: {
+    key: 'fiche',
+    label: 'Fiche de Calcul',
+    fieldLabel: 'Fiche Reference',
+    hint: "The MCA reference and client code of the import file the fiche is raised on. One fiche per file, so a number is not needed.",
+    tokens: ['mca', 'client', ...ALWAYS],
     sample: SAMPLE,
   },
 };
@@ -229,6 +245,11 @@ export const MCA_REF_DEFAULTS: Record<McaRefTargetKey, McaRefSegment[]> = {
     { type: 'year', digits: 4 },
     { type: 'client', separator: '-' },
     { type: 'sequence', separator: '-', width: 4 },
+  ],
+  // FICHE-NMI-IDCOR26-0001 — main's "FICHE-{mca_ref}".
+  fiche: [
+    { type: 'literal', value: 'FICHE' },
+    { type: 'mca', separator: '-' },
   ],
 };
 

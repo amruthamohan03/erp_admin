@@ -9,6 +9,7 @@ import {
   withErrorHandler,
 } from '@/lib/api';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 
 // GET /api/v1/licenses/{id}/usage
 //
@@ -71,7 +72,7 @@ export const GET = withErrorHandler(
       })
       .from(exportT)
       .where(
-        and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y')),
+        and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y'), fileNotCancelled(exportT.clearingStatus)),
       );
     const [impUsed] = await db
       .select({
@@ -79,7 +80,7 @@ export const GET = withErrorHandler(
       })
       .from(importT)
       .where(
-        and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y')),
+        and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y'), fileNotCancelled(importT.clearingStatus)),
       );
 
     // Weight is capped the same way FOB is, and the create header shows both —
@@ -87,11 +88,11 @@ export const GET = withErrorHandler(
     const [expWeight] = await db
       .select({ total: sql<string>`COALESCE(SUM(${exportT.weight}), 0)`.as('total') })
       .from(exportT)
-      .where(and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y')));
+      .where(and(eq(exportT.licenseId, licenseId), eq(exportT.display, 'Y'), fileNotCancelled(exportT.clearingStatus)));
     const [impWeight] = await db
       .select({ total: sql<string>`COALESCE(SUM(${importT.weight}), 0)`.as('total') })
       .from(importT)
-      .where(and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y')));
+      .where(and(eq(importT.licenseId, licenseId), eq(importT.display, 'Y'), fileNotCancelled(importT.clearingStatus)));
 
     const capNum = lic.amount == null ? null : Number(lic.amount);
     const usedExports = Number(expUsed?.total ?? 0);

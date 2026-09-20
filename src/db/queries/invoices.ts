@@ -12,6 +12,10 @@
 // exportInvoices.ts / importInvoices.ts.
 import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '@/lib/db';
+import { formatDate } from '@/lib/formatDate';
+import { recordAudit } from '@/lib/audit/recordAudit';
+import { raiseEvent } from './notifications';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { gridSaveSchema, type GridSaveInput } from '@/schemas/invoiceGrid';
 import {
   exportInvoices,
@@ -207,7 +211,7 @@ export interface GridData {
   items: GridItem[];
   mcaDetails: GridMca[];
   clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
-  availableMcas: { id: number; mca_ref: string | null; label: string }[];
+  availableMcas: PickerMca[];
 }
 
 export async function gridData(kind: InvoiceKind, invoiceId: number): Promise<GridData | null> {
@@ -302,7 +306,7 @@ export async function gridPickers(
   scope: McaScope = {},
 ): Promise<{
   clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
-  availableMcas: { id: number; mca_ref: string | null; label: string }[];
+  availableMcas: PickerMca[];
 }> {
   const [quotationsForClient, mcas] = await Promise.all([
     clientQuotations(clientId),
@@ -350,9 +354,7 @@ async function clientQuotations(
 export const IMPORT_FILE_CLEARED = sql`
   i.display = 'Y'
   AND i.quittance_date IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM clearing_status_master_t cs
-    WHERE cs.id = i.clearing_status AND upper(trim(cs.clearing_status)) = 'CANCELLED')`;
+  AND ${fileNotCancelled(sql`i.clearing_status`)}`;
 
 /** No live import invoice other than `selfId` lists this file in its `mca_ids`. */
 export function importFileNotInvoiced(selfId = 0): SQL {
@@ -365,7 +367,9 @@ export function importFileNotInvoiced(selfId = 0): SQL {
 }
 
 /** An export file cleared through customs: live and quittanced. */
-export const EXPORT_FILE_CLEARED = sql`e.display = 'Y' AND e.quittance_date IS NOT NULL`;
+// A cancelled export file is not invoiced either — the same rule as import.
+export const EXPORT_FILE_CLEARED = sql`e.display = 'Y' AND e.quittance_date IS NOT NULL
+  AND ${fileNotCancelled(sql`e.clearing_status`)}`;
 
 /** No live export invoice other than `selfId` carries this file. */
 export function exportFileNotInvoiced(selfId = 0): SQL {
@@ -404,35 +408,61 @@ async function availableExportMcas(
   );
 }
 
+/** An MCA file as the invoice pickers offer it. Import fills the licence fields. */
+export interface PickerMca {
+  id: number;
+  mca_ref: string | null;
+  label: string;
+  /** The file's licence — import picks licences first, then their files. */
+  license_id?: number | null;
+  license_number?: string | null;
+  /** "FOB $78,350.54 · 12,373.80 kg · 03-08-2026" — the second line in the picker. */
+  detail?: string;
+}
+
 /**
  * main's availability rule for an import file: cleared (quittanced, not
  * cancelled) and not already recorded on another live import invoice.
+ *
+ * Carries each file's licence, because the form picks LICENCES first and then
+ * the files on them (main's getLicenses → getMCAReferences).
  */
 async function availableImportMcas(
   clientId: number | null,
   { invoiceId }: McaScope = {},
-): Promise<{ id: number; mca_ref: string | null; label: string }[]> {
+): Promise<PickerMca[]> {
   if (!clientId) return [];
   const self = invoiceId && invoiceId > 0 ? invoiceId : 0;
   const rows = await db.execute(sql`
-    SELECT i.id, i.mca_ref, i.supplier, i.fob, i.weight
+    SELECT i.id, i.mca_ref, i.fob, i.weight,
+           to_char(i.customs_manifest_date, 'YYYY-MM-DD') AS manifest_date,
+           i.license_id, l.license_number
     FROM imports_t i
+    LEFT JOIN license_t l ON l.id = i.license_id
     WHERE i.client_id = ${clientId}
       AND ${IMPORT_FILE_CLEARED}
       AND i.mca_ref IS NOT NULL AND i.mca_ref <> ''
       AND ${importFileNotInvoiced(self)}
     ORDER BY i.id DESC LIMIT 500`);
-  return (rows as unknown as { rows: { id: number; mca_ref: string | null; supplier: string | null; fob: unknown; weight: unknown }[] }).rows.map(
-    (r) => ({
+  type Row = {
+    id: number; mca_ref: string | null; fob: unknown; weight: unknown;
+    manifest_date: string | null; license_id: number | null; license_number: string | null;
+  };
+  return (rows as unknown as { rows: Row[] }).rows.map((r) => {
+    const detail = [
+      N(r.fob) > 0 ? `FOB $${N(r.fob).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
+      N(r.weight) > 0 ? `${N(r.weight).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : '',
+      formatDate(r.manifest_date, ''),
+    ].filter(Boolean).join(' · ');
+    return {
       id: r.id,
       mca_ref: r.mca_ref,
-      label: [
-        r.mca_ref ?? String(r.id),
-        N(r.fob) > 0 ? `FOB $${N(r.fob).toFixed(2)}` : '',
-        N(r.weight) > 0 ? `${N(r.weight).toFixed(2)} kg` : '',
-      ].filter(Boolean).join(' · '),
-    }),
-  );
+      label: [r.mca_ref ?? String(r.id), detail].filter(Boolean).join(' · '),
+      license_id: r.license_id,
+      license_number: r.license_number,
+      detail,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -840,7 +870,48 @@ async function writeChildren(
 // ---------------------------------------------------------------------------
 export async function setValidated(kind: InvoiceKind, invoiceId: number, validated: number, uid: number): Promise<void> {
   const t = kind === 'export' ? exportInvoices : importInvoices;
-  await db.update(t).set({ validated, updatedBy: uid, updatedAt: new Date() }).where(eq(t.id, invoiceId));
+  await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select({ validated: t.validated, invoiceRef: t.invoiceRef, createdBy: t.createdBy })
+      .from(t)
+      .where(eq(t.id, invoiceId));
+    await tx.update(t).set({ validated, updatedBy: uid, updatedAt: new Date() }).where(eq(t.id, invoiceId));
+    await recordAudit(tx, {
+      actorId: uid,
+      action: 'status_change',
+      entityType: `${kind}_invoice`,
+      entityId: invoiceId,
+      before: { validated: before?.validated ?? null },
+      after: { validated },
+    });
+    await announceInvoiceStatus(tx, kind, invoiceId, before?.validated ?? 0, validated, uid);
+  });
+}
+
+/**
+ * Tell the configured roles an invoice moved forward — validated (1) or
+ * DGI-verified (2). A step back (un-validating) is not announced. Shared by the
+ * Validate action and the DGI edit, which promotes a complete invoice to 2.
+ */
+export async function announceInvoiceStatus(
+  tx: Transaction,
+  kind: InvoiceKind,
+  invoiceId: number,
+  from: number,
+  to: number,
+  uid: number,
+): Promise<void> {
+  if (to <= from || (to !== 1 && to !== 2)) return;
+  const t = kind === 'export' ? exportInvoices : importInvoices;
+  const [row] = await tx
+    .select({ invoiceRef: t.invoiceRef, createdBy: t.createdBy })
+    .from(t)
+    .where(eq(t.id, invoiceId));
+  await raiseEvent(tx, `${kind}_invoice.${to === 2 ? 'dgi_verified' : 'validated'}`, {
+    actorUserId: uid,
+    creatorUserId: row?.createdBy ?? null,
+    context: { ref: row?.invoiceRef ?? `#${invoiceId}`, kind: kind === 'export' ? 'Export' : 'Import' },
+  });
 }
 
 export async function softDeleteInvoice(kind: InvoiceKind, invoiceId: number, uid: number): Promise<void> {

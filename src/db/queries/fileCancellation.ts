@@ -1,0 +1,385 @@
+// §2 step 3 — cancelling a tracking file (Import, Export or Local).
+//
+// A cancelled file is a clearing STATUS, not a deletion: the row keeps its
+// reference, its history and its place in reports (§4.27). Cancelling sets
+// `clearing_status` to the CANCELLED row of clearing_status_master_t, records
+// the reason (cancellation_reason_master_t) and the date, and writes both into
+// the file's remarks so the tracking screens show why it stopped.
+//
+// Three consequences, each enforced from ONE fragment here rather than
+// restated at every call site (§4.10):
+//
+//   * no further activity — the invoice and payment request pickers, and their
+//     save-time checks, refuse a cancelled file (`fileNotCancelled`);
+//   * the licence gets its weight / FOB back — every sum that measures what a
+//     licence or a PARTIELLE allotment has used skips a cancelled file;
+//   * a file already on a live invoice or payment request is NOT cancelled: the
+//     request is refused with the records named (§4.37), and the operator
+//     removes it from them first.
+//
+// The CANCELLED row is found by its name, not by id 7 — ids differ between
+// databases, and the name is what the master screen shows.
+import { sql, type AnyColumn, type SQL } from 'drizzle-orm';
+import { db, type Database, type Transaction } from '@/lib/db';
+import { formatDate } from '@/lib/formatDate';
+import { recordAudit } from '@/lib/audit/recordAudit';
+import { raiseEvent } from './notifications';
+import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
+
+export { FILE_KINDS, type FileKind } from '@/schemas/fileCancellation';
+import type { FileKind } from '@/schemas/fileCancellation';
+
+/** The value a licence picker uses for files that carry no licence. */
+export const NO_LICENSE = 0;
+
+interface FileSource {
+  table: 'imports_t' | 'exports_t' | 'locals_t';
+  refCol: 'mca_ref' | 'mca_lt_reference';
+  /** Import and export files draw on a licence; local files have none. */
+  licensed: boolean;
+  /** Import / export keep a dated remarks log (JSONB); local keeps free text. */
+  remarkLog: boolean;
+  /** Payment Request's `pay_for` code for this kind of file. */
+  payFor: number;
+  /** The transaction page, for the audit entry's module. */
+  page: string;
+  label: string;
+}
+
+const SOURCES: Record<FileKind, FileSource> = {
+  import: { table: 'imports_t', refCol: 'mca_ref', licensed: true, remarkLog: true, payFor: 0, page: 'import', label: 'Import' },
+  export: { table: 'exports_t', refCol: 'mca_ref', licensed: true, remarkLog: true, payFor: 1, page: 'export', label: 'Export' },
+  local: { table: 'locals_t', refCol: 'mca_lt_reference', licensed: false, remarkLog: false, payFor: 2, page: 'local', label: 'Local' },
+};
+
+export const fileSource = (kind: FileKind): FileSource => SOURCES[kind];
+
+/**
+ * TRUE when the file whose `clearing_status` is `statusCol` is not cancelled.
+ * Pass a QUALIFIED column (`sql\`i.clearing_status\``, a Drizzle column): inside
+ * the subquery an unqualified `clearing_status` would name the master's own
+ * text column, and the test would silently always pass.
+ */
+export function fileNotCancelled(statusCol: SQL | AnyColumn): SQL {
+  return sql`NOT EXISTS (
+    SELECT 1 FROM clearing_status_master_t cs_x
+    WHERE cs_x.id = ${statusCol} AND upper(trim(cs_x.clearing_status)) = 'CANCELLED')`;
+}
+
+async function cancelledStatusId(tx: Transaction): Promise<number> {
+  const rows = await tx.execute(sql`
+    SELECT id FROM clearing_status_master_t
+    WHERE upper(trim(clearing_status)) = 'CANCELLED' AND display = 'Y'
+    ORDER BY id LIMIT 1`);
+  const id = (rows as unknown as { rows: { id: number }[] }).rows[0]?.id;
+  if (!id) {
+    throw new ValidationError(
+      'There is no CANCELLED clearing status — add it under Masters → Clearing Status, then cancel the file.',
+    );
+  }
+  return id;
+}
+
+const N = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+const fmt = (n: number): string => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type Rows<T> = { rows: T[] };
+
+// ---------------------------------------------------------------------------
+// PICKERS
+// ---------------------------------------------------------------------------
+
+export interface CancellableLicense {
+  id: number;
+  license_number: string;
+  files: number;
+}
+
+/** The client's licences that still carry a live, uncancelled file of `kind`. */
+export async function cancellableLicenses(kind: FileKind, clientId: number): Promise<CancellableLicense[]> {
+  const src = SOURCES[kind];
+  if (!src.licensed) return [];
+  const t = sql.identifier(src.table);
+  const rows = await db.execute(sql`
+    SELECT COALESCE(f.license_id, ${NO_LICENSE}) AS id,
+           COALESCE(max(l.license_number), 'No licence recorded') AS license_number,
+           count(*)::int AS files
+    FROM ${t} f
+    LEFT JOIN license_t l ON l.id = f.license_id
+    WHERE f.client_id = ${clientId} AND f.display = 'Y'
+      AND f.${sql.identifier(src.refCol)} IS NOT NULL AND f.${sql.identifier(src.refCol)} <> ''
+      AND ${fileNotCancelled(sql`f.clearing_status`)}
+    GROUP BY 1
+    ORDER BY 1`);
+  return (rows as unknown as Rows<CancellableLicense>).rows;
+}
+
+export interface CancellableFile {
+  id: number;
+  mca_ref: string;
+  license_id: number | null;
+  /** "FOB $78,350.54 · 12,373.80 kg · IN PROGRESS" — the picker's second line. */
+  detail: string;
+}
+
+/**
+ * Live, uncancelled files of the client — on the given licences for a licensed
+ * kind (`NO_LICENSE` selects the files that carry none).
+ */
+export async function cancellableFiles(
+  kind: FileKind,
+  clientId: number,
+  licenseIds: number[],
+): Promise<CancellableFile[]> {
+  const src = SOURCES[kind];
+  if (src.licensed && licenseIds.length === 0) return [];
+  const ref = sql.identifier(src.refCol);
+  const licenseFilter = src.licensed
+    ? sql`AND COALESCE(f.license_id, ${NO_LICENSE}) IN (${sql.join(licenseIds.map((id) => sql`${id}`), sql`, `)})`
+    : sql``;
+  // Locals carry weight but no FOB.
+  const fob = kind === 'local' ? sql`NULL::numeric` : sql`f.fob`;
+  const rows = await db.execute(sql`
+    SELECT f.id, f.${ref} AS mca_ref, ${src.licensed ? sql`f.license_id` : sql`NULL::int`} AS license_id,
+           ${fob} AS fob, f.weight, cs.clearing_status AS status
+    FROM ${sql.identifier(src.table)} f
+    LEFT JOIN clearing_status_master_t cs ON cs.id = f.clearing_status
+    WHERE f.client_id = ${clientId} AND f.display = 'Y'
+      AND f.${ref} IS NOT NULL AND f.${ref} <> ''
+      AND ${fileNotCancelled(sql`f.clearing_status`)}
+      ${licenseFilter}
+    ORDER BY f.id
+    LIMIT 1000`);
+  type Row = { id: number; mca_ref: string; license_id: number | null; fob: unknown; weight: unknown; status: string | null };
+  return (rows as unknown as Rows<Row>).rows.map((r) => ({
+    id: r.id,
+    mca_ref: r.mca_ref,
+    license_id: r.license_id,
+    detail: [
+      N(r.fob) > 0 ? `FOB $${fmt(N(r.fob))}` : '',
+      N(r.weight) > 0 ? `${fmt(N(r.weight))} kg` : '',
+      r.status ?? '',
+    ].filter(Boolean).join(' · '),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// WHO STILL HOLDS A FILE
+// ---------------------------------------------------------------------------
+
+export interface FileHolder {
+  mca_ref: string;
+  /** "Import invoice 2026-NMI-0004", "Payment request #57". */
+  held_by: string;
+}
+
+/** Live invoices and payment requests that name any of these files. */
+async function fileHolders(tx: Transaction, kind: FileKind, files: { id: number; mca_ref: string }[]): Promise<FileHolder[]> {
+  if (files.length === 0) return [];
+  const src = SOURCES[kind];
+  const ids = sql.join(files.map((f) => sql`${f.id}`), sql`, `);
+  const refs = sql.join(files.map((f) => sql`${f.mca_ref.toUpperCase()}`), sql`, `);
+  const refOf = new Map(files.map((f) => [f.id, f.mca_ref]));
+  const out: FileHolder[] = [];
+
+  if (kind === 'import') {
+    // mca_ids is a CSV — split and compared by whole entry (§4.37).
+    const rows = await tx.execute(sql`
+      SELECT f.id AS mca_id, inv.invoice_ref, inv.id
+      FROM import_invoices_t inv
+      JOIN imports_t f
+        ON f.id::text = ANY (string_to_array(replace(COALESCE(inv.mca_ids, ''), ' ', ''), ','))
+      WHERE inv.display = 'Y' AND f.id IN (${ids})`);
+    for (const r of (rows as unknown as Rows<{ mca_id: number; invoice_ref: string | null; id: number }>).rows) {
+      out.push({ mca_ref: refOf.get(r.mca_id) ?? String(r.mca_id), held_by: `Import invoice ${r.invoice_ref ?? `#${r.id}`}` });
+    }
+    // A Fiche de Calcul is raised on one import file.
+    const fiches = await tx.execute(sql`
+      SELECT import_id AS mca_id, fiche_reference, id
+      FROM fiche_de_calcul_t
+      WHERE display = 'Y' AND import_id IN (${ids})`);
+    for (const r of (fiches as unknown as Rows<{ mca_id: number; fiche_reference: string | null; id: number }>).rows) {
+      out.push({ mca_ref: refOf.get(r.mca_id) ?? String(r.mca_id), held_by: `Fiche de Calcul ${r.fiche_reference ?? `#${r.id}`}` });
+    }
+  } else if (kind === 'export') {
+    const rows = await tx.execute(sql`
+      SELECT DISTINCT d.mca_id, x.invoice_ref, x.id
+      FROM export_invoice_mca_details_t d
+      JOIN export_invoices_t x ON x.id = d.export_invoice_id AND x.display = 'Y'
+      WHERE d.mca_id IN (${ids})`);
+    for (const r of (rows as unknown as Rows<{ mca_id: number; invoice_ref: string | null; id: number }>).rows) {
+      out.push({ mca_ref: refOf.get(r.mca_id) ?? String(r.mca_id), held_by: `Export invoice ${r.invoice_ref ?? `#${r.id}`}` });
+    }
+  }
+
+  const pay = await tx.execute(sql`
+    SELECT DISTINCT e->>'mca_ref' AS mca_ref, pr.id
+    FROM payment_request_t pr,
+         jsonb_array_elements(COALESCE(pr.mca_data, '[]'::jsonb)) e
+    WHERE pr.display = 'Y' AND pr.pay_for = ${src.payFor}
+      AND upper(e->>'mca_ref') IN (${refs})
+    ORDER BY pr.id`);
+  for (const r of (pay as unknown as Rows<{ mca_ref: string; id: number }>).rows) {
+    out.push({ mca_ref: r.mca_ref, held_by: `Payment request #${r.id}` });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// CANCEL
+// ---------------------------------------------------------------------------
+
+export interface CancelFilesInput {
+  kind: FileKind;
+  clientId: number;
+  fileIds: number[];
+  reasonId: number;
+  /** ISO YYYY-MM-DD. */
+  cancelledDate: string;
+  actorId: number;
+}
+
+/** `conn` lets a caller nest it in its own transaction (a savepoint) — tests roll it back. */
+export async function cancelFiles(
+  input: CancelFilesInput,
+  conn: Database | Transaction = db,
+): Promise<{ cancelled: string[] }> {
+  const src = SOURCES[input.kind];
+  const t = sql.identifier(src.table);
+  const ref = sql.identifier(src.refCol);
+  const ids = sql.join(input.fileIds.map((id) => sql`${id}`), sql`, `);
+
+  return conn.transaction(async (tx) => {
+    const reasonRows = await tx.execute(sql`
+      SELECT reason_name FROM cancellation_reason_master_t WHERE id = ${input.reasonId} AND display = 'Y'`);
+    const reason = (reasonRows as unknown as Rows<{ reason_name: string }>).rows[0]?.reason_name;
+    if (!reason) throw new ValidationError('Cancellation Reason: choose a reason from the list.', { field: 'reason_id' });
+
+    const statusId = await cancelledStatusId(tx);
+
+    // Locked, so nobody invoices or cancels them between the check and the write.
+    const found = await tx.execute(sql`
+      SELECT f.*, f.${ref} AS ref_value FROM ${t} f
+      WHERE f.id IN (${ids}) AND f.client_id = ${input.clientId} AND f.display = 'Y'
+      FOR UPDATE`);
+    const rows = (found as unknown as Rows<Record<string, unknown>>).rows;
+    if (rows.length !== input.fileIds.length) {
+      throw new NotFoundError('One or more of the chosen MCA references no longer exist for this client — reload the list and choose again.');
+    }
+    const already = rows.filter((r) => Number(r['clearing_status']) === statusId).map((r) => String(r['ref_value']));
+    if (already.length > 0) {
+      throw new ConflictError(`Already cancelled: ${already.join(', ')}.`, { field: 'file_ids' });
+    }
+
+    const files = rows.map((r) => ({ id: Number(r['id']), mca_ref: String(r['ref_value']) }));
+    const holders = await fileHolders(tx, input.kind, files);
+    if (holders.length > 0) {
+      const named = holders.map((h) => `${h.mca_ref} (${h.held_by})`).join(', ');
+      throw new ConflictError(
+        `Not cancelled — ${holders.length === 1 ? 'this file is' : 'these files are'} still on a live record: ${named}. Remove ${holders.length === 1 ? 'it' : 'them'} from there first.`,
+        { field: 'file_ids', holders },
+      );
+    }
+
+    const remark = `CANCELLED — ${reason}`;
+    const remarksSet = src.remarkLog
+      ? sql`remarks = (CASE WHEN jsonb_typeof(remarks) = 'array' THEN remarks ELSE '[]'::jsonb END)
+            || jsonb_build_array(jsonb_build_object('date', ${input.cancelledDate}::text, 'remark', ${remark}::text))`
+      : sql`remarks = concat_ws(E'\n', NULLIF(remarks, ''), ${`${formatDate(input.cancelledDate)} — ${remark}`}::text)`;
+
+    const updated = await tx.execute(sql`
+      UPDATE ${t} SET
+        clearing_status = ${statusId},
+        cancellation_reason_id = ${input.reasonId},
+        cancelled_date = ${input.cancelledDate}::date,
+        cancelled_by = ${input.actorId},
+        ${remarksSet},
+        updated_by = ${input.actorId},
+        updated_at = now()
+      WHERE id IN (${ids})
+      RETURNING *`);
+    const after = new Map(
+      (updated as unknown as Rows<Record<string, unknown>>).rows.map((r) => [Number(r['id']), r]),
+    );
+
+    for (const before of rows) {
+      const id = Number(before['id']);
+      await recordAudit(tx, {
+        actorId: input.actorId,
+        action: 'cancel',
+        entityType: `page:${src.page}`,
+        entityId: id,
+        before,
+        after: after.get(id),
+        metadata: { reason, cancelled_date: input.cancelledDate, via: 'file-cancellation' },
+      });
+      await raiseEvent(tx, 'file.cancelled', {
+        actorUserId: input.actorId,
+        creatorUserId: Number(before['created_by']) || null,
+        context: {
+          ref: String(before['ref_value'] ?? id),
+          kind: src.label,
+          reason,
+          date: formatDate(input.cancelledDate),
+        },
+      });
+    }
+    return { cancelled: files.map((f) => f.mca_ref) };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// LIST
+// ---------------------------------------------------------------------------
+
+export interface CancelledFileRow {
+  key: string;
+  kind: FileKind;
+  kind_label: string;
+  id: number;
+  mca_ref: string;
+  client_name: string | null;
+  client_legal_name: string | null;
+  license_number: string | null;
+  weight: number;
+  fob: number | null;
+  reason: string | null;
+  cancelled_date: string | null;
+  cancelled_by: string | null;
+}
+
+/** Every cancelled file of all three kinds, newest cancellation first. */
+export async function listCancelledFiles(): Promise<CancelledFileRow[]> {
+  const part = (kind: FileKind): SQL => {
+    const src = SOURCES[kind];
+    return sql`
+      SELECT ${kind}::text AS kind, f.id, f.${sql.identifier(src.refCol)} AS mca_ref,
+             c.short_name AS client_name, c.company_name AS client_legal_name,
+             ${src.licensed ? sql`l.license_number` : sql`NULL::text`} AS license_number,
+             f.weight, ${kind === 'local' ? sql`NULL::numeric` : sql`f.fob`} AS fob,
+             r.reason_name AS reason,
+             to_char(f.cancelled_date, 'YYYY-MM-DD') AS cancelled_date,
+             u.full_name AS cancelled_by, f.updated_at
+      FROM ${sql.identifier(src.table)} f
+      LEFT JOIN client_master_t c ON c.id = f.client_id
+      ${src.licensed ? sql`LEFT JOIN license_t l ON l.id = f.license_id` : sql``}
+      LEFT JOIN cancellation_reason_master_t r ON r.id = f.cancellation_reason_id
+      LEFT JOIN users_t u ON u.id = f.cancelled_by
+      WHERE f.display = 'Y' AND NOT ${fileNotCancelled(sql`f.clearing_status`)}`;
+  };
+  const rows = await db.execute(sql`
+    SELECT * FROM (${part('import')} UNION ALL ${part('export')} UNION ALL ${part('local')}) x
+    ORDER BY x.cancelled_date DESC NULLS LAST, x.updated_at DESC
+    LIMIT 2000`);
+  type Row = Omit<CancelledFileRow, 'key' | 'kind_label' | 'weight' | 'fob'> & { weight: unknown; fob: unknown };
+  return (rows as unknown as Rows<Row>).rows.map((r) => ({
+    ...r,
+    key: `${r.kind}:${r.id}`,
+    kind_label: SOURCES[r.kind].label,
+    weight: N(r.weight),
+    fob: r.fob == null ? null : N(r.fob),
+  }));
+}

@@ -7,7 +7,7 @@ import { type PgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 // restructure export names: clientMaster (client_master_t), licenseT (license_t),
 // importT (imports_t), exportT (exports_t).
-import { clientMaster, licenseT, importT, exportT, paymentRequest, localsT, exportInvoices, importInvoices, quotations } from '@/db/schema';
+import { clientMaster, licenseT, importT, exportT, paymentRequest, localsT, exportInvoices, importInvoices, quotations, ficheDeCalcul } from '@/db/schema';
 
 interface PageTarget {
   table: PgTable;
@@ -57,6 +57,12 @@ const TARGETS: Record<string, PageTarget> = {
   quotation: {
     table: quotations,
     allowedColumns: new Set(Object.values(getTableColumns(quotations)).map((c) => c.name)),
+  },
+  // §2 step 3 — the lines are a JSONB column (`items`), so they ARE in this set;
+  // the save route's fiche hook recomputes them before they are written.
+  fiche: {
+    table: ficheDeCalcul,
+    allowedColumns: new Set(Object.values(getTableColumns(ficheDeCalcul)).map((c) => c.name)),
   },
 };
 

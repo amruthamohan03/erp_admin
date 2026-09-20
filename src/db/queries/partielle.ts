@@ -5,6 +5,7 @@
 //   • an import can't over-draw its selected allotment (the doc's core fix)
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { partialT, licenseT, clientMaster } from '@/db/schema';
 import { generateReferences } from '@/db/queries/mcaRefGenerator';
 
@@ -45,10 +46,10 @@ export async function listForLicense(licenseId: number): Promise<PartielleRow[]>
       SELECT inspection_reports, SUM(weight) AS w, SUM(fob) AS f, COUNT(*) AS c
       FROM (
         SELECT inspection_reports, weight, fob FROM imports_t
-         WHERE display = 'Y' AND inspection_reports IS NOT NULL
+         WHERE display = 'Y' AND inspection_reports IS NOT NULL AND ${fileNotCancelled(sql`imports_t.clearing_status`)}
         UNION ALL
         SELECT inspection_reports, weight, fob FROM exports_t
-         WHERE display = 'Y' AND inspection_reports IS NOT NULL
+         WHERE display = 'Y' AND inspection_reports IS NOT NULL AND ${fileNotCancelled(sql`exports_t.clearing_status`)}
       ) consignments
       GROUP BY inspection_reports
     ) u ON u.inspection_reports = p.partial_name
@@ -170,10 +171,10 @@ async function consumedByName(partialName: string): Promise<{ weight: number; fo
     SELECT COALESCE(SUM(weight), 0) AS w, COALESCE(SUM(fob), 0) AS f
     FROM (
       SELECT weight, fob FROM imports_t
-       WHERE inspection_reports = ${partialName} AND display = 'Y'
+       WHERE inspection_reports = ${partialName} AND display = 'Y' AND ${fileNotCancelled(sql`imports_t.clearing_status`)}
       UNION ALL
       SELECT weight, fob FROM exports_t
-       WHERE inspection_reports = ${partialName} AND display = 'Y'
+       WHERE inspection_reports = ${partialName} AND display = 'Y' AND ${fileNotCancelled(sql`exports_t.clearing_status`)}
     ) consignments`);
   const r = (rows as unknown as { rows: { w: unknown; f: unknown }[] }).rows[0];
   return { weight: N(r?.w), fob: N(r?.f) };
@@ -339,11 +340,11 @@ export async function assertPartielleCapacity(
     SELECT COALESCE(SUM(weight), 0) AS w, COALESCE(SUM(fob), 0) AS f
     FROM (
       SELECT weight, fob FROM imports_t
-       WHERE inspection_reports = ${partialName} AND display = 'Y'
+       WHERE inspection_reports = ${partialName} AND display = 'Y' AND ${fileNotCancelled(sql`imports_t.clearing_status`)}
          ${side === 'import' && excludeId ? sql`AND id <> ${excludeId}` : sql``}
       UNION ALL
       SELECT weight, fob FROM exports_t
-       WHERE inspection_reports = ${partialName} AND display = 'Y'
+       WHERE inspection_reports = ${partialName} AND display = 'Y' AND ${fileNotCancelled(sql`exports_t.clearing_status`)}
          ${side === 'export' && excludeId ? sql`AND id <> ${excludeId}` : sql``}
     ) consignments`);
   const used = (usedRows as unknown as { rows: { w: unknown; f: unknown }[] }).rows[0];

@@ -7,6 +7,7 @@ import { canActOn, getRoleStageInfo, loadPaymentStages } from '@/db/queries/paym
 import { STAGE_COLUMNS, checkRejectable, type PaymentApprovalState } from '@/lib/payments/stages';
 import { stageLabel } from '@/lib/payments/stageConfig';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { announcePayment } from '@/db/queries/payments';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -62,6 +63,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       after: { [col.approval]: -1, [col.notes]: reason },
       metadata: { stage },
     });
+    await announcePayment(tx, 'payment.rejected', id, session.uid, { stage: label, reason });
   });
   return ok({ id, stage, stage_label: label });
 });

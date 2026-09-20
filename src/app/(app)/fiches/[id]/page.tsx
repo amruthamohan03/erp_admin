@@ -1,0 +1,10 @@
+'use client';
+
+import { use } from 'react';
+import TransactionalPage from '@/components/transactional/TransactionalPage';
+
+// §4.12 page shim — master_page slug 'fiche'. `[id]` is the fiche_de_calcul_t id.
+export default function FicheDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return <TransactionalPage slug="fiche" entityId={id} />;
+}

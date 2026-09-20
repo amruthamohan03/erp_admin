@@ -45,6 +45,14 @@ describe('nameRefs', () => {
 });
 
 describe('importSentence', () => {
+  it('NAMES a cancelled file apart from a missing one — it exists, but takes no further activity', () => {
+    const fresh = [line({ mca_ref: 'GOOD-1' }), line({ mca_ref: 'DEAD-1', cancelled: true, valid: false })];
+    const msg = importSentence(result(), fresh, NONE);
+    expect(msg).toContain('1 cancelled, so no longer payable: DEAD-1.');
+    expect(msg).not.toContain('not found');
+    expect(msg).toContain('red rows');
+  });
+
   it('reports how many of the imported rows are actually usable', () => {
     const fresh = [line({ mca_ref: 'A-1' }), line({ mca_ref: 'A-2' })];
     const msg = importSentence(result(), fresh, NONE);

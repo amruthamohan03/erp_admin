@@ -55,6 +55,7 @@ interface ChildSpec {
 // order uniqueness.
 const PARENTS: ParentSpec[] = [
   { name: 'Dashboard', order: 1, icon: 'ti ti-dashboard' },
+  { name: 'Communication', order: 1, icon: 'ti ti-bell' },
   { name: 'Masters', order: 2, icon: 'ti ti-layout' },
   { name: 'Client Management', order: 3, icon: 'ti ti-user-circle' },
   { name: 'Mapping', order: 4, icon: 'ti ti-layout-grid' },
@@ -167,6 +168,9 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'DRC Public Holidays', order: 204, url: '/masters/drc-holidays' },
   // §4.6 — the Payment Request approval chain (0103).
   { parent: 'Masters', name: 'Payment Stages', order: 205, url: '/masters/payment-stages' },
+  { parent: 'Masters', name: 'Notification Events', order: 206, url: '/masters/notification-events' },
+  { parent: 'Communication', name: 'Notifications', order: 1, url: '/notifications' },
+  { parent: 'Communication', name: 'Messages', order: 2, url: '/messages' },
   { parent: 'Masters', name: 'Application Settings', order: 206, url: '/settings/application' },
 
   // ── Client Management (original menu_id=2) ──────────────────────
@@ -218,6 +222,8 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Tracking Management', name: 'Local Dashboard', order: 11, url: '/local/dashboard' },
   { parent: 'Tracking Management', name: 'Import Tracking', order: 39, url: '/imports' },
   { parent: 'Tracking Management', name: 'Export Tracking', order: 40, url: '/exports' },
+  { parent: 'Tracking Management', name: 'File Cancellation', order: 41, url: '/tracking/file-cancellation' },
+  { parent: 'Tracking Management', name: 'Fiche de Calcul', order: 42, url: '/fiches' },
   {
     parent: 'Tracking Management',
     name: 'PARTIELLE Allocation',
