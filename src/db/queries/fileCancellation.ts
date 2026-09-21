@@ -13,9 +13,11 @@
 //     save-time checks, refuse a cancelled file (`fileNotCancelled`);
 //   * the licence gets its weight / FOB back — every sum that measures what a
 //     licence or a PARTIELLE allotment has used skips a cancelled file;
-//   * a file already on a live invoice or payment request is NOT cancelled: the
-//     request is refused with the records named (§4.37), and the operator
-//     removes it from them first.
+//   * a file already on a live INVOICE is not cancelled: the request is refused
+//     with the invoice named (§4.37). A PAYMENT REQUEST does not block it — the
+//     requests are shown with their status and amount, the operator confirms,
+//     and anything already paid becomes a recollection to recover
+//     (payment_recollection_t), recorded from the Cancelled Files list.
 //
 // The CANCELLED row is found by its name, not by id 7 — ids differ between
 // databases, and the name is what the master screen shows.
@@ -24,6 +26,8 @@ import { db, type Database, type Transaction } from '@/lib/db';
 import { formatDate } from '@/lib/formatDate';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { raiseEvent } from './notifications';
+import { loadPaymentStages } from './paymentStages';
+import { paymentStatus, type PaymentApprovalState } from '@/lib/payments/stages';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 
 export { FILE_KINDS, type FileKind } from '@/schemas/fileCancellation';
@@ -172,8 +176,30 @@ export async function cancellableFiles(
 
 export interface FileHolder {
   mca_ref: string;
-  /** "Import invoice 2026-NMI-0004", "Payment request #57". */
+  /** "Import invoice 2026-NMI-0004", "Fiche de Calcul FICHE-…". */
   held_by: string;
+}
+
+/** A payment request raised against a file, as the confirmation and the list show it. */
+export interface FilePayment {
+  payment_id: number;
+  mca_ref: string;
+  file_id: number;
+  requestee: string | null;
+  beneficiary: string | null;
+  amount: number;
+  currency_id: number | null;
+  currency: string | null;
+  status_key: string;
+  status_label: string;
+  paid: boolean;
+  created_at: string | null;
+  /** Set once a cancellation opened a recollection for it. */
+  recollection_id: number | null;
+  /** 'pending' | 'recovered' | 'written_off'. */
+  recollection_status: string | null;
+  recovered_amount: number | null;
+  recovered_date: string | null;
 }
 
 /** Live invoices and payment requests that name any of these files. */
@@ -215,17 +241,81 @@ async function fileHolders(tx: Transaction, kind: FileKind, files: { id: number;
     }
   }
 
-  const pay = await tx.execute(sql`
-    SELECT DISTINCT e->>'mca_ref' AS mca_ref, pr.id
-    FROM payment_request_t pr,
-         jsonb_array_elements(COALESCE(pr.mca_data, '[]'::jsonb)) e
-    WHERE pr.display = 'Y' AND pr.pay_for = ${src.payFor}
-      AND upper(e->>'mca_ref') IN (${refs})
-    ORDER BY pr.id`);
-  for (const r of (pay as unknown as Rows<{ mca_ref: string; id: number }>).rows) {
-    out.push({ mca_ref: r.mca_ref, held_by: `Payment request #${r.id}` });
-  }
   return out;
+}
+
+/**
+ * The live payment requests raised against these files, with what each is worth
+ * and where it has got to.
+ *
+ * Unlike an invoice, a payment request does NOT block a cancellation: the work
+ * was done and the money may already have gone out, which is precisely what the
+ * operator needs to see before confirming. So it is reported, confirmed, and an
+ * amount already paid becomes an open recollection (payment_recollection_t).
+ */
+export async function filePaymentRequests(
+  tx: Transaction | Database,
+  kind: FileKind,
+  files: { id: number; mca_ref: string }[],
+): Promise<FilePayment[]> {
+  if (files.length === 0) return [];
+  const src = SOURCES[kind];
+  const refs = sql.join(files.map((f) => sql`${f.mca_ref.toUpperCase()}`), sql`, `);
+  const idByRef = new Map(files.map((f) => [f.mca_ref.toUpperCase(), f.id]));
+
+  const [stages, rows] = await Promise.all([
+    loadPaymentStages(),
+    tx.execute(sql`
+      SELECT DISTINCT ON (pr.id)
+             upper(e->>'mca_ref') AS mca_ref, pr.id, pr.requestee, pr.beneficiary,
+             pr.amount::float8 AS amount, pr.currency AS currency_id, c.currency_short_name AS currency,
+             pr.payment_type, pr.dept_approval, pr.finance_approval, pr.management_approval,
+             pr.under_process, pr.paid_approval,
+             to_char(pr.created_at, 'YYYY-MM-DD') AS created_at,
+             (SELECT rc.status FROM payment_recollection_t rc
+               WHERE rc.payment_request_id = pr.id ORDER BY rc.id DESC LIMIT 1) AS recollection_status,
+             (SELECT rc.id FROM payment_recollection_t rc
+               WHERE rc.payment_request_id = pr.id ORDER BY rc.id DESC LIMIT 1) AS recollection_id,
+             (SELECT rc.recovered_amount::float8 FROM payment_recollection_t rc
+               WHERE rc.payment_request_id = pr.id ORDER BY rc.id DESC LIMIT 1) AS recovered_amount,
+             (SELECT to_char(rc.recovered_date, 'YYYY-MM-DD') FROM payment_recollection_t rc
+               WHERE rc.payment_request_id = pr.id ORDER BY rc.id DESC LIMIT 1) AS recovered_date
+      FROM payment_request_t pr
+      LEFT JOIN currency_master_t c ON c.id = pr.currency,
+           jsonb_array_elements(COALESCE(pr.mca_data, '[]'::jsonb)) e
+      WHERE pr.display = 'Y' AND pr.pay_for = ${src.payFor}
+        AND upper(e->>'mca_ref') IN (${refs})
+      ORDER BY pr.id`),
+  ]);
+
+  type Row = PaymentApprovalState & {
+    mca_ref: string; id: number; requestee: string | null; beneficiary: string | null;
+    amount: number | null; currency_id: number | null; currency: string | null;
+    created_at: string | null; recollection_status: string | null; recollection_id: number | null;
+    recovered_amount: number | null; recovered_date: string | null;
+  };
+  return (rows as unknown as Rows<Row>).rows.map((r) => {
+    const status = paymentStatus(r, stages);
+    return {
+      payment_id: r.id,
+      mca_ref: r.mca_ref,
+      file_id: idByRef.get(r.mca_ref) ?? 0,
+      requestee: r.requestee,
+      beneficiary: r.beneficiary,
+      amount: N(r.amount),
+      currency_id: r.currency_id,
+      currency: r.currency,
+      status_key: status.key,
+      status_label: status.label,
+      // "Already paid" is the one that costs money to cancel around.
+      paid: status.key === 'paid',
+      created_at: r.created_at,
+      recollection_id: r.recollection_id,
+      recollection_status: r.recollection_status,
+      recovered_amount: r.recovered_amount,
+      recovered_date: r.recovered_date,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +330,12 @@ export interface CancelFilesInput {
   /** ISO YYYY-MM-DD. */
   cancelledDate: string;
   actorId: number;
+  /**
+   * The operator has seen the payment requests raised against these files and
+   * confirmed anyway. Without it the call is refused and returns them, so a file
+   * is never cancelled in ignorance of money already spent on it.
+   */
+  acknowledgePayments?: boolean;
 }
 
 /** `conn` lets a caller nest it in its own transaction (a savepoint) — tests roll it back. */
@@ -275,12 +371,32 @@ export async function cancelFiles(
     }
 
     const files = rows.map((r) => ({ id: Number(r['id']), mca_ref: String(r['ref_value']) }));
+    // An invoice bills these files — cancelling under it would leave it charging
+    // for a file that no longer exists, so that is still refused outright.
     const holders = await fileHolders(tx, input.kind, files);
     if (holders.length > 0) {
       const named = holders.map((h) => `${h.mca_ref} (${h.held_by})`).join(', ');
       throw new ConflictError(
         `Not cancelled — ${holders.length === 1 ? 'this file is' : 'these files are'} still on a live record: ${named}. Remove ${holders.length === 1 ? 'it' : 'them'} from there first.`,
         { field: 'file_ids', holders },
+      );
+    }
+
+    // A payment request is shown and confirmed, not removed.
+    const payments = await filePaymentRequests(tx, input.kind, files);
+    if (payments.length > 0 && !input.acknowledgePayments) {
+      const paid = payments.filter((pmt) => pmt.paid);
+      const open = payments.filter((pmt) => !pmt.paid);
+      const money = (list: FilePayment[]): string =>
+        list.map((pmt) => `#${pmt.payment_id} ${fmt(pmt.amount)} ${pmt.currency ?? ''}`.trim()).join(', ');
+      throw new ConflictError(
+        [
+          `${payments.length} payment request${payments.length === 1 ? '' : 's'} exist against ${files.length === 1 ? 'this file' : 'these files'}.`,
+          paid.length > 0 ? `Already paid: ${money(paid)}.` : '',
+          open.length > 0 ? `Still in approval: ${money(open)}.` : '',
+          'Confirm to cancel anyway — anything already paid becomes an amount to recollect.',
+        ].filter(Boolean).join(' '),
+        { field: 'file_ids', payments, needs_payment_confirmation: true },
       );
     }
 
@@ -316,6 +432,18 @@ export async function cancelFiles(
         after: after.get(id),
         metadata: { reason, cancelled_date: input.cancelledDate, via: 'file-cancellation' },
       });
+      for (const pmt of payments.filter((x) => x.paid && x.file_id === id)) {
+        // Copied at this moment: a later edit of the request must not change
+        // what is being claimed back.
+        await tx.execute(sql`
+          INSERT INTO payment_recollection_t
+            (payment_request_id, file_kind, file_id, file_ref, amount, currency_id, status, created_by)
+          SELECT ${pmt.payment_id}, ${input.kind}, ${id}, ${pmt.mca_ref}, ${pmt.amount}, ${pmt.currency_id}, 'pending', ${input.actorId}
+          WHERE NOT EXISTS (
+            SELECT 1 FROM payment_recollection_t x
+            WHERE x.payment_request_id = ${pmt.payment_id} AND x.file_id = ${id} AND x.status = 'pending')`);
+      }
+
       await raiseEvent(tx, 'file.cancelled', {
         actorUserId: input.actorId,
         creatorUserId: Number(before['created_by']) || null,
@@ -340,6 +468,10 @@ export interface CancelledFileRow {
   kind: FileKind;
   kind_label: string;
   id: number;
+  /** Live payment requests raised against the file. */
+  payment_count: number;
+  /** Paid out and not yet recovered — what the recollect icon is about. */
+  to_recollect: number;
   mca_ref: string;
   client_name: string | null;
   client_legal_name: string | null;
@@ -362,7 +494,14 @@ export async function listCancelledFiles(): Promise<CancelledFileRow[]> {
              f.weight, ${kind === 'local' ? sql`NULL::numeric` : sql`f.fob`} AS fob,
              r.reason_name AS reason,
              to_char(f.cancelled_date, 'YYYY-MM-DD') AS cancelled_date,
-             u.full_name AS cancelled_by, f.updated_at
+             u.full_name AS cancelled_by, f.updated_at,
+             (SELECT count(DISTINCT pr.id)::int
+                FROM payment_request_t pr, jsonb_array_elements(COALESCE(pr.mca_data, '[]'::jsonb)) e
+               WHERE pr.display = 'Y' AND pr.pay_for = ${src.payFor}
+                 AND upper(e->>'mca_ref') = upper(f.${sql.identifier(src.refCol)})) AS payment_count,
+             (SELECT COALESCE(sum(rc.amount - COALESCE(rc.recovered_amount, 0)), 0)::float8
+                FROM payment_recollection_t rc
+               WHERE rc.file_kind = ${kind} AND rc.file_id = f.id AND rc.status = 'pending') AS to_recollect
       FROM ${sql.identifier(src.table)} f
       LEFT JOIN client_master_t c ON c.id = f.client_id
       ${src.licensed ? sql`LEFT JOIN license_t l ON l.id = f.license_id` : sql``}
@@ -374,12 +513,70 @@ export async function listCancelledFiles(): Promise<CancelledFileRow[]> {
     SELECT * FROM (${part('import')} UNION ALL ${part('export')} UNION ALL ${part('local')}) x
     ORDER BY x.cancelled_date DESC NULLS LAST, x.updated_at DESC
     LIMIT 2000`);
-  type Row = Omit<CancelledFileRow, 'key' | 'kind_label' | 'weight' | 'fob'> & { weight: unknown; fob: unknown };
+  type Row = Omit<CancelledFileRow, 'key' | 'kind_label' | 'weight' | 'fob' | 'to_recollect'> & {
+    weight: unknown; fob: unknown; to_recollect: unknown;
+  };
   return (rows as unknown as Rows<Row>).rows.map((r) => ({
     ...r,
     key: `${r.kind}:${r.id}`,
     kind_label: SOURCES[r.kind].label,
     weight: N(r.weight),
     fob: r.fob == null ? null : N(r.fob),
+    payment_count: N(r.payment_count),
+    to_recollect: N(r.to_recollect),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// RECOLLECTION — money paid on a file that was then cancelled
+// ---------------------------------------------------------------------------
+
+/** One cancelled file's payment requests, with any recollection opened on them. */
+export async function cancelledFilePayments(kind: FileKind, fileId: number): Promise<FilePayment[]> {
+  const src = SOURCES[kind];
+  const found = await db.execute(sql`
+    SELECT id, ${sql.identifier(src.refCol)} AS ref FROM ${sql.identifier(src.table)} WHERE id = ${fileId}`);
+  const file = (found as unknown as Rows<{ id: number; ref: string | null }>).rows[0];
+  if (!file?.ref) throw new NotFoundError('This file no longer exists — reload the list.');
+  return filePaymentRequests(db, kind, [{ id: file.id, mca_ref: file.ref }]);
+}
+
+export interface RecollectionUpdate {
+  status: 'pending' | 'recovered' | 'written_off';
+  recovered_amount: number | null;
+  recovered_date: string | null;
+  note: string | null;
+}
+
+/** Record what was recovered (or that it never will be). Audited (§4.28). */
+export async function updateRecollection(id: number, input: RecollectionUpdate, actorId: number): Promise<void> {
+  await db.transaction(async (tx) => {
+    const found = await tx.execute(sql`SELECT * FROM payment_recollection_t WHERE id = ${id} FOR UPDATE`);
+    const before = (found as unknown as Rows<Record<string, unknown>>).rows[0];
+    if (!before) throw new NotFoundError('This recollection no longer exists — reload the list.');
+    const owed = N(before['amount']);
+    if (input.status === 'recovered' && (input.recovered_amount ?? 0) > owed) {
+      throw new ValidationError(
+        `Recovered amount is ${fmt(input.recovered_amount ?? 0)} — more than the ${fmt(owed)} that was paid. Correct the amount.`,
+        { field: 'recovered_amount' },
+      );
+    }
+    await tx.execute(sql`
+      UPDATE payment_recollection_t SET
+        status = ${input.status},
+        recovered_amount = ${input.status === 'recovered' ? input.recovered_amount : null},
+        recovered_date = ${input.status === 'pending' ? null : input.recovered_date}::date,
+        note = ${input.note},
+        recovered_by = ${input.status === 'pending' ? null : actorId},
+        updated_at = now()
+      WHERE id = ${id}`);
+    await recordAudit(tx, {
+      actorId,
+      action: 'update',
+      entityType: 'payment_recollection',
+      entityId: id,
+      before,
+      after: { ...before, ...input },
+    });
+  });
 }
