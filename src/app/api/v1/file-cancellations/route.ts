@@ -30,6 +30,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     reasonId: body.reason_id,
     cancelledDate: body.cancelled_date,
     actorId: session.uid,
+    acknowledgePayments: body.acknowledge_payments,
   });
   return ok(result);
 });

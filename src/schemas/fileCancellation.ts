@@ -46,5 +46,48 @@ export const fileCancellationSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Cancelled Date must be a date.')
     .refine((d) => d <= new Date().toISOString().slice(0, 10), 'Cancelled Date cannot be in the future.'),
+  /**
+   * The operator has seen the payment requests on these files and confirms.
+   * Without it, a file with payment requests is returned for confirmation.
+   */
+  acknowledge_payments: z.boolean().default(false),
 });
+
+/** GET /file-cancellations/payments?kind=&file_id= — one cancelled file's payment requests. */
+export const cancelledFilePaymentsQuery = z.object({
+  kind: fileKind,
+  file_id: z.coerce.number().int().positive('The file id must be a positive whole number.'),
+});
+
+/** PUT /file-cancellations/recollections/{id} — record what was recovered. */
+export const recollectionUpdateSchema = z
+  .object({
+    status: z.enum(['pending', 'recovered', 'written_off'], {
+      errorMap: () => ({ message: 'Status must be Pending, Recovered or Written off.' }),
+    }),
+    recovered_amount: z.coerce
+      .number({ invalid_type_error: 'Recovered Amount must be a number.' })
+      .min(0, 'Recovered Amount cannot be negative.')
+      .nullable()
+      .default(null),
+    recovered_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Recovered Date must be a date.')
+      .nullable()
+      .default(null),
+    note: z.string().trim().max(1000, 'Note must be 1000 characters or fewer.').nullable().default(null),
+  })
+  .refine((v) => v.status !== 'recovered' || (v.recovered_amount ?? 0) > 0, {
+    message: 'Recovered Amount: enter how much was recovered.',
+    path: ['recovered_amount'],
+  })
+  .refine((v) => v.status === 'pending' || !!v.recovered_date, {
+    message: 'Recovered Date: enter when it was settled.',
+    path: ['recovered_date'],
+  });
+
+export const recollectionIdSchema = z.coerce
+  .number({ invalid_type_error: 'The recollection id must be a number.' })
+  .int()
+  .positive();
 export type FileCancellationInput = z.infer<typeof fileCancellationSchema>;

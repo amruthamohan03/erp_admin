@@ -13,7 +13,8 @@
 // A file still on a live invoice or payment request is refused, with the
 // records named: remove it from them first.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, FileX2, ShieldAlert, X } from 'lucide-react';
+import { Ban, Banknote, FileX2, ShieldAlert, X } from 'lucide-react';
+import CancelledFilePaymentsDialog, { PaymentList, type FilePayment } from '@/modules/file-cancellation/CancelledFilePaymentsDialog';
 import DataTable from '@/components/ui/DataTable';
 import MultiSelect, { type MultiSelectOption } from '@/components/ui/MultiSelect';
 import SearchableSelect from '@/components/ui/SearchableSelect';
@@ -38,6 +39,10 @@ interface Options {
 
 interface CancelledRow {
   key: string;
+  kind: FileKind;
+  id: number;
+  payment_count: number;
+  to_recollect: number;
   kind_label: string;
   mca_ref: string;
   client_name: string | null;
@@ -52,18 +57,6 @@ interface CancelledRow {
 
 const money = (n: number): string => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = (): string => toDateInputValue(new Date().toISOString().slice(0, 10));
-
-/** The pickers are answered in order; the number says so without a paragraph. */
-function Step({ n, children, required = true }: { n: number; children: string; required?: boolean }) {
-  return (
-    <label className={`label flex items-center gap-1.5 ${required ? 'required' : ''}`}>
-      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary-50 text-[10px] font-bold text-primary-700">
-        {n}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 export default function FileCancellationPage() {
   const [kind, setKind] = useState<FileKind | ''>('');
@@ -82,6 +75,10 @@ export default function FileCancellationPage() {
   const [rows, setRows] = useState<CancelledRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  // Payment requests the server found on the chosen files — shown in the
+  // confirmation, which then cancels "anyway" once the operator has seen them.
+  const [pendingPayments, setPendingPayments] = useState<FilePayment[] | null>(null);
+  const [paymentsFor, setPaymentsFor] = useState<CancelledRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [invalid, setInvalid] = useState<string | null>(null);
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -187,6 +184,11 @@ export default function FileCancellationPage() {
     setConfirming(true);
   };
 
+  const closeConfirm = (): void => {
+    setConfirming(false);
+    setPendingPayments(null);
+  };
+
   const submit = async (): Promise<void> => {
     setSaving(true);
     const res = await safeFetchJson<{ cancelled: string[] }>('/api/v1/file-cancellations', {
@@ -198,10 +200,17 @@ export default function FileCancellationPage() {
         file_ids: fileIds.map(Number),
         reason_id: Number(reasonId),
         cancelled_date: cancelledDate,
+        // Only once the payments have been shown in this dialog.
+        acknowledge_payments: pendingPayments !== null,
       }),
     });
     setSaving(false);
-    setConfirming(false);
+    if (!res.ok && res.details?.['needs_payment_confirmation'] === true) {
+      // Not an error: the server is asking. Keep the dialog open and show them.
+      setPendingPayments((res.details['payments'] as FilePayment[] | undefined) ?? []);
+      return;
+    }
+    closeConfirm();
     if (!res.ok) {
       setResult({ status: 'error', title: 'Not cancelled', message: res.message || 'The files could not be cancelled.' });
       return;
@@ -252,7 +261,7 @@ export default function FileCancellationPage() {
         </div>
         <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0">
-            <Step n={1}>Tracking Type</Step>
+            <label className="label required">Tracking Type</label>
             <SearchableSelect
               value={kind}
               onChange={changeKind}
@@ -264,7 +273,7 @@ export default function FileCancellationPage() {
             />
           </div>
           <div className="min-w-0">
-            <Step n={2}>Client</Step>
+            <label className="label required">Client</label>
             <SearchableSelect
               value={clientId}
               onChange={changeClient}
@@ -278,7 +287,7 @@ export default function FileCancellationPage() {
           </div>
           {licensed && (
             <div className="min-w-0">
-              <Step n={3}>License Numbers</Step>
+              <label className="label required">License Numbers</label>
               <MultiSelect
                 values={licenseIds}
                 onChange={setLicenseIds}
@@ -293,7 +302,7 @@ export default function FileCancellationPage() {
             </div>
           )}
           <div className="min-w-0">
-            <Step n={licensed ? 4 : 3}>MCA References</Step>
+            <label className="label required">MCA References</label>
             <MultiSelect
               values={fileIds}
               onChange={setFileIds}
@@ -308,7 +317,7 @@ export default function FileCancellationPage() {
             />
           </div>
           <div className="min-w-0">
-            <Step n={licensed ? 5 : 4}>Cancellation Reason</Step>
+            <label className="label required">Cancellation Reason</label>
             <SearchableSelect
               value={reasonId}
               onChange={setReasonId}
@@ -320,11 +329,10 @@ export default function FileCancellationPage() {
             />
           </div>
           <div className="min-w-0">
-            <Step n={licensed ? 6 : 5}>Cancelled Date</Step>
+            <label htmlFor="cancelled_date" className="label required">Cancelled Date</label>
             <input
               id="cancelled_date"
               type="date"
-              aria-label="Cancelled Date"
               className="input"
               value={cancelledDate}
               max={today()}
@@ -399,6 +407,34 @@ export default function FileCancellationPage() {
           { key: 'reason', header: 'Reason', sortable: true, render: (r) => r.reason ?? '—' },
           { key: 'cancelled_date', header: 'Cancelled Date', sortable: true, render: (r) => formatDate(r.cancelled_date) },
           { key: 'cancelled_by', header: 'Cancelled By', sortable: true, render: (r) => r.cancelled_by ?? '—' },
+          {
+            key: 'payment_count',
+            header: 'Payments',
+            align: 'center',
+            value: (r) => (r.to_recollect > 0 ? `${r.payment_count} to recollect` : String(r.payment_count)),
+            render: (r) =>
+              r.payment_count === 0 ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPaymentsFor(r)}
+                  title={
+                    r.to_recollect > 0
+                      ? `${money(r.to_recollect)} paid on this file is still to be recollected`
+                      : `${r.payment_count} payment request${r.payment_count === 1 ? '' : 's'} on this file`
+                  }
+                  className={`relative inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                    r.to_recollect > 0
+                      ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
+                      : 'border-border bg-muted text-foreground'
+                  }`}
+                >
+                  <Banknote className="h-3.5 w-3.5" /> {r.payment_count}
+                  {r.to_recollect > 0 && <span className="h-1.5 w-1.5 rounded-full bg-red-600" aria-label="To recollect" />}
+                </button>
+              ),
+          },
         ]}
       />
 
@@ -419,7 +455,7 @@ export default function FileCancellationPage() {
                   </span>
                 </span>
               </span>
-              <button type="button" onClick={() => setConfirming(false)} aria-label="Close" className="shrink-0 rounded p-1 text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-500/20">
+              <button type="button" onClick={closeConfirm} aria-label="Close" className="shrink-0 rounded p-1 text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-500/20">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -434,15 +470,39 @@ export default function FileCancellationPage() {
                 <li>They leave the invoice and payment request pickers.</li>
                 <li>Their weight / FOB return to the licence.</li>
               </ul>
+              {pendingPayments && pendingPayments.length > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-200">
+                    <Banknote className="h-4 w-4" />
+                    {pendingPayments.length} payment request{pendingPayments.length === 1 ? '' : 's'} exist against{' '}
+                    {chosenRefs.length === 1 ? 'this file' : 'these files'}
+                  </p>
+                  <PaymentList payments={pendingPayments} />
+                  <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
+                    The requests are kept as they are. Whatever is already <strong>paid</strong> becomes an amount to
+                    recollect, tracked from the Cancelled Files list.
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-              <button type="button" onClick={() => setConfirming(false)} className="btn-secondary">Back</button>
+              <button type="button" onClick={closeConfirm} className="btn-secondary">Back</button>
               <button type="button" onClick={() => void submit()} className="btn-danger" disabled={saving}>
-                {saving ? 'Cancelling…' : 'Cancel Files'}
+                {saving ? 'Cancelling…' : pendingPayments ? 'Cancel anyway' : 'Cancel Files'}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {paymentsFor && (
+        <CancelledFilePaymentsDialog
+          kind={paymentsFor.kind}
+          fileId={paymentsFor.id}
+          fileRef={paymentsFor.mca_ref}
+          onClose={() => setPaymentsFor(null)}
+          onChanged={() => void loadRows()}
+        />
       )}
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
