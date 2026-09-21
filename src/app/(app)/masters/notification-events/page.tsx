@@ -14,6 +14,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import { renderTemplate, templateTokens } from '@/lib/notificationTemplate';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 interface EventRow {
   id: number;
@@ -161,7 +163,7 @@ export default function NotificationEventsPage() {
           },
           { key: 'notify_creator', header: 'Creator told', value: (r) => (r.notify_creator ? 'Yes' : 'No'), render: (r) => (r.notify_creator ? 'Yes' : 'No') },
           { key: 'priority', header: 'Priority', render: (r) => (r.priority === 'high' ? 'High' : 'Normal') },
-          { key: 'display', header: 'Active', value: (r) => (r.display === 'Y' ? 'Active' : 'Off'), render: (r) => (r.display === 'Y' ? 'Active' : <span className="text-muted-foreground">Off</span>) },
+          { key: 'display', header: 'Active', value: (r) => displayLabel(r.display), render: (r) => <StatusBadge status={displayLabel(r.display)} /> },
         ]}
         actions={(r) => ({ edit: () => edit(r) })}
       />

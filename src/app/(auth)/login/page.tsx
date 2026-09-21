@@ -62,9 +62,9 @@ function LoginForm() {
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+          {/* <p className="mt-2 text-sm text-muted-foreground">
             {branding.tagline ?? 'Customs clearance & logistics ERP'}
-          </p>
+          </p> */}
 
           {error && (
             <div
@@ -107,12 +107,12 @@ function LoginForm() {
 
             <div className="flex items-center justify-between">
               <Toggle checked={remember} onChange={setRemember} label="Remember me" />
-              <Link
+              {/* <Link
                 href="/forgot-password"
                 className="text-sm font-medium text-primary-600 hover:text-primary-700"
               >
                 Forgot password?
-              </Link>
+              </Link> */}
             </div>
 
             <button

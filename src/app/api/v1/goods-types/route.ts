@@ -42,6 +42,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       id: typeOfGoodsMaster.id,
       goods_type: typeOfGoodsMaster.goodsType,
       goods_short_name: typeOfGoodsMaster.goodsShortName,
+      weight_limited: typeOfGoodsMaster.weightLimited,
       display: typeOfGoodsMaster.display,
       created_at: typeOfGoodsMaster.createdAt,
       updated_at: typeOfGoodsMaster.updatedAt,
@@ -68,6 +69,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       .values({
         goodsType: data.goods_type,
         goodsShortName: data.goods_short_name,
+        weightLimited: data.weight_limited,
         createdBy: session.uid,
         updatedBy: session.uid,
       })

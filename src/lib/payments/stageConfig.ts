@@ -5,6 +5,11 @@
 // the grid, the view modal and the approve route must agree on what a request is
 // waiting for, and they can only do that by working from one definition.
 import type { PaymentStage, PaymentStageTone } from '@/db/schema';
+import { badgeClass, type ToneKey } from '@/lib/statusTone';
+
+// The badge palette is the app-wide one (§4.38); re-exported so the payment
+// screens keep their import.
+export { badgeClass, type ToneKey };
 
 export interface StageDef {
   stage: PaymentStage;
@@ -48,23 +53,8 @@ export function stageLabel(stages: readonly StageDef[], stage: string): string {
 
 // ---- hues (§4.32 — both themes stated, never a bare palette shade) ----------
 
-const BADGE: Record<PaymentStageTone | 'emerald' | 'rose' | 'indigo', string> = {
-  amber: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
-  cyan: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30',
-  violet: 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-500/30',
-  sky: 'bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30',
-  orange: 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-500/30',
-  blue: 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-500/30',
-  teal: 'bg-teal-100 dark:bg-teal-500/20 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-500/30',
-  fuchsia: 'bg-fuchsia-100 dark:bg-fuchsia-500/20 text-fuchsia-800 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-500/30',
-  slate: 'bg-muted text-foreground border-border',
-  emerald: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
-  rose: 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
-  indigo: 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30',
-};
-
 /** Solid mid-tone gradients for the stat cards — white type on a known ground (§4.32). */
-const CARD: Record<PaymentStageTone | 'emerald' | 'rose' | 'indigo', string> = {
+const CARD: Partial<Record<ToneKey, string>> = {
   amber: 'from-amber-500 to-orange-500',
   cyan: 'from-cyan-500 to-sky-600',
   violet: 'from-violet-500 to-purple-600',
@@ -79,10 +69,7 @@ const CARD: Record<PaymentStageTone | 'emerald' | 'rose' | 'indigo', string> = {
   indigo: 'from-indigo-500 to-violet-600',
 };
 
-export type ToneKey = keyof typeof BADGE;
-
-export const badgeClass = (tone: ToneKey): string => BADGE[tone] ?? BADGE.slate;
-export const cardGradient = (tone: ToneKey): string => CARD[tone] ?? CARD.slate;
+export const cardGradient = (tone: ToneKey): string => CARD[tone] ?? CARD.slate ?? '';
 
 /** The fixed hues of the two terminal states — they are outcomes, not stages. */
 export const DONE_TONE: ToneKey = 'emerald';

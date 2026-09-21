@@ -61,14 +61,6 @@ interface DashboardCard {
 // Status → badge colour. The five stored statuses, plus EXPIRED — which no row
 // stores: the API derives it from the expiry date (db/queries/licenseFilters.ts),
 // so a lapsed licence stops reading ACTIVE. Red, because it blocks work.
-const STATUS_BADGE: Record<string, string> = {
-  EXPIRED: 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-500/30',
-  ACTIVE: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
-  INACTIVE: 'bg-muted text-muted-foreground border-border',
-  ANNULATED: 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-500/30',
-  MODIFIED: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
-  PROROGATED: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30',
-};
 
 // card_color (short semantic name) → Tailwind gradient. Mirrors the /imports page.
 const COLOR_GRADIENTS: Record<string, string> = {
@@ -429,13 +421,7 @@ export default function LicensesListPage() {
           {
             key: 'status',
             header: 'Status',
-            render: (l: LicenseRow) => (
-              <span
-                className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${STATUS_BADGE[l.status] ?? STATUS_BADGE.INACTIVE}`}
-              >
-                {l.status}
-              </span>
-            ),
+            badge: true,
           },
         ]}
         actions={(l) => ({

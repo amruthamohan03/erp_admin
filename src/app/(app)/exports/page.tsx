@@ -447,14 +447,7 @@ export default function ExportsListPage() {
           {
             key: 'clearing_status_name',
             header: 'Clearing Status',
-            render: (r: ExportRow) =>
-              r.clearing_status_name ? (
-                <span className="inline-block rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-medium uppercase">
-                  {r.clearing_status_name}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              ),
+            badge: true,
           },
         ]}
         actions={(r) => ({

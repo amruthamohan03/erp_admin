@@ -785,6 +785,27 @@
       "when": 1789720286865,
       "tag": "0110_cancel_payments_recollection",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1789720286866,
+      "tag": "0111_import_status_dispatch_from_border",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1789720286867,
+      "tag": "0112_goods_weight_limited",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1790011137324,
+      "tag": "0113_dashboard_card_subtitle_cleanup",
+      "breakpoints": true
     }
   ]
 }

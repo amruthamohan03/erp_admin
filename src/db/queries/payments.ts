@@ -5,6 +5,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '@/lib/db';
 import { raiseEvent } from './notifications';
+import { recordAudit } from '@/lib/audit/recordAudit';
 import { PAYMENT_STAGES } from '@/db/schema';
 import { STAGE_COLUMNS } from '@/lib/payments/stages';
 import type { StageDef } from '@/lib/payments/stageConfig';
@@ -474,5 +475,60 @@ export async function announcePayment(
       currency: p.currency,
       ...extra,
     },
+  });
+}
+
+/**
+ * Reject a payment request at one stage: that stage's flag to -1, who and when,
+ * the reason in its notes, an audit entry and the `payment.rejected` event — all
+ * in the caller's transaction.
+ *
+ * The ONE implementation of a rejection. The Reject button calls it after
+ * checking the operator may act on that stage; a file cancellation calls it for
+ * every request still in approval on the cancelled file, with the reason
+ * "Reference file deleted". Two copies would drift, and the notification and
+ * audit would be the first thing to go missing from one of them.
+ */
+export async function rejectPaymentAtStage(
+  tx: Transaction,
+  input: {
+    id: number;
+    stage: keyof typeof STAGE_COLUMNS;
+    stageLabel: string;
+    reason: string;
+    actorUserId: number;
+    /** Extra audit context, e.g. which cancellation did it. */
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const col = STAGE_COLUMNS[input.stage];
+  const found = await tx.execute(sql`
+    SELECT id, payment_type, location_id, dept_approval, finance_approval, management_approval, under_process, paid_approval
+    FROM payment_request_t WHERE id = ${input.id} FOR UPDATE`);
+  const before = (found as unknown as { rows: Record<string, unknown>[] }).rows[0];
+  if (!before) return;
+
+  await tx.execute(sql`
+    UPDATE payment_request_t
+    SET ${sql.identifier(col.approval)} = -1,
+        ${sql.identifier(col.at)} = now(),
+        ${sql.identifier(col.by)} = ${input.actorUserId},
+        ${sql.identifier(col.notes)} = ${input.reason},
+        updated_by = ${input.actorUserId}, updated_at = now()
+    WHERE id = ${input.id}`);
+  // §4.28 — the reason is kept here as well as on the row, because re-submitting
+  // clears the row's copy.
+  await recordAudit(tx, {
+    actorId: input.actorUserId,
+    action: 'reject',
+    entityType: 'payment_request',
+    entityId: String(input.id),
+    before,
+    after: { [col.approval]: -1, [col.notes]: input.reason },
+    metadata: { stage: input.stage, ...input.metadata },
+  });
+  await announcePayment(tx, 'payment.rejected', input.id, input.actorUserId, {
+    stage: input.stageLabel,
+    reason: input.reason,
   });
 }

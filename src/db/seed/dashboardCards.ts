@@ -65,7 +65,7 @@ const CARDS: Card[] = [
     cardKey: 'client.active',
     cardContentId: 'active',
     cardTitle: 'Active Clients',
-    cardSubtitle: 'display=Y',
+    cardSubtitle: null,
     cardIcon: 'CheckCircle2',
     cardColor: 'emerald',
     cardUrl: '/masters/clients',

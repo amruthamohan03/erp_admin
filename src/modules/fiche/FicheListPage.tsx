@@ -8,7 +8,7 @@
 // The states and the steps are read from the workflow (GET /fiches/summary), so
 // adding a stage is a workflow_transition_master_t row — this screen renders it
 // with no change (§4.6). Editing and deleting stop at a state with no way out.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Calculator, CheckCircle2, Plus, Printer } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import StatCard from '@/components/ui/StatCard';
@@ -17,6 +17,7 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import TransactionFormPanel from '@/components/transactional/TransactionFormPanel';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 interface Row {
   id: number;
@@ -44,14 +45,6 @@ const fmt = (n: number): string =>
 const words = (s: string | null | undefined): string =>
   String(s ?? '').replace(/_/gu, ' ').replace(/\b\w/gu, (c) => c.toUpperCase());
 
-/** State badges cycle through fixed semantic hues, each with its dark reading (§4.32). */
-const BADGE_TONES = [
-  'bg-muted text-foreground border-border',
-  'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
-  'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
-  'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30',
-  'bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30',
-];
 
 export default function FicheListPage() {
   const [items, setItems] = useState<Row[]>([]);
@@ -101,10 +94,6 @@ export default function FicheListPage() {
     void loadSummary();
   };
 
-  const toneOf = useMemo(() => {
-    const order = workflow?.states ?? [];
-    return (s: string | null): string => BADGE_TONES[Math.max(0, order.indexOf(s ?? '')) % BADGE_TONES.length] ?? BADGE_TONES[0]!;
-  }, [workflow]);
   const editable = (s: string | null): boolean => s == null || !!workflow?.transitions.some((t) => t.from === s);
   const stepsFrom = (s: string | null): Workflow['transitions'] => workflow?.transitions.filter((t) => t.from === s) ?? [];
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -229,9 +218,7 @@ export default function FicheListPage() {
             header: 'Status',
             value: (r) => words(r.state),
             render: (r) => (
-              <span className={`inline-block rounded border px-2 py-0.5 text-xs font-semibold uppercase ${toneOf(r.state)}`}>
-                {words(r.state) || '—'}
-              </span>
+              <StatusBadge status={words(r.state)} />
             ),
           },
         ]}

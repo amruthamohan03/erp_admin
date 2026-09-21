@@ -34,7 +34,7 @@ import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/field
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
-import { assertPartielleCapacity } from '@/db/queries/partielle';
+import { assertLicenceWeight, assertPartielleCapacity } from '@/db/queries/partielle';
 import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 import { announceFiche, computeFicheSave } from '@/db/queries/fiches';
@@ -300,6 +300,13 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   if (slug === 'import' || slug === 'export') {
     const partielleError = await assertPartielleCapacity(slug, evalContext, entityId);
     if (partielleError) return fail(partielleError, 422, { field: 'inspection_reports' });
+  }
+
+  // Import Tracking — the files on a licence can't together weigh more than the
+  // licence, unless its Type of Goods carries no weight limits (DIVERS).
+  if (slug === 'import') {
+    const licenceError = await assertLicenceWeight('import', evalContext, entityId, before);
+    if (licenceError) return fail(licenceError, 422, { field: 'weight' });
   }
 
   // §4.37 — the list hides Edit once the Department has approved and for anyone

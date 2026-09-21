@@ -16,8 +16,10 @@
 //   * a file already on a live INVOICE is not cancelled: the request is refused
 //     with the invoice named (§4.37). A PAYMENT REQUEST does not block it — the
 //     requests are shown with their status and amount, the operator confirms,
-//     and anything already paid becomes a recollection to recover
-//     (payment_recollection_t), recorded from the Cancelled Files list.
+//     and then: anything already PAID becomes a recollection to recover
+//     (payment_recollection_t), recorded from the Cancelled Files list; anything
+//     still IN APPROVAL is rejected at the stage it waits on, with the reason
+//     "Reference file deleted (<MCA ref>)".
 //
 // The CANCELLED row is found by its name, not by id 7 — ids differ between
 // databases, and the name is what the master screen shows.
@@ -27,11 +29,19 @@ import { formatDate } from '@/lib/formatDate';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { raiseEvent } from './notifications';
 import { loadPaymentStages } from './paymentStages';
-import { paymentStatus, type PaymentApprovalState } from '@/lib/payments/stages';
+import { STAGE_COLUMNS, paymentStatus, type PaymentApprovalState } from '@/lib/payments/stages';
+import { stageLabel } from '@/lib/payments/stageConfig';
+import { rejectPaymentAtStage } from './payments';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 
 export { FILE_KINDS, type FileKind } from '@/schemas/fileCancellation';
 import type { FileKind } from '@/schemas/fileCancellation';
+
+/**
+ * The rejection note written on every payment request still in approval when
+ * the file it was raised on is cancelled (the file's MCA reference is appended).
+ */
+export const FILE_CANCELLED_REJECT_REASON = 'Reference file deleted';
 
 /** The value a licence picker uses for files that carry no licence. */
 export const NO_LICENSE = 0;
@@ -393,7 +403,9 @@ export async function cancelFiles(
         [
           `${payments.length} payment request${payments.length === 1 ? '' : 's'} exist against ${files.length === 1 ? 'this file' : 'these files'}.`,
           paid.length > 0 ? `Already paid: ${money(paid)}.` : '',
-          open.length > 0 ? `Still in approval: ${money(open)}.` : '',
+          open.filter((x) => x.status_key !== 'rejected').length > 0
+            ? `Still in approval, and will be REJECTED ("${FILE_CANCELLED_REJECT_REASON}"): ${money(open.filter((x) => x.status_key !== 'rejected'))}.`
+            : '',
           'Confirm to cancel anyway — anything already paid becomes an amount to recollect.',
         ].filter(Boolean).join(' '),
         { field: 'file_ids', payments, needs_payment_confirmation: true },
@@ -455,6 +467,24 @@ export async function cancelFiles(
         },
       });
     }
+    // A request still in approval has nothing left to pay for — the file it was
+    // raised on no longer exists. Rejected at the stage it waits on, through the
+    // same code as the Reject button, so its audit entry and notification match.
+    const stages = await loadPaymentStages();
+    for (const pmt of payments) {
+      if (!pmt.status_key.startsWith('waiting_')) continue;
+      const stage = pmt.status_key.slice('waiting_'.length) as keyof typeof STAGE_COLUMNS;
+      if (!(stage in STAGE_COLUMNS)) continue;
+      await rejectPaymentAtStage(tx, {
+        id: pmt.payment_id,
+        stage,
+        stageLabel: stageLabel(stages, stage),
+        reason: `${FILE_CANCELLED_REJECT_REASON} (${pmt.mca_ref})`,
+        actorUserId: input.actorId,
+        metadata: { via: 'file-cancellation', file_ref: pmt.mca_ref },
+      });
+    }
+
     return { cancelled: files.map((f) => f.mca_ref) };
   });
 }

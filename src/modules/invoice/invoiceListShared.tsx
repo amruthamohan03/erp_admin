@@ -19,6 +19,7 @@ import clsx from 'clsx';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 export type InvoiceKind = 'export' | 'import';
 export type InvoiceFilter = 'all' | 'validated' | 'not-validated' | 'dgi-verified';
@@ -127,16 +128,9 @@ export function InvoiceStatCards({
 }
 
 export function validationBadge(validated: number): { label: string; node: ReactNode } {
-  const st =
-    validated === 2
-      ? { label: 'DGI VERIFIED', cls: 'bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-500/30' }
-      : validated === 1
-        ? { label: 'VALIDATED', cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30' }
-        : { label: 'NOT VALIDATED', cls: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30' };
-  return {
-    label: st.label,
-    node: <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${st.cls}`}>{st.label}</span>,
-  };
+  // DGI Verified is a step past Validated, so it keeps a hue of its own (§4.38).
+  const label = validated === 2 ? 'DGI VERIFIED' : validated === 1 ? 'VALIDATED' : 'NOT VALIDATED';
+  return { label, node: <StatusBadge status={label} tone={validated === 2 ? 'violet' : undefined} /> };
 }
 
 /** Created-date range, beside the DataTable's search box. */

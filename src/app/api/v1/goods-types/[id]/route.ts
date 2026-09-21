@@ -27,6 +27,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       id: typeOfGoodsMaster.id,
       goods_type: typeOfGoodsMaster.goodsType,
       goods_short_name: typeOfGoodsMaster.goodsShortName,
+      weight_limited: typeOfGoodsMaster.weightLimited,
       display: typeOfGoodsMaster.display,
       created_at: typeOfGoodsMaster.createdAt,
       updated_at: typeOfGoodsMaster.updatedAt,
@@ -55,6 +56,7 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   if (data.goods_type !== undefined) patch.goodsType = data.goods_type;
   if (data.goods_short_name !== undefined)
     patch.goodsShortName = data.goods_short_name;
+  if (data.weight_limited !== undefined) patch.weightLimited = data.weight_limited;
   if (data.display !== undefined) patch.display = data.display;
   if (Object.keys(patch).length === 0) {
     throw new BadRequestError('Nothing to update');

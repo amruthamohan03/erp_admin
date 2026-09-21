@@ -9,6 +9,9 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import ConditionsTab from '@/modules/page-builder/ConditionsTab';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 // §4.12 page-builder — configure one master_page (accordions, role grants,
 // fields, field grants). Ported from main onto /api/v1 + { ok, data }.
@@ -50,10 +53,10 @@ interface RoleGrantMatrix {
   grants: Record<string, 'view' | 'edit'>;
 }
 
-type Tab = 'general' | 'accordions' | 'roles' | 'fields';
+type Tab = 'general' | 'accordions' | 'roles' | 'fields' | 'conditions';
 
 function tabFromSearch(raw: string | null): Tab {
-  if (raw === 'accordions' || raw === 'roles' || raw === 'fields') return raw;
+  if (raw === 'accordions' || raw === 'roles' || raw === 'fields' || raw === 'conditions') return raw;
   return 'general';
 }
 
@@ -114,7 +117,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
       </div>
 
       <div className="border-b border-border mb-4 flex gap-1">
-        {(['general', 'accordions', 'roles', 'fields'] as Tab[]).map((t) => (
+        {(['general', 'accordions', 'roles', 'fields', 'conditions'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -128,6 +131,7 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
             {t === 'accordions' && 'Accordions'}
             {t === 'roles' && 'Role Grants'}
             {t === 'fields' && 'Fields'}
+            {t === 'conditions' && 'Conditions'}
           </button>
         ))}
       </div>
@@ -136,6 +140,8 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
       {!loading && page && tab === 'accordions' && <AccordionsTab pageId={pageId} />}
       {!loading && page && tab === 'roles' && <RolesTab pageId={pageId} />}
       {!loading && page && tab === 'fields' && <FieldsTab pageId={pageId} />}
+      {/* Show / hide / require / lock fields based on another field's value. */}
+      {!loading && page && tab === 'conditions' && <ConditionsTab pageId={pageId} />}
     </>
   );
 }
@@ -331,13 +337,7 @@ function AccordionsTab({ pageId }: { pageId: number }) {
             key: 'display',
             header: 'Status',
             render: (a: MasterPageAccordion) => (
-              <span
-                className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
-                  a.display === 'Y' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {a.display === 'Y' ? 'Active' : 'Inactive'}
-              </span>
+              <StatusBadge status={displayLabel(a.display)} />
             ),
           },
         ]}
