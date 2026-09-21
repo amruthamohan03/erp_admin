@@ -478,10 +478,16 @@ export default function FileCancellationPage() {
                     {chosenRefs.length === 1 ? 'this file' : 'these files'}
                   </p>
                   <PaymentList payments={pendingPayments} />
-                  <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
-                    The requests are kept as they are. Whatever is already <strong>paid</strong> becomes an amount to
-                    recollect, tracked from the Cancelled Files list.
-                  </p>
+                  <ul className="mt-2 list-disc space-y-0.5 ps-5 text-xs text-amber-800 dark:text-amber-200">
+                    <li>
+                      Requests still <strong>in approval</strong> are rejected automatically, with the reason
+                      &ldquo;Reference file deleted&rdquo;.
+                    </li>
+                    <li>
+                      Whatever is already <strong>paid</strong> becomes an amount to recollect, tracked from the
+                      Cancelled Files list.
+                    </li>
+                  </ul>
                 </div>
               )}
             </div>

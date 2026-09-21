@@ -13,6 +13,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate, toDateInputValue } from '@/lib/formatDate';
+import StatusBadge from '@/components/ui/StatusBadge';
+import type { ToneKey } from '@/lib/statusTone';
 
 export interface FilePayment {
   payment_id: number;
@@ -35,11 +37,11 @@ export interface FilePayment {
 const money = (n: number): string => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = (): string => toDateInputValue(new Date().toISOString().slice(0, 10));
 
-/** Paid, in approval, rejected — each reads at a glance. */
-function statusBadge(p: FilePayment): string {
-  if (p.paid) return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300';
-  if (p.status_key === 'rejected') return 'border-border bg-muted text-muted-foreground';
-  return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200';
+/** Paid, in approval, rejected — each reads at a glance (§4.38). */
+function paymentTone(p: FilePayment): ToneKey {
+  if (p.paid) return 'emerald';
+  if (p.status_key === 'rejected') return 'rose';
+  return 'amber';
 }
 
 function recollectionText(p: FilePayment): string | null {
@@ -91,7 +93,7 @@ export function PaymentList({
                   </span>
                 </td>
                 <td className="px-2 py-1.5">
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadge(p)}`}>{p.status_label}</span>
+                  <StatusBadge status={p.status_label} tone={paymentTone(p)} />
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-foreground">
                   {money(p.amount)} {p.currency ?? ''}

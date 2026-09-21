@@ -10,6 +10,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 /**
  * An export file still holding a seal that this edit would free, as reported by
@@ -87,12 +89,6 @@ const LOCATION_GRADIENTS = [
   'from-fuchsia-500 to-pink-600', 'from-sky-500 to-cyan-500', 'from-lime-500 to-green-600',
   'from-rose-400 to-amber-400', 'from-cyan-500 to-indigo-700', 'from-orange-400 to-rose-500',
 ];
-
-function statusBadge(s: SealStatus): string {
-  if (s === 'Used') return 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30';
-  if (s === 'Damaged') return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30';
-  return 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30';
-}
 
 export default function SealsPage() {
   const [offices, setOffices] = useState<Opt[]>([]);
@@ -448,12 +444,8 @@ export default function SealsPage() {
             {
               key: 'display',
               header: 'Display',
-              render: (m: SealMasterRow) =>
-                m.display === 'Y' ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Yes</span>
-                ) : (
-                  <span className="text-red-500 text-xs font-medium">No</span>
-                ),
+              value: (m: SealMasterRow) => displayLabel(m.display),
+              render: (m: SealMasterRow) => <StatusBadge status={displayLabel(m.display)} />,
             },
           ]}
           actions={(m) => ({
@@ -509,11 +501,7 @@ export default function SealsPage() {
               key: 'status',
               header: 'Status',
               sortable: true,
-              render: (n: SealNumberRow) => (
-                <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(n.status)}`}>
-                  {n.status}
-                </span>
-              ),
+              badge: true,
             },
             { key: 'location', header: 'Location', sortable: true, className: 'text-xs' },
             {
@@ -674,7 +662,7 @@ function ManageNumbersModal({ master, refreshToken, onClose, onChanged, onEditNu
                 <div key={s.id} className="rounded-lg border border-border p-3 flex items-center justify-between">
                   <div>
                     <span className="font-mono font-semibold">{s.seal_number}</span>
-                    <span className={`ml-2 inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge(s.status)}`}>{s.status}</span>
+                    <StatusBadge status={s.status} className="ml-2" />
                     {s.notes && <div className="text-xs text-muted-foreground mt-0.5">{s.notes}</div>}
                   </div>
                   <button type="button" onClick={() => onEditNumber({ id: s.id, seal_number: s.seal_number, status: s.status, notes: s.notes ?? '', location: s.location ?? '' })}

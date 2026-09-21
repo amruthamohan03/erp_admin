@@ -6,6 +6,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 interface MainOfficeRow {
   id: number;
@@ -100,15 +102,7 @@ export default function MainOfficesPage() {
           ) },
         { key: 'display', header: 'Status', render: (o: MainOfficeRow) => (
             <>
-            <span
-                        className={
-                          o.display === 'Y'
-                            ? 'inline-block rounded bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300'
-                            : 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'
-                        }
-                      >
-                        {o.display === 'Y' ? 'Active' : 'Disabled'}
-                      </span>
+            <StatusBadge status={displayLabel(o.display)} />
             </>
           ) },
         ]}

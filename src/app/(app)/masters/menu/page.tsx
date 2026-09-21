@@ -7,6 +7,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import type { MenuItem } from '@/types/menu';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 interface MenuRow extends MenuItem {
   parent_name: string | null;
@@ -159,15 +161,7 @@ export default function MenuPage() {
             header: 'Status',
             sortable: true,
             render: (m) => (
-              <span
-                className={
-                  m.display === 'Y'
-                    ? 'inline-block rounded bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300'
-                    : 'inline-block rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'
-                }
-              >
-                {m.display === 'Y' ? 'Active' : 'Disabled'}
-              </span>
+              <StatusBadge status={displayLabel(m.display)} />
             ),
           },
         ]}

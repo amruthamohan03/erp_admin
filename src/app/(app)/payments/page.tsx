@@ -39,12 +39,12 @@ import {
   DEFAULT_STAGES,
   DONE_TONE,
   REJECTED_TONE,
-  badgeClass,
   cardGradient,
   type StageDef,
   type ToneKey,
 } from '@/lib/payments/stageConfig';
 import type { PaymentStage } from '@/db/schema';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 /** A grant from payment_stage_role_master_t — null location is every office. */
 interface StageGrant {
@@ -713,8 +713,9 @@ export default function PaymentsPage() {
               const st = paymentStatus(r, perms.stages);
               return (
                 <span className="inline-flex items-center gap-1">
-                  <span
-                    className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass(statusTone(st, perms.stages))}`}
+                  <StatusBadge
+                    status={st.label}
+                    tone={statusTone(st, perms.stages)}
                     // Says what Edit will do to a rejected row, where the
                     // operator is already looking to find out why it stopped.
                     title={
@@ -722,9 +723,7 @@ export default function PaymentsPage() {
                         ? 'Rejected — correcting this request and saving it sends it back to Department for approval.'
                         : undefined
                     }
-                  >
-                    {st.label}
-                  </span>
+                  />
                   {r.resubmit_count > 0 && (
                     <span
                       title={`Sent back and re-submitted ${r.resubmit_count} time${r.resubmit_count === 1 ? '' : 's'}`}

@@ -20,8 +20,10 @@ import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDateTime } from '@/lib/formatDate';
-import { badgeClass, type ToneKey } from '@/lib/payments/stageConfig';
+import { type ToneKey } from '@/lib/payments/stageConfig';
 import { PAYMENT_STAGE_TONES } from '@/db/schema';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 interface Row {
   id: number;
@@ -96,9 +98,7 @@ export default function PaymentStagesPage() {
             key: 'pending_label',
             header: 'Waiting Status',
             render: (r) => (
-              <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass(r.tone)}`}>
-                {r.pending_label}
-              </span>
+              <StatusBadge status={r.pending_label} tone={r.tone} />
             ),
           },
           {
@@ -132,14 +132,8 @@ export default function PaymentStagesPage() {
             key: 'display',
             header: 'Active',
             align: 'center',
-            value: (r) => (r.display === 'Y' ? 'Active' : 'Off'),
-            render: (r) => (
-              <span
-                className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass(r.display === 'Y' ? 'teal' : 'slate')}`}
-              >
-                {r.display === 'Y' ? 'Active' : 'Off'}
-              </span>
-            ),
+            value: (r) => displayLabel(r.display),
+            render: (r) => <StatusBadge status={displayLabel(r.display)} />,
           },
           {
             key: 'updated_at',
@@ -265,9 +259,7 @@ function StageModal({ row, onClose, onSaved }: { row: Row; onClose: () => void; 
                 options={PAYMENT_STAGE_TONES.map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) }))}
                 aria-label="Badge colour"
               />
-              <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass(form.tone)}`}>
-                {form.pending_label || 'Preview'}
-              </span>
+              <StatusBadge status={form.pending_label || 'Preview'} tone={form.tone} />
             </div>
           </div>
 

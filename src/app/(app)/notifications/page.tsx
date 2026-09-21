@@ -22,6 +22,7 @@ import {
   type NotificationKind,
   type UnreadCounts,
 } from '@/lib/notificationsClient';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 // useSearchParams needs a Suspense boundary for the static build.
 export default function NotificationsPage() {
@@ -203,12 +204,8 @@ function NotificationsInbox() {
             key: 'read',
             header: 'Status',
             value: (r) => (r.read ? 'Read' : 'Unread'),
-            render: (r) =>
-              r.read ? (
-                <span className="text-muted-foreground">Read</span>
-              ) : (
-                <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-700">Unread</span>
-              ),
+            // Unread is what needs attention; read has been dealt with.
+            render: (r) => <StatusBadge status={r.read ? 'Read' : 'Unread'} tone={r.read ? 'slate' : 'blue'} />,
           },
         ]}
         actions={(r) => ({ view: () => void view(r) })}

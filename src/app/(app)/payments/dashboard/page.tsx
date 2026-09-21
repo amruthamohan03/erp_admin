@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BarChart3, CreditCard, CircleCheck, XCircle, Clock, Wallet, TrendingUp } from 'lucide-react';
-import { badgeClass, type ToneKey } from '@/lib/payments/stageConfig';
+import { type ToneKey } from '@/lib/payments/stageConfig';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 // Payment Dashboard — KPIs, monthly revenue trend, status breakdown, top
 // clients. Data from /api/v1/payments/dashboard. Charts are inline (no new dep).
@@ -113,7 +114,7 @@ export default function PaymentDashboardPage() {
                 <div className="space-y-2">
                   {d.status_cards.map((s) => (
                     <div key={s.status_key} className="flex items-center justify-between">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass(s.tone)} border`}>{s.status_name}</span>
+                      <StatusBadge status={s.status_name} tone={s.tone} />
                       <span className="font-bold tabular-nums text-foreground">{s.count}</span>
                     </div>
                   ))}

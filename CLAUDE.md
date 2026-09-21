@@ -894,6 +894,45 @@ Rules that follow:
 - **Do not over-guard.** Used → Damaged is deliberately allowed without confirmation: a damaged seal can never be issued (mark-used only picks up Available), and recording that a seal was found broken must not force it off the file it was actually applied to.
 - **A delete refuses instead of offering the detach.** Deleting a seal is not the same decision as releasing one; the message names the file and says to release it there first (§4.27).
 
+### 4.38 A status is a badge, and its colour means the same thing on every screen
+
+**Every status a table shows — clearing status, licence status, payment stage, invoice validation, seal status, workflow state, a `display` flag — renders as a [`<StatusBadge>`](src/components/ui/StatusBadge.tsx), never as plain text and never as a hand-built `<span className="rounded-full bg-…">`.** A status column is scanned, not read. An operator looking down a list of files wants the cancelled ones to show red and the completed ones green before reading a word. That only works if CANCELLED is the same red on the imports list, the licence list and the payments grid. It was not: five screens each carried their own badge map, and CANCELLED was cyan on one of them and red on the next.
+
+In a `<DataTable>` this is one flag on the column — no `render` needed:
+
+```tsx
+{ key: 'clearing_status_name', header: 'Clearing Status', badge: true }             // colour from the text
+{ key: 'status', header: 'Status', badge: (r) => r.tone }                           // colour a master row configures
+{ key: 'display', header: 'Status', value: (r) => displayLabel(r.display),
+  render: (r) => <StatusBadge status={displayLabel(r.display)} /> }                 // a Y/N flag → Active / Disabled
+```
+
+Outside a table (a detail panel, a dialog, a dashboard list) render the component directly: `<StatusBadge status={label} tone={optionalTone} />`.
+
+**The hue comes from what the status MEANS.** [`statusTone`](src/lib/statusTone.ts) is the only thing that maps status text to a colour:
+
+| Hue | Meaning | Examples |
+| --- | --- | --- |
+| **emerald** | finished well | Completed, Cleared, Approved, Paid, Validated, Active, Available |
+| **rose** | stopped, and will not continue | Cancelled, Rejected, Expired, Annulated, Damaged |
+| **amber** | waiting on someone | Pending, Awaiting, "… to be validated", Not validated, Modified |
+| **sky** | moving | In Progress, In Transit, Under Process, Submitted |
+| **cyan** | extended | Prorogated, Renewed |
+| **violet** | consumed / a step beyond done | Used, DGI Verified |
+| **slate** | switched off, not started, or unknown | Inactive, Disabled, Draft, Closed |
+
+Rules that follow:
+
+- **First match wins, and the order is deliberate.** The "switched off" words are checked before green, so INACTIVE is not read as ACTIVE. Red and amber are checked before green, so "CRF TO BE VALIDATED" and "SEGUCE TO BE PAID" read as *waiting*, not as validated or paid. Words match whole, so UNPAID never matches PAID. [statusTone.test.ts](src/lib/statusTone.test.ts) pins this — add a case whenever you add a word.
+- **Unknown text is slate.** A status nobody has classified reads as neutral; the resolver never guesses good or bad. If a new master status shows up grey, add its word to the right hue in `statusTone` — never at the call site.
+- **A configured tone beats the text.** Where a master row already carries a hue (payment stages' `tone`), pass it as `tone` / `badge: (r) => r.tone`. Use `tone` too when two statuses share a meaning but must stay apart — DGI Verified is violet because it is a step past Validated. Do not use `tone` to re-colour a status the resolver already classifies correctly.
+- **One palette.** `badgeClass(tone)` in [statusTone.ts](src/lib/statusTone.ts) is the only set of badge classes; [stageConfig.ts](src/lib/payments/stageConfig.ts) re-exports it rather than keeping a copy. Every hue states both themes — a light `-100` fill with `-800` text, and a translucent `-500/20` fill with `-300` text in dark mode (§4.32). Slate uses the `muted` tokens.
+- **A `display` flag says Active / Disabled, through `displayLabel`.** Not "Yes/No", not "Off", not "Inactive" on one screen and "Disabled" on the next.
+- **An empty status is an em dash**, not an empty pill — `<StatusBadge>` does this for you.
+- **The badge truncates and keeps the full text as its `title`** (§4.36), so a long document status cannot widen its column.
+- **Search and column filters still match the words.** The badge is how the cell is *drawn*; `cellText` reads the field, so typing `cancelled` finds the red rows (§4.25.1).
+- **This is not the action palette.** View / Edit / Delete hues (§4.20) and the configured action colours (§4.26) mark what a *button* does. A badge marks what state a *record* is in. Do not reuse one for the other.
+
 ## 5. Directory layout
 
 ```
@@ -1090,6 +1129,9 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to find the next sequence with a `LIKE 'prefix%'` scan → no, that assumes the number is last; use `buildSequencePattern` (§4.33).
 - Requests to let an operator type a reference prefix on a create screen, or to build a reference anywhere but `generateReferences` → no, one generator issues every reference (§4.33).
 - Requests to emit a reference with a missing code left blank → no, blank the whole field rather than issue a reference that will collide (§4.33).
+- Requests to show a status column as plain text, or to hand-build a coloured pill for one → no, it is a `<StatusBadge>` / `badge: true` on the column (§4.38).
+- Requests to give one screen its own status-colour map, or to colour a status at the call site → no, add the word to `statusTone` so every screen agrees (§4.38).
+- Requests to colour a "… to be validated" / "to be paid" status green → no, it is waiting, so it is amber (§4.38).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

@@ -5,12 +5,15 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
+import Toggle from '@/components/ui/Toggle';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
 interface GoodsTypeRow {
   id: number;
   goods_type: string;
   goods_short_name: string;
+  /** Weight limits apply to licences and files of this type (off for DIVERS). */
+  weight_limited: boolean;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -92,6 +95,22 @@ export default function GoodsTypesPage() {
                       </span>
             </>
           ) },
+        {
+          key: 'weight_limited',
+          header: 'Weight Limits',
+          value: (g: GoodsTypeRow) => (g.weight_limited ? 'Applied' : 'Not applied'),
+          render: (g: GoodsTypeRow) =>
+            g.weight_limited ? (
+              <span className="text-foreground">Applied</span>
+            ) : (
+              <span
+                className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+                title="Files may total more than the licence weight and weigh more than their inspection report"
+              >
+                Not applied
+              </span>
+            ),
+        },
         ]}
         actions={(g) => ({ edit: () => setEditing(g), remove: () => handleDelete(g.id) })}
         server={{
@@ -145,6 +164,7 @@ function GoodsTypeFormModal({
   const isEdit = !!goodsType;
   const [type, setType] = useState(goodsType?.goods_type || '');
   const [shortName, setShortName] = useState(goodsType?.goods_short_name || '');
+  const [weightLimited, setWeightLimited] = useState(goodsType?.weight_limited ?? true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -200,6 +220,7 @@ function GoodsTypeFormModal({
         body: JSON.stringify({
           goods_type: type,
           goods_short_name: shortName,
+          weight_limited: weightLimited,
         }),
       });
       const json = await res.json();
@@ -253,6 +274,14 @@ function GoodsTypeFormModal({
               maxLength={20}
             />
             <UniquenessIndicator status={shortStatus} message={shortMessage} />
+          </div>
+          <div>
+            <Toggle checked={weightLimited} onChange={setWeightLimited} label="Weight limits apply" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {weightLimited
+                ? 'Files on a licence of this type cannot total more than the licence weight, nor weigh more than their inspection report.'
+                : 'No licence or inspection-report weight limit on files of this type — for goods such as DIVERS, whose licence may carry no weight.'}
+            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

@@ -3,12 +3,14 @@ import { z } from 'zod';
 export const goodsTypeCreateSchema = z.object({
   goods_type: z.string().min(1).max(100),
   goods_short_name: z.string().min(1).max(20),
+  weight_limited: z.boolean().default(true),
 });
 export type GoodsTypeCreateInput = z.infer<typeof goodsTypeCreateSchema>;
 
 export const goodsTypeUpdateSchema = z.object({
   goods_type: z.string().min(1).max(100).optional(),
   goods_short_name: z.string().min(1).max(20).optional(),
+  weight_limited: z.boolean().optional(),
   display: z.enum(['Y', 'N']).optional(),
 });
 export type GoodsTypeUpdateInput = z.infer<typeof goodsTypeUpdateSchema>;

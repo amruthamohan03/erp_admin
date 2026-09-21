@@ -3,6 +3,13 @@
 //   • an allotment's weight/FOB can't exceed the licence budget net of siblings
 //   • an allotment can't shrink below what its imports already consumed
 //   • an import can't over-draw its selected allotment (the doc's core fix)
+//   • the files on a licence can't together weigh more than the licence
+//
+// WEIGHT limits follow the licence's Type of Goods (type_of_goods_master_t
+// .weight_limited, 0112). For a type with limits OFF — DIVERS, whose licence may
+// carry no weight at all — files may total more than the licence weight and a
+// file may weigh more than its inspection report; allotments are still held to
+// the licence weight when it has one. FOB limits are unaffected.
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { fileNotCancelled } from '@/db/queries/fileCancellation';
@@ -144,13 +151,33 @@ export async function partielleSummary(licenseId: number): Promise<PartielleSumm
 
 async function licenceBudget(
   licenseId: number,
-): Promise<{ weight: number; fob: number; client_id: number | null } | null> {
+): Promise<{ weight: number; fob: number; client_id: number | null; weight_limited: boolean } | null> {
   const [l] = await db
-    .select({ weight: licenseT.weight, fob: licenseT.fobDeclared, client_id: licenseT.clientId })
+    .select({
+      weight: licenseT.weight,
+      fob: licenseT.fobDeclared,
+      client_id: licenseT.clientId,
+      // No goods type, or one not found, keeps the limits on — the safe default.
+      weight_limited: sql<boolean>`COALESCE((SELECT g.weight_limited FROM type_of_goods_master_t g WHERE g.id = ${licenseT.typeOfGoodsId}), true)`,
+    })
     .from(licenseT)
     .where(eq(licenseT.id, licenseId));
   if (!l) return null;
-  return { weight: N(l.weight), fob: N(l.fob), client_id: l.client_id ?? null };
+  return { weight: N(l.weight), fob: N(l.fob), client_id: l.client_id ?? null, weight_limited: l.weight_limited !== false };
+}
+
+/**
+ * Do weight limits apply to this licence? Looked up by id — the licence's own
+ * Type of Goods decides, falling back to the file's when the licence has none.
+ */
+export async function weightLimitsApply(licenseId: number | null, fileGoodsId: number | null): Promise<boolean> {
+  const rows = await db.execute(sql`
+    SELECT COALESCE(
+      (SELECT g.weight_limited FROM license_t l JOIN type_of_goods_master_t g ON g.id = l.type_of_goods_id
+        WHERE l.id = ${licenseId ?? 0}),
+      (SELECT g.weight_limited FROM type_of_goods_master_t g WHERE g.id = ${fileGoodsId ?? 0}),
+      true) AS limited`);
+  return (rows as unknown as { rows: { limited: boolean }[] }).rows[0]?.limited !== false;
 }
 
 async function siblingAllocated(
@@ -239,7 +266,10 @@ export async function createPartielle(input: PartielleInput, uid: number): Promi
   }
 
   const siblings = await siblingAllocated(input.license_id, null);
-  if (siblings.weight + input.partial_weight > budget.weight + 0.001) {
+  // Without weight limits (DIVERS) the licence may carry no weight; allotments
+  // are held to it only when it has one.
+  const capAllotments = budget.weight_limited || budget.weight > 0;
+  if (capAllotments && siblings.weight + input.partial_weight > budget.weight + 0.001) {
     throw new PartielleError(
       `Weight ${input.partial_weight} exceeds the licence's remaining allocation of ${round3(budget.weight - siblings.weight)} KG`,
     );
@@ -278,19 +308,21 @@ export async function updatePartielle(
     .where(and(eq(partialT.id, id), eq(partialT.display, 'Y')));
   if (!existing || existing.licenseId == null) throw new PartielleError('Allotment not found');
 
-  // can't shrink below what imports already consumed
+  // can't shrink below what imports already consumed — unless weight limits are
+  // off, where a file may weigh more than its inspection report anyway
   const consumed = await consumedByName(existing.name);
-  if (input.partial_weight < consumed.weight - 0.001) {
+  const budget = await licenceBudget(existing.licenseId);
+  if ((budget?.weight_limited ?? true) && input.partial_weight < consumed.weight - 0.001) {
     throw new PartielleError(`Weight can't be below the ${consumed.weight} KG already consumed`);
   }
   if (input.partial_fob < consumed.fob - 0.001) {
     throw new PartielleError(`FOB can't be below the ${consumed.fob} already consumed`);
   }
   // can't exceed the licence budget net of the other allotments
-  const budget = await licenceBudget(existing.licenseId);
   if (budget) {
     const siblings = await siblingAllocated(existing.licenseId, id);
-    if (siblings.weight + input.partial_weight > budget.weight + 0.001) {
+    const capAllotments = budget.weight_limited || budget.weight > 0;
+    if (capAllotments && siblings.weight + input.partial_weight > budget.weight + 0.001) {
       throw new PartielleError(
         `Weight exceeds the licence's remaining allocation of ${round3(budget.weight - siblings.weight)} KG`,
       );
@@ -351,11 +383,62 @@ export async function assertPartielleCapacity(
   const remainingWeight = round3(N(p.weight) - N(used?.w));
   const remainingFob = round3(N(p.fob) - N(used?.f));
 
-  if (weight > remainingWeight + 0.001) {
+  // A file may weigh more than its inspection report when the goods carry no
+  // weight limits (DIVERS). FOB is still held to the report below.
+  const limited = await weightLimitsApply(
+    Number(ctx['license_id']) || null,
+    Number(ctx['type_of_goods']) || null,
+  );
+  if (limited && weight > remainingWeight + 0.001) {
     return `Weight ${weight} KG exceeds the remaining allocation of ${remainingWeight} KG on PARTIELLE "${partialName}"`;
   }
   if (fob > remainingFob + 0.001) {
     return `FOB ${fob} exceeds the remaining allocation of ${remainingFob} on PARTIELLE "${partialName}"`;
+  }
+  return null;
+}
+
+/**
+ * The files on a licence can't together weigh more than the licence (its
+ * "global weight"). Counts live, uncancelled import AND export files — the same
+ * consumption the Remaining Weight on the form shows — minus the file being
+ * saved. Skipped when weight limits are off for the goods (DIVERS), or when the
+ * licence records no weight at all (NULL).
+ *
+ * Only a save that ADDS weight to the licence is refused — a new file, a heavier
+ * weight, or a file moved onto this licence. A licence already over its weight
+ * (data from before this check) must not lock every file on it: correcting a
+ * date or a remark on such a file still saves.
+ */
+export async function assertLicenceWeight(
+  side: 'import' | 'export',
+  ctx: Record<string, unknown>,
+  excludeId: number | null,
+  before: Record<string, unknown> | null = null,
+): Promise<string | null> {
+  const licenseId = Number(ctx['license_id']) || null;
+  if (!licenseId) return null;
+  if (before && Number(before['license_id']) === licenseId && N(ctx['weight']) <= N(before['weight'])) return null;
+  if (!(await weightLimitsApply(licenseId, Number(ctx['type_of_goods']) || null))) return null;
+
+  const rows = await db.execute(sql`
+    SELECT l.weight::float8 AS cap, l.license_number,
+           COALESCE((SELECT SUM(i.weight) FROM imports_t i
+                      WHERE i.license_id = l.id AND i.display = 'Y'
+                        AND ${fileNotCancelled(sql`i.clearing_status`)}
+                        ${side === 'import' && excludeId ? sql`AND i.id <> ${excludeId}` : sql``}), 0)::float8
+         + COALESCE((SELECT SUM(e.weight) FROM exports_t e
+                      WHERE e.license_id = l.id AND e.display = 'Y'
+                        AND ${fileNotCancelled(sql`e.clearing_status`)}
+                        ${side === 'export' && excludeId ? sql`AND e.id <> ${excludeId}` : sql``}), 0)::float8 AS used
+    FROM license_t l WHERE l.id = ${licenseId}`);
+  const l = (rows as unknown as { rows: { cap: number | null; license_number: string | null; used: number }[] }).rows[0];
+  if (!l || l.cap === null) return null;
+
+  const weight = N(ctx['weight']);
+  const remaining = round3(N(l.cap) - N(l.used));
+  if (weight > remaining + 0.001) {
+    return `Weight ${weight} KG is more than the ${Math.max(remaining, 0)} KG left on licence ${l.license_number ?? ''} (licence weight ${round3(N(l.cap))} KG, files already ${round3(N(l.used))} KG).`.replace(/\s+\(/u, ' (');
   }
   return null;
 }

@@ -9,6 +9,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { displayLabel } from '@/lib/statusTone';
 
 // §4.12 page-builder — admin CRUD over master_page. Ported from main and
 // adapted to this branch's /api/v1 routes + { ok, data } envelope.
@@ -132,15 +134,7 @@ function MasterPagesList() {
         { key: 'target_table', header: 'Target Table', sortable: true, className: 'font-mono text-xs' },
         { key: '5', header: 'Status', render: (i: MasterPage) => (
             <>
-            <span
-                        className={`text-[10px] uppercase rounded px-1.5 py-0.5 ${
-                          i.display === 'Y'
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {i.display === 'Y' ? 'Active' : 'Inactive'}
-                      </span>
+            <StatusBadge status={displayLabel(i.display)} />
             </>
           ) },
         ]}

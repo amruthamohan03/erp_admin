@@ -10,7 +10,7 @@ export interface SortableColumn<T> {
   value?: (row: T) => string | number | null | undefined;
 }
 
-function cellValue<T>(row: T, col: SortableColumn<T>): string | number | null | undefined {
+export function cellValue<T>(row: T, col: SortableColumn<T>): string | number | null | undefined {
   return col.value ? col.value(row) : (row as Record<string, unknown>)[col.key] as string | number | null | undefined;
 }
 

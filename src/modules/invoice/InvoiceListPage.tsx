@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { Plus, Search, Edit2, Trash2, CheckCircle2, FileText, Layers, X } from 'lucide-react';
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 type Kind = 'export' | 'import';
 
@@ -41,10 +42,11 @@ function fmt(n: number): string {
   return (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function statusOf(v: number): { label: string; cls: string } {
-  if (v === 2) return { label: 'DGI Verified', cls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30' };
-  if (v === 1) return { label: 'Validated', cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30' };
-  return { label: 'Pending', cls: 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30' };
+/** DGI Verified is a step past Validated, so it keeps a hue of its own (§4.38). */
+function statusOf(v: number): { label: string; tone?: 'violet' } {
+  if (v === 2) return { label: 'DGI Verified', tone: 'violet' };
+  if (v === 1) return { label: 'Validated' };
+  return { label: 'Pending' };
 }
 
 export default function InvoiceListPage({ kind }: { kind: Kind }) {
@@ -201,11 +203,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
             value: (r: Row) => statusOf(r.validated).label,
             render: (r: Row) => {
               const st = statusOf(r.validated);
-              return (
-                <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
-                  {st.label}
-                </span>
-              );
+              return <StatusBadge status={st.label} tone={st.tone} />;
             },
           },
           // §4.19 — a timestamp, so DD-MM-YYYY HH:mm.

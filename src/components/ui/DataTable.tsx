@@ -7,7 +7,9 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, FileSpreadsheet, FilterX, ListFilte
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import ActionIcon from '@/components/ui/ActionIcon';
-import { cellText, compareRows, matchesSearch } from '@/lib/dataTableSort';
+import { cellText, cellValue, compareRows, matchesSearch } from '@/lib/dataTableSort';
+import StatusBadge from '@/components/ui/StatusBadge';
+import type { ToneKey } from '@/lib/statusTone';
 import ColumnChooser from '@/components/ui/ColumnChooser';
 import useColumnLayout from '@/lib/hooks/useColumnLayout';
 import {
@@ -43,6 +45,12 @@ export interface DataTableColumn<T> {
   align?: 'left' | 'center' | 'right';
   className?: string;
   headerClassName?: string;
+  /**
+   * §4.38 — render the cell as a <StatusBadge>, coloured by its text. Pass a
+   * function to use a hue the row carries (a master's configured tone) instead.
+   * Ignored when `render` is given.
+   */
+  badge?: boolean | ((row: T) => ToneKey | null | undefined);
 }
 
 /** The row actions a module offers. Omitted keys simply do not render. */
@@ -436,7 +444,11 @@ export default function DataTable<T>({
                         data-no-translate
                         className={[ALIGN[c.align ?? 'left'], c.className ?? ''].join(' ').trim()}
                       >
-                        {c.render ? c.render(row, idx) : cellText(row, c) || '—'}
+                        {c.render
+                          ? c.render(row, idx)
+                          : c.badge
+                            ? <StatusBadge status={cellValue(row, c) ?? null} tone={typeof c.badge === 'function' ? c.badge(row) ?? undefined : undefined} />
+                            : cellText(row, c) || '—'}
                       </td>
                     ))}
                     {hasActions && (

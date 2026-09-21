@@ -4,10 +4,9 @@ import { db } from '@/lib/db';
 import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { paymentRejectSchema } from '@/schemas';
 import { canActOn, getRoleStageInfo, loadPaymentStages } from '@/db/queries/paymentStages';
-import { STAGE_COLUMNS, checkRejectable, type PaymentApprovalState } from '@/lib/payments/stages';
+import { checkRejectable, type PaymentApprovalState } from '@/lib/payments/stages';
 import { stageLabel } from '@/lib/payments/stageConfig';
-import { recordAudit } from '@/lib/audit/recordAudit';
-import { announcePayment } from '@/db/queries/payments';
+import { rejectPaymentAtStage } from '@/db/queries/payments';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -41,29 +40,8 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   const blocked = checkRejectable(stage, payment, stages);
   if (blocked) return fail(blocked, 422);
 
-  const col = STAGE_COLUMNS[stage];
   await db.transaction(async (tx) => {
-    await tx.execute(sql`
-      UPDATE payment_request_t
-      SET ${sql.identifier(col.approval)} = -1,
-          ${sql.identifier(col.at)} = now(),
-          ${sql.identifier(col.by)} = ${session.uid},
-          ${sql.identifier(col.notes)} = ${reason},
-          updated_by = ${session.uid}, updated_at = now()
-      WHERE id = ${id}
-    `);
-    // §4.28, same transaction as the change it describes. The reason is kept
-    // here as well as on the row, because re-submitting clears the row's copy.
-    await recordAudit(tx, {
-      actorId: session.uid,
-      action: 'reject',
-      entityType: 'payment_request',
-      entityId: String(id),
-      before: payment,
-      after: { [col.approval]: -1, [col.notes]: reason },
-      metadata: { stage },
-    });
-    await announcePayment(tx, 'payment.rejected', id, session.uid, { stage: label, reason });
+    await rejectPaymentAtStage(tx, { id, stage, stageLabel: label, reason, actorUserId: session.uid });
   });
   return ok({ id, stage, stage_label: label });
 });

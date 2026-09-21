@@ -21,10 +21,10 @@ import {
   DONE_TONE,
   REJECTED_TONE,
   applicableStages,
-  badgeClass,
   type StageDef,
   type ToneKey,
 } from '@/lib/payments/stageConfig';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 interface McaLine {
   mca_ref: string;
@@ -47,11 +47,7 @@ const money = (v: unknown): string => {
 const text = (v: unknown): string => (v == null || String(v).trim() === '' ? 'N/A' : String(v));
 
 function Badge({ tone, children }: { tone: ToneKey; children: React.ReactNode }) {
-  return (
-    <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badgeClass(tone)}`}>
-      {children}
-    </span>
-  );
+  return <StatusBadge status={children} tone={tone} />;
 }
 
 /** The file's extension, from its stored original name — "Document 1 (.pdf)". */
