@@ -240,12 +240,13 @@ export default function UsersPage() {
         { key: 'username', header: 'Username', sortable: true, className: 'font-medium' },
         { key: 'full_name', header: 'Full Name', sortable: true },
         { key: 'email', header: 'Email', sortable: true },
-        { key: '5', header: 'Role', className: 'inline-block rounded bg-primary-50 px-2 py-0.5 text-xs text-primary-700', render: (u: User) => (
-            <>
+        // The key names the field, so sort, search and the column filter all
+        // read the role. It used to be '5', which resolved to nothing on every
+        // row — the column rendered but the table could not see it.
+        { key: 'role_name', header: 'Role', sortable: true, render: (u: User) => (
             <span className="inline-block rounded bg-primary-50 px-2 py-0.5 text-xs text-primary-700">
-                      {u.role_name}
-                    </span>
-            </>
+              {u.role_name}
+            </span>
           ) },
         { key: 'mobile', header: 'Mobile', render: (u: User) => (
             <>

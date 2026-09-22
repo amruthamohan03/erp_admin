@@ -148,3 +148,61 @@ describe('activeFilterCount', () => {
     expect(activeFilterCount({ a: 'x', b: '', c: '  ', d: 'y' })).toBe(2);
   });
 });
+
+// §4.25.1 — columns derived from the row data are OFFERED but off until asked for.
+describe('defaultHidden columns', () => {
+  const WITH_DERIVED = [
+    { key: 'client' },
+    { key: 'bank' },
+    { key: 'created_at', defaultHidden: true },
+    { key: 'address', defaultHidden: true },
+  ];
+
+  it('hides a derived column that the operator has not turned on', () => {
+    expect(keys(applyLayout(WITH_DERIVED, EMPTY_LAYOUT))).toEqual(['client', 'bank']);
+  });
+
+  it('shows a derived column once it is in `shown`', () => {
+    expect(keys(applyLayout(WITH_DERIVED, { order: [], hidden: [], shown: ['address'] })))
+      .toEqual(['client', 'bank', 'address']);
+  });
+
+  it('still lists every derived column in the chooser', () => {
+    expect(keys(orderedForChooser(WITH_DERIVED, EMPTY_LAYOUT)))
+      .toEqual(['client', 'bank', 'created_at', 'address']);
+  });
+
+  it('keeps a declared column visible without an explicit `shown` entry', () => {
+    expect(keys(applyLayout(WITH_DERIVED, { order: [], hidden: ['bank'] })))
+      .toEqual(['client']);
+  });
+
+  it('honours `hidden` over `shown` for a derived column the operator turned back off', () => {
+    const layout = { order: [], hidden: ['address'], shown: ['address'] };
+    expect(keys(applyLayout(WITH_DERIVED, layout))).toEqual(['client', 'bank']);
+  });
+
+  // A layout saved before `shown` existed must not resurrect every derived
+  // column, and must not drop the declared ones either.
+  it('reads a layout that predates `shown`', () => {
+    expect(keys(applyLayout(WITH_DERIVED, { order: ['bank'], hidden: [] })))
+      .toEqual(['bank', 'client']);
+  });
+
+  it('moves a key between the two lists as it is toggled', () => {
+    const on = toggleHidden(EMPTY_LAYOUT, 'created_at', false);
+    expect(on.shown).toContain('created_at');
+    expect(on.hidden).not.toContain('created_at');
+
+    const off = toggleHidden(on, 'created_at', true);
+    expect(off.shown).not.toContain('created_at');
+    expect(off.hidden).toContain('created_at');
+  });
+
+  it('reorders a derived column without making it visible', () => {
+    const moved = moveColumn(WITH_DERIVED, EMPTY_LAYOUT, 'address', -1);
+    expect(keys(orderedForChooser(WITH_DERIVED, moved)))
+      .toEqual(['client', 'bank', 'address', 'created_at']);
+    expect(keys(applyLayout(WITH_DERIVED, moved))).toEqual(['client', 'bank']);
+  });
+});

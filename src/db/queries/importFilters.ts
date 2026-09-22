@@ -5,6 +5,7 @@
 // master id by text (master-driven, not a hardcoded id — §4.1).
 import { sql, type SQL } from 'drizzle-orm';
 import { importT } from '@/db/schema';
+import { CLEARING_STATUS, clearingStatusIs } from './clearingStatus';
 
 export type ImportFilterKey =
   | 'completed'
@@ -21,17 +22,16 @@ export type ImportFilterKey =
   | 'dgda_out_pending'
   | 'dispatch_deliver_pending';
 
-// A clearing-status match resolved from the master text so reseeding the master
-// ids can't silently break the filter (the doc's Q-11 concern).
-function clearingStatusIs(text: string): SQL {
-  return sql`${importT.clearingStatus} IN (
-    SELECT id FROM clearing_status_master_t WHERE upper(clearing_status) = ${text})`;
-}
+// The clearing-status match lives in one place for every table that carries one
+// (§4.10) — the dashboards count the same statuses and must not drift from the
+// list. It still resolves the master by text so reseeding the ids can't silently
+// break the filter (the doc's Q-11 concern).
+const statusIs = (text: string): SQL => clearingStatusIs(importT.clearingStatus, text);
 
 const PREDICATES: Record<ImportFilterKey, SQL> = {
-  completed: clearingStatusIs('CLEARING COMPLETED'),
-  in_progress: clearingStatusIs('IN PROGRESS'),
-  in_transit: clearingStatusIs('IN TRANSIT'),
+  completed: statusIs(CLEARING_STATUS.completed),
+  in_progress: statusIs(CLEARING_STATUS.inProgress),
+  in_transit: statusIs(CLEARING_STATUS.inTransit),
   crf_missing: sql`(${importT.crfReference} IS NULL OR ${importT.crfReference} = '' OR ${importT.crfReceivedDate} IS NULL)`,
   ad_missing: sql`${importT.adDate} IS NULL`,
   insurance_missing: sql`(${importT.insuranceDate} IS NULL OR ${importT.insuranceAmount} IS NULL)`,

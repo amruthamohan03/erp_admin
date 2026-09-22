@@ -12,6 +12,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import type { ToneKey } from '@/lib/statusTone';
 import ColumnChooser from '@/components/ui/ColumnChooser';
 import useColumnLayout from '@/lib/hooks/useColumnLayout';
+import { deriveAutoColumns } from '@/lib/dataTableAutoColumns';
 import {
   activeFilterCount,
   applyLayout,
@@ -51,6 +52,12 @@ export interface DataTableColumn<T> {
    * Ignored when `render` is given.
    */
   badge?: boolean | ((row: T) => ToneKey | null | undefined);
+  /**
+   * Offered in the column chooser but off until the operator turns it on. Set
+   * on the columns derived from the row data (§4.25.1); a declared column is
+   * visible by default, which is what declaring it means.
+   */
+  defaultHidden?: boolean;
 }
 
 /** The row actions a module offers. Omitted keys simply do not render. */
@@ -108,6 +115,15 @@ interface DataTableProps<T> {
   /** Set false for a table whose columns are not worth rearranging (rare). */
   customisableColumns?: boolean;
   /**
+   * §4.25.1 — offer every field the rows carry in the column chooser, hidden
+   * until the operator turns it on. On by default.
+   *
+   * Set false only for a table whose rows carry values that must not be put on
+   * screen at all, rather than to tidy the chooser — the point is that WHICH
+   * fields matter is the operator's call, not the screen's.
+   */
+  autoColumns?: boolean;
+  /**
    * Per-column filter row. On by default in client mode.
    *
    * In SERVER mode it is off unless the caller wires `onColumnFiltersChange`,
@@ -139,6 +155,7 @@ export default function DataTable<T>({
   server,
   tableId,
   customisableColumns = true,
+  autoColumns = true,
   columnFilters = true,
   onColumnFiltersChange,
 }: DataTableProps<T>) {
@@ -155,12 +172,34 @@ export default function DataTable<T>({
   const layoutKey = tableId ?? pathname ?? 'default';
   const { layout, setLayout, reset, ready, customised } = useColumnLayout(layoutKey);
 
+  // §4.25.1 — the chooser offers every field the rows carry, not just the ones
+  // this screen declared. The derived columns are `defaultHidden`, so the table
+  // looks exactly as before until an operator turns one on.
+  //
+  // Not sortable in server mode: the endpoint does the ordering there, and it
+  // has never heard of a field nobody declared.
+  const allColumns = useMemo(() => {
+    if (!autoColumns) return columns;
+    const derived = deriveAutoColumns(rows, columns, { sortable: !isServer });
+    return derived.length > 0 ? [...columns, ...derived] : columns;
+  }, [autoColumns, columns, rows, isServer]);
+
   // The declared columns until the saved view has been read — the server rendered
   // those, and swapping them mid-hydration is the mismatch `ready` exists to avoid.
   const visibleColumns = useMemo(
-    () => (ready ? applyLayout(columns, layout) : columns),
-    [ready, columns, layout],
+    () => (ready ? applyLayout(allColumns, layout) : columns),
+    [ready, allColumns, columns, layout],
   );
+
+  // Global search reads the declared columns plus any derived one the operator
+  // has actually turned on. A field nobody can see must not be quietly widening
+  // what the search box matches — that is §4.25.1's rule for the filter row, and
+  // it holds just as well for the box above it.
+  const searchColumns = useMemo(() => {
+    const declared = new Set(columns.map((c) => c.key));
+    const extras = visibleColumns.filter((c) => !declared.has(c.key));
+    return extras.length > 0 ? [...columns, ...extras] : columns;
+  }, [columns, visibleColumns]);
 
   // A filter row that cannot filter is not offered (see the prop's note).
   const canFilterColumns = columnFilters && (!isServer || !!onColumnFiltersChange);
@@ -172,7 +211,7 @@ export default function DataTable<T>({
   const prepared = useMemo(() => {
     if (isServer) return rows;
     let filtered = clientSearch.trim()
-      ? rows.filter((row) => matchesSearch(row, columns, clientSearch))
+      ? rows.filter((row) => matchesSearch(row, searchColumns, clientSearch))
       : rows;
     // Column filters narrow what the global search left, and are matched against
     // the VISIBLE columns only — a hidden column is not something the operator
@@ -181,8 +220,8 @@ export default function DataTable<T>({
       filtered = filtered.filter((row) => matchesColumnFilters(row, visibleColumns, filterValues));
     }
     if (!clientSort) return filtered;
-    return [...filtered].sort((a, b) => compareRows(a, b, columns, clientSort));
-  }, [isServer, rows, columns, visibleColumns, clientSearch, clientSort, filterValues]);
+    return [...filtered].sort((a, b) => compareRows(a, b, allColumns, clientSort));
+  }, [isServer, rows, allColumns, searchColumns, visibleColumns, clientSearch, clientSort, filterValues]);
 
   const paged = usePagedList(prepared);
 
@@ -304,7 +343,7 @@ export default function DataTable<T>({
             )}
             {customisableColumns && (
               <ColumnChooser
-                columns={columns}
+                columns={allColumns}
                 layout={layout}
                 onChange={setLayout}
                 onReset={reset}

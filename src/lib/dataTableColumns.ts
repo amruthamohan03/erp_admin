@@ -8,18 +8,49 @@ import { cellText, type SortableColumn } from '@/lib/dataTableSort';
 // declared columns stay the single source of what a column IS — a layout only
 // reorders and hides.
 
-/** A saved view: the order columns appear in, and which are hidden. */
+/** The minimum a column has to declare for a layout to place it. */
+export interface LayoutColumn {
+  key: string;
+  /**
+   * Off until the operator asks for it. Set on the columns derived from the row
+   * data (§4.25.1) — every field the endpoint returns is OFFERED, but turning
+   * twelve of them on by default would bury the eight the screen was built
+   * around.
+   */
+  defaultHidden?: boolean;
+}
+
+/** A saved view: the order columns appear in, and which are hidden or shown. */
 export interface ColumnLayout {
   /** Column keys in display order. Keys the table no longer declares are ignored. */
   order: string[];
   /** Column keys the operator has hidden. */
   hidden: string[];
+  /**
+   * Column keys the operator has explicitly turned ON.
+   *
+   * Needed only because `defaultHidden` exists: without it, "not in `hidden`"
+   * means both "never touched" and "deliberately shown", which are the same
+   * thing for a normal column and opposite things for a default-hidden one.
+   *
+   * Optional because this structure is persisted and unversioned: a layout
+   * saved before the field existed genuinely has none, and that reads correctly
+   * as "this operator has never turned a derived column on".
+   */
+  shown?: string[];
 }
 
-export const EMPTY_LAYOUT: ColumnLayout = { order: [], hidden: [] };
+export const EMPTY_LAYOUT: ColumnLayout = { order: [], hidden: [], shown: [] };
+
+/** Whether a column renders, given the operator's saved choices. */
+export function isColumnVisible(col: LayoutColumn, layout: ColumnLayout): boolean {
+  if (layout.hidden.includes(col.key)) return false;
+  if (col.defaultHidden) return layout.shown?.includes(col.key) ?? false;
+  return true;
+}
 
 /**
- * The declared columns, reordered and filtered by a saved layout.
+ * The columns in display order — every one of them, hidden or not.
  *
  * Two robustness rules matter more than the ordering itself, because a saved
  * layout outlives the code that produced it:
@@ -30,15 +61,12 @@ export const EMPTY_LAYOUT: ColumnLayout = { order: [], hidden: [] };
  *   * A key the table no longer declares is ignored rather than rendered. A
  *     removed column must not leave a hole or a crash in somebody's saved view.
  */
-export function applyLayout<C extends { key: string }>(
-  columns: readonly C[],
-  layout: ColumnLayout,
-): C[] {
+function orderColumns<C extends LayoutColumn>(columns: readonly C[], order: readonly string[]): C[] {
   const byKey = new Map(columns.map((c) => [c.key, c]));
   const seen = new Set<string>();
   const ordered: C[] = [];
 
-  for (const key of layout.order) {
+  for (const key of order) {
     const col = byKey.get(key);
     if (col && !seen.has(key)) {
       ordered.push(col);
@@ -50,9 +78,15 @@ export function applyLayout<C extends { key: string }>(
   for (const col of columns) {
     if (!seen.has(col.key)) ordered.push(col);
   }
+  return ordered;
+}
 
-  const hidden = new Set(layout.hidden);
-  return ordered.filter((c) => !hidden.has(c.key));
+/** The declared columns, reordered and filtered by a saved layout. */
+export function applyLayout<C extends LayoutColumn>(
+  columns: readonly C[],
+  layout: ColumnLayout,
+): C[] {
+  return orderColumns(columns, layout.order).filter((c) => isColumnVisible(c, layout));
 }
 
 /**
@@ -61,15 +95,15 @@ export function applyLayout<C extends { key: string }>(
  * The chooser has to show a hidden column in its place, or unhiding it would
  * make it reappear somewhere unexpected.
  */
-export function orderedForChooser<C extends { key: string }>(
+export function orderedForChooser<C extends LayoutColumn>(
   columns: readonly C[],
   layout: ColumnLayout,
 ): C[] {
-  return applyLayout(columns, { order: layout.order, hidden: [] });
+  return orderColumns(columns, layout.order);
 }
 
 /** Move one column one position, returning a layout that pins the whole order. */
-export function moveColumn<C extends { key: string }>(
+export function moveColumn<C extends LayoutColumn>(
   columns: readonly C[],
   layout: ColumnLayout,
   key: string,
@@ -86,11 +120,24 @@ export function moveColumn<C extends { key: string }>(
   return { ...layout, order: next };
 }
 
+/**
+ * Record that the operator showed or hid one column.
+ *
+ * Both lists are maintained, so the choice survives whatever the column's
+ * default is: a default-hidden field the operator turned on stays on, and a
+ * normal column they turned off stays off.
+ */
 export function toggleHidden(layout: ColumnLayout, key: string, hidden: boolean): ColumnLayout {
-  const set = new Set(layout.hidden);
-  if (hidden) set.add(key);
-  else set.delete(key);
-  return { ...layout, hidden: [...set] };
+  const hiddenSet = new Set(layout.hidden);
+  const shownSet = new Set(layout.shown ?? []);
+  if (hidden) {
+    hiddenSet.add(key);
+    shownSet.delete(key);
+  } else {
+    hiddenSet.delete(key);
+    shownSet.add(key);
+  }
+  return { ...layout, hidden: [...hiddenSet], shown: [...shownSet] };
 }
 
 /**

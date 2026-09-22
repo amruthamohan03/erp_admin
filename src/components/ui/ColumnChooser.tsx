@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, Columns3, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Columns3, RotateCcw, Search } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import {
+  isColumnVisible,
   moveColumn,
   orderedForChooser,
   toggleHidden,
@@ -20,6 +21,8 @@ import {
 interface ChooserColumn {
   key: string;
   header: ReactNode;
+  /** Offered, but off until the operator turns it on (§4.25.1). */
+  defaultHidden?: boolean;
 }
 
 interface ColumnChooserProps {
@@ -45,7 +48,15 @@ export default function ColumnChooser({
   customised,
 }: ColumnChooserProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+
+  // Closing drops the search with it — a stale query would make a reopened panel
+  // look like it had lost columns.
+  const close = useCallback(() => {
+    setOpen(false);
+    setQuery('');
+  }, []);
 
   // Close on an outside click or Escape. Written here rather than reaching for
   // the dropdown primitive because the panel holds interactive rows — a menu
@@ -54,10 +65,10 @@ export default function ColumnChooser({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') close();
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -65,17 +76,29 @@ export default function ColumnChooser({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, close]);
 
   const ordered = orderedForChooser(columns, layout);
-  const hidden = new Set(layout.hidden);
+  // Effective visibility, not just the operator's hidden list: a derived column
+  // is off without ever having been hidden (§4.25.1).
+  const hidden = new Set(ordered.filter((c) => !isColumnVisible(c, layout)).map((c) => c.key));
   const visibleCount = ordered.length - hidden.size;
+
+  // Since the list now offers every field a row carries, it routinely runs to
+  // twenty-odd rows — long enough that finding one by eye is the slow part.
+  // Matched against the key as well as the label, so the field name an operator
+  // knows from the API finds its humanized column.
+  const q = query.trim().toLowerCase();
+  const searching = q !== '';
+  const listed = searching
+    ? ordered.filter((c) => labelOf(c).toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
+    : ordered;
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-expanded={open}
         aria-haspopup="dialog"
         // §4.20 — it produces nothing, it changes the view, so `btn-neutral`.
@@ -110,8 +133,24 @@ export default function ColumnChooser({
             </button>
           </div>
 
+          <div className="relative border-b border-border p-2">
+            <Search className="pointer-events-none absolute start-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="input h-8 w-full min-w-0 ps-8 text-xs"
+              placeholder="Search columns…"
+              aria-label="Search columns"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
           <ul className="max-h-80 overflow-y-auto py-1">
-            {ordered.map((col, i) => {
+            {listed.length === 0 && (
+              <li className="px-3 py-3 text-center text-xs text-muted-foreground">
+                No column matches “{query.trim()}”.
+              </li>
+            )}
+            {listed.map((col, i) => {
               const isHidden = hidden.has(col.key);
               const label = labelOf(col);
               return (
@@ -135,7 +174,11 @@ export default function ColumnChooser({
                   <button
                     type="button"
                     onClick={() => onChange(moveColumn(columns, layout, col.key, -1))}
-                    disabled={i === 0}
+                    // Reordering swaps with the NEIGHBOUR, and a search hides
+                    // neighbours — so the arrow would move the column past a row
+                    // that is not on screen and look like it did nothing.
+                    disabled={searching || i === 0}
+                    title={searching ? 'Clear the search to reorder' : undefined}
                     aria-label={`Move ${label} earlier`}
                     className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                   >
@@ -144,7 +187,8 @@ export default function ColumnChooser({
                   <button
                     type="button"
                     onClick={() => onChange(moveColumn(columns, layout, col.key, 1))}
-                    disabled={i === ordered.length - 1}
+                    disabled={searching || i === listed.length - 1}
+                    title={searching ? 'Clear the search to reorder' : undefined}
                     aria-label={`Move ${label} later`}
                     className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                   >

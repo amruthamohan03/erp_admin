@@ -5,6 +5,7 @@
 // text (master-driven, not a hardcoded id — §4.1).
 import { sql, type SQL } from 'drizzle-orm';
 import { exportT } from '@/db/schema';
+import { CLEARING_STATUS, clearingStatusIs } from './clearingStatus';
 
 export type ExportFilterKey =
   | 'completed'
@@ -25,17 +26,15 @@ export type ExportFilterKey =
   | 'ogefrem_ref_pending'
   | 'ogefrem_date_pending';
 
-// Clearing-status match resolved from the master text so reseeding the master
-// ids can't silently break the filter.
-function clearingStatusIs(text: string): SQL {
-  return sql`${exportT.clearingStatus} IN (
-    SELECT id FROM clearing_status_master_t WHERE upper(clearing_status) = ${text})`;
-}
+// Shared with the import filters and both tracking dashboards (§4.10), so a
+// status means the same thing on the list and on the tiles. Still resolved from
+// the master text, never an id.
+const statusIs = (text: string): SQL => clearingStatusIs(exportT.clearingStatus, text);
 
 const PREDICATES: Record<ExportFilterKey, SQL> = {
-  completed: clearingStatusIs('CLEARING COMPLETED'),
-  in_progress: clearingStatusIs('IN PROGRESS'),
-  in_transit: clearingStatusIs('IN TRANSIT'),
+  completed: statusIs(CLEARING_STATUS.completed),
+  in_progress: statusIs(CLEARING_STATUS.inProgress),
+  in_transit: statusIs(CLEARING_STATUS.inTransit),
   ceec_pending: sql`(${exportT.ceecInDate} IS NULL OR ${exportT.ceecOutDate} IS NULL)`,
   min_div_pending: sql`(${exportT.minDivInDate} IS NULL OR ${exportT.minDivOutDate} IS NULL)`,
   gov_docs_pending: sql`(${exportT.govDocsInDate} IS NULL OR ${exportT.govDocsOutDate} IS NULL)`,

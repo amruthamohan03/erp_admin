@@ -49,22 +49,33 @@ function LoginForm() {
       {/* Left: form panel */}
       <div className="flex w-full flex-col justify-center px-6 py-12 sm:px-12 lg:w-1/2 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
-          {/* Logo — the operator's mark when one is configured, else the house glyph. */}
-          <div className="mb-10">
-            {branding.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={branding.logo_url} alt={branding.project_name} className="h-10 w-auto object-contain" />
-            ) : (
-              <BrandMark className="h-10 w-10" title={branding.project_name} />
-            )}
+          {/* Identity — the operator's mark when one is configured, else the house
+              glyph, with the project name beside it. The mark alone does not say
+              which deployment this is, so the name is part of the identity, not
+              decoration. */}
+          <div className="mb-10 flex items-center justify-center gap-3">
+            <span className="shrink-0">
+              {branding.logo_url ? (
+                // Plain <img>: the logo URL is operator-supplied and can point anywhere,
+                // which next/image would reject against the configured remotePatterns.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logo_url} alt="" className="h-10 w-auto object-contain" />
+              ) : (
+                <BrandMark className="h-10 w-10" title="" />
+              )}
+            </span>
+
+            <span
+              className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground"
+              title={branding.project_name}
+            >
+              {branding.project_name}
+            </span>
           </div>
 
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Sign in to your account
           </h2>
-          {/* <p className="mt-2 text-sm text-muted-foreground">
-            {branding.tagline ?? 'Customs clearance & logistics ERP'}
-          </p> */}
 
           {error && (
             <div

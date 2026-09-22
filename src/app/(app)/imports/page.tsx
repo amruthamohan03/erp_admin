@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Plus,
   Search,
@@ -36,6 +37,7 @@ import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { statusFiltersFromParam } from '@/lib/tracking/statusFiltersParam';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -153,7 +155,8 @@ function buildParams(f: FilterState): URLSearchParams {
   return p;
 }
 
-export default function ImportsListPage() {
+function ImportsListPageInner() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<ImportRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -169,7 +172,13 @@ export default function ImportsListPage() {
   const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
   // §8 — status cards clicked, combined with AND. Empty ⇒ "Total" (all rows).
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  //
+  // Seeded from the URL so a KPI tile on the dashboard lands here with its own
+  // filter already applied (§4.29). Without this the link arrived on an
+  // unfiltered grid, and the tile's number and the list disagreed on screen.
+  const [activeFilters, setActiveFilters] = useState<string[]>(() =>
+    statusFiltersFromParam(searchParams.get('status_filters'), (k) => STATUS_FILTER_KEYS.has(k)),
+  );
 
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -605,5 +614,15 @@ export default function ImportsListPage() {
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
+  );
+}
+
+// `useSearchParams` needs a Suspense boundary — the dashboard's KPI tiles link
+// here with `?status_filters=…` and the list reads it on mount (§4.29).
+export default function ImportsListPage() {
+  return (
+    <Suspense fallback={<div className="card p-6 text-muted-foreground">Loading…</div>}>
+      <ImportsListPageInner />
+    </Suspense>
   );
 }
