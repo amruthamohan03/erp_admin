@@ -224,6 +224,9 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Tracking Management', name: 'Export Tracking', order: 40, url: '/exports' },
   { parent: 'Tracking Management', name: 'File Cancellation', order: 41, url: '/tracking/file-cancellation' },
   { parent: 'Tracking Management', name: 'Fiche de Calcul', order: 42, url: '/fiches' },
+  // §4.29 — mirrored by migration 0114 so a fresh DB and a migrated one agree.
+  { parent: 'Tracking Management', name: 'Import Tracking Dashboard', order: 43, url: '/imports/dashboard' },
+  { parent: 'Tracking Management', name: 'Export Tracking Dashboard', order: 44, url: '/exports/dashboard' },
   {
     parent: 'Tracking Management',
     name: 'PARTIELLE Allocation',

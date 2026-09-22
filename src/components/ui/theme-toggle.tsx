@@ -46,11 +46,7 @@ export function ThemeToggle(): React.ReactElement {
           Dark
           {current === 'dark' && theme !== 'system' && <span className="ms-auto text-xs opacity-60">✓</span>}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>
-          <Monitor className="me-2 h-4 w-4" />
-          System
-          {theme === 'system' && <span className="ms-auto text-xs opacity-60">✓</span>}
-        </DropdownMenuItem>
+       
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -27,11 +27,12 @@ function read(key: string): ColumnLayout {
     // hand-edited or stale value must degrade to "no saved view" instead of
     // throwing inside a table's render.
     if (!parsed || typeof parsed !== 'object') return EMPTY_LAYOUT;
-    const { order, hidden } = parsed as Partial<ColumnLayout>;
-    return {
-      order: Array.isArray(order) ? order.filter((k): k is string => typeof k === 'string') : [],
-      hidden: Array.isArray(hidden) ? hidden.filter((k): k is string => typeof k === 'string') : [],
-    };
+    const { order, hidden, shown } = parsed as Partial<ColumnLayout>;
+    const keys = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : [];
+    // A layout saved before `shown` existed simply has none, which is the right
+    // reading: that operator had never turned a default-hidden field on.
+    return { order: keys(order), hidden: keys(hidden), shown: keys(shown) };
   } catch {
     // Private mode, disabled storage, or malformed JSON — all mean "no saved view".
     return EMPTY_LAYOUT;
@@ -87,7 +88,8 @@ export function useColumnLayout(tableKey: string): UseColumnLayoutResult {
     setLayout,
     reset,
     ready,
-    customised: layout.order.length > 0 || layout.hidden.length > 0,
+    customised:
+      layout.order.length > 0 || layout.hidden.length > 0 || (layout.shown?.length ?? 0) > 0,
   };
 }
 
