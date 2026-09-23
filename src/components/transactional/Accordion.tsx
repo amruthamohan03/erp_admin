@@ -112,7 +112,7 @@ export default function Accordion({
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={open}
+        aria-expanded={open}w-28 shrink-0
         className={clsx(
           'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors',
           open ? accent.tint : 'bg-card hover:bg-muted/50',
@@ -270,9 +270,16 @@ function PairedField({
   return (
     <div className="input-group">
       <div className="flex-1 min-w-0">{children}</div>
-      {/* Narrow and fixed: a currency code is three characters, and letting it
-          share the amount's width would defeat the point of combining them. */}
-      <div className="w-24 shrink-0">
+      {/* Fixed, and wide enough to READ. A currency code is three characters,
+          but the control around it is not: the trigger carries its own padding
+          and a chevron, and an unset one reads "— Select —". At w-24 that left
+          roughly fifty pixels of text, so the code was ellipsised and the empty
+          state was unreadable — the box announced nothing at all.
+          §4.36's remedy for a field carrying a companion is to give the PAIR
+          more room rather than squeeze the companion, so these fields also take
+          a `2-of-5` cell; widening here without that would just have eaten the
+          amount's width instead. */}
+      <div className="w-32 shrink-0">
         <FieldRenderer
           field={field}
           value={values[field.name]}

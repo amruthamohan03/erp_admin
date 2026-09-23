@@ -60,6 +60,9 @@ const PARENTS: ParentSpec[] = [
   { name: 'Client Management', order: 3, icon: 'ti ti-user-circle' },
   { name: 'Mapping', order: 4, icon: 'ti ti-layout-grid' },
   { name: 'Import License', order: 5, icon: 'ti ti-file-certificate' },
+  // Export licences are the same records told apart by kind; the group exists so
+  // the two directions are reachable separately (migration 0115).
+  { name: 'Export License', order: 6, icon: 'ti ti-file-certificate' },
   { name: 'Tracking Management', order: 6, icon: 'ti ti-truck' },
   { name: 'Sydonia', order: 8, icon: 'ti ti-file' },
   { name: 'Quotation Management', order: 9, icon: 'ti ti-cash' },
@@ -176,6 +179,10 @@ const CHILDREN: ChildSpec[] = [
   // ── Client Management (original menu_id=2) ──────────────────────
   { parent: 'Client Management', name: 'Clients', order: 1, url: '/masters/clients' },
   { parent: 'Client Management', name: 'Client Dashboard', order: 47, url: '/clients/dashboard' },
+  // One client's own picture, as against the dashboard above which reports on
+  // the client BASE. Fills the 'Client Import Dashboard' placeholder that sat
+  // under Tracking Management pointing at '#' (migration 0116).
+  { parent: 'Client Management', name: 'Client Activity Dashboard', order: 48, url: '/clients/activity' },
 
   // ── Mapping (original menu_id=80) ───────────────────────────────
   { parent: 'Mapping', name: 'Client to Bank', order: 2, url: '/mapping/clienttobank' },
@@ -186,8 +193,14 @@ const CHILDREN: ChildSpec[] = [
 
   // ── Import License (original menu_id=110) ───────────────────────
   { parent: 'Import License', name: 'Create Import License', order: 1, url: '/licenses/new' },
-  { parent: 'Import License', name: 'License Dashboard', order: 2, url: '/licenses/dashboard' },
-  { parent: 'Import License', name: 'Licenses (list)', order: 3, url: '/licenses' },
+  { parent: 'Import License', name: 'Import License Dashboard', order: 2, url: '/licenses/dashboard' },
+  { parent: 'Import License', name: 'Import Licenses (list)', order: 3, url: '/licenses' },
+
+  // ── Export License (mirrors the group above; migration 0115) ─────
+  // The same licence records, scoped to kinds flagged `use_for_export`.
+  { parent: 'Export License', name: 'Create Export License', order: 1, url: '/export-licenses/new' },
+  { parent: 'Export License', name: 'Export License Dashboard', order: 2, url: '/export-licenses/dashboard' },
+  { parent: 'Export License', name: 'Export Licenses (list)', order: 3, url: '/export-licenses' },
   {
     parent: 'Import License',
     name: 'Bivac',
@@ -233,13 +246,9 @@ const CHILDREN: ChildSpec[] = [
     order: 40,
     url: '/imports/partielles',
   },
-  {
-    parent: 'Tracking Management',
-    name: 'Client Import Dashboard',
-    order: 115,
-    url: '#',
-    note: 'TODO(port): per-client import dashboard not on branch.',
-  },
+  // 'Client Import Dashboard' used to sit here pointing at '#'. It is now the
+  // Client Activity Dashboard under Client Management — where a per-client view
+  // belongs — and covers exports and payments as well as imports.
   { parent: 'Tracking Management', name: 'Import KPI', order: 117, url: '/imkpi' },
   { parent: 'Tracking Management', name: 'Export KPI', order: 118, url: '/exkpi' },
 

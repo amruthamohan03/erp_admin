@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { licenseT, clientMaster, kindMaster, banklistMaster } from '@/db/schema';
 import {
@@ -6,6 +6,8 @@ import {
   IS_EXPIRED,
   IS_EXPIRING,
   IS_LIVE,
+  licenseUseForCondition,
+  type LicenseUseFor,
 } from './licenseFilters';
 
 // §4.29 — the Licence dashboard's data, computed in SQL over live rows.
@@ -57,17 +59,37 @@ export interface LicenseDashboard {
 }
 
 /** Every licence that has not been soft-deleted (§4.27). */
-const LIVE = eq(licenseT.display, 'Y');
+const NOT_DELETED = eq(licenseT.display, 'Y');
 
-async function countWhere(cond?: ReturnType<typeof sql> | undefined): Promise<number> {
+/**
+ * The base every figure on this dashboard is counted over.
+ *
+ * `useFor` narrows it to one side of the business, so the Import and Export
+ * Licence dashboards are the same aggregates over a different book rather than
+ * two implementations that will drift (§4.10). Omitted, it reports on both —
+ * which is what the combined dashboard did before either was scoped.
+ */
+function scopeOf(useFor?: LicenseUseFor): SQL {
+  return (useFor ? and(NOT_DELETED, licenseUseForCondition(useFor)) : NOT_DELETED) as SQL;
+}
+
+async function countWhere(base: SQL, cond?: ReturnType<typeof sql> | undefined): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(licenseT)
-    .where(cond ? and(LIVE, cond) : LIVE);
+    .where(cond ? and(base, cond) : base);
   return row?.n ?? 0;
 }
 
-export async function getLicenseDashboard(): Promise<LicenseDashboard> {
+export async function getLicenseDashboard(useFor?: LicenseUseFor): Promise<LicenseDashboard> {
+  const LIVE = scopeOf(useFor);
+  // The twelve-month trend is raw SQL over an aliased table, so it cannot reuse
+  // the Drizzle condition above — it restates the same narrowing by hand.
+  const monthlyScope = useFor
+    ? sql` AND l.kind_id IN (SELECT id FROM kind_master_t WHERE ${sql.identifier(
+        useFor === 'import' ? 'use_for_import' : 'use_for_export',
+      )} IS TRUE)`
+    : sql``;
   // One pass for the KPI row rather than eight round trips. FILTER is the
   // Postgres spelling of a conditional aggregate and keeps each bucket readable
   // beside the predicate it counts.
@@ -94,7 +116,7 @@ export async function getLicenseDashboard(): Promise<LicenseDashboard> {
     horizons.map(async (days) => ({
       label: `Next ${days} days`,
       days,
-      count: await countWhere(sql`(
+      count: await countWhere(LIVE, sql`(
         ${licenseT.status} = 'ACTIVE'
         AND ${licenseT.licenseExpiryDate} IS NOT NULL
         AND ${licenseT.licenseExpiryDate} BETWEEN current_date
@@ -134,7 +156,7 @@ export async function getLicenseDashboard(): Promise<LicenseDashboard> {
       LEFT JOIN ${licenseT} l
         ON l.display = 'Y'
        AND l.license_applied_date IS NOT NULL
-       AND date_trunc('month', l.license_applied_date) = months.m
+       AND date_trunc('month', l.license_applied_date) = months.m${monthlyScope}
      GROUP BY months.m
      ORDER BY months.m`);
 

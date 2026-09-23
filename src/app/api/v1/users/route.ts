@@ -23,6 +23,7 @@ export const USER_LIST_FIELDS = {
   location_id: usersT.locationId,
   location_name: mainOfficeMaster.mainLocationName,
   dept_id: usersT.deptId,
+  client_id: usersT.clientId,
   department_name: departmentMaster.departmentName,
   profile_image: usersT.profileImage,
   display: usersT.display,
@@ -123,6 +124,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           roleId: data.role_id,
           locationId: data.location_id ?? null,
           deptId: data.dept_id ?? null,
+          clientId: data.client_id ?? null,
           createdBy: session.uid,
           updatedBy: session.uid,
         })
@@ -135,6 +137,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           mobile: usersT.mobile,
           location_id: usersT.locationId,
           dept_id: usersT.deptId,
+          client_id: usersT.clientId,
           display: usersT.display,
           created_at: usersT.createdAt,
         });

@@ -18,6 +18,9 @@ export interface User {
   location_id: number | null;
   location_name?: string | null;
   dept_id: number | null;
+  /** §4.7 — set means this login only sees that client's rows. */
+  client_id?: number | null;
+  client_name?: string;
   department_name?: string | null;
 }
 

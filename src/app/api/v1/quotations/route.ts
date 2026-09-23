@@ -17,6 +17,7 @@ import {
   quotationCategoryMaster,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { clientScopeFor } from '@/lib/auth/clientScope';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { buildQuotation } from '@/lib/quotations/compute';
@@ -43,7 +44,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(quotations.display, 'Y')];
+  const conds: SQL[] = [
+    eq(quotations.display, 'Y'),
+    // §4.7 — a client login sees only its own rows. Resolved from the database,
+    // not the token, and TRUE for staff so the clause is never silently absent.
+    await clientScopeFor(session, quotations.clientId),
+  ];
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     const orClause = or(

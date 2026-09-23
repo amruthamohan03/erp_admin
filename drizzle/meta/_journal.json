@@ -813,6 +813,48 @@
       "when": 1790100000000,
       "tag": "0114_tracking_dashboard_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1790200000000,
+      "tag": "0115_export_license_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1790300000000,
+      "tag": "0116_client_activity_dashboard_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1790400000000,
+      "tag": "0117_user_client_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0118_payment_amount_min",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1790600000000,
+      "tag": "0119_payment_requestee_editable",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0120_paired_currency_field_width",
+      "breakpoints": true
     }
   ]
 }

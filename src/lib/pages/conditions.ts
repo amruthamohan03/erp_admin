@@ -173,3 +173,61 @@ export function checkBounds(state: FieldState, label: string, value: unknown): s
   }
   return null;
 }
+
+/**
+ * Numeric bounds from a field's own `props` — `{ "min": 0.01, "max": 100 }`.
+ *
+ * Distinct from `checkBounds` above, which is for DATES: that one compares
+ * strings and says "on or after", which is meaningless for a quantity and would
+ * read `9` as greater than `10`.
+ *
+ * `props.min` already reached the browser as the `<input min>` attribute, so a
+ * number below it was refused on screen and accepted by the API — the exact
+ * split §4.7 exists to close. Enforcing the same token here makes the rule
+ * configuration rather than code (§4.1): a bound is changed by editing the
+ * field's props, not by editing a handler.
+ */
+export function checkNumericBounds(
+  props: unknown,
+  label: string,
+  value: unknown,
+): string | null {
+  if (!isFilled(value)) return null;
+  if (!props || typeof props !== 'object') return null;
+
+  const n = Number(value);
+  // Not a number at all is the field type's problem, not the bound's — saying
+  // "must be at least 0.01" about the text "abc" explains nothing.
+  if (!Number.isFinite(n)) return null;
+
+  const bound = (key: 'min' | 'max'): number | null => {
+    const raw = (props as Record<string, unknown>)[key];
+    if (raw === null || raw === undefined || raw === '') return null;
+    const b = Number(raw);
+    return Number.isFinite(b) ? b : null;
+  };
+
+  // §4.23 — a configured sentence always wins, exactly as an explicit Zod
+  // message does. The generated one names the field and the bound, which
+  // answers "which field" and "what is wrong"; it cannot answer "what do I do"
+  // for a field the operator does not type into. Payment Request's Amount is a
+  // pure derive over the reference grid, so being told to raise the Amount
+  // points at a read-only box — its own config supplies the sentence that says
+  // where the number actually comes from.
+  const message = (key: 'minMessage' | 'maxMessage'): string | null => {
+    const raw = (props as Record<string, unknown>)[key];
+    return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : null;
+  };
+
+  const min = bound('min');
+  if (min !== null && n < min) {
+    return message('minMessage') ?? `${label} must be at least ${min}.`;
+  }
+
+  const max = bound('max');
+  if (max !== null && n > max) {
+    return message('maxMessage') ?? `${label} must be ${max} or less.`;
+  }
+
+  return null;
+}
