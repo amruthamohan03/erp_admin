@@ -26,6 +26,14 @@ const TARGETS: Record<string, PageTarget> = {
     table: licenseT,
     allowedColumns: new Set(Object.values(getTableColumns(licenseT)).map((c) => c.name)),
   },
+  // The SAME table as `license`. Export licences are not a different record —
+  // `license_t` is direction-agnostic and `kind_id` is the only discriminator
+  // (§4.1). The second slug exists so the export form can scope its Kind picker
+  // and return to /export-licenses on save, not because the data differs.
+  'export-license': {
+    table: licenseT,
+    allowedColumns: new Set(Object.values(getTableColumns(licenseT)).map((c) => c.name)),
+  },
   import: {
     table: importT,
     allowedColumns: new Set(Object.values(getTableColumns(importT)).map((c) => c.name)),

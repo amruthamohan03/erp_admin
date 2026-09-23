@@ -22,6 +22,11 @@ export const userCreateSchema = z.object({
   role_id: z.number().int().positive(),
   location_id: masterId,
   dept_id: masterId,
+  /**
+   * §4.7 — scope this login to one client's rows. Null (or absent) means a
+   * member of staff, which is what every account is unless this is set.
+   */
+  client_id: masterId,
 });
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 
@@ -34,6 +39,8 @@ export const userUpdateSchema = z.object({
   password: z.string().min(6).max(100).optional(),
   location_id: masterId,
   dept_id: masterId,
+  /** §4.7 — see userCreateSchema. Null clears the scoping. */
+  client_id: masterId,
   /**
    * The account's enable/disable switch, and the same column §4.27's soft
    * delete uses. `login` refuses anyone whose display is not 'Y', so setting

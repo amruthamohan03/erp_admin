@@ -1,17 +1,26 @@
 import { NextRequest } from 'next/server';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { licenseT } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
-import { licenseCardCondition, type LicenseCardKey } from '@/db/queries/licenseFilters';
+import {
+  licenseCardCondition,
+  licenseUseForCondition,
+  type LicenseCardKey,
+  type LicenseUseFor,
+} from '@/db/queries/licenseFilters';
 
-// GET /api/v1/licenses/stats
+// GET /api/v1/licenses/stats[?use_for=import|export]
 //
 // The number on each dashboard card. Every bucket is counted through
 // `licenseCardCondition` — the same predicate the list applies when the card is
 // clicked — so a card can never report a figure the grid then contradicts
 // (§4.29). Hand-written SQL here had already drifted: `issued` counted every
 // ACTIVE licence including ones that expired months ago.
+//
+// `use_for` narrows every bucket to one side of the business, through the same
+// predicate the list endpoint uses for its own `use_for` — so the Export Licence
+// screen's cards and its grid count the same rows.
 //
 // Buckets, in the order the cards render:
 //   * expired    — ACTIVE but past its expiry date (derived, never stored)
@@ -34,11 +43,19 @@ const BUCKETS = [
   'prorogated',
 ] as const satisfies readonly LicenseCardKey[];
 
-export const GET = withErrorHandler(async (_req: NextRequest) => {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
-  const live = eq(licenseT.display, 'Y');
+  const raw = req.nextUrl.searchParams.get('use_for');
+  const useFor: LicenseUseFor | undefined =
+    raw === 'import' || raw === 'export' ? raw : undefined;
+
+  const live = (
+    useFor
+      ? and(eq(licenseT.display, 'Y'), licenseUseForCondition(useFor))
+      : eq(licenseT.display, 'Y')
+  ) as SQL;
 
   const counted = await Promise.all(
     BUCKETS.map(async (key) => {

@@ -21,6 +21,7 @@ import {
   truckStatusMaster,
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { clientScopeFor } from '@/lib/auth/clientScope';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import {
   exportBodySchema,
@@ -54,7 +55,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(exportT.display, 'Y')];
+  const conds: SQL[] = [
+    eq(exportT.display, 'Y'),
+    // §4.7 — a client login sees only its own rows. Resolved from the database,
+    // not the token, and TRUE for staff so the clause is never silently absent.
+    await clientScopeFor(session, exportT.clientId),
+  ];
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     const orClause = or(

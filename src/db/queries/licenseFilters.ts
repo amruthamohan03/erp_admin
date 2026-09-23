@@ -168,3 +168,30 @@ export function licenseStatusCondition(status: string): SQL {
   if (s === 'ACTIVE') return IS_LIVE;
   return sql`${licenseT.status} = ${s}`;
 }
+
+/**
+ * Which side of the business a licence serves.
+ *
+ * The discriminator is the KIND's flag, never an id list and never the kind's
+ * name (§4.1) — migration 0062 replaced a `kind_name ILIKE 'EXPORT%'` filter
+ * with these columns precisely so renaming a kind could not silently reclassify
+ * it. Re-flagging a kind is then a master edit on /masters/kinds, not a deploy.
+ *
+ * IMPORT TEMPORARY is flagged for BOTH by design: a temporary import leaves
+ * again as a re-export, so it legitimately appears under each direction.
+ */
+export type LicenseUseFor = 'import' | 'export';
+
+/**
+ * Written as a subquery rather than a join so every caller can use it —
+ * the stats and dashboard aggregates read `license_t` alone, and requiring a
+ * join would have meant a second, drifting definition for them (§4.10).
+ *
+ * A licence with NO kind matches neither direction: it cannot be classified,
+ * and a reference built from it would be missing its kind code anyway (§4.33).
+ */
+export function licenseUseForCondition(useFor: LicenseUseFor): SQL {
+  const column = useFor === 'import' ? 'use_for_import' : 'use_for_export';
+  return sql`${licenseT.kindId} IN (
+    SELECT id FROM kind_master_t WHERE ${sql.identifier(column)} IS TRUE)`;
+}

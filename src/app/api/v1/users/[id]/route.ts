@@ -22,6 +22,7 @@ const AUDIT_FIELDS = {
   role_id: usersT.roleId,
   location_id: usersT.locationId,
   dept_id: usersT.deptId,
+  client_id: usersT.clientId,
   display: usersT.display,
 } as const;
 
@@ -46,6 +47,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       signature_image: usersT.signatureImage,
       location_id: usersT.locationId,
       dept_id: usersT.deptId,
+      client_id: usersT.clientId,
       display: usersT.display,
       created_at: usersT.createdAt,
       updated_at: usersT.updatedAt,
@@ -76,6 +78,8 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   if (data.role_id !== undefined) patch.roleId = data.role_id;
   if (data.location_id !== undefined) patch.locationId = data.location_id;
   if (data.dept_id !== undefined) patch.deptId = data.dept_id;
+  // §4.7 — null clears the scoping and returns the account to staff access.
+  if (data.client_id !== undefined) patch.clientId = data.client_id;
   if (data.display !== undefined) patch.display = data.display;
   if (data.password) patch.password = await hashPassword(data.password);
 

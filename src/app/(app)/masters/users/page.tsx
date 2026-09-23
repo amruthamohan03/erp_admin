@@ -7,6 +7,7 @@ import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
+import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import type { User, Role } from '@/types';
 
 /**
@@ -36,6 +37,8 @@ export default function UsersPage() {
   const [deptFilter, setDeptFilter] = useState('');
   const [locations, setLocations] = useState<SelectOption[]>([]);
   const [departments, setDepartments] = useState<SelectOption[]>([]);
+  // §4.15 — clients are labelled by short code wherever they are picked.
+  const [clients, setClients] = useState<SelectOption[]>([]);
   /** Ids currently mid-flight on the enable/disable toggle. */
   const [busy, setBusy] = useState<Set<number>>(new Set());
   // §4.22 — the acknowledged outcome of a create / update / delete.
@@ -81,13 +84,15 @@ export default function UsersPage() {
   useEffect(() => {
     let live = true;
     void (async () => {
-      const [offices, depts] = await Promise.all([
+      const [offices, depts, clientRows] = await Promise.all([
         fetchMasterOptions('main-offices', 'main_location_name'),
         fetchMasterOptions('departments', 'department_name'),
+        fetchMasterOptions('clients', CLIENT_OPTION_LABEL_FIELD),
       ]);
       if (!live) return;
       setLocations(offices.map((o) => ({ value: String(o.id), label: o.label })));
       setDepartments(depts.map((o) => ({ value: String(o.id), label: o.label })));
+      setClients(clientRows.map((o) => ({ value: String(o.id), label: o.label })));
     })();
     return () => {
       live = false;
@@ -302,6 +307,7 @@ export default function UsersPage() {
           roles={roles}
           locations={locations}
           departments={departments}
+          clients={clients}
           onClose={() => setShowCreate(false)}
           onSaved={() => { setShowCreate(false); load(); setResult({ status: 'success', title: 'Created', message: 'The user has been created.' }); }}
         />
@@ -312,6 +318,7 @@ export default function UsersPage() {
           roles={roles}
           locations={locations}
           departments={departments}
+          clients={clients}
           user={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); setResult({ status: 'success', title: 'Saved', message: 'Your changes to this user have been saved.' }); }}
@@ -328,6 +335,7 @@ function UserFormModal({
   roles,
   locations,
   departments,
+  clients,
   onClose,
   onSaved,
 }: {
@@ -335,6 +343,7 @@ function UserFormModal({
   roles: Role[];
   locations: SelectOption[];
   departments: SelectOption[];
+  clients: SelectOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -345,11 +354,20 @@ function UserFormModal({
     email: user?.email || '',
     full_name: user?.full_name || '',
     mobile: user?.mobile || '',
-    role_id: user?.role_id || roles[0]?.id || 1,
+    // Empty on a create — the operator MUST choose. This used to read
+    // `user?.role_id || roles[0]?.id || 1`, and every branch of that fallback
+    // landed on the same place: /api/v1/roles orders by ascending id and role 1
+    // is Super Admin, so a new user form opened pre-selected on the most
+    // privileged role in the system. Anyone who filled the form without
+    // noticing the field created a Super Admin.
+    role_id: user?.role_id != null ? String(user.role_id) : '',
     // Strings: a `<SearchableSelect>` value is always a string, and a number
     // silently never matches an option (§4.16).
     location_id: user?.location_id != null ? String(user.location_id) : '',
     dept_id: user?.dept_id != null ? String(user.dept_id) : '',
+    // §4.7 — empty means a member of staff, which is what every account is
+    // unless somebody deliberately ties it to a client.
+    client_id: user?.client_id != null ? String(user.client_id) : '',
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -359,6 +377,15 @@ function UserFormModal({
     setSaving(true);
     setError(null);
 
+    // §4.18/§4.23 — the control is a button, so the browser never blocks the
+    // submit for it. Named explicitly rather than left to a 422, because a user
+    // saved with the wrong role is a permissions problem, not a typo.
+    if (!form.role_id) {
+      setError('Role is required — choose the role this user will have.');
+      setSaving(false);
+      return;
+    }
+
     const url = isEdit ? `/api/v1/users/${user!.id}` : '/api/v1/users';
     const method = isEdit ? 'PUT' : 'POST';
 
@@ -367,6 +394,7 @@ function UserFormModal({
       full_name: form.full_name,
       mobile: form.mobile || null,
       role_id: Number(form.role_id),
+      client_id: form.client_id ? Number(form.client_id) : null,
       location_id: form.location_id ? Number(form.location_id) : null,
       dept_id: form.dept_id ? Number(form.dept_id) : null,
     };
@@ -442,8 +470,8 @@ function UserFormModal({
           <div>
             <label className="label required">Role</label>
             <SearchableSelect
-              value={String(form.role_id)}
-              onChange={(v) => setForm({ ...form, role_id: Number(v) })}
+              value={form.role_id}
+              onChange={(v) => setForm({ ...form, role_id: v })}
               options={roles.map((r) => ({
                 value: String(r.id),
                 label: r.role_name,
@@ -451,6 +479,21 @@ function UserFormModal({
               placeholder="Select role..."
               required
             />
+          </div>
+          <div>
+            <label className="label">Client (restricts this login)</label>
+            <SearchableSelect
+              aria-label="Client"
+              value={form.client_id}
+              onChange={(v) => setForm({ ...form, client_id: v })}
+              options={clients}
+              emptyLabel="Staff — all clients"
+              placeholder="Staff — all clients"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave as staff for an internal account. Choosing a client limits
+              this login to that client&apos;s records everywhere in the app.
+            </p>
           </div>
           {/* §4.1 / §4.16 — master-backed pickers, not typed ids. A number an
               operator types names nothing and joins to nothing. */}

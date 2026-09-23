@@ -32,7 +32,7 @@ import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { bindColumnValue, fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { recordAudit } from '@/lib/audit/recordAudit';
-import { parseConditions, resolveFieldState, checkBounds } from '@/lib/pages/conditions';
+import { parseConditions, resolveFieldState, checkBounds, checkNumericBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
 import { assertLicenceWeight, assertPartielleCapacity } from '@/db/queries/partielle';
 import { splitSeals } from '@/db/queries/sealUsage';
@@ -164,6 +164,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       required: masterPageAccordionField.required,
       field_type: masterPageAccordionField.fieldType,
       conditions: masterPageAccordionField.conditions,
+      props: masterPageAccordionField.props,
       derive: masterPageAccordionField.derive,
     })
     .from(masterPageAccordionField)
@@ -276,13 +277,19 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (!editableNames.has(f.name)) continue;
     const state = resolveFieldState(parseConditions(f.conditions), f.required, evalContext);
     if (!state.visible) continue;
+    // What the entity ENDS UP with: the patch when this request sets the field,
+    // else the merged stored-plus-submitted context (§4.17). Both the required
+    // check and the numeric bound below judge this rather than the raw
+    // submission — a derived or read-only field is absent from the patch, and
+    // judging only what was sent would skip it entirely.
+    const resulting = f.name in patch ? patch[f.name] : evalContext[f.name];
     if (state.required) {
       // "Required" means the entity ENDS UP with a value — judged against the patch
       // first, then the merged context (stored row + this submission). A page-level
       // save validates every accordion, so a required field that is legitimately
       // absent from the patch — read-only, or derived — must not fail on that
       // alone. This reads context only; nothing extra gets written.
-      const v = f.name in patch ? patch[f.name] : evalContext[f.name];
+      const v = resulting;
       // An array-valued field (the payment reference grid) is empty when it has
       // no rows — `[]` is a value, but not one that satisfies `required`.
       const empty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -290,6 +297,10 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     }
     const boundError = checkBounds(state, f.label, mergedSubmitted[f.name]);
     if (boundError) return fail(boundError, 422, { field: f.name });
+    // The same min/max the browser already applied to the input, enforced here
+    // too — otherwise the rule holds on screen and not against the API.
+    const numError = checkNumericBounds(f.props, f.label, resulting);
+    if (numError) return fail(numError, 422, { field: f.name });
   }
 
   // §5 C-02 — a consignment must fit inside its selected PARTIELLE allotment.

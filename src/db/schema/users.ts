@@ -34,6 +34,26 @@ export const usersT = pgTable('users_t', {
    */
   locationId: integer('location_id'),
   deptId: integer('dept_id'),
+  /**
+   * The client this account belongs to, or NULL for a member of staff.
+   *
+   * This is the ONE fact that scopes a login to one client's data: set it, and
+   * every list, detail, dashboard and export the user can reach is narrowed to
+   * that client's rows. NULL means unscoped, which is what every existing
+   * account is and stays.
+   *
+   * Deliberately a column rather than a role flag, because §4.7 forbids
+   * deciding anything by role NAME and a role is shared by many people — two
+   * clients could not both use a "Client" role without a second mapping anyway.
+   * Which menus a client login can reach is still the role's job
+   * (`role_menu_mapping_t`); this only decides which ROWS it sees inside them.
+   *
+   * Not declared with `.references()` for the same reason as location/dept
+   * above — `client_master_t` points back at `users_t` through
+   * created_by/updated_by, and closing that loop makes TypeScript infer `any`
+   * for every table in the cycle (TS7022). The FK is real in the database.
+   */
+  clientId: integer('client_id'),
   profileImage: varchar('profile_image', { length: 255 }).default('default.jpg'),
   signatureImage: varchar('signature_image', { length: 255 }),
   bio: text('bio'),
