@@ -391,6 +391,9 @@ const EXTRA_TOP_LEVEL: Array<{
   url: string;
   icon: string;
 }> = [
+  // The dashboard's card grid, on its own screen: every card downloads its own
+  // rows as a spreadsheet (migration 0122).
+  { name: 'Excel Report', order: 92, url: '/reports/excel', icon: 'ti ti-file-excel' },
   { name: 'Data Import', order: 93, url: '/data-import', icon: 'ti ti-file-import' },
   { name: 'Bulk Update', order: 95, url: '/bulk-update', icon: 'ti ti-edit' },
   { name: 'Bulk Edit', order: 94, url: '/bulk-edit', icon: 'ti ti-list-check' },

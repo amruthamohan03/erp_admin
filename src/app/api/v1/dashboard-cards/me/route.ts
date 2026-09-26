@@ -22,6 +22,7 @@ export const GET = withErrorHandler(async () => {
       card_url: dashboardCardMaster.cardUrl,
       card_category: dashboardCardMaster.cardCategory,
       data_source: dashboardCardMaster.dataSource,
+      export_url: dashboardCardMaster.exportUrl,
       default_order: dashboardCardMaster.cardOrder,
       role_order: roleDashboardCardMapping.cardOrder,
     })

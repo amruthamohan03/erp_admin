@@ -24,6 +24,16 @@ export const dashboardCardMaster = pgTable('dashboard_card_master_t', {
     onDelete: 'set null',
   }),
   dataSource: varchar('data_source', { length: 255 }),
+  /**
+   * Where the Excel Report screen sends this card — an export endpoint with
+   * whatever query narrows it to the rows the card counted.
+   *
+   * Config, not a convention read out of `data_source` (§4.1): an operator can
+   * repoint any card without a deploy, and a card with nothing to download is
+   * simply not clickable there rather than silently handing over the whole
+   * table. Migration 0122 derives a value for the cards that already existed.
+   */
+  exportUrl: varchar('export_url', { length: 255 }),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

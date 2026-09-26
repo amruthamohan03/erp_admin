@@ -862,6 +862,13 @@
       "when": 1790800000000,
       "tag": "0121_payment_documents_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1790900000000,
+      "tag": "0122_dashboard_card_export_url",
+      "breakpoints": true
     }
   ]
 }

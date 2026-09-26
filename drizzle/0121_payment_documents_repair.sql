@@ -11,8 +11,15 @@
 --     the reported symptom, one document present and the other absent.
 --
 -- This re-inserts them resolving the accordion BY SLUG and conflicting on the
--- real natural key, `uq_master_page_accordion_field_t_acc_name` (accordion_id,
--- name). Idempotent: a database where 0081 worked is left exactly as it is.
+-- real natural key, (accordion_id, name). Idempotent: a database where 0081
+-- worked is left exactly as it is.
+--
+-- The conflict target is the COLUMN LIST, not the index's name. Drizzle declares
+-- this key as `uniqueIndex('uq_master_page_accordion_field_t_acc_name')`, which
+-- creates a unique INDEX and not a table constraint — and `ON CONFLICT ON
+-- CONSTRAINT <name>` only resolves constraints, so naming it aborted the whole
+-- chain with 42704 "constraint does not exist". The inferred form below matches
+-- the index itself and works either way.
 INSERT INTO "master_page_accordion_field_t"
   ("accordion_id", "name", "label", "field_type", "required", "props", "display_order", "display")
 SELECT a."id", d."name", d."label", 'file', false,
@@ -25,7 +32,7 @@ SELECT a."id", d."name", d."label", 'file', false,
     ('file2_path', 'Document 2', 3)
   ) AS d("name", "label", "ord")
  WHERE a."slug" = 'motif'
-ON CONFLICT ON CONSTRAINT "uq_master_page_accordion_field_t_acc_name" DO NOTHING;
+ON CONFLICT ("accordion_id", "name") DO NOTHING;
 --> statement-breakpoint
 
 -- A row 0081 placed on the WRONG accordion (whatever happened to be id 27) is
