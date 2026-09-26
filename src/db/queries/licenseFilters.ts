@@ -4,6 +4,7 @@
 // importFilters / exportFilters).
 import { sql, type SQL } from 'drizzle-orm';
 import { licenseT } from '@/db/schema';
+import { kindUseForCondition } from './kindScope';
 
 /**
  * EXPIRED is DERIVED, never stored.
@@ -191,7 +192,9 @@ export type LicenseUseFor = 'import' | 'export';
  * and a reference built from it would be missing its kind code anyway (§4.33).
  */
 export function licenseUseForCondition(useFor: LicenseUseFor): SQL {
-  const column = useFor === 'import' ? 'use_for_import' : 'use_for_export';
-  return sql`${licenseT.kindId} IN (
-    SELECT id FROM kind_master_t WHERE ${sql.identifier(column)} IS TRUE)`;
+  // One definition of "which side is this kind for", shared with the tracking
+  // lists (§4.10). A licence with no kind matches neither direction — unlike a
+  // consignment list, a licence picker offering an unclassifiable licence would
+  // produce a reference with a hole in it (§4.33).
+  return kindUseForCondition(licenseT.kindId, useFor);
 }

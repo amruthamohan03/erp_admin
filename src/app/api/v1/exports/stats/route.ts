@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { exportT } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { exportFilterPredicates } from '@/db/queries/exportFilters';
+import { kindUseForOrMissing } from '@/db/queries/kindScope';
 
 // GET /api/v1/exports/stats
 // One query for every dashboard counter (no per-card table scan): the summary
@@ -32,7 +33,9 @@ export const GET = withErrorHandler(async (_req: NextRequest) => {
       COALESCE(SUM(weight), 0)::float AS total_weight,
       ${sql.join(statusCounts, sql`, `)}
     FROM ${exportT}
-    WHERE display = 'Y'
+    -- Same scope as the grid (§4.29): a card must never report a figure the
+    -- list it filters to then contradicts.
+    WHERE display = 'Y' AND ${kindUseForOrMissing(exportT.kind, 'export')}
   `);
   const row = ((result as unknown as { rows: Record<string, number>[] }).rows ?? [])[0] ?? {};
 

@@ -40,6 +40,7 @@ import {
   DONE_TONE,
   REJECTED_TONE,
   cardGradient,
+  stageLabel,
   type StageDef,
   type ToneKey,
 } from '@/lib/payments/stageConfig';
@@ -320,19 +321,34 @@ export default function PaymentsPage() {
     })();
   }, []);
 
-  /** Open a request's detail — both readings share the fetch. */
-  const openDetail = useCallback(async (id: number, mode: 'record' | 'refs') => {
+  /**
+   * Load a request's detail.
+   *
+   * Three readings share the one fetch (§4.10): the eye icon, the references
+   * popup, and the APPROVAL dialog — which shows the same block, because an
+   * approver has to see what they are approving without closing this and
+   * opening another dialog. `mode` is null when the approval dialog is the
+   * caller: it owns its own visibility and must not open the view modal too.
+   */
+  const loadDetail = useCallback(async (id: number, mode: 'record' | 'refs' | null) => {
     setDetail(null);
-    setViewId(id);
-    setViewMode(mode);
+    if (mode) {
+      setViewId(id);
+      setViewMode(mode);
+    }
     const res = await safeFetchJson<Record<string, unknown>>(`/api/v1/payments/${id}`);
     if (!res.ok) {
-      setViewId(null);
+      if (mode) setViewId(null);
       setResult({ status: 'error', title: 'Not loaded', message: res.message });
       return;
     }
     setDetail(res.data);
   }, []);
+
+  const openDetail = useCallback(
+    (id: number, mode: 'record' | 'refs') => loadDetail(id, mode),
+    [loadDetail],
+  );
 
   function closeDetail(): void {
     setViewId(null);
@@ -776,16 +792,26 @@ export default function PaymentsPage() {
                     type="button"
                     onClick={() => {
                       setAct({ row: r, stage: st.stage as PaymentStage });
+                      // The dialog shows the whole request, so fetch it — the
+                      // approval modal owns its own visibility, hence no mode.
+                      void loadDetail(r.id, null);
                       setReason('');
                       setCashCollector('');
                       setChargeback('');
                       setDoc3(null);
                       setDoc4(null);
                     }}
-                    title={`Act: ${st.label}`}
-                    className="btn-approve btn-sm ms-1 h-7 px-2 text-[11px]"
+                    title={`${stageLabel(perms.stages, st.stage)} — review request #${r.id}`}
+                    // §4.20/§4.1 — the button carries the STAGE's own configured
+                    // tone and name, so an approver reads what they are being
+                    // asked for from the colour before the words. One generic
+                    // "Act" told them nothing about which stage they were at,
+                    // and made every row in the grid look identical.
+                    className={`ms-1 inline-flex h-7 items-center gap-1 rounded-md bg-gradient-to-r px-2 text-[11px] font-semibold text-white transition hover:opacity-90 ${cardGradient(
+                      perms.stages.find((s) => s.stage === st.stage)?.tone ?? 'slate',
+                    )}`}
                   >
-                    <Check className="h-3.5 w-3.5" /> Act
+                    <Check className="h-3.5 w-3.5" /> {stageLabel(perms.stages, st.stage)}
                   </button>
                 )}
               </>
@@ -917,24 +943,43 @@ export default function PaymentsPage() {
       )}
 
       {/* ---- Approve / reject -------------------------------------------- */}
+      {/* §4.10 — the APPROVAL dialog IS the view dialog, with the stage's own
+          colour, its inputs and its buttons. The reference app shows an
+          approver the whole request before they accept or reject; ours showed a
+          single summary line, so deciding meant closing this and opening the
+          eye icon. */}
       {act && (
-        <div
-          className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
-          onClick={() => !busy && setAct(null)}
-        >
-          <div className="card my-auto w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-4 text-white">
-              <h2 className="font-semibold">
-                {actDef?.label ?? act.stage} — Payment #{act.row.id}
-              </h2>
-              <button type="button" onClick={() => setAct(null)} className="rounded-md p-1 hover:bg-white/20" title="Close">
-                <X className="h-5 w-5" />
+        <PaymentViewModal
+          id={act.row.id}
+          detail={detail}
+          stages={perms.stages}
+          onClose={() => !busy && setAct(null)}
+          title={<>{actDef?.label ?? act.stage} — Payment #{act.row.id}</>}
+          headerClassName={`bg-gradient-to-r ${cardGradient(actDef?.tone ?? 'slate')}`}
+          footer={
+            <>
+              <button type="button" onClick={() => setAct(null)} disabled={busy} className="btn-secondary">
+                Cancel
               </button>
-            </div>
-            <div className="space-y-3 p-5">
-              <div className="text-sm text-muted-foreground">
-                {act.row.beneficiary} · {fmt(act.row.amount)} {act.row.currency_short_name} · {act.row.payment_type}
-              </div>
+              <button type="button" onClick={() => void submitReject()} disabled={busy} className="btn-danger">
+                <X className="h-4 w-4" /> Reject
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitApprove()}
+                disabled={busy}
+                // The approve button wears the stage's own colour, matching the
+                // header and the row button that opened this (§4.20).
+                className={`inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 ${cardGradient(
+                  actDef?.tone ?? 'slate',
+                )}`}
+              >
+                <Check className="h-4 w-4" /> {busy ? '…' : (actDef?.label ?? 'Approve')}
+              </button>
+            </>
+          }
+        >
+          <div className="mt-4 space-y-3 border-t border-border pt-4">
               {/* What each stage asks for is its row in Masters → Payment
                   Stages — chargeback, cash collector, proof of payment. */}
               {actDef?.captures_chargeback && (
@@ -1006,22 +1051,8 @@ export default function PaymentsPage() {
                   placeholder="What has to change before this can be approved?"
                 />
               </div>
-            </div>
-            {/* §4.21 — this modal commits an approval, so leaving without
-                deciding must be an explicit, labelled choice. */}
-            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-              <button type="button" onClick={() => setAct(null)} disabled={busy} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="button" onClick={() => void submitReject()} disabled={busy} className="btn-danger">
-                <X className="h-4 w-4" /> Reject
-              </button>
-              <button type="button" onClick={() => void submitApprove()} disabled={busy} className="btn-primary">
-                <Check className="h-4 w-4" /> {busy ? '…' : 'Approve'}
-              </button>
-            </div>
           </div>
-        </div>
+        </PaymentViewModal>
       )}
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />

@@ -37,6 +37,22 @@ interface Props {
   detail: Record<string, unknown> | null;
   stages: readonly StageDef[];
   onClose: () => void;
+  /**
+   * The APPROVAL dialog is this same dialog (§4.10).
+   *
+   * The reference app puts the full request in front of an approver before they
+   * accept or reject — nobody should have to close one modal and open another
+   * to see what they are approving. So rather than a second copy of the detail
+   * block, an approval passes its own title, its stage's colour, the inputs that
+   * stage asks for, and its own buttons.
+   */
+  title?: React.ReactNode;
+  /** Stage-coloured header for an approval; omitted gives the plain one. */
+  headerClassName?: string;
+  /** Stage-specific inputs, shown under the details inside the scroll area. */
+  children?: React.ReactNode;
+  /** Replaces the default Close button (§4.21 — still keep a way out). */
+  footer?: React.ReactNode;
 }
 
 const money = (v: unknown): string => {
@@ -56,7 +72,16 @@ function extOf(name: unknown): string {
   return m ? `.${m[1].toLowerCase()}` : '';
 }
 
-export default function PaymentViewModal({ id, detail, stages, onClose }: Props) {
+export default function PaymentViewModal({
+  id,
+  detail,
+  stages,
+  onClose,
+  title,
+  headerClassName,
+  children,
+  footer,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // §4.21 — Escape leaves, and focus starts on the labelled way out.
@@ -128,11 +153,29 @@ export default function PaymentViewModal({ id, detail, stages, onClose }: Props)
         className="card my-auto w-full max-w-lg overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h2 id="payment-view-title" className="flex items-center gap-2 font-semibold text-foreground">
-            <Eye className="h-4 w-4" /> Payment Request Details
+        <div
+          className={
+            headerClassName
+              ? `flex items-center justify-between px-5 py-3 text-white ${headerClassName}`
+              : 'flex items-center justify-between border-b border-border px-5 py-3'
+          }
+        >
+          <h2
+            id="payment-view-title"
+            className={`flex items-center gap-2 font-semibold ${headerClassName ? '' : 'text-foreground'}`}
+          >
+            {title ?? (
+              <>
+                <Eye className="h-4 w-4" /> Payment Request Details
+              </>
+            )}
           </h2>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-muted" title="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`rounded-md p-1 ${headerClassName ? 'hover:bg-white/20' : 'text-muted-foreground hover:bg-muted'}`}
+            title="Close"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -281,13 +324,21 @@ export default function PaymentViewModal({ id, detail, stages, onClose }: Props)
               )}
             </>
           )}
+
+          {/* Stage-specific inputs — chargeback, cash collector, proof of
+              payment — sit UNDER the details, so an approver reads what they
+              are approving before they fill anything in. */}
+          {children}
         </div>
 
-        {/* §4.21 — a labelled way out, always. */}
-        <div className="flex justify-end border-t border-border px-5 py-3">
-          <button ref={closeRef} type="button" onClick={onClose} className="btn-secondary btn-sm">
-            Close
-          </button>
+        {/* §4.21 — a labelled way out, always. An approval supplies its own
+            footer, which carries Cancel alongside Approve and Reject. */}
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+          {footer ?? (
+            <button ref={closeRef} type="button" onClick={onClose} className="btn-secondary btn-sm">
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>

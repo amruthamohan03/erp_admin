@@ -855,6 +855,13 @@
       "when": 1790700000000,
       "tag": "0120_paired_currency_field_width",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1790800000000,
+      "tag": "0121_payment_documents_repair",
+      "breakpoints": true
     }
   ]
 }
