@@ -21,6 +21,7 @@ import {
 } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { clientScopeFor } from '@/lib/auth/clientScope';
+import { kindUseForOrMissing } from '@/db/queries/kindScope';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import {
   importBodySchema,
@@ -69,6 +70,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     // §4.7 — a client login sees only its own rows. Resolved from the database,
     // not the token, and TRUE for staff so the clause is never silently absent.
     await clientScopeFor(session, importT.clientId),
+    // The kind's own flags decide which side a file belongs on (§4.1). Files
+    // whose kind is export-ONLY do not belong on this screen; IMPORT TEMPORARY
+    // carries both flags by design and so appears on both.
+    kindUseForOrMissing(importT.kind, 'import'),
   ];
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;

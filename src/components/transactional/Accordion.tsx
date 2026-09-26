@@ -112,7 +112,7 @@ export default function Accordion({
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={open}w-28 shrink-0
+        aria-expanded={open}
         className={clsx(
           'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors',
           open ? accent.tint : 'bg-card hover:bg-muted/50',
