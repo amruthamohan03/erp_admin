@@ -32,6 +32,17 @@ const ratePercent = z
     { message: 'Must be a percentage between 0 and 999.99, with at most 2 decimals (e.g. 10.00)' },
   );
 
+/**
+ * The per-code green-certificate OVERRIDE — tri-state, and NULL is the normal
+ * value (0124).
+ *
+ * `null` defers to the prefix rules in `hs_green_prefix_master_t`; `true` and
+ * `false` state an exception in either direction. A plain `z.boolean()` would
+ * turn "no decision recorded" into "explicitly exempt" on every save, which
+ * silently opts each edited code out of whatever rule covers it.
+ */
+const greenCertificateOverride = z.boolean().nullish().transform((v) => v ?? null);
+
 export const hscodeCreateSchema = z.object({
   hscode_number: z.string().min(1).max(100),
   hscode_ddi: ratePercent,
@@ -39,7 +50,7 @@ export const hscodeCreateSchema = z.object({
   hscode_dci: ratePercent,
   hscode_dcl: ratePercent,
   hscode_tpi: ratePercent,
-  requires_green_certificate: z.boolean().default(false),
+  requires_green_certificate: greenCertificateOverride,
 });
 export type HscodeCreateInput = z.infer<typeof hscodeCreateSchema>;
 
@@ -50,7 +61,11 @@ export const hscodeUpdateSchema = z.object({
   hscode_dci: ratePercent,
   hscode_dcl: ratePercent,
   hscode_tpi: ratePercent,
-  requires_green_certificate: z.boolean().optional(),
+  // Nullable but NOT defaulted: on an update `undefined` means "leave the
+  // override alone" and `null` means "clear it, follow the prefix rules". The
+  // create schema collapses the two because a code that has just been made has
+  // nothing to leave alone.
+  requires_green_certificate: z.boolean().nullable().optional(),
   display: z.enum(['Y', 'N']).optional(),
 });
 export type HscodeUpdateInput = z.infer<typeof hscodeUpdateSchema>;

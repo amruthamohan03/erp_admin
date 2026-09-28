@@ -122,3 +122,63 @@ export function donutArcs(values: readonly number[], circumference: number): Don
     return arc;
   });
 }
+
+/**
+ * Running totals for a stacked chart: each series' top is itself plus
+ * everything drawn beneath it.
+ *
+ * Returned as TOPS rather than as raw values so a caller can plot each band
+ * directly; the band between `tops[i-1]` and `tops[i]` is series `i`. Computing
+ * this in the component is where stacking usually goes wrong — a band drawn
+ * from zero instead of from the layer below looks plausible and overstates
+ * every series but the first.
+ */
+export function stackSeries(series: readonly (readonly number[])[]): number[][] {
+  if (series.length === 0) return [];
+  const length = Math.max(...series.map((s) => s.length));
+  const tops: number[][] = [];
+  const running = new Array<number>(length).fill(0);
+
+  for (const s of series) {
+    const row: number[] = [];
+    for (let i = 0; i < length; i++) {
+      const v = Number.isFinite(s[i]) ? Math.max(0, s[i]) : 0;
+      running[i] += v;
+      row.push(running[i]);
+    }
+    tops.push(row);
+  }
+  return tops;
+}
+
+export interface FunnelBand {
+  /** Width of this band's top edge, 0–1 of the full width. */
+  top: number;
+  /** Width of its bottom edge — the next band's top. */
+  bottom: number;
+  fraction: number;
+}
+
+/**
+ * A funnel's bands, each tapering toward the next.
+ *
+ * Width is the band's share of the LARGEST band rather than of the total, so a
+ * funnel whose stages are 2, 2, 0, 0 still shows two full-width bands instead
+ * of four quarter-width ones. The taper is between neighbours, which is what
+ * makes it read as a pipeline rather than as a stack of unrelated bars.
+ *
+ * A minimum width keeps an empty stage visible: a band of literally zero width
+ * disappears, and "nothing in this stage" is information worth seeing.
+ */
+export function funnelWidths(values: readonly number[], minWidth = 0.08): FunnelBand[] {
+  const clean = values.map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
+  const max = Math.max(0, ...clean);
+  const width = (v: number): number => (max <= 0 ? minWidth : Math.max(minWidth, v / max));
+
+  return clean.map((v, i) => ({
+    top: width(v),
+    // The last band keeps its own width rather than tapering to nothing.
+    bottom: i === clean.length - 1 ? width(v) : width(clean[i + 1]),
+    fraction: max <= 0 ? 0 : v / max,
+  }));
+}

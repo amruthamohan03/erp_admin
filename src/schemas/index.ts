@@ -55,6 +55,7 @@ export * from './industries';
 export * from './done-by';
 export * from './expense-types';
 export * from './hscodes';
+export * from './hsGreenPrefixes';
 export * from './banks';
 export * from './bank-exchange-rates';
 export * from './phases';

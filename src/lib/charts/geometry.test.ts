@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { areaPath, donutArcs, linePath, niceMax, plotPoints, smoothPath } from './geometry';
+import { areaPath, donutArcs, funnelWidths, linePath, niceMax, plotPoints, smoothPath, stackSeries } from './geometry';
 
 describe('niceMax', () => {
   it('rounds up to a number a human would label an axis with', () => {
@@ -116,5 +116,70 @@ describe('donutArcs', () => {
     const arcs = donutArcs([-5, 5], 100);
     expect(arcs[0].length).toBe(0);
     expect(arcs[1].length).toBeCloseTo(100);
+  });
+});
+
+describe('stackSeries', () => {
+  it('returns running tops, not raw values', () => {
+    expect(stackSeries([[1, 2], [3, 4]])).toEqual([
+      [1, 2],
+      [4, 6],
+    ]);
+  });
+
+  // The classic stacking bug: a band drawn from zero rather than from the layer
+  // below. It looks plausible and overstates every series but the first.
+  it('never draws a later band from the baseline', () => {
+    const [first, second] = stackSeries([[5], [5]]);
+    expect(first[0]).toBe(5);
+    expect(second[0]).toBe(10);
+  });
+
+  it('treats a short series as zero rather than shifting it', () => {
+    expect(stackSeries([[1, 1, 1], [2]])).toEqual([
+      [1, 1, 1],
+      [3, 1, 1],
+    ]);
+  });
+
+  it('ignores negatives and non-finite values', () => {
+    expect(stackSeries([[-4, NaN, 2]])).toEqual([[0, 0, 2]]);
+  });
+
+  it('is empty for no series', () => {
+    expect(stackSeries([])).toEqual([]);
+  });
+});
+
+describe('funnelWidths', () => {
+  it('scales each band against the LARGEST, not the total', () => {
+    const bands = funnelWidths([10, 5]);
+    expect(bands[0].top).toBeCloseTo(1);
+    expect(bands[1].top).toBeCloseTo(0.5);
+  });
+
+  it('tapers each band toward the next', () => {
+    const bands = funnelWidths([10, 5, 1]);
+    expect(bands[0].bottom).toBeCloseTo(bands[1].top);
+    expect(bands[1].bottom).toBeCloseTo(bands[2].top);
+  });
+
+  it('leaves the last band untapered', () => {
+    const bands = funnelWidths([10, 4]);
+    expect(bands[1].bottom).toBeCloseTo(bands[1].top);
+  });
+
+  // An invisible band is indistinguishable from a missing stage.
+  it('keeps an empty stage visible at the minimum width', () => {
+    const bands = funnelWidths([10, 0]);
+    expect(bands[1].top).toBeGreaterThan(0);
+    expect(bands[1].fraction).toBe(0);
+  });
+
+  it('does not divide by zero when every stage is empty', () => {
+    for (const b of funnelWidths([0, 0])) {
+      expect(Number.isFinite(b.top)).toBe(true);
+      expect(b.fraction).toBe(0);
+    }
   });
 });

@@ -17,15 +17,15 @@ import { areaPath, donutArcs, niceMax, plotPoints, smoothPath } from '@/lib/char
 /** A series colour by index, wrapping so a seventh series is never invisible. */
 export const chartColor = (i: number): string => `hsl(var(--chart-${(i % 6) + 1}))`;
 
-const GRID = 'hsl(var(--chart-grid))';
-const AXIS_TEXT = 'hsl(var(--muted-foreground))';
+export const GRID = 'hsl(var(--chart-grid))';
+export const AXIS_TEXT = 'hsl(var(--muted-foreground))';
 
 export interface Series {
   label: string;
   values: number[];
 }
 
-interface CartesianProps {
+export interface CartesianProps {
   labels: string[];
   series: Series[];
   height?: number;
@@ -34,7 +34,7 @@ interface CartesianProps {
 }
 
 /** Horizontal rules plus the value at each one — the plot's backdrop. */
-function Grid({ max, width, height, steps = 4 }: { max: number; width: number; height: number; steps?: number }) {
+export function Grid({ max, width, height, steps = 4 }: { max: number; width: number; height: number; steps?: number }) {
   return (
     <g aria-hidden="true">
       {Array.from({ length: steps + 1 }, (_, i) => {
@@ -53,7 +53,7 @@ function Grid({ max, width, height, steps = 4 }: { max: number; width: number; h
   );
 }
 
-function XLabels({ labels, width, height }: { labels: string[]; width: number; height: number }) {
+export function XLabels({ labels, width, height }: { labels: string[]; width: number; height: number }) {
   if (labels.length === 0) return null;
   const step = labels.length === 1 ? 0 : width / (labels.length - 1);
   return (
@@ -74,7 +74,7 @@ function XLabels({ labels, width, height }: { labels: string[]; width: number; h
   );
 }
 
-function Legend({ series }: { series: Array<{ label: string; color: string }> }) {
+export function Legend({ series }: { series: Array<{ label: string; color: string }> }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
       {series.map((s) => (
@@ -92,7 +92,7 @@ function Legend({ series }: { series: Array<{ label: string; color: string }> })
  * `preserveAspectRatio="none"` is deliberately NOT used — stretching the
  * viewBox would distort the stroke widths and the type along with the plot.
  */
-function Plot({
+export function Plot({
   children,
   height,
   width = 320,

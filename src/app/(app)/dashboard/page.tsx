@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { Boxes, FileCheck, FileSpreadsheet, FileText, Send, Truck, Users, Wallet } from 'lucide-react';
 import RecentActivity from '@/components/dashboard/RecentActivity';
 import InboxPanel from '@/components/dashboard/InboxPanel';
-import { AreaChart, BarChart, HBarChart, LineChart, StackedBars } from '@/components/charts/Charts';
+import { AreaChart, BarChart } from '@/components/charts/Charts';
+import {
+  FunnelChart,
+  GaugeRing,
+  RadialBars,
+  StackedAreaChart,
+} from '@/components/charts/AdvancedCharts';
 import { gradient } from '@/components/ui/cardGradient';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { OverviewDashboard } from '@/db/queries/overviewDashboard';
@@ -104,11 +110,15 @@ export default function DashboardPage() {
   const months = data?.monthly ?? [];
   const labels = months.map((m) => m.month_name);
 
-  // The endpoint drops empty slices so a doughnut never draws an invisible arc;
-  // the stacked rows want the zeroes back, because "0 validated" is exactly what
+  // The endpoint drops empty slices so a chart never draws an invisible arc;
+  // the gauges want the zeroes back, because "0 of 4 validated" is exactly what
   // this panel is for saying.
   const invoiceValue = (label: string): number =>
     data?.invoice_split.find((s) => s.label === label)?.value ?? 0;
+
+  /** A side's denominator: everything raised on it, validated or not. */
+  const invoiceTotal = (side: 'Import' | 'Export'): number =>
+    invoiceValue(`${side} · validated`) + invoiceValue(`${side} · pending`);
 
   return (
     <div className="space-y-4">
@@ -203,8 +213,10 @@ export default function DashboardPage() {
 
       {data && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Panel title="Files opened" hint="All three tracking modules, per month, over the last twelve.">
-            <LineChart
+          {/* Stacked, not three lines: the top edge is the month's TOTAL
+              workload, which separate lines make you add up by eye. */}
+          <Panel title="Files opened" hint="All three tracking modules, stacked — the top edge is the month's total.">
+            <StackedAreaChart
               labels={labels}
               format={(v) => nf.format(v)}
               series={[
@@ -237,38 +249,38 @@ export default function DashboardPage() {
             />
           </Panel>
 
-          {/* Validated versus pending is the only thing worth knowing per side,
-              and a stacked row answers it without matching four slices to a
-              legend across a circle. */}
-          <Panel title="Invoices" hint="Raised against clients — how much of each side is validated.">
-            <StackedBars
-              format={(v) => nf.format(v)}
-              emptyLabel="No invoices raised yet."
-              groups={[
-                {
-                  label: 'Import invoices',
-                  segments: [
-                    { label: 'Validated', value: invoiceValue('Import · validated') },
-                    { label: 'Pending', value: invoiceValue('Import · pending') },
-                  ],
-                },
-                {
-                  label: 'Export invoices',
-                  segments: [
-                    { label: 'Validated', value: invoiceValue('Export · validated') },
-                    { label: 'Pending', value: invoiceValue('Export · pending') },
-                  ],
-                },
-              ]}
-            />
+          {/* Progress rings, not bars: validation is a completion figure, and
+              on a ring the GAP is the outstanding work — the thing needing
+              attention is the thing you see. */}
+          <Panel title="Invoice validation" hint="How much of each side has been validated.">
+            {invoiceTotal('Import') + invoiceTotal('Export') === 0 ? (
+              <p className="text-sm text-muted-foreground">No invoices raised yet.</p>
+            ) : (
+              <div className="flex flex-wrap items-center justify-around gap-4">
+                <GaugeRing
+                  label="Import invoices"
+                  done={invoiceValue('Import · validated')}
+                  total={invoiceTotal('Import')}
+                  colorIndex={0}
+                />
+                <GaugeRing
+                  label="Export invoices"
+                  done={invoiceValue('Export · validated')}
+                  total={invoiceTotal('Export')}
+                  colorIndex={1}
+                />
+              </div>
+            )}
           </Panel>
 
           {/* Coloured by urgency rather than by series: an expired licence is
               blocking work now, and the band an operator must act on this week
               should not be the same hue as one three months out (§4.38's
               reading — stopped, waiting, fine). */}
+          {/* A funnel, because these bands are SEQUENTIAL: it reads as a
+              deadline approaching rather than as unrelated categories. */}
           <Panel title="Licences by time to expiry" hint="Each licence counted once, in the band it falls in.">
-            <HBarChart
+            <FunnelChart
               format={(v) => nf.format(v)}
               emptyLabel="No active licences with an expiry date."
               items={data.expiry_outlook.map((o) => ({
@@ -279,14 +291,16 @@ export default function DashboardPage() {
             />
           </Panel>
 
+          {/* Concentric arcs — the leader is a full circle and the rest are read
+              against it. The list beside it carries the exact figures, because
+              an arc answers "who is biggest", not "by how much". */}
           <Panel title="Busiest clients" hint="By open files right now, across all three modules.">
-            <HBarChart
+            <RadialBars
               format={(v) => nf.format(v)}
               emptyLabel="Nothing open against any client."
               items={data.top_clients.map((c) => ({
                 label: c.client_name ?? '—',
                 value: c.total,
-                note: c.total === 1 ? 'file' : 'files',
               }))}
             />
           </Panel>
