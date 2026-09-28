@@ -213,6 +213,15 @@ export interface PaymentListRow {
   management_approval: number | null;
   under_process: number | null;
   paid_approval: number | null;
+  /**
+   * The recollection state for this request, when a cancelled file opened one.
+   *
+   * A paid request whose file was later cancelled becomes money to recover
+   * (§4.37). Once that is marked recovered on Cancelled Files, the request
+   * itself has to say so — otherwise the outcome exists only on a screen nobody
+   * looking at the payment would think to open.
+   */
+  recollection_status: string | null;
 }
 
 export async function listPayments(
@@ -234,7 +243,16 @@ export async function listPayments(
            pr.dept_approval, pr.finance_approval, pr.management_approval, pr.under_process, pr.paid_approval,
            d.department_name, mo.main_location_name AS location_name,
            c.short_name AS client_name, cu.currency_short_name, ex.expense_type_name,
-           COALESCE(jsonb_array_length(pr.mca_data), 0)::int AS mca_count
+           COALESCE(jsonb_array_length(pr.mca_data), 0)::int AS mca_count,
+           -- The most URGENT state across this request's recollections: one
+           -- cancelled file settled does not clear a second that is still open,
+           -- so 'pending' outranks 'recovered' deliberately.
+           (SELECT CASE WHEN bool_or(r.status = 'pending') THEN 'pending'
+                        WHEN bool_or(r.status = 'recovered') THEN 'recovered'
+                        WHEN bool_or(r.status = 'written_off') THEN 'written_off'
+                   END
+              FROM payment_recollection_t r
+             WHERE r.payment_request_id = pr.id) AS recollection_status
     ${JOINS} ${where}
     ORDER BY pr.id DESC
     LIMIT ${limit} OFFSET ${offset}

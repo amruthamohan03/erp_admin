@@ -110,6 +110,12 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Type Of Goods', order: 12, url: '/masters/goods-types' },
   { parent: 'Masters', name: 'Regime', order: 13, url: '/masters/regimes' },
   { parent: 'Masters', name: 'Hscode', order: 14, url: '/masters/hscodes' },
+  {
+    parent: 'Masters',
+    name: 'Green Certificate Codes',
+    order: 15,
+    url: '/masters/hs-green-prefixes',
+  },
   { parent: 'Masters', name: 'Users', order: 15, url: '/masters/users' },
   { parent: 'Masters', name: 'Phase', order: 16, url: '/masters/phases' },
   { parent: 'Masters', name: 'Province', order: 17, url: '/masters/provinces' },
@@ -391,6 +397,9 @@ const EXTRA_TOP_LEVEL: Array<{
   url: string;
   icon: string;
 }> = [
+  // The dashboard's card grid, on its own screen: every card downloads its own
+  // rows as a spreadsheet (migration 0122).
+  { name: 'Excel Report', order: 92, url: '/reports/excel', icon: 'ti ti-file-excel' },
   { name: 'Data Import', order: 93, url: '/data-import', icon: 'ti ti-file-import' },
   { name: 'Bulk Update', order: 95, url: '/bulk-update', icon: 'ti ti-edit' },
   { name: 'Bulk Edit', order: 94, url: '/bulk-edit', icon: 'ti ti-list-check' },

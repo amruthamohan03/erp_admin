@@ -36,6 +36,20 @@
     --secondary-foreground: 222 45% 6%;
 
     --muted: 214 32% 95%;
+    /* §4.20/§4.29 — the chart palette. Charts are the one place a SERIES needs
+       its own colour, and a Tailwind shade would carry only one theme; these
+       are tokens so a bar keeps its meaning when the operator switches to dark.
+       Six because a legend past six entries is unreadable anyway — beyond that
+       a chart wants grouping, not another hue. */
+    --chart-1: 243 75% 59%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 160 84% 39%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 340 82% 52%;
+    --chart-6: 271 81% 56%;
+    /* The faint rule behind a plot. Not --border: a gridline sits UNDER data
+       and has to recede further than a card edge does. */
+    --chart-grid: 214 32% 88%;
     /* Secondary text still has to be READ — hints, table meta, "Showing 1–20 of
        340". At 47% it was mid-grey and failed against white for anyone not in
        ideal lighting; 30% keeps the hierarchy but stays comfortably legible. */
@@ -104,6 +118,15 @@
     --secondary-foreground: 210 40% 96%;
 
     --muted: 222 25% 17%;
+    /* Lifted, not the same values: a mid shade that reads on white goes muddy
+       on a dark card, so each series brightens rather than being reused. */
+    --chart-1: 243 80% 72%;
+    --chart-2: 199 89% 64%;
+    --chart-3: 160 70% 55%;
+    --chart-4: 38 92% 62%;
+    --chart-5: 340 82% 66%;
+    --chart-6: 271 81% 70%;
+    --chart-grid: 222 20% 26%;
     /* Mirrors the light theme's intent — secondary text that is still readable. */
     --muted-foreground: 215 22% 76%;
 

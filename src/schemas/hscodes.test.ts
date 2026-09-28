@@ -58,22 +58,39 @@ describe('hscodeCreateSchema rates', () => {
   });
 });
 
-describe('green certificate flag', () => {
-  it('defaults to not required on create', () => {
+describe('green certificate override', () => {
+  it('defaults to NULL on create — follow the prefix rules, not "exempt"', () => {
+    // false would opt every new code out of whatever prefix rule covers it,
+    // and the rule would appear to do nothing (0124).
     expect(hscodeCreateSchema.parse({ hscode_number: '0101.21.00' }).requires_green_certificate)
-      .toBe(false);
+      .toBeNull();
   });
 
-  it('is carried through when set', () => {
+  it('carries an explicit "always required" through', () => {
     expect(
       hscodeCreateSchema.parse({ hscode_number: '0101.21.00', requires_green_certificate: true })
         .requires_green_certificate,
     ).toBe(true);
   });
 
+  it('carries an explicit exemption through, distinct from the default', () => {
+    expect(
+      hscodeCreateSchema.parse({ hscode_number: '0101.21.00', requires_green_certificate: false })
+        .requires_green_certificate,
+    ).toBe(false);
+  });
+
   it('is optional on update, so a patch that omits it leaves it alone', () => {
     expect(hscodeUpdateSchema.parse({ hscode_ddi: '5.00' }).requires_green_certificate)
       .toBeUndefined();
+  });
+
+  it('distinguishes clearing the override from omitting it', () => {
+    // null is "go back to following the prefix rules" and must reach the patch;
+    // undefined is "do not touch". Collapsing the two loses one of them.
+    expect(
+      hscodeUpdateSchema.parse({ requires_green_certificate: null }).requires_green_certificate,
+    ).toBeNull();
   });
 
   it('rejects a non-boolean rather than coercing it', () => {

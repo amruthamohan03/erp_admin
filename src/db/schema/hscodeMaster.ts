@@ -39,9 +39,16 @@ export const hscodeMaster = pgTable('hscode_master_t', {
   // Whether this tariff line needs an environmental clearance (certificat vert)
   // before it can be declared. A property of the code, so it lives on the code
   // rather than in the head of whoever files the declaration (§4.1, 0087).
-  requiresGreenCertificate: boolean('requires_green_certificate')
-    .notNull()
-    .default(false),
+  //
+  // Deliberately NULLABLE (0124), because the standing rule now lives in
+  // `hs_green_prefix_master_t` and this column is the per-code OVERRIDE:
+  //   * NULL  — follow the prefix rules (the normal state)
+  //   * true  — always required, whatever the prefixes say
+  //   * false — explicitly exempt, even though a prefix covers this code
+  // A NOT NULL boolean could not tell "nobody has said" from "somebody said
+  // no", which is exactly what an exemption is. Never read this column on its
+  // own — `greenCertificateFor` combines it with the prefixes (§4.10).
+  requiresGreenCertificate: boolean('requires_green_certificate'),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

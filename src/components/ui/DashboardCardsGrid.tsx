@@ -28,6 +28,8 @@ export interface DashboardCard {
   card_url: string | null;
   card_category: string | null;
   data_source: string | null;
+  /** §4.1 — where the Excel Report screen downloads this card's rows. */
+  export_url?: string | null;
 }
 
 interface DashboardCardsGridProps {
@@ -52,12 +54,22 @@ interface DashboardCardsGridProps {
    * role-mapping admin screen.
    */
   emptyMessage?: React.ReactNode;
+  /**
+   * Excel Report mode — a card DOWNLOADS its rows instead of navigating.
+   *
+   * The tile still shows the figure it always did, so the operator knows how
+   * many rows are coming before they click. A card with no `export_url` is not
+   * clickable at all: there is nothing honest to hand over, and falling back to
+   * the module's whole table would be the wrong file rather than no file.
+   */
+  mode?: 'navigate' | 'export';
 }
 
 export default function DashboardCardsGrid({
   category,
   variant = 'gradient',
   emptyMessage,
+  mode = 'navigate',
 }: DashboardCardsGridProps) {
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -226,6 +238,24 @@ export default function DashboardCardsGrid({
               )}
             </div>
           );
+        // Excel Report: a plain navigation the server answers with an
+        // attachment, exactly as every other export button in the app does.
+        if (mode === 'export') {
+          return c.export_url ? (
+            <a
+              key={c.id}
+              href={c.export_url}
+              title={`Download ${c.card_title} as Excel`}
+              className="block transition-transform hover:scale-[1.02]"
+            >
+              {body}
+            </a>
+          ) : (
+            <div key={c.id} title="No export configured for this card" className="opacity-60">
+              {body}
+            </div>
+          );
+        }
         return c.card_url ? (
           <Link
             key={c.id}

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { hscodeMaster, type HscodeMasterInsert } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
+import { decideGreenCertificates } from '@/db/queries/greenPrefixes';
 import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { hscodeUpdateSchema } from '@/schemas';
 
@@ -39,7 +40,11 @@ export const GET = withErrorHandler(
       .limit(1);
 
     if (!row) throw new NotFoundError();
-    return ok(row);
+
+    // Same as the list: the column is the override, the verdict is what the
+    // code actually needs (§4.10 — one resolver, both endpoints).
+    const [decided] = await decideGreenCertificates([row]);
+    return ok(decided);
   },
 );
 

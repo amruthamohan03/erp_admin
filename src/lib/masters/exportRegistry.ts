@@ -1,4 +1,6 @@
 import type { PgTable } from 'drizzle-orm/pg-core';
+import { loadGreenPrefixes } from '@/db/queries/greenPrefixes';
+import { greenCertificateFor } from '@/lib/hscodes/greenCertificate';
 import {
   banklistMaster,
   cancellationReasonMaster,
@@ -64,11 +66,38 @@ import {
 // tried to express arbitrary joins as config would be a worse thing than two
 // hand-written routes.
 
+/** A column the sheet computes rather than reads. */
+export interface DerivedColumn {
+  key: string;
+  header: string;
+}
+
+export interface DerivedColumns {
+  /** Raw column NAMES the derived ones replace — dropped from the sheet. */
+  hide?: string[];
+  columns: DerivedColumn[];
+  /** One entry per input row, in the same order. */
+  cells: Record<string, string | number>[];
+}
+
 export interface MasterExport {
   /** The table whose rows the screen lists. */
   table: PgTable;
   /** Sheet name and filename stem — what the operator sees in Excel. */
   label: string;
+  /**
+   * Replace a stored column with the answer the SCREEN shows.
+   *
+   * A column dump is right until a value only means something combined with
+   * another table. `hscode_master_t.requires_green_certificate` is the
+   * per-code override, so on its own it is blank for every code covered by a
+   * prefix rule — a sheet saying nothing where the list says "Required".
+   * §4.15's pairing: an export of a list must agree with the list.
+   *
+   * Kept deliberately small. Anything needing real joins gets its own route,
+   * as clients and users already do.
+   */
+  derive?: (rows: Record<string, unknown>[]) => Promise<DerivedColumns>;
 }
 
 export const MASTER_EXPORTS: Record<string, MasterExport> = {
@@ -88,7 +117,39 @@ export const MASTER_EXPORTS: Record<string, MasterExport> = {
   'feet-containers': { table: feetContainerMaster, label: 'Feet Containers' },
   'goods-types': { table: typeOfGoodsMaster, label: 'Type of Goods' },
   'group-companies': { table: groupCompanyMaster, label: 'Group Companies' },
-  hscodes: { table: hscodeMaster, label: 'HS Codes' },
+  hscodes: {
+    table: hscodeMaster,
+    label: 'HS Codes',
+    derive: async (rows) => {
+      const prefixes = await loadGreenPrefixes();
+      return {
+        // The stored override is replaced, not shown beside the verdict: two
+        // columns disagreeing is worse than one, and the operator reading the
+        // sheet wants the answer, not the mechanism.
+        hide: ['requires_green_certificate'],
+        columns: [
+          { key: 'green_certificate', header: 'Green Certificate' },
+          { key: 'green_certificate_rule', header: 'Green Certificate Rule' },
+        ],
+        cells: rows.map((r) => {
+          const v = greenCertificateFor(
+            String(r.hscodeNumber ?? ''),
+            (r.requiresGreenCertificate ?? null) as boolean | null,
+            prefixes,
+          );
+          return {
+            green_certificate: v.required ? 'Required' : v.source === 'override' ? 'Exempt' : 'No',
+            green_certificate_rule:
+              v.source === 'prefix'
+                ? `Codes starting ${v.prefix}`
+                : v.source === 'override'
+                  ? 'Set on this code'
+                  : '',
+          };
+        }),
+      };
+    },
+  },
   incoterms: { table: incotermMaster, label: 'Incoterms' },
   industries: { table: industryMaster, label: 'Industries' },
   'invoice-banks': { table: invoiceBankMaster, label: 'Invoice Banks' },

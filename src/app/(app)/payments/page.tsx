@@ -79,6 +79,8 @@ interface Row extends PaymentApprovalState {
   department_name: string | null;
   location_id: number | null;
   location_name: string | null;
+  /** §4.37 — set when a cancelled file opened a recollection on this request. */
+  recollection_status: string | null;
 }
 
 /** A reference line as the detail endpoint returns it. */
@@ -107,6 +109,27 @@ function statusTone(st: PaymentStatus, stages: readonly StageDef[]): ToneKey {
   if (st.key === 'paid') return DONE_TONE;
   return stages.find((s) => s.stage === st.stage)?.tone ?? 'slate';
 }
+
+
+/**
+ * §4.37 — how a cancelled file's recollection reads on the request it came from.
+ *
+ * Violet for recovered because §4.38 reserves that for "consumed / a step
+ * beyond done" — the request was paid AND the money has since come back, which
+ * is past Paid rather than a contradiction of it. Amber while it is still owed:
+ * that is somebody waiting. Slate once written off — switched off, not good news.
+ */
+const RECOLLECTION_LABEL: Record<string, string> = {
+  pending: 'To recollect',
+  recovered: 'Recovered',
+  written_off: 'Written off',
+};
+
+const RECOLLECTION_TONE: Record<string, ToneKey> = {
+  pending: 'amber',
+  recovered: 'violet',
+  written_off: 'slate',
+};
 
 function fmt(v: string | number | null | undefined): string {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
@@ -228,6 +251,8 @@ export default function PaymentsPage() {
   const [cashCollector, setCashCollector] = useState('');
   /** A stage configured to take one may attach a chargeback; blank means none. */
   const [chargeback, setChargeback] = useState('');
+  /** The Yes/No that decides whether the amount box is even asked for. */
+  const [chargebackNeeded, setChargebackNeeded] = useState<'yes' | 'no'>('no');
   /** Proof of payment, on the stage configured to take documents. */
   const [doc3, setDoc3] = useState<FileUploadValue | null>(null);
   const [doc4, setDoc4] = useState<FileUploadValue | null>(null);
@@ -381,6 +406,17 @@ export default function PaymentsPage() {
 
   async function submitApprove(): Promise<void> {
     if (!act) return;
+    // §4.23 — say which field and what would fix it. Answering "Yes" and
+    // leaving the box empty is the one way this form can be half-filled.
+    if (actDef?.captures_chargeback && chargebackNeeded === 'yes' && Number(chargeback) <= 0) {
+      setResult({
+        status: 'error',
+        title: 'Not approved',
+        message: 'Chargeback amount is required — enter an amount, or set Chargeback needed to No.',
+      });
+      return;
+    }
+
     setBusy(true);
     try {
       const res = await safeFetchJson<{ stage_label: string }>(
@@ -391,9 +427,12 @@ export default function PaymentsPage() {
           body: JSON.stringify({
             stage: act.stage,
             cash_collector: actDef?.requires_cash_collector ? cashCollector || undefined : undefined,
-            // Blank means no chargeback — not zero, which would read as
-            // "charged back nothing".
-            chargeback: actDef?.captures_chargeback && chargeback.trim() !== '' ? chargeback : undefined,
+            // Only sent when the approver said Yes. Omitted means no chargeback
+            // — not zero, which would read as "charged back nothing".
+            chargeback:
+              actDef?.captures_chargeback && chargebackNeeded === 'yes' && chargeback.trim() !== ''
+                ? chargeback
+                : undefined,
             file3_path: actDef?.captures_documents && doc3 ? String(doc3.id) : undefined,
             file4_path: actDef?.captures_documents && doc4 ? String(doc4.id) : undefined,
           }),
@@ -724,9 +763,15 @@ export default function PaymentsPage() {
           {
             key: 'status',
             header: 'Status',
-            value: (r) => paymentStatus(r, perms.stages).label,
+            // Searchable on both words, so typing "recovered" finds the rows
+            // that show it (§4.25.1 — a filter matches what the cell displays).
+            value: (r) =>
+              [paymentStatus(r, perms.stages).label, RECOLLECTION_LABEL[r.recollection_status ?? '']]
+                .filter(Boolean)
+                .join(' '),
             render: (r) => {
               const st = paymentStatus(r, perms.stages);
+              const recollection = RECOLLECTION_LABEL[r.recollection_status ?? ''];
               return (
                 <span className="inline-flex items-center gap-1">
                   <StatusBadge
@@ -740,6 +785,23 @@ export default function PaymentsPage() {
                         : undefined
                     }
                   />
+                  {/* §4.37 — the cancellation's outcome, on the request it
+                      concerns. Its own badge rather than replacing the stage
+                      status: the request really was paid, and a recollection is
+                      a second fact about it, not a correction of the first. */}
+                  {recollection && (
+                    <StatusBadge
+                      status={recollection}
+                      tone={RECOLLECTION_TONE[r.recollection_status ?? ''] ?? 'slate'}
+                      title={
+                        r.recollection_status === 'recovered'
+                          ? 'This payment was recovered after its file was cancelled.'
+                          : r.recollection_status === 'written_off'
+                            ? 'This payment was written off after its file was cancelled.'
+                            : 'The file this was paid on was cancelled — the amount is still to recover.'
+                      }
+                    />
+                  )}
                   {r.resubmit_count > 0 && (
                     <span
                       title={`Sent back and re-submitted ${r.resubmit_count} time${r.resubmit_count === 1 ? '' : 's'}`}
@@ -798,6 +860,7 @@ export default function PaymentsPage() {
                       setReason('');
                       setCashCollector('');
                       setChargeback('');
+                      setChargebackNeeded('no');
                       setDoc3(null);
                       setDoc4(null);
                     }}
@@ -984,23 +1047,54 @@ export default function PaymentsPage() {
                   Stages — chargeback, cash collector, proof of payment. */}
               {actDef?.captures_chargeback && (
                 <div>
-                  <label htmlFor="chargeback" className="label">
-                    Chargeback <span className="text-muted-foreground">(leave blank for none)</span>
-                  </label>
-                  <input
-                    id="chargeback"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="input w-full text-right font-mono"
-                    value={chargeback}
-                    onChange={(e) => setChargeback(e.target.value)}
-                    placeholder="0.00"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    The part of {fmt(act.row.amount)} {act.row.currency_short_name} to be recovered
-                    from the client.
-                  </p>
+                  {/* An explicit Yes/No, matching the reference app. A bare
+                      "leave blank for none" box makes "no chargeback" and "I
+                      have not filled this in yet" the same state, so an
+                      approver cannot tell which they are looking at. A radio
+                      group is the right control for two mutually exclusive
+                      choices (§4.11 — Toggle is for a setting, not a decision
+                      the form is asking). */}
+                  <span className="label">Chargeback needed?</span>
+                  <div className="mt-1 flex items-center gap-4">
+                    {(['no', 'yes'] as const).map((option) => (
+                      <label key={option} className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
+                        <input
+                          type="radio"
+                          name="chargeback-needed"
+                          className="h-4 w-4 accent-primary-600"
+                          checked={chargebackNeeded === option}
+                          onChange={() => {
+                            setChargebackNeeded(option);
+                            // Switching back to No clears the amount, so a value
+                            // typed and then reconsidered cannot be submitted.
+                            if (option === 'no') setChargeback('');
+                          }}
+                        />
+                        {option === 'yes' ? 'Yes' : 'No'}
+                      </label>
+                    ))}
+                  </div>
+                  {chargebackNeeded === 'yes' && (
+                    <div className="mt-2">
+                      <label htmlFor="chargeback" className="label required">Chargeback amount</label>
+                      <input
+                        id="chargeback"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        autoFocus
+                        className="input w-full text-right font-mono"
+                        value={chargeback}
+                        onChange={(e) => setChargeback(e.target.value)}
+                        placeholder="0.00"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        The part of {fmt(act.row.amount)} {act.row.currency_short_name} to be
+                        recovered from the client.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {actDef?.requires_cash_collector && (

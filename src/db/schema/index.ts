@@ -71,6 +71,7 @@ export * from './mcaRefFormat';
 export * from './doneByMaster';
 export * from './expenseTypeMaster';
 export * from './hscodeMaster';
+export * from './hsGreenPrefixMaster';
 export * from './banklistMaster';
 export * from './bankExchangeRate';
 export * from './dgiCurrencyRate';

@@ -5,6 +5,7 @@ import { importT, clientMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { importListQuerySchema } from '@/schemas/imports';
 import { buildPageExportSheet } from '@/db/queries/pageExport';
+import { importFilterCondition } from '@/db/queries/importFilters';
 import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
 
 // GET /api/v1/imports/export
@@ -62,6 +63,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   if (q.regime_id) conds.push(eq(importT.regime, q.regime_id));
   if (q.pre_alert_from) conds.push(gte(importT.preAlertDate, q.pre_alert_from));
   if (q.pre_alert_to) conds.push(lte(importT.preAlertDate, q.pre_alert_to));
+
+  // §4.15 — an export of a filtered list must contain the rows that list was
+  // showing. The grid narrows by status card through `status_filters`, and this
+  // route parsed the parameter and then ignored it, so every export came back
+  // with the whole book: it looks like it worked and is silently the wrong
+  // file. The EXPORT tracking route already did this; the two now match (§4.10).
+  const statusFilters = searchParams.get('status_filters');
+  if (statusFilters?.trim()) {
+    for (const key of statusFilters.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const cond = importFilterCondition(key);
+      if (cond) conds.push(cond);
+    }
+  }
 
   const sheet = await buildPageExportSheet('import', {
     where: conds.length > 0 ? and(...conds) : undefined,

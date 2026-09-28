@@ -247,6 +247,27 @@
                 "nullable": true
               }
             ]
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
           }
         },
         "required": [
@@ -307,6 +328,27 @@
             ]
           },
           "dept_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "client_id": {
             "anyOf": [
               {
                 "type": "integer",
@@ -2392,6 +2434,27 @@
                         "nullable": true
                       }
                     ]
+                  },
+                  "client_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -2995,6 +3058,27 @@
                     ]
                   },
                   "dept_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          ""
+                        ]
+                      },
+                      {
+                        "nullable": true
+                      },
+                      {
+                        "nullable": true
+                      }
+                    ]
+                  },
+                  "client_id": {
                     "anyOf": [
                       {
                         "type": "integer",
@@ -8614,7 +8698,8 @@
                             "local",
                             "export-invoice",
                             "import-invoice",
-                            "partielle"
+                            "partielle",
+                            "fiche"
                           ]
                         },
                         "format_name": {
@@ -8636,6 +8721,7 @@
                                   "transport",
                                   "office",
                                   "refcod",
+                                  "mca",
                                   "year",
                                   "literal",
                                   "sequence"

@@ -93,6 +93,9 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const exported = Object.entries(columns).filter(
     ([, col]) => !EXPORT_EXCLUDED_COLUMNS.has(col.name),
   );
+  // Every column is still SELECTed — a derived column usually reads the raw one
+  // it replaces — and only the sheet drops it.
+  const selected = exported;
 
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').trim();
@@ -122,17 +125,33 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
     .orderBy(asc(columns.id ?? exported[0][1]))
     .limit(MAX_ROWS);
 
-  const sheetColumns: XlsxColumn[] = exported.map(([key, col]) => ({
-    key,
-    header: humanize(col.name),
-    width: widthFor(humanize(col.name)),
-  }));
+  // A master whose stored value is not the answer the screen shows supplies
+  // the answer here, so the sheet and the list agree (§4.15).
+  const derived = entry.derive
+    ? await entry.derive(rows as Record<string, unknown>[])
+    : null;
+  const hidden = new Set(derived?.hide ?? []);
+  const shown = selected.filter(([, col]) => !hidden.has(col.name));
 
-  const sheetRows = rows.map((row) =>
-    Object.fromEntries(
-      exported.map(([key, col]) => [key, cell((row as Record<string, unknown>)[key], col.name)]),
+  const sheetColumns: XlsxColumn[] = [
+    ...shown.map(([key, col]) => ({
+      key,
+      header: humanize(col.name),
+      width: widthFor(humanize(col.name)),
+    })),
+    ...(derived?.columns ?? []).map((c) => ({
+      key: c.key,
+      header: c.header,
+      width: widthFor(c.header),
+    })),
+  ];
+
+  const sheetRows = rows.map((row, i) => ({
+    ...Object.fromEntries(
+      shown.map(([key, col]) => [key, cell((row as Record<string, unknown>)[key], col.name)]),
     ),
-  );
+    ...(derived?.cells[i] ?? {}),
+  }));
 
   // §4.28 — an export is a logged action, and the filter it ran under is part of
   // what was exported.

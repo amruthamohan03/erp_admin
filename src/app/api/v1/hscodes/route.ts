@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { hscodeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
+import { decideGreenCertificates } from '@/db/queries/greenPrefixes';
 import { hscodeCreateSchema, hscodeListQuerySchema } from '@/schemas';
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -51,7 +52,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .limit(q.pageSize)
     .offset(offset);
 
-  return ok(items, {
+  // The stored column is only the OVERRIDE (0124). What the screen has to show
+  // is the effective answer, which needs the prefix rules — read once for the
+  // page rather than per row.
+  const decided = await decideGreenCertificates(items);
+
+  return ok(decided, {
     meta: { total: countRow.total, page: q.page, pageSize: q.pageSize },
   });
 });
@@ -71,6 +77,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         hscodeDci: data.hscode_dci ?? '0.00',
         hscodeDcl: data.hscode_dcl ?? '0.00',
         hscodeTpi: data.hscode_tpi ?? '0.00',
+        // NULL unless the operator stated an exception — a new code follows
+        // whatever prefix rule covers it.
         requiresGreenCertificate: data.requires_green_certificate,
         createdBy: session.uid,
         updatedBy: session.uid,
