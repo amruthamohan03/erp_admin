@@ -191,7 +191,7 @@ export default function RoleToExpenseTypePage() {
             onChange={(v) => setRoleId(v)}
             options={roles.map((r) => ({ value: String(r.id), label: r.role_name }))}
             placeholder={loadingRoles ? 'Loading roles…' : 'Select a role to manage…'}
-            emptyLabel="— Select a role —"
+            emptyLabel="Select a role"
             aria-label="Role"
           />
         </div>

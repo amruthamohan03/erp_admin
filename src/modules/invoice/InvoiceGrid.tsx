@@ -27,12 +27,18 @@
 // Every figure shown here is recomputed by the server on save (`computeGrid`);
 // nothing typed into a total is trusted.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Eye, EyeOff, ListPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, Eye, EyeOff, FileText, ListPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import { fetchMasterOptions } from '@/lib/selectOptions';
+import {
+  defaultAllHeadings,
+  headingFor,
+  type AllGridHeadings,
+  type GridKey,
+} from '@/lib/invoiceGrid/columns';
 
 type Kind = 'export' | 'import';
 
@@ -109,8 +115,15 @@ export interface PickerMca {
   detail?: string;
 }
 
+/** One quotation as the grid's dropdown offers it. */
+export interface QuotationOption {
+  id: number;
+  quotation_ref: string;
+  quotation_date: string | null;
+}
+
 export interface Pickers {
-  clientQuotations: { id: number; quotation_ref: string; quotation_date: string | null }[];
+  clientQuotations: QuotationOption[];
   availableMcas: PickerMca[];
 }
 
@@ -239,7 +252,16 @@ export default function InvoiceGrid({
 }: InvoiceGridProps) {
   const savedId = Number.isInteger(invoiceId) && invoiceId > 0 ? invoiceId : null;
   const [pickers, setPickers] = useState<Pickers>({ clientQuotations: [], availableMcas: [] });
+  // The quotations the selected FILES allow — the client's, narrowed to the
+  // kind, goods type and transport mode the files carry. Null until files have
+  // been picked, which is how the dropdown knows to keep offering the client's
+  // full list rather than an empty one.
+  const [fileQuotations, setFileQuotations] = useState<QuotationOption[] | null>(null);
   const [customsCats, setCustomsCats] = useState<Set<number>>(new Set());
+  // §4.1 — column headings come from invoice_grid_heading_master_t. Seeded with
+  // the built-ins so the header line has names from the first paint and never
+  // renders blank while the fetch is in flight.
+  const [headings, setHeadings] = useState<AllGridHeadings>(defaultAllHeadings);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -292,9 +314,13 @@ export default function InvoiceGrid({
       if (clientId) p.set('client_id', String(clientId));
       if (kind === 'export' && licenseId) p.set('license_id', String(licenseId));
       if (savedId) p.set('invoice_id', String(savedId));
-      const [res, cats] = await Promise.all([
+      const [res, cats, heads] = await Promise.all([
         safeFetchJson<Pickers>(`/api/v1/invoice-grid-pickers?${p}`),
         safeFetchJson<unknown>('/api/v1/quotation-categories?pageSize=100'),
+        // §4.1 — the column headings are a master, not JSX. Fetched with the
+        // rest of the grid's reference data rather than on its own, so the
+        // header line does not flash the built-in names and then change.
+        safeFetchJson<AllGridHeadings>('/api/v1/invoice-grid-headings'),
       ]);
       if (!live) return;
       if (!res.ok) {
@@ -312,6 +338,10 @@ export default function InvoiceGrid({
         }[];
         setCustomsCats(new Set(list.filter((c) => c.is_customs === true).map((c) => Number(c.id))));
       }
+      // A failed headings load leaves the built-in names standing — the grid is
+      // still usable and every column still has a name (§4.33's fallback rule),
+      // which is the right degradation for a label.
+      if (heads.ok) setHeadings(heads.data);
       setLoading(false);
     })();
     return () => {
@@ -330,6 +360,38 @@ export default function InvoiceGrid({
     };
   }, [kind]);
 
+  /**
+   * Whether this line's TVA is the quotation's to decide.
+   *
+   * On an import invoice a line loaded from a quotation carries the TVA the
+   * client agreed to, so it is shown and not edited: an invoice that charges
+   * TVA the quotation did not is a dispute, and it was one toggle away.
+   *
+   * A line ADDED by hand has no quotation behind it (`quotation_item_id` is
+   * null), so it stays editable — locking it would leave an operator unable to
+   * set TVA on a line they had just created, with nothing on screen to say why.
+   * Export invoices are untouched.
+   */
+  /**
+   * One column's heading, for the set the category is drawn with.
+   *
+   * `cdf` picks the set rather than the caller naming it, so a call site cannot
+   * read a CDF heading onto a USD column — the two sets share column keys
+   * (`description`, `unit`, `total_usd`) and mixing them would be silent.
+   */
+  const h = useCallback(
+    (cdf: boolean, columnKey: string): string => {
+      const grid: GridKey = cdf ? 'import-cdf' : kind === 'export' ? 'export-usd' : 'import-usd';
+      return headingFor(grid, columnKey, headings[grid]);
+    },
+    [kind, headings],
+  );
+
+  const tvaLocked = useCallback(
+    (it: GridItem) => kind === 'import' && it.quotation_item_id != null,
+    [kind],
+  );
+
   /** Import's CDF columns apply to the customs category only. */
   const isCdf = useCallback(
     (it: GridItem) => kind === 'import' && it.category_id != null && customsCats.has(it.category_id),
@@ -339,19 +401,50 @@ export default function InvoiceGrid({
   // ---- loading a quotation's lines --------------------------------------
   const loadQuotationItems = useCallback(
     async (id: number, files: GridMca[]) => {
-      const res = await safeFetchJson<Partial<GridItem>[]>(`/api/v1/invoice-quotation-items?quotation_id=${id}`);
+      const res = await safeFetchJson<{
+        items: Partial<GridItem>[];
+        header: { arsp: string };
+      }>(`/api/v1/invoice-quotation-items?quotation_id=${id}`);
       if (!res.ok) {
         setNotice(res.message);
         return;
       }
-      let lines = res.data.map(normaliseItem);
+      let lines = res.data.items.map(normaliseItem);
       if (kind === 'export') lines = applyExportUnits(lines, files);
       // Fresh lines replace the table, so nothing stashed belongs to it any more.
       setZeroStash(null);
       emit({ quotation_id: id, items: lines });
+      // ARSP is a term of the quotation and the header field is read-only, so it
+      // has to follow every route that changes the quotation — not just the MCA
+      // files (`onFilesChanged`). Picking a different quotation from the
+      // dropdown otherwise left the previous one's ARSP on the invoice with no
+      // way to correct it.
+      if (kind === 'import' && onHeaderPatch) onHeaderPatch({ arsp: res.data.header.arsp });
       setNotice(`Loaded ${lines.length} line(s) from the quotation.`);
     },
-    [emit, kind],
+    [emit, kind, onHeaderPatch],
+  );
+
+  /**
+   * Pull the header values the invoice owes to a quotation, without touching
+   * the lines.
+   *
+   * The dropdown deliberately does NOT reload lines — that would discard
+   * whatever is priced in the table — but the saved `quotation_id` and the
+   * saved ARSP have to name the same quotation. Changing the selection and not
+   * pressing "Load items" otherwise filed the invoice against quotation B
+   * carrying quotation A's ARSP.
+   */
+  const applyQuotationHeader = useCallback(
+    async (id: number | null) => {
+      if (kind !== 'import' || !onHeaderPatch) return;
+      if (id == null) return;
+      const res = await safeFetchJson<{ header: { arsp: string } }>(
+        `/api/v1/invoice-quotation-items?quotation_id=${id}`,
+      );
+      if (res.ok) onHeaderPatch({ arsp: res.data.header.arsp });
+    },
+    [kind, onHeaderPatch],
   );
 
   // ---- files changed: fill the header, match a quotation ----------------
@@ -359,14 +452,23 @@ export default function InvoiceGrid({
     async (files: GridMca[]) => {
       const ids = files.map((m) => m.mca_id).filter((v): v is number => typeof v === 'number');
       if (!clientId || ids.length === 0) return;
-      const res = await safeFetchJson<{ patch: Record<string, unknown>; quotation_id: number | null }>(
-        `/api/v1/invoice-mca-header?kind=${kind}&client_id=${clientId}&mca_ids=${ids.join(',')}`,
-      );
+      const res = await safeFetchJson<{
+        patch: Record<string, unknown>;
+        quotation_id: number | null;
+        quotations: QuotationOption[];
+      }>(`/api/v1/invoice-mca-header?kind=${kind}&client_id=${clientId}&mca_ids=${ids.join(',')}`);
       if (!res.ok) {
         setNotice(res.message);
         return;
       }
       if (onHeaderPatch && Object.keys(res.data.patch).length > 0) onHeaderPatch(res.data.patch);
+
+      // The files decide which quotations can apply: kind, goods type and
+      // transport mode come off them, and with the client those pick out one.
+      // Offering the client's whole list put their EXPORT quotation on an
+      // import invoice, where pricing an import off it is simply a mistake.
+      setFileQuotations(res.data.quotations);
+
       // main auto-selected the quotation on the first files picked; an operator
       // who has already chosen one keeps theirs.
       if (res.data.quotation_id && latest.current.quotation_id == null) {
@@ -527,14 +629,37 @@ export default function InvoiceGrid({
     return pickers.availableMcas.filter((m) => !used.has(m.id)).map((m) => ({ value: String(m.id), label: m.label }));
   }, [pickers, mca]);
 
-  const quotationOptions = useMemo(
-    () =>
-      pickers.clientQuotations.map((q) => ({
-        value: String(q.id),
-        label: `${q.quotation_ref}${q.quotation_date ? ` (${formatDate(q.quotation_date)})` : ''}`,
-      })),
-    [pickers],
-  );
+  /**
+   * The quotation this invoice is priced from, as a label.
+   *
+   * Import has no picker, so this is the only place the operator can see which
+   * quotation the lines came from — an invoice that names no source for its
+   * prices is not auditable. Reads the selected id first so it still names the
+   * right one on a SAVED invoice, where no files have been re-picked this
+   * session and `fileQuotations` is therefore empty.
+   */
+  const matchedQuotationLabel = useMemo(() => {
+    const id = quotationId ? Number(quotationId) : null;
+    const pool = [...(fileQuotations ?? []), ...pickers.clientQuotations];
+    const q = id != null ? pool.find((x) => x.id === id) : (fileQuotations ?? [])[0];
+    if (!q) return null;
+    return `${q.quotation_ref}${q.quotation_date ? ` (${formatDate(q.quotation_date)})` : ''}`;
+  }, [quotationId, fileQuotations, pickers]);
+
+  const quotationOptions = useMemo(() => {
+    // Once files are picked they decide which quotations can apply — the
+    // client's list narrowed to the kind, goods type and transport mode the
+    // files carry, which normally leaves exactly one. The full list is only
+    // right before any file is chosen, or when the files determine no
+    // combination: narrowing on a half-known combination would hide the right
+    // quotation, and a dropdown that omits the answer is worse than a long one.
+    const source =
+      fileQuotations && fileQuotations.length > 0 ? fileQuotations : pickers.clientQuotations;
+    return source.map((q) => ({
+      value: String(q.id),
+      label: `${q.quotation_ref}${q.quotation_date ? ` (${formatDate(q.quotation_date)})` : ''}`,
+    }));
+  }, [pickers, fileQuotations]);
 
   const mcaLabel = useCallback(
     (id: number | null) => pickers.availableMcas.find((m) => m.id === id)?.mca_ref ?? (id ? `MCA #${id}` : '—'),
@@ -774,21 +899,53 @@ export default function InvoiceGrid({
           <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">Quotation Items</h4>
           {!readonly && (
             <div className="flex flex-wrap items-center gap-2">
-              <SearchableSelect
-                className="w-72"
-                size="sm"
-                value={quotationId}
-                onChange={(v) => emit({ quotation_id: v ? Number(v) : null })}
-                options={quotationOptions}
-                placeholder={quotationOptions.length ? 'Select quotation…' : 'No quotations for this client'}
-                aria-label="Quotation"
-              />
+              {/* IMPORT: no picker, because there is nothing to pick.
+                  The tracking file carries client, kind, type of goods and
+                  transport mode, and a quotation is identified by those same
+                  four — so the file determines ONE quotation and a dropdown
+                  offering it as a choice implies alternatives that would all be
+                  the wrong price. It is named here instead, so the operator can
+                  still see which quotation the invoice was priced from.
+                  EXPORT keeps the picker: its match is a fallback chain (kind +
+                  goods + transport, then kind + transport, then kind, then the
+                  most recent), so there the quotation genuinely is a choice. */}
+              {kind === 'import' ? (
+                <span
+                  className="inline-flex max-w-xs items-center gap-1.5 truncate rounded border border-border bg-card px-2 py-1 text-xs"
+                  title={matchedQuotationLabel ?? undefined}
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium text-foreground">
+                    {matchedQuotationLabel ?? 'No quotation for these files'}
+                  </span>
+                </span>
+              ) : (
+                <SearchableSelect
+                  className="w-72"
+                  size="sm"
+                  value={quotationId}
+                  onChange={(v) => {
+                    const id = v ? Number(v) : null;
+                    emit({ quotation_id: id });
+                    void applyQuotationHeader(id);
+                  }}
+                  options={quotationOptions}
+                  placeholder={quotationOptions.length ? 'Select quotation…' : 'No quotations for this client'}
+                  aria-label="Quotation"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => quotationId && void loadQuotationItems(Number(quotationId), mca)}
                 disabled={!quotationId}
                 className="btn-neutral btn-sm disabled:opacity-50"
-                title="Replace the lines below with this quotation's"
+                title={
+                  quotationId
+                    ? "Replace the lines below with this quotation's"
+                    : kind === 'import'
+                      ? 'Select the MCA files above first — they decide which quotation prices this invoice'
+                      : 'Select a quotation first'
+                }
               >
                 <RefreshCw className="h-4 w-4" /> Load items
               </button>
@@ -801,7 +958,9 @@ export default function InvoiceGrid({
 
         {items.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No lines yet — select files to auto-match the quotation, or pick one and load its items.
+            {kind === 'import'
+              ? 'No lines yet — select the MCA files above and their quotation’s lines load automatically, or add rows by hand.'
+              : 'No lines yet — select files to auto-match the quotation, or pick one and load its items.'}
           </p>
         ) : (
           <div className="space-y-4 p-3">
@@ -849,33 +1008,36 @@ export default function InvoiceGrid({
                       <table className="table-base whitespace-nowrap text-xs">
                         <thead>
                           <tr>
-                            <th>Description</th>
-                            <th className="text-center">Unit</th>
+                            {/* Every label comes from the headings master; the
+                                alignment and the order stay in code, because
+                                they follow the data type rather than the name. */}
+                            <th>{h(g.cdf, 'description')}</th>
+                            <th className="text-center">{h(g.cdf, 'unit')}</th>
                             {g.cdf ? (
                               <>
-                                <th className="text-right">CIF/Split</th>
-                                <th className="text-right">%</th>
-                                <th className="text-right">Rate/CDF</th>
-                                <th className="text-right">VAT/CDF</th>
-                                <th className="text-right">Total/CDF</th>
+                                <th className="text-right">{h(true, 'cif_split')}</th>
+                                <th className="text-right">{h(true, 'percentage')}</th>
+                                <th className="text-right">{h(true, 'rate_cdf')}</th>
+                                <th className="text-right">{h(true, 'vat_cdf')}</th>
+                                <th className="text-right">{h(true, 'total_cdf')}</th>
                               </>
                             ) : kind === 'export' ? (
                               <>
-                                <th className="text-right">Qty</th>
-                                <th className="text-right">Cost/USD</th>
-                                <th className="text-center">TVA</th>
-                                <th className="text-right">Subtotal USD</th>
-                                <th className="text-right">TVA 16%</th>
-                                <th className="text-right">Total USD</th>
+                                <th className="text-right">{h(false, 'quantity')}</th>
+                                <th className="text-right">{h(false, 'cost_usd')}</th>
+                                <th className="text-center">{h(false, 'tva')}</th>
+                                <th className="text-right">{h(false, 'subtotal_usd')}</th>
+                                <th className="text-right">{h(false, 'tva_16')}</th>
+                                <th className="text-right">{h(false, 'total_usd')}</th>
                               </>
                             ) : (
                               <>
-                                <th className="text-right">Qty</th>
-                                <th className="text-right">Taux/USD</th>
-                                <th className="text-center">Currency</th>
-                                <th className="text-center">TVA</th>
-                                <th className="text-right">TVA/USD</th>
-                                <th className="text-right">Total en USD</th>
+                                <th className="text-right">{h(false, 'quantity')}</th>
+                                <th className="text-right">{h(false, 'taux_usd')}</th>
+                                <th className="text-center">{h(false, 'currency')}</th>
+                                <th className="text-center">{h(false, 'tva')}</th>
+                                <th className="text-right">{h(false, 'tva_usd')}</th>
+                                <th className="text-right">{h(false, 'total_usd')}</th>
                               </>
                             )}
                             {!readonly && <th />}
@@ -911,7 +1073,18 @@ export default function InvoiceGrid({
                                     <td className="text-center text-[10px] font-medium uppercase text-muted-foreground">{currencyOf(it)}</td>
                                   )}
                                   <td className="text-center">
-                                    <Toggle size="sm" checked={!!it.has_tva} disabled={readonly} aria-label={`TVA on ${it.item_name ?? 'line'}`} onChange={(v) => patchItem(idx, { has_tva: v ? 1 : 0 })} />
+                                    <Toggle
+                                      size="sm"
+                                      checked={!!it.has_tva}
+                                      disabled={readonly || tvaLocked(it)}
+                                      title={
+                                        tvaLocked(it)
+                                          ? 'TVA comes from the quotation and cannot be changed on the invoice'
+                                          : undefined
+                                      }
+                                      aria-label={`TVA on ${it.item_name ?? 'line'}`}
+                                      onChange={(v) => patchItem(idx, { has_tva: v ? 1 : 0 })}
+                                    />
                                   </td>
                                   {kind === 'export' && (
                                     <td className="text-right font-mono tabular-nums">{money(it.subtotal_usd)}</td>

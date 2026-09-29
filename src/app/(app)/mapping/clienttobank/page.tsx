@@ -197,7 +197,7 @@ export default function ClientToBankPage() {
             onChange={setClientId}
             options={clients}
             placeholder={loadingClients ? 'Loading clients…' : 'Select a client to map…'}
-            emptyLabel="— Select a client —"
+            emptyLabel="Select a client"
             aria-label="Client"
           />
         </div>

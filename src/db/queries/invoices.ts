@@ -465,6 +465,33 @@ async function availableImportMcas(
   });
 }
 
+/**
+ * The header values an invoice takes from its quotation.
+ *
+ * Only ARSP today. It is a term of the QUOTATION — the optional 1.2 % fee the
+ * client agreed to — so the invoice states what was quoted rather than what
+ * somebody typed onto the invoice afterwards.
+ *
+ * Returned as its own object so the caller can patch the header with it
+ * whenever the quotation changes, not only when the MCA files do
+ * (`mcaHeaderPatch` covers that path). A read-only field that only refreshes on
+ * one of the two routes into it would show a stale figure with no way to
+ * correct it, which is worse than leaving it editable.
+ */
+export interface QuotationHeader {
+  arsp: string;
+}
+
+export async function quotationHeaderForInvoice(quotationId: number): Promise<QuotationHeader> {
+  const rows = await db.execute(
+    sql`SELECT arsp FROM quotations_t WHERE id = ${quotationId} LIMIT 1`,
+  );
+  const row = (rows as unknown as { rows: { arsp: string | null }[] }).rows[0];
+  // A quotation that never set the flag is not enabled — 'Disabled' is the
+  // column's own default and what the printed facture expects to read.
+  return { arsp: row?.arsp?.trim() || 'Disabled' };
+}
+
 // ---------------------------------------------------------------------------
 // QUOTATION ITEMS — load a quotation's items into the grid (grouped by category)
 // ---------------------------------------------------------------------------
@@ -1092,10 +1119,23 @@ export async function exportMcaPrefill(mcaId: number): Promise<Partial<GridMca> 
  * files actually determine appear; a key the files say nothing about is absent,
  * never blanked, so an operator's own entry is not wiped by picking a file.
  */
+export interface QuotationOption {
+  id: number;
+  quotation_ref: string;
+  quotation_date: string | null;
+}
+
 export interface McaHeaderPatch {
   patch: Record<string, string | number | null>;
   /** The quotation main would auto-select, or null when it would not pick one. */
   quotation_id: number | null;
+  /**
+   * The quotations the selected FILES allow — the client's, narrowed to the
+   * kind, goods type and transport mode the files carry. Normally exactly one.
+   * Empty when the files determine no combination, in which case the grid keeps
+   * offering the client's full list rather than offering nothing.
+   */
+  quotations: QuotationOption[];
 }
 
 const str = (v: unknown): string | null =>
@@ -1107,7 +1147,7 @@ export async function mcaHeaderPatch(
   mcaIds: number[],
 ): Promise<McaHeaderPatch> {
   const ids = mcaIds.filter((n) => Number.isInteger(n) && n > 0);
-  if (!clientId || ids.length === 0) return { patch: {}, quotation_id: null };
+  if (!clientId || ids.length === 0) return { patch: {}, quotation_id: null, quotations: [] };
 
   if (kind === 'export') {
     // main fills the header from the FIRST file selected: kind, goods and
@@ -1118,7 +1158,7 @@ export async function mcaHeaderPatch(
       LEFT JOIN license_t l ON l.id = e.license_id
       WHERE e.id = ${ids[0]} LIMIT 1`);
     const r = (rows as unknown as { rows: Record<string, unknown>[] }).rows[0];
-    if (!r) return { patch: {}, quotation_id: null };
+    if (!r) return { patch: {}, quotation_id: null, quotations: [] };
     const kindId = r.kind == null ? (r.license_kind == null ? null : N(r.license_kind)) : N(r.kind);
     const goodsId = r.type_of_goods == null ? null : N(r.type_of_goods);
     const transportId = r.transport_mode == null ? null : N(r.transport_mode);
@@ -1129,6 +1169,7 @@ export async function mcaHeaderPatch(
     return {
       patch,
       quotation_id: await matchQuotation(clientId, kindId, goodsId, transportId, 'fallback'),
+      quotations: await matchingQuotations(clientId, kindId, goodsId, transportId),
     };
   }
 
@@ -1159,7 +1200,7 @@ export async function mcaHeaderPatch(
     WHERE i.id IN (${sql.join(ids.map((n) => sql`${n}`), sql`, `)})
     ORDER BY i.id DESC`);
   const list = (rows as unknown as { rows: Record<string, unknown>[] }).rows;
-  if (list.length === 0) return { patch: {}, quotation_id: null };
+  if (list.length === 0) return { patch: {}, quotation_id: null, quotations: [] };
   const first = list[0];
 
   const [client] = (
@@ -1208,14 +1249,28 @@ export async function mcaHeaderPatch(
 
   const quotationId = await matchQuotation(clientId, kindId, goodsId, transportId, 'exact');
   if (quotationId) {
-    const [q] = (
-      (await db.execute(sql`SELECT arsp FROM quotations_t WHERE id = ${quotationId}`)) as unknown as {
-        rows: { arsp: string | null }[];
-      }
-    ).rows;
-    if (q?.arsp) patch.arsp = q.arsp;
+    // Unconditional once a quotation is matched, and through the same resolver
+    // the quotation dropdown uses (§4.10). It used to patch only when the
+    // quotation's `arsp` was truthy, which left the previous quotation's value
+    // standing when the new one had none — invisible while the field was
+    // typeable, but the field is read-only now, so a stale value would be
+    // unfixable as well as wrong.
+    const { arsp } = await quotationHeaderForInvoice(quotationId);
+    patch.arsp = arsp;
   }
-  return { patch, quotation_id: quotationId };
+
+  // The quotations the FILES allow, which is what the grid's dropdown offers.
+  //
+  // The client's full list was wrong on both counts: it put the client's EXPORT
+  // quotation on an import invoice, where pricing an import off it is simply a
+  // mistake, and it buried the one quotation the files actually identify among
+  // others that cannot apply. Kind, goods type and transport mode come from the
+  // files, and together with the client they pick out one quotation.
+  return {
+    patch,
+    quotation_id: quotationId,
+    quotations: await matchingQuotations(clientId, kindId, goodsId, transportId),
+  };
 }
 
 /**
@@ -1229,6 +1284,38 @@ export async function mcaHeaderPatch(
  *              kind alone, then the client's most recent — main's
  *              autoMatchQuotation, which always lands on something.
  */
+/**
+ * The client's quotations for exactly this kind, goods type and transport mode.
+ *
+ * What the invoice grid's dropdown offers once files are picked. The three
+ * values come from the files themselves, so the list is the set of quotations
+ * that could legitimately price this consignment — normally one.
+ *
+ * Returns EMPTY when the files leave any of the three unknown. An empty list is
+ * the caller's signal to keep offering the client's full list: narrowing on a
+ * combination that is only half known would hide the right quotation, and a
+ * dropdown that silently omits the answer is worse than a long one.
+ */
+export async function matchingQuotations(
+  clientId: number,
+  kindId: number | null,
+  goodsId: number | null,
+  transportId: number | null,
+): Promise<QuotationOption[]> {
+  if (!clientId || kindId == null || goodsId == null || transportId == null) return [];
+
+  const rows = await db.execute(sql`
+    SELECT id, quotation_ref, to_char(quotation_date, 'YYYY-MM-DD') AS quotation_date
+    FROM quotations_t
+    WHERE client_id = ${clientId} AND display = 'Y'
+      AND kind_id = ${kindId}
+      AND goods_type_id = ${goodsId}
+      AND transport_mode_id = ${transportId}
+    ORDER BY quotation_date DESC NULLS LAST, id DESC`);
+
+  return (rows as unknown as { rows: QuotationOption[] }).rows;
+}
+
 export async function matchQuotation(
   clientId: number,
   kindId: number | null,

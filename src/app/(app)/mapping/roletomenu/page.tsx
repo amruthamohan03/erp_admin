@@ -229,7 +229,7 @@ export default function RoleToMenuPage() {
             placeholder={
               loadingRoles ? 'Loading roles…' : 'Select a role to manage…'
             }
-            emptyLabel="— Select a role —"
+            emptyLabel="Select a role"
           />
         </div>
       </div>

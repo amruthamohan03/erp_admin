@@ -328,7 +328,7 @@ export default function BulkUpdatePage() {
             placeholder={
               loadingTargets ? 'Loading...' : 'Pick an entity to bulk-update...'
             }
-            emptyLabel="— Select an entity —"
+            emptyLabel="Select an entity"
           />
         </div>
       </div>

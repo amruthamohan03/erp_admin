@@ -659,16 +659,20 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
       invalid={invalid || !!loadError}
       disabled={readonly || (source != null && loading)}
       value={asString(value)}
-      emptyLabel="— Select —"
+      // Just the word. The em dashes were decoration that cost real width:
+      // "— Select —" is roughly twice the glyphs of "Select", and in a paired
+      // cell (an amount welded to its currency) that padding was taken out of
+      // the amount box beside it, which is the field being typed into (§4.36).
+      emptyLabel="Select"
       // A configured `props.placeholder` says where an empty value comes from —
       // the invoice's Kind / Goods / Transport read "From MCA" until files are
-      // picked, rather than a "— Select —" on a control that cannot be opened.
+      // picked, rather than a "Select" on a control that cannot be opened.
       placeholder={
         source != null && loading
           ? 'Loading…'
           : loadError
             ? 'Options unavailable'
-            : (getString(field.props, 'placeholder') ?? '— Select —')
+            : (getString(field.props, 'placeholder') ?? 'Select')
       }
       options={options.map((opt) => ({ value: String(opt.value), label: String(opt.label) }))}
       onChange={(v) => onChange(v === '' ? null : v)}
