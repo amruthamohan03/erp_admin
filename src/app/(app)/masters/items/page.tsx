@@ -298,8 +298,8 @@ function ItemFormModal({
               <SearchableSelect
                 aria-label="Category"
                 value={form.category_id}
-                emptyLabel="— Select —"
-                placeholder="— Select —"
+                emptyLabel="Select"
+                placeholder="Select"
                 options={categories.map((c) => ({ value: String(c.id), label: c.category_name }))}
                 onChange={(v) => setForm({ ...form, category_id: v })}
               />

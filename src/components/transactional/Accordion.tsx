@@ -269,17 +269,25 @@ function PairedField({
   const { field, state } = companion;
   return (
     <div className="input-group">
-      <div className="flex-1 min-w-0">{children}</div>
-      {/* Fixed, and wide enough to READ. A currency code is three characters,
-          but the control around it is not: the trigger carries its own padding
-          and a chevron, and an unset one reads "— Select —". At w-24 that left
-          roughly fifty pixels of text, so the code was ellipsised and the empty
-          state was unreadable — the box announced nothing at all.
-          §4.36's remedy for a field carrying a companion is to give the PAIR
-          more room rather than squeeze the companion, so these fields also take
-          a `2-of-5` cell; widening here without that would just have eaten the
-          amount's width instead. */}
-      <div className="w-32 shrink-0">
+      {/* The amount is the field being TYPED INTO, so it takes the slack and
+          carries a floor. Without one it is the only thing that can shrink —
+          the companion is fixed — so in the dense rail (§4.12: the control
+          column is 58% of a narrow panel) it collapsed to about sixty pixels:
+          a spinner with no room for digits, which is what a long FOB figure
+          needs most.
+          The floor deliberately overrides `.input-group > * { min-width: 0 }`:
+          that rule is in @layer components and this is a utility, so it wins on
+          layer order at equal specificity. Removing it puts the collapse back. */}
+      <div className="flex-1 min-w-[4rem]">{children}</div>
+      {/* Fixed, because a currency code needs the same room whatever the row's
+          width — extra space belongs to the amount, not here.
+          w-24 rather than w-32 now that the empty state reads "Select" instead
+          of "— Select —": the dashes were what made the old width necessary,
+          and they were being paid for out of the amount box. 96px still leaves
+          roughly fifty-five pixels of text after the trigger's padding and
+          chevron, which fits both "Select" and a three-letter code without
+          ellipsis — the thing the previous widening was there to fix. */}
+      <div className="w-24 shrink-0">
         <FieldRenderer
           field={field}
           value={values[field.name]}

@@ -851,7 +851,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
               className="max-w-xs"
               aria-label="Accordion"
               value={accordionId != null ? String(accordionId) : ''}
-              placeholder="— Select —"
+              placeholder="Select"
               options={accordions.map((a) => ({ value: String(a.id), label: a.title }))}
               onChange={(v) => setAccordionId(v ? Number(v) : null)}
             />

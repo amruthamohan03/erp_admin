@@ -134,12 +134,12 @@ export default function ImportInvoiceListPage() {
         filters={<DateRangeFilter from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(1); }} />}
         toolbar={
           <>
-            <button type="button" onClick={() => exportProfile('debit')} className="btn-excel btn-sm">
+            {/* <button type="button" onClick={() => exportProfile('debit')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Debit Note
             </button>
             <button type="button" onClick={() => exportProfile('invoice')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Invoice
-            </button>
+            </button> */}
             <button type="button" onClick={() => exportProfile('full')} className="btn-excel btn-sm">
               <FileSpreadsheet className="h-4 w-4" /> Full Export
             </button>
@@ -151,7 +151,7 @@ export default function ImportInvoiceListPage() {
               onClick={() => { setFormId('new'); setFormOpen(true); }}
               className="btn-primary btn-sm"
             >
-              <Plus className="h-4 w-4" /> New Import Invoice
+              <Plus className="h-4 w-4" /> New
             </button>
           </>
         }

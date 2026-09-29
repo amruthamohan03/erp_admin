@@ -167,6 +167,8 @@ const CHILDREN: ChildSpec[] = [
   },
   { parent: 'Masters', name: 'Quotation Description', order: 89, url: '/masters/quotation-categories' },
   { parent: 'Masters', name: 'Invoice Bank', order: 107, url: '/masters/invoice-banks' },
+  { parent: 'Masters', name: 'Invoice Template', order: 107, url: '/masters/invoice-templates' },
+  { parent: 'Masters', name: 'Invoice Grid Headings', order: 108, url: '/masters/invoice-grid-headings' },
   // New masters added on this branch — appended at the end so they
   // don't disturb the original ordering.
   { parent: 'Masters', name: 'Commodities', order: 201, url: '/masters/commodities' },

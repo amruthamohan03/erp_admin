@@ -72,6 +72,8 @@ export * from './doneByMaster';
 export * from './expenseTypeMaster';
 export * from './hscodeMaster';
 export * from './hsGreenPrefixMaster';
+export * from './invoiceTemplateMaster';
+export * from './invoiceGridHeadingMaster';
 export * from './banklistMaster';
 export * from './bankExchangeRate';
 export * from './dgiCurrencyRate';
