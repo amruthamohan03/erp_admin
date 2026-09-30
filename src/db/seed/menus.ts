@@ -334,6 +334,7 @@ const CHILDREN: ChildSpec[] = [
   // ── Advance Payment (original menu_id=83) ───────────────────────
   { parent: 'Advance Payment', name: 'Payment Requests', order: 1, url: '/payments' },
   { parent: 'Advance Payment', name: 'Payment Dashboard', order: 2, url: '/payments/dashboard' },
+  { parent: 'Advance Payment', name: 'Expense Tracker', order: 3, url: '/expense-tracker' },
   // The five customs pre-payment flows are on main but not on branch.
   // Kept as placeholders so the group stays populated.
   {
