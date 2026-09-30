@@ -8,6 +8,7 @@ import Toggle from '@/components/ui/Toggle';
 import { Separator } from '@/components/ui/separator';
 import { useTranslate } from '@/components/providers/TranslateProvider';
 import { localeLabels } from '@/i18n/config';
+import { savePreferences, type PreferencePatch } from '@/lib/preferences';
 import type { MeProfile } from './SettingsView';
 
 /**
@@ -71,18 +72,10 @@ export default function PreferencesTab({
   const followSystem = theme === 'system';
   const isDark = mounted ? resolvedTheme === 'dark' : false;
 
-  async function persistPrefs(
-    patch: Partial<{
-      theme_preference: 'light' | 'dark' | 'system';
-      email_notifications: boolean;
-      compact_mode: boolean;
-    }>,
-  ) {
-    await fetch('/api/v1/me/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
+  async function persistPrefs(patch: PreferencePatch) {
+    // The same helper the Topbar's switches use, so changing a preference in
+    // either place leaves the same thing in the database (§4.10).
+    await savePreferences(patch);
     await onChange();
   }
 
