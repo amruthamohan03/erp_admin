@@ -925,6 +925,34 @@
       "when": 1791700000000,
       "tag": "0130_expense_tracker_menu_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1791800000000,
+      "tag": "0131_hscode_catalogue_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1791900000000,
+      "tag": "0132_hscode_ddi_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1792000000000,
+      "tag": "0133_exchange_rate_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1792100000000,
+      "tag": "0134_bank_exchange_exchanged_amount",
+      "breakpoints": true
     }
   ]
 }

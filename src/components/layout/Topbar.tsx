@@ -106,13 +106,16 @@ export default function Topbar() {
 
       {/* Controls read as white glass on the gradient; their dropdowns still open
           on the themed popover.
-          The hover fill excludes `[role=switch]`: a Radix switch IS a button, so
-          the unqualified rule painted the language and appearance toggles'
-          tracks on hover and undid the state the track is there to show. */}
-      <div className="flex shrink-0 items-center gap-1 [&_button]:text-white [&_button:not([role=switch]):hover]:bg-white/15 [&_button:hover]:text-white">
+          EVERY rule here excludes `[role=switch]`, because a Radix switch IS a
+          button and these are descendant selectors, which outrank the classes
+          the switch sets on itself. Unqualified, the hover fill painted over
+          the toggles' tracks and `text-white` made the word on the checked
+          (white) pill invisible — in both cases undoing the state the control
+          exists to show. */}
+      <div className="flex shrink-0 items-center gap-1 [&_button:not([role=switch])]:text-white [&_button:not([role=switch]):hover]:bg-white/15 [&_button:not([role=switch]):hover]:text-white">
         {/* The two switches sit together and apart from the icon buttons — they
             are settings, the rest are actions. */}
-        <div className="mr-1 flex items-center gap-3 border-r border-white/20 pr-3">
+        <div className="mr-1 flex items-center gap-2 border-r border-white/20 pr-3">
           <LanguageSwitcher />
           <ThemeToggle />
         </div>

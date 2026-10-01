@@ -6,11 +6,11 @@ import Toggle from '@/components/ui/Toggle';
 import { locales, localeLabels, type Locale } from '@/i18n/config';
 import { useTranslate } from '@/components/providers/TranslateProvider';
 
-// EN / FR, as one switch in the Topbar.
+// EN / FR, as one pill in the Topbar with the current code inside it.
 //
-// Deliberately shaped like <ThemeToggle>: the same switch, the same flanking
-// labels, the same white-on-gradient treatment. The two sit side by side, so a
-// difference between them would read as a difference in kind.
+// Deliberately shaped like <ThemeToggle>: same control, same size, same
+// white-on-gradient treatment. The two sit side by side, so a difference
+// between them would read as a difference in kind.
 //
 // A switch rather than a menu because there are exactly two languages and the
 // operator is flipping between them, not choosing from a list. If a third
@@ -21,7 +21,7 @@ import { useTranslate } from '@/components/providers/TranslateProvider';
 const EN: Locale = 'en';
 const FR: Locale = 'fr';
 
-export function LanguageSwitcher(): React.ReactElement | null {
+export function LanguageSwitcher(): React.ReactElement {
   const { locale, setLocale, pending } = useTranslate();
 
   // A two-state switch cannot express three locales. Rendering nothing would
@@ -36,52 +36,42 @@ export function LanguageSwitcher(): React.ReactElement | null {
 
   const isFrench = locale === FR;
 
+  if (pending) {
+    // Holds the pill's footprint while the translation is in flight, so the
+    // topbar does not jump and the control does not invite a second click.
+    return (
+      <span className="inline-flex h-6 w-14 items-center justify-center rounded-full bg-white/20">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-white" aria-label="Translating" />
+      </span>
+    );
+  }
+
   return (
-    <div
-      className="flex items-center gap-1.5"
-      title={isFrench ? 'Interface in French — switch to English' : 'Interface in English — switch to French'}
-    >
-      {/* A language is always named in its own language, and never
-          machine-translated — hence `translate="no"` on both codes. */}
-      <span
-        translate="no"
-        aria-hidden="true"
-        className={`text-[0.7rem] font-semibold uppercase leading-none transition-opacity ${
-          isFrench ? 'text-white/50' : 'text-white'
-        }`}
-      >
-        {EN}
-      </span>
-
-      {pending ? (
-        // Holds the switch's footprint while the translation is in flight, so
-        // the row does not jump and the two codes stay where they were.
-        <span className="inline-flex h-4 w-7 items-center justify-center">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-white" aria-label="Translating" />
-        </span>
-      ) : (
-        <Toggle
-          size="sm"
-          checked={isFrench}
-          onChange={(v) => setLocale(v ? FR : EN)}
-          // Named by what turning it ON does. The flanking codes are decorative
-          // (aria-hidden), so this is the control's only name to a screen reader.
-          aria-label={`Use ${localeLabels[FR]}`}
-          // §4.32 — a fixed white alpha is correct on the brand gradient, where
-          // `bg-primary` is the gradient's own colour and would disappear.
-          className="data-[state=checked]:bg-white/90 data-[state=unchecked]:bg-white/25"
-        />
-      )}
-
-      <span
-        translate="no"
-        aria-hidden="true"
-        className={`text-[0.7rem] font-semibold uppercase leading-none transition-opacity ${
-          isFrench ? 'text-white' : 'text-white/50'
-        }`}
-      >
-        {FR}
-      </span>
-    </div>
+    <Toggle
+      size="sm"
+      checked={isFrench}
+      onChange={(v) => setLocale(v ? FR : EN)}
+      // The state's own code, inside the track. A language is always named in
+      // its own language and never machine-translated, hence `translate="no"`.
+      offLabel={<span translate="no">{EN}</span>}
+      onLabel={<span translate="no">{FR}</span>}
+      aria-label={`Use ${localeLabels[FR]}`}
+      title={
+        isFrench
+          ? 'Interface in French — switch to English'
+          : 'Interface in English — switch to French'
+      }
+      // §4.32 — a fixed white is correct on the brand gradient, where the
+      // `primary` track is the gradient's OWN colour and would disappear into
+      // it. On is a solid white pill with a brand-coloured thumb and word; off
+      // is the usual glass. Both read at a glance, and both follow the
+      // configured palette rather than a hardcoded hue.
+      className={
+        isFrench
+          ? 'text-primary-700 data-[state=checked]:bg-white'
+          : 'text-white data-[state=unchecked]:bg-white/20'
+      }
+      thumbClassName={isFrench ? 'bg-primary-600 ring-0' : 'bg-white'}
+    />
   );
 }

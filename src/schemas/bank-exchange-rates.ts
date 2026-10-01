@@ -75,6 +75,21 @@ export const bankExchangeRateBoardSaveSchema = z.object({
   exchange_date: isoDate,
   currency_id: z.coerce.number().int().positive(),
   bcc_rate: positiveRate,
+  /**
+   * The amount the day's margin was calculated on (0134).
+   *
+   * Optional and nullable: a day saved before this existed has none, and a day
+   * where nobody typed an amount has none either — which is different from an
+   * amount of zero, so it is stored as NULL rather than 0.
+   */
+  exchanged_amount: z
+    .union([z.string(), z.number()])
+    .nullish()
+    .transform((v) => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : null;
+    }),
   rates: z
     .array(
       z.object({

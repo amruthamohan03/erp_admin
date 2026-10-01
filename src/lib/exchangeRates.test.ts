@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { compareBoard, formatDelta, formatRate, toRate, type BoardRate } from './exchangeRates';
+import {
+  compareBoard,
+  gainAtBestRate,
+  formatDelta,
+  formatMoney,
+  formatRate,
+  toRate,
+  type BoardRate,
+} from './exchangeRates';
 
 // Higher wins: the rates are CDF per unit of foreign currency, and the agency
 // sells that currency to get the CDF it pays duties with.
@@ -105,5 +113,78 @@ describe('formatting', () => {
     expect(formatDelta(-20)).toBe('−20.00');
     expect(formatDelta(0)).toBe('');
     expect(formatDelta(null)).toBe('');
+  });
+});
+
+describe('formatMoney', () => {
+  it('groups thousands and keeps cents', () => {
+    expect(formatMoney(1234567.891)).toBe('1,234,567.89');
+  });
+
+  it('falls back for a missing figure', () => {
+    expect(formatMoney(null)).toBe('—');
+  });
+});
+
+describe('gainAtBestRate', () => {
+  it('is the amount times the best bank rate less the BCC', () => {
+    // 1,000 × (1,400 − 1,000) = 400,000.
+    expect(gainAtBestRate(1000, 1400, 1000).value).toBe(400_000);
+  });
+
+  it('carries the margin back so the screen can show the arithmetic', () => {
+    const g = gainAtBestRate(1000, 1400, 1000);
+    expect(g.bestRate).toBe(1400);
+    expect(g.bccRate).toBe(1000);
+    expect(g.margin).toBe(400);
+    expect(g.amount).toBe(1000);
+  });
+
+  it('keeps a NEGATIVE margin rather than clamping it to zero', () => {
+    // No bank beat the BCC that day. Hiding it would suppress exactly the day
+    // an operator most needs to see.
+    const g = gainAtBestRate(1000, 900, 1000);
+    expect(g.margin).toBe(-100);
+    expect(g.value).toBe(-100_000);
+  });
+
+  it('rounds the margin to four decimals and the value to cents', () => {
+    const g = gainAtBestRate(3, 1400.12345, 1000);
+    expect(g.margin).toBe(400.1235);
+    expect(g.value).toBe(1200.37);
+  });
+
+  it('reports nothing when the amount box is empty', () => {
+    expect(gainAtBestRate('', 1400, 1000).value).toBeNull();
+    expect(gainAtBestRate(null, 1400, 1000).value).toBeNull();
+  });
+
+  it('reports nothing when no bank has quoted', () => {
+    expect(gainAtBestRate(1000, null, 1000).value).toBeNull();
+    expect(gainAtBestRate(1000, 0, 1000).value).toBeNull();
+  });
+
+  it('reports nothing when the BCC reference is not entered', () => {
+    // Without it there is no baseline, so there is no margin to state.
+    expect(gainAtBestRate(1000, 1400, null).value).toBeNull();
+    expect(gainAtBestRate(1000, 1400, 0).margin).toBeNull();
+  });
+
+  it('accepts zero as a real amount', () => {
+    expect(gainAtBestRate(0, 1400, 1000).value).toBe(0);
+  });
+
+  it('rejects a negative amount', () => {
+    expect(gainAtBestRate(-100, 1400, 1000).value).toBeNull();
+  });
+
+  it('ignores a non-numeric amount', () => {
+    expect(gainAtBestRate('abc', 1400, 1000).value).toBeNull();
+  });
+
+  it('is zero when the best bank exactly matches the BCC', () => {
+    const g = gainAtBestRate(5000, 1000, 1000);
+    expect(g.margin).toBe(0);
+    expect(g.value).toBe(0);
   });
 });

@@ -40,6 +40,14 @@ interface RecordViewModalProps {
   onExport?: () => void;
   onClose: () => void;
   /**
+   * The line under the title, naming WHICH record is open.
+   *
+   * Optional because it is derived when omitted — see `IDENTITY_FIELDS`. A
+   * caller that knows better (a joined client name the form's values do not
+   * hold) passes its own.
+   */
+  headline?: string;
+  /**
    * Module-specific content rendered after the accordions.
    *
    * For state that belongs to the record but is NOT a form field, and so has no
@@ -55,6 +63,28 @@ interface RecordViewModalProps {
   extra?: React.ReactNode;
 }
 
+
+/**
+ * The fields that NAME a record, best first.
+ *
+ * A vetted list rather than a guess: the viewer serves every transactional page
+ * from one component, so it cannot know which field is the identity without
+ * being told, and picking "the first text field" would put a commodity
+ * description in the header as often as a reference.
+ *
+ * Every one of these is a reference an operator says out loud. Client is last
+ * because it names the counterparty rather than the record (§4.15 — as a column
+ * on someone else's row, the client is the short code).
+ */
+const IDENTITY_FIELDS = [
+  'mca_ref',
+  'mca_lt_reference',
+  'invoice_ref',
+  'quotation_ref',
+  'license_number',
+  'company_name',
+  'short_name',
+] as const;
 
 function getString(props: Record<string, unknown> | null, key: string): string | undefined {
   const v = props?.[key];
@@ -75,6 +105,7 @@ export default function RecordViewModal({
   onExport,
   onClose,
   extra,
+  headline: headlineProp,
 }: RecordViewModalProps): React.ReactElement {
   const [page, setPage] = useState<PageDef | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -171,6 +202,17 @@ export default function RecordViewModal({
       cancelled = true;
     };
   }, [page]);
+
+  // Derived once the values arrive; a caller's own headline always wins.
+  const headline =
+    headlineProp ??
+    (() => {
+      for (const name of IDENTITY_FIELDS) {
+        const v = values[name];
+        if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+      }
+      return undefined;
+    })();
 
   function renderValue(f: PageFieldDef): React.ReactNode {
     const v = values[f.name];
@@ -358,28 +400,64 @@ export default function RecordViewModal({
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-4xl my-auto overflow-hidden"
+        className="card my-auto flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 text-white bg-gradient-to-r from-indigo-500 to-purple-600">
-          <h2 className="font-semibold flex items-center gap-2 min-w-0">
-            <Eye className="h-5 w-5 shrink-0" />
-            <span className="truncate">{title ?? page?.title ?? 'Record Details'}</span>
-          </h2>
+        {/* Header — `.bg-brand-gradient`, so it follows the operator's
+            configured palette and darkens with the theme like the app's own
+            chrome does (§4.20, §4.32). It used to be a hardcoded indigo→purple,
+            which ignored both. */}
+        <div className="flex shrink-0 items-start justify-between gap-3 bg-brand-gradient px-5 py-4 text-white">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30">
+              <Eye className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-semibold leading-tight">
+                {title ?? page?.title ?? 'Record Details'}
+              </h2>
+              {/* The record's own identity, so the dialog says WHICH record it
+                  is showing rather than only what kind. */}
+              <p className="mt-0.5 truncate text-xs text-white/75">
+                {headline ?? (loading ? 'Loading…' : `Record #${entityId}`)}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 hover:bg-white/20 shrink-0"
+            className="shrink-0 rounded-md p-1.5 text-white/90 transition-colors hover:bg-white/20 hover:text-white"
             title="Close"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-5 max-h-[75vh] overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {/* §4.25's rule for a loading state, applied here: skeletons that hold
+              the shape, never a bare line of text that collapses the dialog to
+              nothing and then jumps when the data lands. */}
           {loading && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Loading details…</div>
+            <div className="space-y-6">
+              {Array.from({ length: 2 }, (_, s) => (
+                <section key={s} className="overflow-hidden rounded-xl border border-border">
+                  <div className="h-1 w-full bg-muted" />
+                  <div className="flex items-center gap-2.5 bg-muted/40 px-4 py-2.5">
+                    <span className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
+                    <span className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <div key={i} className="space-y-1.5">
+                        <div className="h-2.5 w-20 animate-pulse rounded bg-muted" />
+                        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
 
           {!loading && error && (
@@ -431,15 +509,27 @@ export default function RecordViewModal({
                                 return (
                                   <div
                                     key={f.id}
-                                    className={WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''}
+                                    // A cell with its own surface and left rule,
+                                    // so a dense grid reads as discrete values
+                                    // rather than as text floating in a column.
+                                    className={`rounded-lg border-l-2 border-border bg-muted/30 px-3 py-2 ${
+                                      WIDE_TYPES.has(f.field_type) ? 'sm:col-span-2 lg:col-span-3' : ''
+                                    }`}
                                   >
-                                    <dt className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                                    {/* §4.30 — the label is supporting text and
+                                        the VALUE carries the weight. It was the
+                                        other way round: a bold black label above
+                                        a lighter value, which made every screen
+                                        read as a list of captions. */}
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                                       {f.label}
                                     </dt>
-                                    <dd className="mt-0.5 break-words text-sm text-foreground">
+                                    <dd className="mt-1 break-words text-sm font-medium text-foreground">
                                       {renderValue(f)}
                                       {mate && (
-                                        <span className="ml-1.5 text-muted-foreground">{renderValue(mate)}</span>
+                                        <span className="ml-1.5 font-normal text-muted-foreground">
+                                          {renderValue(mate)}
+                                        </span>
                                       )}
                                     </dd>
                                   </div>
@@ -459,13 +549,11 @@ export default function RecordViewModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+        {/* Footer — shrink-0 so it stays put while the body scrolls, and the
+            shared button classes rather than a hand-rolled colour (§4.20). */}
+        <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card px-5 py-3">
           {editHref && (
-            <Link
-              href={editHref}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 text-sm font-medium transition"
-            >
+            <Link href={editHref} className="btn-edit btn-sm">
               <Edit2 className="h-4 w-4" /> Edit
             </Link>
           )}
