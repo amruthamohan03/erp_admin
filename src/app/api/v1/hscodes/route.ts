@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike } from 'drizzle-orm';
+import { and, asc, count, eq, ilike } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { hscodeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
@@ -48,7 +48,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     })
     .from(hscodeMaster)
     .where(where)
-    .orderBy(desc(hscodeMaster.id))
+    // Tariff order, not newest-first.
+    //
+    // A catalogue is READ, not watched: an operator looks a code up, and the
+    // tariff itself is published in ascending code order. Ordering by id meant
+    // the screen opened on whatever was inserted last — after the 7,687-row
+    // seed that was the 9805 exempt headings, so the first page showed nothing
+    // but 0.00 rates and looked as though no duties had loaded at all.
+    .orderBy(asc(hscodeMaster.hscodeNumber))
     .limit(q.pageSize)
     .offset(offset);
 
