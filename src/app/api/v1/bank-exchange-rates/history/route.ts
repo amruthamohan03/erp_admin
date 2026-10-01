@@ -29,6 +29,7 @@ interface HistoryRow {
   prev_bcc_rate: string | null;
   prev_bcc_date: string | null;
   rate_difference: string | null;
+  exchanged_amount: string | null;
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -81,6 +82,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       prev_bcc_rate: sql<string | null>`max(${bankExchangeRate.prevBccRate})`,
       prev_bcc_date: sql<string | null>`to_char(max(${bankExchangeRate.prevBccDate}), 'YYYY-MM-DD')`,
       rate_difference: sql<string | null>`max(${bankExchangeRate.rateDifference})`,
+      // Day-level, so the same max() the comparison columns use (0134).
+      exchanged_amount: sql<string | null>`max(${bankExchangeRate.exchangedAmount})`,
       banks_quoted: count(),
     })
     .from(bankExchangeRate)
@@ -125,6 +128,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         highest_bank_id: d.highest_bank_id === null ? null : Number(d.highest_bank_id),
         highest_bank_rate: d.highest_bank_rate,
         prev_bcc_rate: d.prev_bcc_rate,
+        exchanged_amount: d.exchanged_amount,
         prev_bcc_date: d.prev_bcc_date,
         rate_difference: d.rate_difference,
       });

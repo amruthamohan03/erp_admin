@@ -16,7 +16,9 @@
 // bank, so a bank's behaviour reads down a column and a day reads across.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Edit2,
   Eraser,
+  Eye,
   RefreshCw,
   Save,
   Trash2,
@@ -28,12 +30,15 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import StatusBadge from '@/components/ui/StatusBadge';
 import { formatDate, formatDateTime, todayIso } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import {
   compareBoard,
+  gainAtBestRate,
   formatDelta,
+  formatMoney,
   formatRate,
   highestQuote,
   rateDifference,
@@ -49,10 +54,26 @@ interface BoardBank {
   updated_at: string | null;
 }
 
+/**
+ * ADD-ON — the day's reference rates from `exchange_rate_master_t`.
+ *
+ * Both figures are nullable: the route answers for any day, and "nothing filed
+ * for this one" is an answer rather than an error (§4.23).
+ */
+interface DayRates {
+  id: number | null;
+  rate_date: string;
+  currency_id: number;
+  declaration_rate: string | null;
+  bcc_rate: string | null;
+}
+
 interface Board {
   exchange_date: string;
   currency_id: number;
   bcc_rate: string | null;
+  /** The amount the day was saved with (0134). */
+  exchanged_amount: string | null;
   banks: BoardBank[];
   /** The day's comparison, resolved by the server (see bankExchangeRates.ts). */
   highest_bank_id: number;
@@ -71,6 +92,7 @@ interface HistoryBank {
 interface HistoryRow {
   exchange_date: string;
   bcc_rate: string | null;
+  exchanged_amount: string | null;
   updated_at: string | null;
   rates: Record<number, string | null>;
   highest_bank_id: number | null;
@@ -121,6 +143,13 @@ export default function BankExchangeRatesPage() {
   const [board, setBoard] = useState<Board | null>(null);
   const [boardLoading, setBoardLoading] = useState(false);
   const [bcc, setBcc] = useState('');
+  // ADD-ON — the day's reference rates (Declaration + BCC) from the Exchange
+  // Rate master, and the converter's amount box. Both are additions beside the
+  // existing board; neither changes how a day is entered or saved.
+  const [dayRates, setDayRates] = useState<DayRates | null>(null);
+  const [exchangedAmount, setExchangedAmount] = useState('');
+  /** The history day open in the read-only viewer, or null. */
+  const [viewDay, setViewDay] = useState<HistoryRow | null>(null);
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
 
@@ -211,10 +240,45 @@ export default function BankExchangeRatesPage() {
       const stored = res.data.bcc_rate && Number(res.data.bcc_rate) > 0
         ? Number(res.data.bcc_rate).toFixed(2)
         : '';
-      setBcc(stored);
-      // The loaded value is whatever was saved, so the provenance caption from a
-      // previous lookup no longer describes it.
-      setBccNote('');
+
+      // ADD-ON — the day's reference rates from the Exchange Rate master.
+      //
+      // Fetched HERE rather than in an effect of its own so the two values are
+      // in hand together: deciding whether to prefill from one of two
+      // independent async results is a race, and the losing order would
+      // overwrite a saved rate.
+      const ref = await safeFetchJson<DayRates>(
+        `/api/v1/exchange-rates/for-day?date=${date}&currency_id=${
+          currencyId || res.data.currency_id
+        }`,
+      );
+      const masterBcc = ref.ok ? toRate(ref.data.bcc_rate) : null;
+      setDayRates(ref.ok ? ref.data : null);
+
+      // The amount the day was saved with, so reloading a day brings back the
+      // figure its margin was calculated on rather than an empty box.
+      setExchangedAmount(
+        res.data.exchanged_amount !== null && Number(res.data.exchanged_amount) > 0
+          ? String(Number(res.data.exchanged_amount))
+          : '',
+      );
+
+      // A SAVED rate always wins. The master only fills the box when the day
+      // has none — otherwise editing the master later would silently rewrite
+      // what a board was saved with, and the invoices quoted against it would
+      // no longer match their own day.
+      if (stored) {
+        setBcc(stored);
+        // The loaded value is whatever was saved, so the provenance caption
+        // from a previous lookup no longer describes it.
+        setBccNote('');
+      } else if (masterBcc !== null) {
+        setBcc(masterBcc.toFixed(2));
+        setBccNote('from Exchange Rate master');
+      } else {
+        setBcc('');
+        setBccNote('');
+      }
       const next: Draft = {};
       for (const b of res.data.banks) {
         const r = toRate(b.bank_rate);
@@ -316,6 +380,21 @@ export default function BankExchangeRatesPage() {
   const prevBcc = board?.prev_bcc_rate ?? 0;
   const liveDiff = prevBcc > 0 ? rateDifference(liveHighest.rate, prevBcc) : null;
 
+  // ADD-ON — what the day's best bank rate is worth against the BCC.
+  //
+  // Reads `liveHighest` and the BCC box as typed, so the figure follows the
+  // grid rather than a stale saved value (§4.10 — one rule for "the day's best
+  // rate", not two).
+  const gain = useMemo(
+    () =>
+      gainAtBestRate(
+        exchangedAmount,
+        liveHighest.rate > 0 ? liveHighest.rate : null,
+        toRate(bcc),
+      ),
+    [exchangedAmount, liveHighest, bcc],
+  );
+
   /**
    * Ask DGI what the BCC published, and fill the box with it.
    *
@@ -398,6 +477,9 @@ export default function BankExchangeRatesPage() {
             exchange_date: date,
             currency_id: Number(currencyId),
             bcc_rate: Number(bcc),
+            // Empty stays NULL rather than becoming 0 — "nobody entered an
+            // amount" and "the amount was zero" are different facts.
+            exchanged_amount: exchangedAmount === '' ? null : Number(exchangedAmount),
             rates,
           }),
         },
@@ -536,6 +618,21 @@ export default function BankExchangeRatesPage() {
           {formatRate(toRate(r.prev_bcc_rate))}
         </span>
       ),
+    },
+    {
+      key: 'exchanged_amount',
+      header: 'Exchanged',
+      align: 'right',
+      className: 'font-mono whitespace-nowrap',
+      // Sorted on the number, not the formatted string, so 1,000 does not fall
+      // between 100 and 20 (§4.19's note that <DataTable> sorts the field).
+      value: (r) => (r.exchanged_amount === null ? '' : Number(r.exchanged_amount)),
+      render: (r) =>
+        r.exchanged_amount === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          formatMoney(Number(r.exchanged_amount))
+        ),
     },
     {
       key: 'rate_difference',
@@ -706,25 +803,32 @@ export default function BankExchangeRatesPage() {
                         an <input>'s intrinsic minimum is ~20 characters, so
                         without it the pair widens the whole column. */}
                     <div className="flex items-center gap-1">
+                      {/* READ-ONLY. The BCC is the day's published reference and
+                          belongs to the day, not to this screen — it is entered
+                          once in the Exchange Rate master or pulled from DGI
+                          with the button beside it, and typing it again here is
+                          how the same figure came to disagree with itself across
+                          a day's rows.
+                          `readOnly`, not `disabled`: a disabled input is skipped
+                          by the browser and drops out of the form, and the value
+                          still has to save with the day (§4.18's note that a
+                          read-only field keeps submitting). */}
                       <input
                         id="bcc-rate"
                         type="number"
                         step="0.01"
                         min="0"
                         required
+                        readOnly
                         placeholder="0.00"
                         aria-invalid={bcc !== '' && toRate(bcc) === null}
-                        className={`input min-w-0 flex-1 text-right font-mono font-semibold ${
+                        title="Set in the Exchange Rate master, or fetched from DGI with the button beside it"
+                        className={`input min-w-0 flex-1 cursor-default text-right font-mono font-semibold ${
                           verdict.bccIsBest && toRate(bcc) !== null
                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                            : ''
+                            : 'bg-muted/40'
                         }`}
                         value={bcc}
-                        onChange={(e) => {
-                          setBcc(e.target.value);
-                          // Typed over, so it is no longer the published figure.
-                          setBccNote('');
-                        }}
                       />
                       <button
                         type="button"
@@ -737,9 +841,16 @@ export default function BankExchangeRatesPage() {
                         <RefreshCw className={`h-3.5 w-3.5 ${bccFetching ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
+                    {/* Now that the box cannot be typed into, an empty one has
+                        to say where the figure comes from — otherwise it reads
+                        as a field somebody forgot to fill (§4.23). */}
                     <p className="mt-1 text-[11px] text-muted-foreground" title={bccNote || undefined}>
                       {bccNote ||
-                        (verdict.bccIsBest && toRate(bcc) !== null ? 'Best on the board' : 'Reference')}
+                        (toRate(bcc) === null
+                          ? 'Set it in the Exchange Rate master'
+                          : verdict.bccIsBest
+                            ? 'Best on the board'
+                            : 'Reference')}
                     </p>
                   </td>
 
@@ -852,6 +963,80 @@ export default function BankExchangeRatesPage() {
             </table>
           </div>
 
+          {/* ──────────────────────────────────────────────────────────────
+              ADD-ON — the day's reference rates and the converter.
+              Appended below the board; it reads the board's own best rate and
+              changes nothing above it. */}
+          <div className="grid grid-cols-1 gap-3 border-t border-border px-4 py-3 md:grid-cols-3">
+            <div className="rounded-md border border-border p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Declaration Rate
+              </p>
+              <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
+                {formatRate(toRate(dayRates?.declaration_rate))}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {/* Says WHY it is empty rather than leaving a dash to be read as
+                    a rate of nothing (§4.23). */}
+                {toRate(dayRates?.declaration_rate) !== null
+                  ? 'From the Exchange Rate master'
+                  : `No rate filed for ${currencyLabel || 'this currency'} on ${formatDate(date)}`}
+              </p>
+            </div>
+
+            <div className="rounded-md border border-border p-3">
+              <label htmlFor="exchanged-amount" className="label mb-1">
+                Exchanged Amount
+              </label>
+              <input
+                id="exchanged-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                className="input text-right font-mono"
+                placeholder="0.00"
+                value={exchangedAmount}
+                onChange={(e) => setExchangedAmount(e.target.value)}
+              />
+            </div>
+
+            <div className="rounded-md border border-border p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Value in USD
+              </p>
+              <p
+                className={`mt-1 font-mono text-lg font-semibold tabular-nums ${
+                  gain.value === null
+                    ? 'text-foreground'
+                    : gain.value > 0
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : gain.value < 0
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-muted-foreground'
+                }`}
+              >
+                {gain.value === null ? '—' : formatMoney(gain.value)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {/* The arithmetic is spelled out, so an operator acting on this
+                    figure can see which rates produced it — and, on a day where
+                    no bank beats the BCC, why it is negative. */}
+                {gain.bestRate === null
+                  ? 'No bank has quoted yet today'
+                  : gain.bccRate === null
+                    ? 'Enter the BCC reference to compare against'
+                    : gain.amount === null
+                      ? `Margin ${formatDelta(gain.margin) || formatRate(0)} per unit${
+                          highestBankName ? ` (${highestBankName.toUpperCase()})` : ''
+                        }`
+                      : `${formatMoney(gain.amount)} × (${formatRate(gain.bestRate)} − ${formatRate(
+                          gain.bccRate,
+                        )})${highestBankName ? ` · ${highestBankName.toUpperCase()}` : ''}`}
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <p className="text-xs text-muted-foreground">
               {boardLoading
@@ -918,7 +1103,12 @@ export default function BankExchangeRatesPage() {
         // Delete stays beside it: it is the only way to take a day off the board
         // (§4.27), and the reference screen having only Edit is not a reason to
         // remove a working capability.
+        // View opens the day read-only — the whole board for that date in one
+        // dialog, which the grid cannot show: a history row is one line per day
+        // with a column per bank, so a day with eight banks is read by scrolling
+        // sideways. Edit still loads it onto the board above for correcting.
         actions={(r) => ({
+          view: () => setViewDay(r),
           edit: () => editHistoryDay(r),
           remove: () => setConfirmDelete(r),
         })}
@@ -973,7 +1163,259 @@ export default function BankExchangeRatesPage() {
         day to bring the stored rates back.
       </ConfirmDialog>
 
+      {viewDay && (
+        <DayViewModal
+          day={viewDay}
+          banks={board?.banks ?? []}
+          currencyLabel={currencyLabel}
+          onClose={() => setViewDay(null)}
+          onEdit={() => {
+            editHistoryDay(viewDay);
+            setViewDay(null);
+          }}
+        />
+      )}
+
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </>
+  );
+}
+
+/**
+ * One day's board, read-only.
+ *
+ * Its own component rather than <RecordViewModal>: that one renders a
+ * METADATA page from `master_page_t`, and the rate board has no page config —
+ * it is a pivot of one table, not a form. Reusing it would mean inventing page
+ * metadata for a screen that does not have any.
+ *
+ * It still reads like the rest of the app: the brand-gradient header, the same
+ * accent chip, the same cell treatment, and a labelled way out (§4.21).
+ */
+function DayViewModal({
+  day,
+  banks,
+  currencyLabel,
+  onClose,
+  onEdit,
+}: {
+  day: HistoryRow;
+  banks: BoardBank[];
+  currencyLabel: string;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  // Escape closes, as every other modal in the app does.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const bcc = toRate(day.bcc_rate);
+  const best = toRate(day.highest_bank_rate);
+  const diff = toRate(day.rate_difference);
+  const prev = toRate(day.prev_bcc_rate);
+
+  // The same helper the board uses, so the two can never disagree about what
+  // the figure means (§4.10). Every input is the DAY's own saved row — amount,
+  // best rate and BCC — so an older day is read exactly as it was filed rather
+  // than re-valued at today's numbers.
+  const gain = useMemo(
+    () => gainAtBestRate(day.exchanged_amount, best, bcc),
+    [day.exchanged_amount, best, bcc],
+  );
+
+  // The day's quotes, best first — a read-only view is SCANNED, so the answer
+  // belongs at the top rather than wherever the bank happens to sort.
+  const quotes = banks
+    .map((b) => ({ ...b, rate: toRate(day.rates[b.bank_id]) }))
+    .filter((b) => b.rate !== null)
+    .sort((a, z) => (z.rate ?? 0) - (a.rate ?? 0));
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="card my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 bg-brand-gradient px-5 py-4 text-white">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30">
+              <Eye className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-semibold leading-tight">Exchange Rates</h2>
+              <p className="mt-0.5 truncate text-xs text-white/75">
+                {formatDate(day.exchange_date)}
+                {currencyLabel ? ` · ${currencyLabel}` : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-md p-1.5 text-white/90 transition-colors hover:bg-white/20 hover:text-white"
+            title="Close"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: 'BCC Reference', value: formatRate(bcc) },
+              { label: 'Best Bank Rate', value: formatRate(best) },
+              {
+                label: 'Vs Previous BCC',
+                value: diff === null ? '—' : formatDelta(diff) || formatRate(0),
+              },
+              {
+                label: 'Previous BCC',
+                value:
+                  prev === null
+                    ? '—'
+                    : `${formatRate(prev)}${day.prev_bcc_date ? ` · ${formatDate(day.prev_bcc_date)}` : ''}`,
+              },
+            ].map((s) => (
+              <div key={s.label} className="rounded-lg border-l-2 border-border bg-muted/30 px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {s.label}
+                </dt>
+                <dd className="mt-1 font-mono text-sm font-medium tabular-nums text-foreground">
+                  {s.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-semibold">Bank</th>
+                  <th className="px-3 py-2 text-right font-semibold">Rate</th>
+                  <th className="px-3 py-2 text-right font-semibold">Vs BCC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      No bank quoted on this day.
+                    </td>
+                  </tr>
+                ) : (
+                  quotes.map((b) => {
+                    const delta = bcc !== null && b.rate !== null ? b.rate - bcc : null;
+                    const isBest = b.bank_id === day.highest_bank_id;
+                    return (
+                      <tr key={b.bank_id} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          <span className="font-medium text-foreground">
+                            {(b.bank_name ?? `Bank ${b.bank_id}`).toUpperCase()}
+                          </span>
+                          {/* §4.38 — the day's winner is a badge, not bold text,
+                              so it reads at a glance like every other status. */}
+                          {isBest && <StatusBadge status="Best" tone="emerald" />}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">
+                          {formatRate(b.rate)}
+                        </td>
+                        <td
+                          className={`px-3 py-2 text-right font-mono tabular-nums ${
+                            delta === null
+                              ? 'text-muted-foreground'
+                              : delta > 0
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : delta < 0
+                                  ? 'text-red-700 dark:text-red-300'
+                                  : 'text-muted-foreground'
+                          }`}
+                        >
+                          {delta === null ? '—' : formatDelta(delta) || formatRate(0)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* The same calculation the board carries, scoped to THIS day.
+              The amount is not stored — it is a question asked of a day's
+              rates, not a property of them — so the box starts empty and the
+              figures come from the day's own saved best rate and BCC rather
+              than from whatever the board above currently holds. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border-l-2 border-border bg-muted/30 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Exchanged Amount
+              </p>
+              <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
+                {gain.amount === null ? '—' : formatMoney(gain.amount)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {gain.amount === null ? 'No amount saved for this day' : 'Saved with this day'}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Value in USD
+              </p>
+              <p
+                className={`mt-1 font-mono text-lg font-semibold tabular-nums ${
+                  gain.value === null
+                    ? 'text-foreground'
+                    : gain.value > 0
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : gain.value < 0
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-muted-foreground'
+                }`}
+              >
+                {gain.value === null ? '—' : formatMoney(gain.value)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {gain.bestRate === null
+                  ? 'No bank quoted on this day'
+                  : gain.bccRate === null
+                    ? 'No BCC reference on this day'
+                    : gain.amount === null
+                      ? `Margin ${formatDelta(gain.margin) || formatRate(0)} per unit`
+                      : `${formatMoney(gain.amount)} × (${formatRate(gain.bestRate)} − ${formatRate(
+                          gain.bccRate,
+                        )})`}
+              </p>
+            </div>
+          </div>
+
+          {day.updated_at && (
+            <p className="text-xs text-muted-foreground">
+              Last updated {formatDateTime(day.updated_at, '')}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card px-5 py-3">
+          <button type="button" onClick={onEdit} className="btn-edit btn-sm">
+            <Edit2 className="h-4 w-4" /> Edit on the board
+          </button>
+          {/* §4.21 — a labelled way out, always. */}
+          <button type="button" onClick={onClose} className="btn-secondary">
+            <X className="h-4 w-4" /> Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

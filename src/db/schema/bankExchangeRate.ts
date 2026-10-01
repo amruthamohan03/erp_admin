@@ -55,6 +55,9 @@ export const bankExchangeRate = pgTable(
     prevBccRate: numeric('prev_bcc_rate', { precision: 10, scale: 4 }),
     prevBccDate: date('prev_bcc_date'),
     rateDifference: numeric('rate_difference', { precision: 10, scale: 4 }),
+    // The amount the day's margin was calculated on (0134). Day-level, so it
+    // is stamped on every row of the day like the comparison columns above.
+    exchangedAmount: numeric('exchanged_amount', { precision: 18, scale: 2 }),
     // §4.27 — deleting a day's rates hides it; the row stays for the invoices
     // that were quoted against it.
     display: varchar('display', { length: 1 }).notNull().default('Y'),

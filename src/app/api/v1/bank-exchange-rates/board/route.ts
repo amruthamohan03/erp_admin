@@ -109,7 +109,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // board. Reading the first non-empty one keeps a legacy row that only carried
   // it on one bank from showing as blank.
   const [reference] = await db
-    .select({ bcc_rate: bankExchangeRate.bccRate })
+    .select({
+      bcc_rate: bankExchangeRate.bccRate,
+      // Day-level like the BCC beside it (0134).
+      exchanged_amount: bankExchangeRate.exchangedAmount,
+    })
     .from(bankExchangeRate)
     .where(
       and(
@@ -137,6 +141,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     // The RESOLVED currency, not the requested one — the caller adopts it.
     currency_id: currencyId,
     bcc_rate: reference?.bcc_rate ?? null,
+    exchanged_amount: reference?.exchanged_amount ?? null,
     banks,
     highest_bank_id: highest.bank_id,
     highest_bank_rate: highest.rate,
@@ -194,6 +199,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       prevBccRate: previous.rate > 0 ? String(previous.rate) : null,
       prevBccDate: previous.date,
       rateDifference: previous.rate > 0 ? String(difference) : null,
+      // Day-level, so it rides with the comparison columns rather than being
+      // written per bank (0134).
+      exchangedAmount: data.exchanged_amount,
     };
 
     let created = 0;

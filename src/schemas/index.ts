@@ -59,6 +59,7 @@ export * from './hsGreenPrefixes';
 export * from './invoiceTemplates';
 export * from './invoiceGridHeadings';
 export * from './expenseTracker';
+export * from './exchangeRates';
 export * from './banks';
 export * from './bank-exchange-rates';
 export * from './phases';

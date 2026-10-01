@@ -149,3 +149,69 @@ export function formatDelta(v: number | null): string {
   const sign = v > 0 ? '+' : '−';
   return `${sign}${formatRate(Math.abs(v))}`;
 }
+
+// ── What the day's best rate is worth against the BCC reference ─────────────
+
+export interface ExchangeGain {
+  /** The day's best bank rate. Null when no bank has quoted yet. */
+  bestRate: number | null;
+  /** The BCC reference for the day. Null when it has not been entered. */
+  bccRate: number | null;
+  /** `bestRate - bccRate`, per unit. Negative when no bank beats the BCC. */
+  margin: number | null;
+  /** The amount as typed. Null when the box is empty. */
+  amount: number | null;
+  /** `amount × margin`. Null when any input is missing. */
+  value: number | null;
+}
+
+/**
+ * What exchanging an amount at the day's best bank rate is worth, measured
+ * against the BCC reference.
+ *
+ * `amount × (bestRate − bccRate)` — the per-unit advantage of the best bank
+ * over the official rate, multiplied by the amount being exchanged. It answers
+ * "what do we gain by changing money here rather than at the BCC rate", which
+ * is the question the board exists to settle.
+ *
+ * The margin is deliberately SIGNED. A day where no bank beats the BCC produces
+ * a negative figure, and that is the true answer — clamping it at zero would
+ * hide exactly the day an operator most needs to see.
+ *
+ * Nulls rather than zeros when an input is missing: 0.00 is a figure somebody
+ * could act on, and "nothing entered yet" is not the same statement.
+ */
+export function gainAtBestRate(
+  amountRaw: unknown,
+  bestRate: number | null,
+  bccRate: number | null,
+): ExchangeGain {
+  const parsed =
+    amountRaw === null || amountRaw === undefined || amountRaw === '' ? null : Number(amountRaw);
+  const amount = parsed !== null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+
+  // A non-positive rate is "not quoted", never a figure to compute with.
+  const best = bestRate !== null && Number.isFinite(bestRate) && bestRate > 0 ? bestRate : null;
+  const bcc = bccRate !== null && Number.isFinite(bccRate) && bccRate > 0 ? bccRate : null;
+
+  const margin = best !== null && bcc !== null ? round4(best - bcc) : null;
+
+  return {
+    bestRate: best,
+    bccRate: bcc,
+    margin,
+    amount,
+    value: amount !== null && margin !== null ? round2(amount * margin) : null,
+  };
+}
+
+/** Cents, for a money figure — rates keep four decimals, amounts do not. */
+export function round2(n: number): number {
+  return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+}
+
+/** Money with thousands separators and two decimals. */
+export function formatMoney(v: number | null, fallback = '—'): string {
+  if (v === null) return fallback;
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

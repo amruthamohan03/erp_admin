@@ -99,6 +99,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Menu Management', order: 1, url: '/masters/menu' },
   { parent: 'Masters', name: 'Banklist', order: 2, url: '/masters/banks' },
   { parent: 'Masters', name: 'Bank Exchange Rates', order: 3, url: '/bank-exchange-rates' },
+  { parent: 'Masters', name: 'Exchange Rate', order: 4, url: '/masters/exchange-rates' },
   { parent: 'Masters', name: 'Clearance', order: 4, url: '/masters/clearances' },
   { parent: 'Masters', name: 'Clearing Status', order: 5, url: '/masters/clearing-statuses' },
   { parent: 'Masters', name: 'Kind', order: 6, url: '/masters/kinds' },

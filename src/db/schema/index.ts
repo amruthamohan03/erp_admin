@@ -76,6 +76,7 @@ export * from './invoiceTemplateMaster';
 export * from './invoiceGridHeadingMaster';
 export * from './banklistMaster';
 export * from './bankExchangeRate';
+export * from './exchangeRateMaster';
 export * from './dgiCurrencyRate';
 export * from './phaseMaster';
 export * from './incotermMaster';
