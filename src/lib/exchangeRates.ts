@@ -161,7 +161,7 @@ export interface ExchangeGain {
   margin: number | null;
   /** The amount as typed. Null when the box is empty. */
   amount: number | null;
-  /** `amount × margin`. Null when any input is missing. */
+  /** `amount × margin ÷ bccRate`, in USD. Null when any input is missing. */
   value: number | null;
 }
 
@@ -169,10 +169,15 @@ export interface ExchangeGain {
  * What exchanging an amount at the day's best bank rate is worth, measured
  * against the BCC reference.
  *
- * `amount × (bestRate − bccRate)` — the per-unit advantage of the best bank
- * over the official rate, multiplied by the amount being exchanged. It answers
- * "what do we gain by changing money here rather than at the BCC rate", which
- * is the question the board exists to settle.
+ * `amount × (bestRate − bccRate) ÷ bccRate` — the per-unit advantage of the
+ * best bank over the official rate, applied to the amount and then divided by
+ * the BCC rate so the answer lands in USD rather than in CDF. It answers "what
+ * do we gain by changing money here rather than at the BCC rate", which is the
+ * question the board exists to settle.
+ *
+ * The division is what makes the figure a dollar amount: the amount and the
+ * margin are both CDF, so their product is CDF² per unit until the reference
+ * rate takes it back to the currency the board is quoted against.
  *
  * The margin is deliberately SIGNED. A day where no bank beats the BCC produces
  * a negative figure, and that is the true answer — clamping it at zero would
@@ -201,7 +206,9 @@ export function gainAtBestRate(
     bccRate: bcc,
     margin,
     amount,
-    value: amount !== null && margin !== null ? round2(amount * margin) : null,
+    // bcc is non-null whenever margin is, and positive by the guard above — so
+    // this division can never be by zero.
+    value: amount !== null && margin !== null && bcc !== null ? round2((amount * margin) / bcc) : null,
   };
 }
 

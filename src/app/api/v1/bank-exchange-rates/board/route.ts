@@ -39,13 +39,23 @@ interface BoardBank {
 /**
  * Which currency to open the board on when the caller did not say.
  *
- * The most recently quoted one, because that is the board somebody is actually
- * keeping. Falling straight to CDF looked reasonable and was the bug: on a
- * database whose rates are all USD it opened on an empty grid over an empty
- * history, which is indistinguishable from a screen that failed to load.
- * CDF is still the fallback when there is nothing quoted at all.
+ * CDF, the local currency the banks are quoted against — that is the board
+ * operators keep daily, so it is what the screen opens on whether or not it
+ * was the last one somebody touched. The dropdown still switches it.
+ *
+ * It falls back to the most recently quoted currency when CDF is absent or
+ * deactivated in the currency master: an empty board over an empty history is
+ * indistinguishable from a screen that failed to load, so the screen must not
+ * open on a currency that cannot exist.
  */
 async function resolveDefaultCurrency(): Promise<number> {
+  const [cdf] = await db
+    .select({ id: currencyMaster.id })
+    .from(currencyMaster)
+    .where(and(eq(currencyMaster.display, 'Y'), eq(currencyMaster.currencyShortName, 'CDF')))
+    .limit(1);
+  if (cdf) return cdf.id;
+
   const [recent] = await db
     .select({ currency_id: bankExchangeRate.currencyId })
     .from(bankExchangeRate)
@@ -53,13 +63,6 @@ async function resolveDefaultCurrency(): Promise<number> {
     .orderBy(desc(bankExchangeRate.exchangeDate), desc(bankExchangeRate.id))
     .limit(1);
   if (recent) return recent.currency_id;
-
-  const [cdf] = await db
-    .select({ id: currencyMaster.id })
-    .from(currencyMaster)
-    .where(and(eq(currencyMaster.display, 'Y'), eq(currencyMaster.currencyShortName, 'CDF')))
-    .limit(1);
-  if (cdf) return cdf.id;
 
   const [first] = await db
     .select({ id: currencyMaster.id })

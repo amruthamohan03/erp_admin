@@ -127,9 +127,11 @@ describe('formatMoney', () => {
 });
 
 describe('gainAtBestRate', () => {
-  it('is the amount times the best bank rate less the BCC', () => {
-    // 1,000 × (1,400 − 1,000) = 400,000.
-    expect(gainAtBestRate(1000, 1400, 1000).value).toBe(400_000);
+  it('is the amount times the margin, divided by the BCC so it lands in USD', () => {
+    // 1,000 × (1,400 − 1,000) ÷ 1,000 = 400.
+    expect(gainAtBestRate(1000, 1400, 1000).value).toBe(400);
+    // The board's own case: 10,000 × (1,100 − 1,000) ÷ 1,000 = 1,000.
+    expect(gainAtBestRate(10_000, 1100, 1000).value).toBe(1000);
   });
 
   it('carries the margin back so the screen can show the arithmetic', () => {
@@ -145,13 +147,14 @@ describe('gainAtBestRate', () => {
     // an operator most needs to see.
     const g = gainAtBestRate(1000, 900, 1000);
     expect(g.margin).toBe(-100);
-    expect(g.value).toBe(-100_000);
+    expect(g.value).toBe(-100);
   });
 
   it('rounds the margin to four decimals and the value to cents', () => {
+    // 3 × 400.1235 ÷ 1,000 = 1.2004 (to four places), to cents 1.20.
     const g = gainAtBestRate(3, 1400.12345, 1000);
     expect(g.margin).toBe(400.1235);
-    expect(g.value).toBe(1200.37);
+    expect(g.value).toBe(1.2);
   });
 
   it('reports nothing when the amount box is empty', () => {
