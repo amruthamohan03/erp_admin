@@ -310,7 +310,7 @@ function FormModal({
               min="0"
               value={declarationRate}
               onChange={(e) => setDeclarationRate(e.target.value)}
-              placeholder="2850.0000"
+              placeholder=""
             />
             <p className="mt-1 text-xs text-muted-foreground">
               The rate customs declarations are filed at for this day.
@@ -326,7 +326,7 @@ function FormModal({
               min="0"
               value={bccRate}
               onChange={(e) => setBccRate(e.target.value)}
-              placeholder="2800.0000"
+              placeholder=""
             />
             <p className="mt-1 text-xs text-muted-foreground">
               What the Banque Centrale du Congo published. Offered on the Bank Exchange Rate board
