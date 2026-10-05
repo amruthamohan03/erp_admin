@@ -19,7 +19,6 @@ import {
   Edit2,
   Eraser,
   Eye,
-  RefreshCw,
   Save,
   Trash2,
   TrendingDown,
@@ -479,16 +478,6 @@ export default function BankExchangeRatesPage() {
       render: (r) => formatDate(r.exchange_date),
     },
     {
-      key: 'currency',
-      header: 'Currency',
-      align: 'center',
-      render: () => (
-        <span className="inline-block rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
-          {currencyLabel || '—'}
-        </span>
-      ),
-    },
-    {
       key: 'bcc_rate',
       header: 'BCC Rate',
       align: 'right',
@@ -526,44 +515,9 @@ export default function BankExchangeRatesPage() {
         );
       },
     })),
-    {
-      key: 'highest',
-      header: 'Highest',
-      align: 'right',
-      className: 'font-mono whitespace-nowrap',
-      // Sorted and searched on the winning NUMBER — the bank's name is the
-      // caption underneath, and sorting a column of names by rate would surprise.
-      value: (r) => toRate(r.highest_bank_rate) ?? '',
-      render: (r) => {
-        const rate = toRate(r.highest_bank_rate);
-        if (rate === null) return <span className="text-muted-foreground">—</span>;
-        const bank = historyBanks.find((b) => b.id === r.highest_bank_id);
-        return (
-          <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-            {formatRate(rate)}
-            {bank?.bank_name && (
-              <span className="ms-1 text-[10px] font-normal uppercase text-muted-foreground">
-                {bank.bank_name}
-              </span>
-            )}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'prev_bcc_rate',
-      header: 'Prev BCC',
-      align: 'right',
-      className: 'font-mono text-muted-foreground',
-      value: (r) => toRate(r.prev_bcc_rate) ?? '',
-      // The date it was published rides as the tooltip: the column is narrow and
-      // the number is what the difference beside it was measured against.
-      render: (r) => (
-        <span title={r.prev_bcc_date ? formatDate(r.prev_bcc_date) : undefined}>
-          {formatRate(toRate(r.prev_bcc_rate))}
-        </span>
-      ),
-    },
+    // Currency, Highest and Prev BCC are no longer columns here. The grid
+    // already shows every bank's rate with the day's best one tinted, and all
+    // three still read in the row's View dialog, where there is room for them.
     {
       key: 'exchanged_amount',
       header: 'Exchanged',
@@ -649,10 +603,6 @@ export default function BankExchangeRatesPage() {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {currencyLabel ? `${currencyLabel} per unit — ` : ''}a bank above the BCC reference is
-            worth changing money with, so it shows green.
-          </p>
         </div>
 
         {/* The board is client-fetched data read at a client-owned clock, so the
@@ -726,7 +676,6 @@ export default function BankExchangeRatesPage() {
                         setEditDay(null);
                       }}
                     />
-                    <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(date)}</p>
                   </td>
 
                   <td className="border border-border p-2 align-top">
@@ -761,16 +710,9 @@ export default function BankExchangeRatesPage() {
                       }`}
                       value={bcc}
                     />
-                    {/* Now that the box cannot be typed into, an empty one has
-                        to say where the figure comes from — otherwise it reads
-                        as a field somebody forgot to fill (§4.23). */}
                     <p className="mt-1 text-[11px] text-muted-foreground" title={bccNote || undefined}>
                       {bccNote ||
-                        (toRate(bcc) === null
-                          ? 'Set it in the Exchange Rate master'
-                          : verdict.bccIsBest
-                            ? 'Best on the board'
-                            : 'Reference')}
+                        (verdict.bccIsBest && toRate(bcc) !== null ? 'Best on the board' : 'Reference')}
                     </p>
                   </td>
 
@@ -852,9 +794,6 @@ export default function BankExchangeRatesPage() {
                       value={exchangedAmount}
                       onChange={(e) => setExchangedAmount(e.target.value)}
                     />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {currencyLabel ? `In ${currencyLabel}` : 'Amount changed'}
-                    </p>
                   </td>
 
                   <td className="border border-border p-2 align-top">
@@ -879,7 +818,7 @@ export default function BankExchangeRatesPage() {
                         {gain.bestRate === null
                           ? 'No bank has quoted yet today'
                           : gain.bccRate === null
-                            ? 'Enter the BCC reference'
+                            ? 'No BCC reference for this day'
                             : 'Enter an amount'}
                       </p>
                     )}
@@ -891,28 +830,15 @@ export default function BankExchangeRatesPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <p className="text-xs text-muted-foreground">
-              {boardLoading
-                ? 'Loading…'
-                : bestBank && verdict.bestRate !== null
-                  ? `Best today: ${(bestBank.bank_name ?? '').toUpperCase()} at ${formatRate(verdict.bestRate)}${
-                      verdict.byBank.get(bestBank.bank_id)?.delta
-                        ? ` (${formatDelta(verdict.byBank.get(bestBank.bank_id)?.delta ?? null)} vs BCC)`
-                        : ''
-                    }`
-                  : 'Enter the BCC reference and each bank’s rate to compare them.'}
+              
             </p>
             {/* Every action on the board, in one bar, ending on Save — the row
                 above is for values. Save last because it is the one that
                 commits, and the one the operator reaches for by position. */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void loadBoard()}
-                disabled={boardLoading}
-                className="btn-neutral btn-sm disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${boardLoading ? 'animate-spin' : ''}`} /> Load Rate
-              </button>
+              {/* No manual "Load Rate": the board already reloads whenever the
+                  date or currency changes, so the button only ever repeated
+                  what had just happened. */}
               <button type="button" onClick={() => setClearAsk(true)} className="btn-secondary btn-sm">
                 <Eraser className="h-4 w-4" /> Clear
               </button>
