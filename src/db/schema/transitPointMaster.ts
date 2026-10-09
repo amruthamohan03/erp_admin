@@ -16,6 +16,11 @@ import { usersT } from './users';
 //   loading       — where goods are loaded
 //   destination   — final destination
 //   warehouse     — bonded / non-bonded storage
+//   border_post   - subject to the border overstay rule: a consignment that
+//                   entered the DRC here must be dispatched from the border
+//                   within `border_max_working_days` working days. Drives the
+//                   Import dashboard border tab - main hardcoded the three
+//                   posts as ids and the limit as a literal (§4.1).
 //   location      — generic location pin (used when none of the others fit)
 //
 // imports_t / exports_t reference this via multiple FKs (entry_point_id,
@@ -32,6 +37,9 @@ export const transitPointMaster = pgTable('transit_point_master_t', {
   destination: boolean('destination').notNull().default(true),
   warehouse: boolean('warehouse').notNull().default(false),
   location: boolean('location').notNull().default(false),
+  borderPost: boolean('border_post').notNull().default(false),
+  /** Working days allowed between DRC entry and dispatch from this border. */
+  borderMaxWorkingDays: integer('border_max_working_days').notNull().default(3),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

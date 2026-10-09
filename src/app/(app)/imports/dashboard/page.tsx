@@ -1,21 +1,11 @@
 'use client';
 
-import TrackingDashboardView, {
-  type TrackingDashboardConfig,
-} from '@/modules/tracking/TrackingDashboardView';
+import ImportDashboardView from '@/modules/tracking/importDashboard/ImportDashboardView';
 
-// §4.29 — Import Tracking dashboard. Everything but the wiring lives in the
-// shared view and in `importDashboard.ts`.
-const CONFIG: TrackingDashboardConfig = {
-  title: 'Import Tracking Dashboard',
-  endpoint: '/api/v1/imports/dashboard',
-  listHref: '/imports',
-  kpiHref: '/imkpi',
-  kpiLabel: 'Delay KPI',
-  anchorLabel: 'Pre Alert Date',
-  noun: 'import files',
-};
+// §4.29 — Import Tracking dashboard. Everything but the route lives in the
+// module: seven tabs over `imports_t`, sharing the UI kit, the fetch hook and
+// the chart components with the Export dashboard.
 
 export default function ImportDashboardPage() {
-  return <TrackingDashboardView config={CONFIG} />;
+  return <ImportDashboardView />;
 }

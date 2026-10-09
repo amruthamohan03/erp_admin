@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { areaPath, donutArcs, funnelWidths, linePath, niceMax, plotPoints, smoothPath, stackSeries } from './geometry';
+import {
+  areaPath,
+  axisLabel,
+  axisTicks,
+  donutArcs,
+  funnelWidths,
+  linePath,
+  niceMax,
+  plotPoints,
+  smoothPath,
+  stackSeries,
+} from './geometry';
 
 describe('niceMax', () => {
   it('rounds up to a number a human would label an axis with', () => {
@@ -181,5 +192,54 @@ describe('funnelWidths', () => {
       expect(Number.isFinite(b.top)).toBe(true);
       expect(b.fraction).toBe(0);
     }
+  });
+});
+
+describe('axisTicks', () => {
+  // The bug this exists for: niceMax returns 5 for a series peaking at 4, and a
+  // fixed four divisions gave 5 / 3.75 / 2.5 / 1.25 / 0. The axis rounded those
+  // and printed "5, 4, 3, 1, 0" — unevenly spaced, skipping 2, simply wrong.
+  it('splits a bound of 5 into whole numbers rather than quarters', () => {
+    expect(axisTicks(5)).toEqual([5, 4, 3, 2, 1, 0]);
+  });
+
+  it('covers every bound niceMax can produce with whole-number steps', () => {
+    for (const max of [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]) {
+      const ticks = axisTicks(max);
+      expect(ticks[0]).toBe(max);
+      expect(ticks[ticks.length - 1]).toBe(0);
+      for (const t of ticks) {
+        // Half-steps are tolerated only where nothing else divides (max = 1).
+        expect(Number.isInteger(t * 2)).toBe(true);
+      }
+    }
+  });
+
+  it('keeps the ticks evenly spaced and descending', () => {
+    const ticks = axisTicks(20);
+    const step = ticks[0] - ticks[1];
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i - 1] - ticks[i]).toBeCloseTo(step, 10);
+    }
+  });
+
+  it('prefers the requested division count when it divides cleanly', () => {
+    expect(axisTicks(20, 4)).toEqual([20, 15, 10, 5, 0]);
+    expect(axisTicks(100, 4)).toEqual([100, 75, 50, 25, 0]);
+  });
+
+  it('never produces a duplicate label, which is what made the axis unreadable', () => {
+    for (const max of [1, 2, 3, 4, 5, 7, 10, 20, 50]) {
+      const labels = axisTicks(max).map(axisLabel);
+      expect(new Set(labels).size).toBe(labels.length);
+    }
+  });
+});
+
+describe('axisLabel', () => {
+  it('prints a whole number plainly and a fraction to one decimal', () => {
+    expect(axisLabel(5)).toBe('5');
+    expect(axisLabel(0)).toBe('0');
+    expect(axisLabel(0.5)).toBe('0.5');
   });
 });

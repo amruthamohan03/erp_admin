@@ -1,6 +1,14 @@
 'use client';
 
-import { areaPath, donutArcs, niceMax, plotPoints, smoothPath } from '@/lib/charts/geometry';
+import {
+  areaPath,
+  axisLabel,
+  axisTicks,
+  donutArcs,
+  niceMax,
+  plotPoints,
+  smoothPath,
+} from '@/lib/charts/geometry';
 
 // §4.29 — the dashboard's charts, drawn as plain SVG.
 //
@@ -29,22 +37,41 @@ export interface CartesianProps {
   labels: string[];
   series: Series[];
   height?: number;
+  /**
+   * viewBox width. The svg is `h-auto w-full`, so the RENDERED height is the
+   * container's width times height/width — which means a wide panel needs a
+   * wide viewBox, not a tall one. Raising `height` alone on the default 320
+   * makes a full-width chart render hundreds of pixels tall.
+   */
+  width?: number;
   /** Formats the value in a point's tooltip. */
   format?: (v: number) => string;
 }
 
 /** Horizontal rules plus the value at each one — the plot's backdrop. */
-export function Grid({ max, width, height, steps = 4 }: { max: number; width: number; height: number; steps?: number }) {
+export function Grid({
+  max,
+  width,
+  height,
+  steps = 4,
+}: {
+  max: number;
+  width: number;
+  height: number;
+  steps?: number;
+}) {
+  // The tick VALUES decide the line positions, not the other way round: the
+  // count varies so every label is a whole number (see axisTicks).
+  const ticks = axisTicks(max, steps);
   return (
     <g aria-hidden="true">
-      {Array.from({ length: steps + 1 }, (_, i) => {
-        const y = (height / steps) * i;
-        const value = Math.round(max - (max / steps) * i);
+      {ticks.map((value, i) => {
+        const y = (height / (ticks.length - 1)) * i;
         return (
           <g key={i}>
             <line x1={0} y1={y} x2={width} y2={y} stroke={GRID} strokeWidth={1} />
             <text x={-8} y={y + 3} textAnchor="end" fontSize={9} fill={AXIS_TEXT}>
-              {value}
+              {axisLabel(value)}
             </text>
           </g>
         );
@@ -89,6 +116,10 @@ export function Legend({ series }: { series: Array<{ label: string; color: strin
 /**
  * The plot area, inset so the axis labels have somewhere to live.
  *
+ * The left gutter is 40 units against a label anchored at x=-8, so there are 32
+ * units of room: enough for a four-digit count at font size 9. It was 18, which
+ * silently clipped anything past three digits off the left edge.
+ *
  * `preserveAspectRatio="none"` is deliberately NOT used — stretching the
  * viewBox would distort the stroke widths and the type along with the plot.
  */
@@ -103,7 +134,7 @@ export function Plot({
 }) {
   return (
     <svg
-      viewBox={`-26 -6 ${width + 36} ${height + 28}`}
+      viewBox={`-40 -6 ${width + 50} ${height + 28}`}
       className="h-auto w-full"
       role="img"
       preserveAspectRatio="xMidYMid meet"
@@ -113,8 +144,7 @@ export function Plot({
   );
 }
 
-export function LineChart({ labels, series, height = 150, format }: CartesianProps) {
-  const width = 320;
+export function LineChart({ labels, series, height = 150, width = 320, format }: CartesianProps) {
   const max = niceMax(series.flatMap((s) => s.values));
   return (
     <div>
@@ -140,8 +170,7 @@ export function LineChart({ labels, series, height = 150, format }: CartesianPro
   );
 }
 
-export function AreaChart({ labels, series, height = 150, format }: CartesianProps) {
-  const width = 320;
+export function AreaChart({ labels, series, height = 150, width = 320, format }: CartesianProps) {
   const max = niceMax(series.flatMap((s) => s.values));
   return (
     <div>
@@ -175,8 +204,7 @@ export function AreaChart({ labels, series, height = 150, format }: CartesianPro
   );
 }
 
-export function BarChart({ labels, series, height = 150, format }: CartesianProps) {
-  const width = 320;
+export function BarChart({ labels, series, height = 150, width = 320, format }: CartesianProps) {
   const max = niceMax(series.flatMap((s) => s.values));
   const groups = labels.length || 1;
   const groupWidth = width / groups;
@@ -449,6 +477,173 @@ export function StackedBars({
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Columns with a smooth line overlaid — one series read as volume, the other as
+ * a trend through it.
+ *
+ * The combination is the point: the Import dashboard's monthly panel shows
+ * files opened as bars and files cleared as a line, so the gap between the two
+ * is visible at a glance. Two separate charts make the reader hold one shape in
+ * their head while looking at the other.
+ */
+export function ComboChart({
+  labels,
+  columns,
+  line,
+  height = 150,
+  width = 320,
+  format,
+}: {
+  labels: string[];
+  columns: Series;
+  line: Series;
+  height?: number;
+  /** See CartesianProps.width. */
+  width?: number;
+  format?: (v: number) => string;
+}) {
+  // Both series share one scale, or the line would imply a crossing that the
+  // numbers do not support.
+  const max = niceMax([...columns.values, ...line.values]);
+  const groups = labels.length || 1;
+  const groupWidth = width / groups;
+  const barWidth = Math.max(2, groupWidth * 0.5);
+  // The line's points sit at the COLUMN CENTRES, not at `plotPoints`' full-width
+  // spacing. plotPoints puts point i at i*width/(n-1) — first on the left edge,
+  // last on the right edge — while column i is centred at i*groupWidth +
+  // groupWidth/2. Those two only agree in the middle, so the line drifted
+  // further off the bars towards each end, and no constant offset can fix it
+  // because the error grows with i.
+  const pts = line.values.map((v, i) => ({
+    x: groupWidth * i + groupWidth / 2,
+    y: height - (Math.max(0, v) / max) * height,
+  }));
+
+  return (
+    <div>
+      <Plot height={height} width={width}>
+        <Grid max={max} width={width} height={height} />
+        {labels.map((l, i) => (
+          <text
+            key={`${l}-${i}`}
+            x={groupWidth * i + groupWidth / 2}
+            y={height + 14}
+            textAnchor="middle"
+            fontSize={9}
+            fill={AXIS_TEXT}
+            aria-hidden="true"
+          >
+            {l}
+          </text>
+        ))}
+        {columns.values.map((v, i) => {
+          const h = (Math.max(0, v) / max) * height;
+          return (
+            <rect
+              key={i}
+              x={groupWidth * i + groupWidth / 2 - barWidth / 2}
+              y={height - h}
+              width={barWidth}
+              height={h}
+              rx={2}
+              fill={chartColor(0)}
+            >
+              <title>{`${labels[i] ?? ''} — ${columns.label}: ${format ? format(v) : v}`}</title>
+            </rect>
+          );
+        })}
+        <path
+          d={smoothPath(pts)}
+          fill="none"
+          stroke={chartColor(1)}
+          strokeWidth={2}
+          strokeLinecap="round"
+        />
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={2.5} fill={chartColor(1)}>
+            <title>{`${labels[i] ?? ''} — ${line.label}: ${
+              format ? format(line.values[i]) : line.values[i]
+            }`}</title>
+          </circle>
+        ))}
+      </Plot>
+      <Legend
+        series={[
+          { label: columns.label, color: chartColor(0) },
+          { label: line.label, color: chartColor(1) },
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * Vertical stacked columns — each column's total is its height, split by series.
+ *
+ * `StackedBars` above is the horizontal reading, which suits a short ranked
+ * list. Over a run of months the columns are the readable form: the top edge is
+ * the month's total and the eye follows it as a trend.
+ */
+export function StackedColumnChart({
+  labels,
+  series,
+  height = 150,
+  width = 320,
+  format,
+}: CartesianProps) {
+  const totals = labels.map((_, i) => series.reduce((s, x) => s + Math.max(0, x.values[i] ?? 0), 0));
+  const max = niceMax(totals);
+  const groups = labels.length || 1;
+  const groupWidth = width / groups;
+  const barWidth = Math.max(2, groupWidth * 0.55);
+
+  return (
+    <div>
+      <Plot height={height} width={width}>
+        <Grid max={max} width={width} height={height} />
+        {labels.map((l, i) => (
+          <text
+            key={`${l}-${i}`}
+            x={groupWidth * i + groupWidth / 2}
+            y={height + 14}
+            textAnchor="middle"
+            fontSize={9}
+            fill={AXIS_TEXT}
+            aria-hidden="true"
+          >
+            {l}
+          </text>
+        ))}
+        {labels.map((_, i) => {
+          let cursor = height;
+          return (
+            <g key={i}>
+              {series.map((s, si) => {
+                const v = Math.max(0, s.values[i] ?? 0);
+                const h = (v / max) * height;
+                cursor -= h;
+                return (
+                  <rect
+                    key={si}
+                    x={groupWidth * i + groupWidth / 2 - barWidth / 2}
+                    y={cursor}
+                    width={barWidth}
+                    height={h}
+                    fill={chartColor(si)}
+                  >
+                    <title>{`${labels[i] ?? ''} — ${s.label}: ${format ? format(v) : v}`}</title>
+                  </rect>
+                );
+              })}
+            </g>
+          );
+        })}
+      </Plot>
+      <Legend series={series.map((s, i) => ({ label: s.label, color: chartColor(i) }))} />
     </div>
   );
 }

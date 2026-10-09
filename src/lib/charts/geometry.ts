@@ -182,3 +182,36 @@ export function funnelWidths(values: readonly number[], minWidth = 0.08): Funnel
     fraction: max <= 0 ? 0 : v / max,
   }));
 }
+
+/**
+ * The values to label a y axis with, from `max` down to zero.
+ *
+ * `niceMax` returns 1, 2 or 5 × 10ⁿ, and a fixed four divisions does not split
+ * all of those into whole numbers: max 5 gave 5, 3.75, 2.5, 1.25, 0, which the
+ * axis then ROUNDED to "5, 4, 3, 1, 0" — an axis that is not evenly spaced,
+ * skips 2, and is simply wrong. For a chart counting files it is also nonsense
+ * to label a gridline 3.75.
+ *
+ * So the division count is chosen to fit the bound rather than fixed: the first
+ * count that yields a whole-number step wins, and a half-step is accepted for
+ * very small bounds where nothing else divides.
+ */
+export function axisTicks(max: number, preferred = 4): number[] {
+  const build = (n: number): number[] =>
+    Array.from({ length: n + 1 }, (_, i) => max - (max / n) * i);
+
+  // Ordered by preference, not by size: 4 divisions suit most bounds, 5 rescues
+  // the 5×10ⁿ family that 4 cannot divide.
+  for (const n of [preferred, 5, 3, 2]) {
+    if (n > 0 && Number.isInteger(max / n)) return build(n);
+  }
+  for (const n of [preferred, 5, 2]) {
+    if (n > 0 && Number.isInteger((max / n) * 2)) return build(n);
+  }
+  return build(preferred);
+}
+
+/** An axis label: whole numbers plain, anything else to one decimal. */
+export function axisLabel(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}

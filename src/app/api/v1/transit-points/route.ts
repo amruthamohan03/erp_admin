@@ -9,7 +9,7 @@ import {
 } from '@/schemas';
 
 // Capability column lookup. The route receives `capability=entry_point`
-// (or one of the other 5) and filters to rows where that bool is true.
+// (or one of the other 6) and filters to rows where that bool is true.
 // This is what the imports/exports field renderer uses to populate a
 // transit-point picker scoped to its specific FK role.
 const CAPABILITY_COLUMNS = {
@@ -19,6 +19,7 @@ const CAPABILITY_COLUMNS = {
   destination: transitPointMaster.destination,
   warehouse: transitPointMaster.warehouse,
   location: transitPointMaster.location,
+  border_post: transitPointMaster.borderPost,
 } as const;
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -58,6 +59,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       destination: transitPointMaster.destination,
       warehouse: transitPointMaster.warehouse,
       location: transitPointMaster.location,
+      border_post: transitPointMaster.borderPost,
+      border_max_working_days: transitPointMaster.borderMaxWorkingDays,
       display: transitPointMaster.display,
       created_at: transitPointMaster.createdAt,
       updated_at: transitPointMaster.updatedAt,
@@ -88,6 +91,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       destination: data.destination,
       warehouse: data.warehouse,
       location: data.location,
+      borderPost: data.border_post,
+      borderMaxWorkingDays: data.border_max_working_days,
       createdBy: session.uid,
       updatedBy: session.uid,
     })
@@ -100,6 +105,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       destination: transitPointMaster.destination,
       warehouse: transitPointMaster.warehouse,
       location: transitPointMaster.location,
+      border_post: transitPointMaster.borderPost,
+      border_max_working_days: transitPointMaster.borderMaxWorkingDays,
       display: transitPointMaster.display,
       created_at: transitPointMaster.createdAt,
     });

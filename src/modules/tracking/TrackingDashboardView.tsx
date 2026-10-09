@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { gradient } from '@/components/ui/cardGradient';
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { TrackingDashboard } from '@/db/queries/trackingDashboard';
+// The tile, panel frame and proportion bar are shared with the Import
+// dashboard's analysis tabs (§4.10) — they used to be private to this file.
+import { Bar, Panel, Tile, nf, nf2 } from './dashboardPrimitives';
 
 // §4.29 — the Import and Export Tracking dashboards, from one component.
 //
@@ -47,75 +49,18 @@ export interface TrackingDashboardConfig {
   noun: string;
 }
 
-const nf = new Intl.NumberFormat('en-US');
-const nf2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-/** A labelled proportion bar. Width is the only thing that varies. */
-function Bar({ value, max, tone = 'primary' }: { value: number; max: number; tone?: 'primary' | 'warning' }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-      <div
-        className={
-          tone === 'warning'
-            ? 'h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500'
-            : 'h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500'
-        }
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-function Panel({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <section className="card p-4">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
 /**
- * A KPI tile. With `href` it is reachable — clicking filters the list to exactly
- * the rows it counted (§4.29). Without one it is a plain figure, because no list
- * filter expresses it and a link that narrowed to something else would lie.
+ * @param showHeader false when the caller already renders the title and actions —
+ *   the Import dashboard puts them above its tab strip, so repeating them inside
+ *   the Overview tab would print the same heading twice.
  */
-function Tile({
-  label,
-  value,
-  color,
-  icon,
-  href,
+export default function TrackingDashboardView({
+  config,
+  showHeader = true,
 }: {
-  label: string;
-  value: string | number;
-  color: string;
-  icon: React.ReactNode;
-  href?: string;
+  config: TrackingDashboardConfig;
+  showHeader?: boolean;
 }) {
-  const body = (
-    <>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-white/80">{label}</span>
-        <span className="text-white/70">{icon}</span>
-      </div>
-      <div className="mt-2 truncate text-2xl font-bold text-white" title={String(value)}>
-        {value}
-      </div>
-    </>
-  );
-  const className = `card bg-gradient-to-br ${gradient(color)} p-4`;
-  if (!href) return <div className={className}>{body}</div>;
-  return (
-    <Link href={href} className={`${className} transition-transform hover:scale-[1.02]`} title={`Show ${label.toLowerCase()}`}>
-      {body}
-    </Link>
-  );
-}
-
-export default function TrackingDashboardView({ config }: { config: TrackingDashboardConfig }) {
   const [data, setData] = useState<TrackingDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,17 +90,19 @@ export default function TrackingDashboardView({ config }: { config: TrackingDash
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-foreground">{config.title}</h1>
-        <div className="flex items-center gap-2">
-          <Link href={config.kpiHref} className="btn-neutral btn-sm">
-            <Gauge className="h-4 w-4" /> {config.kpiLabel}
-          </Link>
-          <Link href={config.listHref} className="btn-primary btn-sm">
-            <Files className="h-4 w-4" /> Open list
-          </Link>
+      {showHeader && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-bold text-foreground">{config.title}</h1>
+          <div className="flex items-center gap-2">
+            <Link href={config.kpiHref} className="btn-neutral btn-sm">
+              <Gauge className="h-4 w-4" /> {config.kpiLabel}
+            </Link>
+            <Link href={config.listHref} className="btn-primary btn-sm">
+              <Files className="h-4 w-4" /> Open list
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
