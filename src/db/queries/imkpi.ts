@@ -5,6 +5,9 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { STAGE_DEFS, CLIENT_STAGE_ALIASES, type StageDef } from '@/lib/imkpi/stages';
+// The stages are rows in delay_rule_stage_t now, so a renegotiated target is a
+// row edit; STAGE_DEFS is the fallback for an un-migrated database (§4.1).
+import { loadStageDefs } from './delayStages';
 import { makeWorkingDays, calendarDays, isValidDateStr } from '@/lib/imkpi/workingDays';
 
 export interface ImkpiFilters {
@@ -123,7 +126,8 @@ export async function getImkpiAggregate(f: ImkpiFilters): Promise<ImkpiAggregate
   const wd = makeWorkingDays(holidays);
   const today = todayISO();
 
-  const stageAcc = STAGE_DEFS.map((def) => ({
+  const stageDefs = await loadStageDefs('import', STAGE_DEFS);
+  const stageAcc = stageDefs.map((def) => ({
     def, total_records: 0, evaluated_count: 0, on_time_count: 0, delayed_count: 0, sum_days: 0,
   }));
 
@@ -268,7 +272,7 @@ export async function getStageRecords(
   f: ImkpiFilters,
   statusFilter: string,
 ): Promise<{ records: Record<string, unknown>[]; stage: string; threshold: number; today: string } | null> {
-  const def = STAGE_DEFS.find((d) => d.key === stageKey);
+  const def = (await loadStageDefs('import', STAGE_DEFS)).find((d) => d.key === stageKey);
   if (!def) return null;
   const holidays = await getHolidaySet();
   const wd = makeWorkingDays(holidays);

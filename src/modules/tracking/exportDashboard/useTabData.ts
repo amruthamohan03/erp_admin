@@ -6,7 +6,7 @@ import { buildExportHref, buildTabEndpoint } from '../dashboardEndpoints';
 // dashboard (`../dashboardEndpoints`); only the module name differs, and
 // binding it here keeps every call site free of it.
 
-export { useTabData } from '../useTabData';
+export { useTabData } from '@/lib/hooks/useFetchedData';
 
 export const tabEndpoint = (tab: string, params?: Record<string, string | undefined>): string =>
   buildTabEndpoint('exports', tab, params);

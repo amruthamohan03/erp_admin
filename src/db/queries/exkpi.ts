@@ -4,6 +4,9 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { STAGE_DEFS, CLIENT_STAGE_ALIASES } from '@/lib/exkpi/stages';
+// The stages are rows in delay_rule_stage_t now, so a renegotiated target is a
+// row edit; STAGE_DEFS is the fallback for an un-migrated database (§4.1).
+import { loadStageDefs } from './delayStages';
 import type { StageDef } from '@/lib/imkpi/stages';
 import { makeWorkingDays, calendarDays, isValidDateStr } from '@/lib/imkpi/workingDays';
 import { getHolidaySet } from '@/db/queries/imkpi';
@@ -68,7 +71,8 @@ export async function getExkpiAggregate(f: ExkpiFilters): Promise<ImkpiAggregate
   const wd = makeWorkingDays(holidays);
   const today = todayISO();
 
-  const stageAcc = STAGE_DEFS.map((def) => ({
+  const stageDefs = await loadStageDefs('export', STAGE_DEFS);
+  const stageAcc = stageDefs.map((def) => ({
     def, total_records: 0, evaluated_count: 0, on_time_count: 0, delayed_count: 0, sum_days: 0,
   }));
 
@@ -208,7 +212,9 @@ export async function getStageRecords(
   f: ExkpiFilters,
   statusFilter: string,
 ): Promise<{ records: Record<string, unknown>[]; stage: string; threshold: number; today: string } | null> {
-  const def: StageDef | undefined = STAGE_DEFS.find((d) => d.key === stageKey);
+  const def: StageDef | undefined = (await loadStageDefs('export', STAGE_DEFS)).find(
+    (d) => d.key === stageKey,
+  );
   if (!def) return null;
   const holidays = await getHolidaySet();
   const wd = makeWorkingDays(holidays);

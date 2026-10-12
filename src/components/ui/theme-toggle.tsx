@@ -1,20 +1,23 @@
 'use client';
 
 import * as React from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import Toggle from '@/components/ui/Toggle';
 import { savePreferences } from '@/lib/preferences';
 
-// Light / dark, as one pill in the Topbar with the current mode inside it.
+// Light / dark, as a round icon button in the Topbar.
 //
-// It was a dropdown, which is two clicks and a menu for a setting with exactly
-// two states — and §4.11 is explicit that a boolean setting is a <Toggle>. The
-// word sits in the track so the state reads at rest; a bare switch with no
-// label makes an operator work out which way is on.
+// §4.11 makes `<Toggle>` the control for a boolean setting, and this is the
+// one deliberate exception: appearance is chrome rather than a field on a
+// record, and a 36px circle beside the avatar is what was asked for. The
+// SUBSTANCE of the rule is kept — the button still carries `role="switch"`
+// and `aria-checked`, so to a screen reader and to the keyboard it is the same
+// control as every other switch in the app, just drawn as a glyph. Do not copy
+// this shape for a setting inside a form; that is a `<Toggle>`.
 //
-// Radix gives the keyboard and ARIA behaviour through the shared Toggle, so
-// this file only decides what the switch means and how it reads on the brand
-// gradient (§4.11 — there is exactly one toggle component; do not add another).
+// The icon shows the ACTION, not the state: a moon on a light page means
+// "switch to dark". That is the common convention and the one the reference
+// followed, and the title spells it out for anyone who reads it the other way.
 
 export function ThemeToggle(): React.ReactElement {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -22,7 +25,7 @@ export function ThemeToggle(): React.ReactElement {
 
   // next-themes hydration guard — see "Avoid Hydration Mismatch" in their docs.
   // Until mount the server and the browser disagree about the theme, so the
-  // pill renders in a fixed state rather than flipping after hydration.
+  // button renders in a fixed state rather than flipping after hydration.
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
@@ -40,13 +43,12 @@ export function ThemeToggle(): React.ReactElement {
   }
 
   return (
-    <Toggle
-      size="sm"
-      checked={isDark}
-      onChange={apply}
-      offLabel="Light"
-      onLabel="Dark"
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
       aria-label="Dark appearance"
+      onClick={() => apply(!isDark)}
       title={
         followingSystem
           ? `Following your device, currently ${isDark ? 'dark' : 'light'}. Switching here chooses for yourself.`
@@ -54,14 +56,15 @@ export function ThemeToggle(): React.ReactElement {
             ? 'Dark appearance — switch to light'
             : 'Light appearance — switch to dark'
       }
-      // The same treatment as the language pill beside it — see the note there
-      // on why `primary` cannot be the track colour on the brand gradient.
-      className={
-        isDark
-          ? 'text-primary-700 data-[state=checked]:bg-white'
-          : 'text-white data-[state=unchecked]:bg-white/20'
-      }
-      thumbClassName={isDark ? 'bg-primary-600 ring-0' : 'bg-white'}
-    />
+      // Glass on the brand gradient, which §4.32 allows precisely here: the
+      // surface underneath is a known colour, so white-on-translucent has
+      // fixed contrast in both themes without a `dark:` twin.
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-0"
+    >
+      {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+      {/* The switch is named by aria-label; this gives its STATE to a reader,
+          which an icon alone cannot. */}
+      <span className="sr-only">{isDark ? 'Dark' : 'Light'}</span>
+    </button>
   );
 }
