@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Boxes, FileCheck, FileSpreadsheet, FileText, Send, Truck, Users, Wallet } from 'lucide-react';
-import RecentActivity from '@/components/dashboard/RecentActivity';
-import InboxPanel from '@/components/dashboard/InboxPanel';
 import { AreaChart, BarChart } from '@/components/charts/Charts';
 import {
   FunnelChart,
@@ -307,8 +305,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <InboxPanel />
-      <RecentActivity />
     </div>
   );
 }

@@ -1,20 +1,11 @@
 'use client';
 
-import TrackingDashboardView, {
-  type TrackingDashboardConfig,
-} from '@/modules/tracking/TrackingDashboardView';
+import ExportDashboardView from '@/modules/tracking/exportDashboard/ExportDashboardView';
 
-// §4.29 — Export Tracking dashboard. Mirrors the import one.
-const CONFIG: TrackingDashboardConfig = {
-  title: 'Export Tracking Dashboard',
-  endpoint: '/api/v1/exports/dashboard',
-  listHref: '/exports',
-  kpiHref: '/exkpi',
-  kpiLabel: 'Delay KPI',
-  anchorLabel: 'Loading Date',
-  noun: 'export files',
-};
+// §4.29 — Export Tracking dashboard. Everything but the route lives in the
+// module: five tabs over `exports_t`, sharing the UI kit, the fetch hook and
+// the chart components with the Import dashboard.
 
 export default function ExportDashboardPage() {
-  return <TrackingDashboardView config={CONFIG} />;
+  return <ExportDashboardView />;
 }

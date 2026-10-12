@@ -31,6 +31,8 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
       destination: transitPointMaster.destination,
       warehouse: transitPointMaster.warehouse,
       location: transitPointMaster.location,
+      border_post: transitPointMaster.borderPost,
+      border_max_working_days: transitPointMaster.borderMaxWorkingDays,
       display: transitPointMaster.display,
       created_at: transitPointMaster.createdAt,
       updated_at: transitPointMaster.updatedAt,
@@ -64,6 +66,9 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   if (data.destination !== undefined) patch.destination = data.destination;
   if (data.warehouse !== undefined) patch.warehouse = data.warehouse;
   if (data.location !== undefined) patch.location = data.location;
+  if (data.border_post !== undefined) patch.borderPost = data.border_post;
+  if (data.border_max_working_days !== undefined)
+    patch.borderMaxWorkingDays = data.border_max_working_days;
   if (data.display !== undefined) patch.display = data.display;
   if (Object.keys(patch).length === 0) {
     throw new BadRequestError('Nothing to update');

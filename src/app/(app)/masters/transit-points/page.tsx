@@ -18,6 +18,8 @@ interface TransitPointRow {
   destination: boolean;
   warehouse: boolean;
   location: boolean;
+  border_post: boolean;
+  border_max_working_days: number;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -29,7 +31,8 @@ type FlagKey =
   | 'loading'
   | 'destination'
   | 'warehouse'
-  | 'location';
+  | 'location'
+  | 'border_post';
 
 const FLAGS: {
   key: FlagKey;
@@ -43,6 +46,9 @@ const FLAGS: {
   { key: 'destination', label: 'Destination', short: 'DEST', badgeClass: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' },
   { key: 'warehouse', label: 'Warehouse', short: 'WH', badgeClass: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300' },
   { key: 'location', label: 'Location', short: 'LOC', badgeClass: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300' },
+  // Drives the Import dashboard's border overstay rule (§4.1) — which posts it
+  // applies at is configuration, not three ids buried in a query.
+  { key: 'border_post', label: 'Border Post', short: 'BORDER', badgeClass: 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300' },
 ];
 
 export default function TransitPointsPage() {
@@ -196,7 +202,13 @@ function TransitPointFormModal({
     destination: point?.destination ?? true,
     warehouse: point?.warehouse ?? false,
     location: point?.location ?? false,
+    border_post: point?.border_post ?? false,
   }));
+  // The overstay allowance for this post. Only meaningful while border_post is
+  // on, so the input is revealed with the flag rather than always present.
+  const [borderDays, setBorderDays] = useState<string>(
+    String(point?.border_max_working_days ?? 3),
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -223,6 +235,7 @@ function TransitPointFormModal({
     const payload = {
       transit_point_name: name,
       ...flags,
+      border_max_working_days: Number(borderDays) || 0,
     };
 
     try {
@@ -290,6 +303,28 @@ function TransitPointFormModal({
               ))}
             </div>
           </div>
+          {flags.border_post && (
+            <div>
+              <label className="label required" htmlFor="border-days">
+                Border Allowance (Working Days)
+              </label>
+              <input
+                id="border-days"
+                type="number"
+                className="input"
+                value={borderDays}
+                onChange={(e) => setBorderDays(e.target.value)}
+                min={0}
+                max={365}
+                required
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Working days allowed between DRC Entry and Dispatch from Border
+                before a file counts as delayed. Saturdays, Sundays and DRC
+                holidays are excluded.
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
