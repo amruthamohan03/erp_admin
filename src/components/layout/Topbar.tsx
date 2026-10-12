@@ -113,8 +113,11 @@ export default function Topbar() {
           (white) pill invisible — in both cases undoing the state the control
           exists to show. */}
       <div className="flex shrink-0 items-center gap-1 [&_button:not([role=switch])]:text-white [&_button:not([role=switch]):hover]:bg-white/15 [&_button:not([role=switch]):hover]:text-white">
-        {/* The two switches sit together and apart from the icon buttons — they
-            are settings, the rest are actions. */}
+        {/* The two switches sit together and apart from the icon buttons —
+            they are settings, the rest are actions. The theme one is drawn as
+            a round glyph rather than a labelled pill (see theme-toggle.tsx);
+            it still reports itself as a switch, which is why the colour rules
+            on this wrapper exclude [role=switch]. */}
         <div className="mr-1 flex items-center gap-2 border-r border-white/20 pr-3">
           <LanguageSwitcher />
           <ThemeToggle />

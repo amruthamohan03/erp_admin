@@ -100,3 +100,4 @@ export * from './clearingBasisMaster';
 export * from './notifications';
 export * from './dataImport';
 export * from './paymentRecollection';
+export * from './delayRuleMaster';

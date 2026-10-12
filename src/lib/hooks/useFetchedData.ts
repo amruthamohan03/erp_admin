@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { safeFetchJson } from '@/lib/safeFetch';
 
-// One fetch-per-tab hook, shared by every tracking dashboard's analysis tabs.
+// One GET-and-render hook, shared by the tracking dashboards' tabs and by any
+// screen that loads a single endpoint.
 //
 // Each tab is loaded the first time it is opened, not on page load: the
 // Briefing table reads every cleared file and the Reports tab runs 28
@@ -11,7 +12,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 // pay for either. Seven copies of this `useEffect` is how one of them ends up
 // without the cancellation guard.
 
-export interface TabState<T> {
+export interface FetchedData<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
@@ -30,7 +31,7 @@ export interface TabState<T> {
  * flight. For the Reports tab, whose url changes when its filters are applied,
  * that means the counts dim rather than vanishing and reappearing.
  */
-export function useTabData<T>(url: string | null): TabState<T> {
+export function useFetchedData<T>(url: string | null): FetchedData<T> {
   const [nonce, setNonce] = useState(0);
   const [settled, setSettled] = useState<{
     key: string | null;
@@ -66,3 +67,6 @@ export function useTabData<T>(url: string | null): TabState<T> {
     reload: () => setNonce((n) => n + 1),
   };
 }
+
+/** The tracking dashboards call it by its original name. */
+export { useFetchedData as useTabData };
