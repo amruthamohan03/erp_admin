@@ -170,10 +170,36 @@ describe('buildSequencePattern', () => {
     expect(re.test('ID-0009-ABC')).toBe(false);
   });
 
-  it('rejects the wrong number of digits, so 0001 and 00001 are not the same series', () => {
+  // The width is a PADDING, not a cap: `padStart` cannot truncate, so the
+  // 10000th reference of a width-4 series renders as five digits. A pattern
+  // that insisted on exactly four stopped seeing them, MAX() fell back below
+  // them, and the generator reissued the same number for ever.
+  it('still finds a sequence that has outgrown its padding', () => {
     const re = new RegExp(buildSequencePattern(MCA_REF_DEFAULTS.import, TOKENS)!.pattern);
-    expect(re.test('NMI-IDCOR26-00001')).toBe(false);
+    expect('NMI-IDCOR26-10000'.match(re)![1]).toBe('10000');
+    expect('NMI-IDCOR26-000123'.match(re)![1]).toBe('000123');
+  });
+
+  // Fewer digits than the padding is a narrower series, and one this format
+  // could never have produced — so it stays out of the count.
+  it('rejects a number shorter than the padding', () => {
+    const re = new RegExp(buildSequencePattern(MCA_REF_DEFAULTS.import, TOKENS)!.pattern);
     expect(re.test('NMI-IDCOR26-001')).toBe(false);
+    expect(re.test('NMI-IDCOR26-1')).toBe(false);
+  });
+
+  // The capture is greedy, so a digit-bearing segment AFTER it has to be the
+  // thing that stops it — otherwise the counter reads the year as part of the
+  // number and every reference in the scope counts as a different one.
+  it('does not let the greedy capture swallow a following segment', () => {
+    const segments: McaRefSegment[] = [
+      { type: 'client' },
+      { type: 'sequence', separator: '-', width: 4 },
+      { type: 'year', separator: '', digits: 2 },
+    ];
+    const re = new RegExp(buildSequencePattern(segments, TOKENS)!.pattern);
+    expect('NMI-001726'.match(re)![1]).toBe('0017');
+    expect(re.test('NMI-001727')).toBe(false); // another year → out of scope
   });
 
   it('escapes a separator that is a regex metacharacter', () => {

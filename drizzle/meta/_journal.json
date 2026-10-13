@@ -967,6 +967,27 @@
       "when": 1792400000000,
       "tag": "0136_delay_tracker",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1792500000000,
+      "tag": "0137_reference_sequence_width",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1792600000000,
+      "tag": "0138_import_license_dashboard_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1792700000000,
+      "tag": "0139_import_combined_field_width",
+      "breakpoints": true
     }
   ]
 }

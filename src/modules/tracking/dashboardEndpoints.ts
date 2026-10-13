@@ -1,11 +1,11 @@
-// The two URL shapes every tracking dashboard uses.
+// The two URL shapes every dashboard uses.
 //
-// Both the Import and the Export dashboard expose the same pair of endpoints —
+// The Import, Export and Licence dashboards expose the same pair of endpoints —
 // one per-tab data route and one export route — differing only in the module
 // segment. Each dashboard binds its own module in a two-line module file, so no
-// call site carries the name and the two can never drift apart (§4.10).
+// call site carries the name and the three can never drift apart (§4.10).
 
-export type TrackingModule = 'imports' | 'exports';
+export type TrackingModule = 'imports' | 'exports' | 'licenses';
 
 /** The tab data endpoint for one tab key. */
 export function buildTabEndpoint(

@@ -374,7 +374,15 @@ export function buildSequencePattern(
     if (i > 0) pattern += escapeRe(separatorOf(seg));
     if (seg.type === 'sequence') {
       // Exactly one capture group, so `substring(col from pattern)` yields the number.
-      pattern += `([0-9]{${width}})`;
+      //
+      // `{width,}` — AT LEAST the configured width, never exactly it. `padStart`
+      // pads but cannot truncate, so a sequence that has outgrown its padding
+      // still renders: the 10000th reference at width 4, or every reference
+      // already issued if the width is later narrowed. An exact-width pattern
+      // stops seeing those, MAX() drops back below them, and the generator
+      // reissues the same number for ever. Everything around the capture is
+      // anchored literal text, so a greedy match cannot run past the digits.
+      pattern += `([0-9]{${width},})`;
       continue;
     }
     const text = renderSegment(seg, tokens);

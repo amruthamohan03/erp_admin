@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Plus,
   Edit2,
@@ -144,6 +145,30 @@ function statKeyFor(card: DashboardCard): string {
 
 
 
+/**
+ * Filters carried in by a link, e.g. the dashboard's "View All Licenses".
+ *
+ * Without this the link opened the UNFILTERED list — a control that claims to
+ * narrow and does not, which is the defect §4.25.1 names. Only the four keys
+ * this screen already filters by are honoured; anything else in the query
+ * string is ignored rather than guessed at.
+ */
+function filtersFromUrl(search: string): FilterState {
+  const q = new URLSearchParams(search);
+  const pick = (k: keyof FilterState): string => {
+    const v = q.get(k) ?? '';
+    // An id, or nothing. A non-numeric value would render as a select with no
+    // matching option and silently narrow the list to zero rows.
+    return /^\d+$/u.test(v) ? v : '';
+  };
+  return {
+    client_id: pick('client_id'),
+    transport_mode_id: pick('transport_mode_id'),
+    kind_id: pick('kind_id'),
+    bank_id: pick('bank_id'),
+  };
+}
+
 function buildParams(f: FilterState, useFor: string): URLSearchParams {
   const p = new URLSearchParams();
   // Every request this screen makes carries its direction, so the grid, the
@@ -169,8 +194,12 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
   const [kindOpts, setKindOpts] = useState<Option[]>([]);
   const [bankOpts, setBankOpts] = useState<Option[]>([]);
 
-  const [draft, setDraft] = useState<FilterState>(EMPTY_FILTERS);
-  const [applied, setApplied] = useState<FilterState>(EMPTY_FILTERS);
+  // Seeded from the query string, so a link may arrive pre-filtered. Read in
+  // the initialiser rather than an effect: an effect would fetch the whole
+  // list once and then refetch the filtered one.
+  const initialFilters = useSearchParams().toString();
+  const [draft, setDraft] = useState<FilterState>(() => filtersFromUrl(initialFilters));
+  const [applied, setApplied] = useState<FilterState>(() => filtersFromUrl(initialFilters));
   const [activeCard, setActiveCard] = useState<string>('all');
 
   const [cards, setCards] = useState<DashboardCard[]>([]);
