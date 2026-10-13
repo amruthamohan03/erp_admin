@@ -65,12 +65,7 @@ function LoginForm() {
               )}
             </span>
 
-            <span
-              className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground"
-              title={branding.project_name}
-            >
-              {branding.project_name}
-            </span>
+            
           </div>
 
           <h2 className="text-2xl font-bold tracking-tight text-foreground">

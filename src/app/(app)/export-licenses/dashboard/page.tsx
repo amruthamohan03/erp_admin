@@ -1,18 +1,19 @@
 'use client';
 
-import LicenseDashboardView, {
+import LicenseDashboardTabsView, {
   type LicenseDashboardConfig,
-} from '@/modules/licenses/LicenseDashboardView';
+} from '@/modules/licenses/licenseDashboard/LicenseDashboardTabsView';
 
 // §4.29 — Export Licence dashboard. Every figure is scoped to kinds flagged
 // `use_for_export`, server-side.
 const CONFIG: LicenseDashboardConfig = {
   useFor: 'export',
   heading: 'Export Licence Dashboard',
+  subtitle: 'Comprehensive license analytics and insights',
   basePath: '/export-licenses',
-  listLabel: 'Open the export licence list',
+  listLabel: 'Licences',
 };
 
 export default function ExportLicenseDashboardPage() {
-  return <LicenseDashboardView config={CONFIG} />;
+  return <LicenseDashboardTabsView config={CONFIG} />;
 }

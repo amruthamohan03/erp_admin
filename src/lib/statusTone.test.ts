@@ -42,6 +42,17 @@ describe('statusTone', () => {
     expect(statusTone('INACTIVE')).toBe('slate');
   });
 
+  // The Licence dashboard's expiry bands. A licence about to lapse is
+  // waiting on somebody to renew it, not stopped — so it is amber, and only
+  // the one that already lapsed is red.
+  it('reads the expiry bands', () => {
+    expect(statusTone('Valid')).toBe('emerald');
+    expect(statusTone('Expiring in 7 Days')).toBe('amber');
+    expect(statusTone('Expiring in 30 Days')).toBe('amber');
+    expect(statusTone('Expired')).toBe('rose');
+    expect(statusTone('No Expiry Date')).toBe('slate');
+  });
+
   it('is neutral for text it does not know, and for nothing', () => {
     expect(statusTone('TRUCK AT KASUMBALESA')).toBe('slate');
     expect(statusTone('')).toBe('slate');

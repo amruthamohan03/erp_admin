@@ -342,6 +342,118 @@ export function DonutChart({
   );
 }
 
+export interface RadialTrack {
+  label: string;
+  /** The part. The gauge works out the share itself. */
+  value: number;
+  /** Overrides the series colour — used where the track carries a MEANING. */
+  color?: string;
+}
+
+/**
+ * Concentric rings, one per track, each showing its share of the same whole.
+ *
+ * Not a donut: a donut's slices are parts of one total and must sum to it,
+ * whereas these are independent shares of a common denominator — the licence
+ * book is 20% expiring AND 60% valid, and those overlap. A donut forced to
+ * carry that reads as a breakdown that does not add up.
+ *
+ * `total` is the denominator and is printed in the middle, so the rings answer
+ * "what proportion" while the centre answers "of how many".
+ */
+export function RadialGauge({
+  tracks,
+  total,
+  size = 200,
+  thickness = 14,
+  gap = 6,
+  format,
+}: {
+  tracks: RadialTrack[];
+  total: number;
+  size?: number;
+  thickness?: number;
+  /** Space between rings, so adjacent shares stay separable. */
+  gap?: number;
+  format?: (v: number) => string;
+}) {
+  const denominator = total > 0 ? total : 1;
+
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" className="shrink-0">
+        {tracks.map((t, i) => {
+          const radius = (size - thickness) / 2 - i * (thickness + gap);
+          if (radius <= thickness) return null;
+          const circumference = 2 * Math.PI * radius;
+          // Clamped, because a share over 100% would wrap the ring and read as
+          // a smaller number than it is.
+          const share = Math.min(Math.max(t.value, 0) / denominator, 1);
+          return (
+            <g key={t.label}>
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={GRID}
+                strokeWidth={thickness}
+              />
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={t.color ?? chartColor(i)}
+                strokeWidth={thickness}
+                strokeLinecap="round"
+                strokeDasharray={`${circumference * share} ${circumference}`}
+                // Starts at twelve o'clock, like the donut.
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              >
+                <title>{`${t.label}: ${format ? format(t.value) : t.value} (${Math.round(share * 100)}%)`}</title>
+              </circle>
+            </g>
+          );
+        })}
+        <text
+          x={size / 2}
+          y={size / 2 - 2}
+          textAnchor="middle"
+          className="fill-foreground"
+          fontSize={18}
+          fontWeight={700}
+        >
+          {format ? format(total) : total}
+        </text>
+        <text x={size / 2} y={size / 2 + 14} textAnchor="middle" fontSize={9} fill={AXIS_TEXT}>
+          total
+        </text>
+      </svg>
+      <ul className="min-w-0 flex-1 space-y-1 text-xs">
+        {tracks.map((t, i) => (
+          <li key={t.label} className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <span
+                className="h-2 w-2 shrink-0 rounded-sm"
+                style={{ background: t.color ?? chartColor(i) }}
+              />
+              <span className="truncate" title={t.label}>{t.label}</span>
+            </span>
+            <span className="shrink-0 font-semibold text-foreground">
+              {format ? format(t.value) : t.value}
+              <span className="ml-1.5 font-normal text-muted-foreground">
+                {Math.round((Math.min(Math.max(t.value, 0) / denominator, 1)) * 100)}%
+              </span>
+            </span>
+          </li>
+        ))}
+        {tracks.length === 0 && <li className="text-muted-foreground">Nothing to chart yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
 export interface HBarItem {
   label: string;
   value: number;

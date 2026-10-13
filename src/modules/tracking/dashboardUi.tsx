@@ -96,6 +96,8 @@ export function KpiCard({
   href,
   sub,
   footer,
+  onClick,
+  active,
 }: {
   value: string | number;
   label: string;
@@ -105,6 +107,13 @@ export function KpiCard({
   sub?: string;
   /** A row of breakdown figures under the label, on the same surface. */
   footer?: ReactNode;
+  /**
+   * Makes the card a CONTROL rather than a link — the Licence dashboard's
+   * cards narrow the table beneath them instead of navigating to it.
+   */
+  onClick?: () => void;
+  /** Marks the card whose filter is currently applied. */
+  active?: boolean;
 }) {
   const body = (
     <>
@@ -128,6 +137,28 @@ export function KpiCard({
   const cls = `relative flex h-full flex-col justify-center overflow-hidden rounded-lg bg-gradient-to-br ${fill(
     color,
   )} p-4 shadow-sm transition-transform`;
+  if (onClick) {
+    // A white ring rather than a different fill: the card keeps its own hue —
+    // which is how an operator recognises it — and gains an outline saying it
+    // is the one doing the filtering.
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        title={
+          active
+            ? `Showing ${label.toLowerCase()} — click again to clear`
+            : `Show only ${label.toLowerCase()}`
+        }
+        className={`${cls} w-full text-left hover:-translate-y-1.5 hover:shadow-lg ${
+          active ? 'ring-2 ring-white ring-offset-2 ring-offset-background' : ''
+        }`}
+      >
+        {body}
+      </button>
+    );
+  }
   return href ? (
     <Link href={href} className={`${cls} block hover:-translate-y-1.5 hover:shadow-lg`} title={`Show ${label.toLowerCase()}`}>
       {body}
