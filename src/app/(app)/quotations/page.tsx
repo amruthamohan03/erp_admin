@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Boxes, CalendarClock, Copy, FileSpreadsheet, FileText, Layers, Plus, Send } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Boxes, CalendarClock, Copy, FileSpreadsheet, FileText, Layers, Plus, Send, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
@@ -62,12 +63,30 @@ const money = (v: string | null): string =>
     maximumFractionDigits: 2,
   });
 
+/**
+ * A client carried in by a link, e.g. the dashboard's "View All Quotations".
+ *
+ * The endpoint has always accepted `client_id`; this screen simply never passed
+ * it on, so such a link opened the UNFILTERED list — a control that claims to
+ * narrow and does not (§4.25.1). An id, or nothing: a non-numeric value would
+ * silently narrow the list to zero rows.
+ */
+function clientIdFromUrl(search: string): string {
+  const v = new URLSearchParams(search).get('client_id') ?? '';
+  return /^\d+$/u.test(v) ? v : '';
+}
+
 export default function QuotationsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [activeCard, setActiveCard] = useState('all');
+
+  // Read in the initialiser rather than an effect: an effect would fetch the
+  // whole list once and then refetch the filtered one.
+  const initialSearch = useSearchParams().toString();
+  const [clientId, setClientId] = useState(() => clientIdFromUrl(initialSearch));
 
   const [viewId, setViewId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
@@ -78,6 +97,7 @@ export default function QuotationsPage() {
     try {
       const params = new URLSearchParams();
       if (activeCard !== 'all') params.set('card', activeCard);
+      if (clientId) params.set('client_id', clientId);
       const res = await safeFetchJson<Row[]>(`/api/v1/quotations?${params}`);
       if (!res.ok) {
         setResult({ status: 'error', title: 'Not loaded', message: res.message });
@@ -87,7 +107,7 @@ export default function QuotationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeCard]);
+  }, [activeCard, clientId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
@@ -161,6 +181,20 @@ export default function QuotationsPage() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* A list narrowed by a link has to say so, and offer a way out — a
+          filter whose reason is off screen is a table that looks broken. */}
+      {clientId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm dark:border-sky-500/30 dark:bg-sky-500/10">
+          <span className="font-medium text-sky-800 dark:text-sky-300">
+            Showing one client&rsquo;s quotations
+            {rows[0]?.client_name ? ` — ${rows[0].client_name}` : ''}
+          </span>
+          <button type="button" onClick={() => setClientId('')} className="btn-secondary btn-sm">
+            <X className="h-4 w-4" /> Show all clients
+          </button>
         </div>
       )}
 

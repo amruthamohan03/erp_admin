@@ -282,6 +282,7 @@ const CHILDREN: ChildSpec[] = [
   },
 
   // ── Quotation Management (original menu_id=67) ──────────────────
+  { parent: 'Quotation Management', name: 'Quotation Dashboard', order: 44, url: '/quotations/dashboard' },
   { parent: 'Quotation Management', name: 'Invoice Quotation', order: 45, url: '/quotations' },
 
   // ── Invoice Management (original menu_id=68) ────────────────────
