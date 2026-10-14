@@ -988,6 +988,13 @@
       "when": 1792700000000,
       "tag": "0139_import_combined_field_width",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1792800000000,
+      "tag": "0140_quotation_dashboard_menu",
+      "breakpoints": true
     }
   ]
 }

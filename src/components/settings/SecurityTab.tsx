@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function SecurityTab() {
-  const [current, setCurrent] = React.useState('');
   const [next, setNext] = React.useState('');
   const [confirm, setConfirm] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -31,12 +30,11 @@ export default function SecurityTab() {
       const r = await fetch('/api/v1/me/password', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: current, new_password: next }),
+        body: JSON.stringify({ new_password: next }),
       });
       const j = await r.json();
       if (j.ok) {
         setMessage({ kind: 'ok', text: 'Password updated.' });
-        setCurrent('');
         setNext('');
         setConfirm('');
       } else {
@@ -55,16 +53,6 @@ export default function SecurityTab() {
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4 max-w-md">
-          <div className="space-y-1.5">
-            <Label htmlFor="current_password">Current password</Label>
-            <Input
-              id="current_password"
-              type="password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="new_password">New password</Label>
             <Input

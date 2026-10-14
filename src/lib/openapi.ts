@@ -618,7 +618,7 @@ function buildRegistry(): OpenAPIRegistry {
   registry.registerPath({
     method: 'put',
     path: '/me/password',
-    summary: 'Change own password (verifies current_password first)',
+    summary: 'Change own password (the session is the proof of identity)',
     tags: ['me'],
     request: {
       body: {
@@ -628,7 +628,7 @@ function buildRegistry(): OpenAPIRegistry {
     },
     responses: {
       200: jsonOk('Password updated', z.object({ updated: z.literal(true) })),
-      401: jsonError('Unauthorized / current password incorrect'),
+      401: jsonError('Unauthorized'),
       404: jsonError('User not found'),
       422: jsonError('Invalid input'),
     },

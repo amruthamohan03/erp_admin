@@ -114,10 +114,6 @@
       "PasswordChangeInput": {
         "type": "object",
         "properties": {
-          "current_password": {
-            "type": "string",
-            "minLength": 1
-          },
           "new_password": {
             "type": "string",
             "minLength": 6,
@@ -125,7 +121,6 @@
           }
         },
         "required": [
-          "current_password",
           "new_password"
         ]
       },
@@ -7723,7 +7718,7 @@
     },
     "/me/password": {
       "put": {
-        "summary": "Change own password (verifies current_password first)",
+        "summary": "Change own password (the session is the proof of identity)",
         "tags": [
           "me"
         ],
@@ -7734,10 +7729,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "current_password": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "new_password": {
                     "type": "string",
                     "minLength": 6,
@@ -7745,7 +7736,6 @@
                   }
                 },
                 "required": [
-                  "current_password",
                   "new_password"
                 ]
               }
@@ -7796,7 +7786,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized / current password incorrect",
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {

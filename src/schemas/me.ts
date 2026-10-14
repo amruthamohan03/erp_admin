@@ -1,8 +1,15 @@
 import { z } from 'zod';
 
+// Changing your own password takes the new password alone — the session is the
+// proof of identity. "Confirm new password" is a typo guard on the form and
+// never reaches the server: it carries no information the server does not
+// already have, and accepting it would mean a second place to disagree about
+// what the password is.
 export const passwordChangeSchema = z.object({
-  current_password: z.string().min(1),
-  new_password: z.string().min(6).max(100),
+  new_password: z
+    .string()
+    .min(6, 'New password must be at least 6 characters.')
+    .max(100, 'New password must be 100 characters or fewer.'),
 });
 export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;
 
