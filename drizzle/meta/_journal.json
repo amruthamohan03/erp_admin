@@ -995,6 +995,13 @@
       "when": 1792800000000,
       "tag": "0140_quotation_dashboard_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1792900000000,
+      "tag": "0141_payment_subtype_by_method",
+      "breakpoints": true
     }
   ]
 }

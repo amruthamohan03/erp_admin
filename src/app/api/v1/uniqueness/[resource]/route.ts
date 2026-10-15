@@ -326,14 +326,14 @@ const RESOURCES: Record<string, ResourceConfig> = {
     displayColumn: paymentTypeMaster.display,
   },
   'payment-subtypes': {
-    // Scoped: subtype name only needs to be unique within the
-    // parent payment_type_id (e.g. "SWIFT" can exist under both
-    // "Bank transfer" and a hypothetical "International wire").
+    // Scoped: subtype name only needs to be unique within its parent
+    // Payment Method (0141) — "SWIFT" can exist under both "Bank
+    // transfer" and "Letter of credit".
     table: paymentSubtypeMaster,
     nameColumn: paymentSubtypeMaster.paymentSubtype,
     idColumn: paymentSubtypeMaster.id,
     displayColumn: paymentSubtypeMaster.display,
-    scopeColumn: paymentSubtypeMaster.paymentTypeId,
+    scopeColumn: paymentSubtypeMaster.paymentMethodId,
   },
   // The three masters added for the client / license / import corrections.
   'payment-methods': {
