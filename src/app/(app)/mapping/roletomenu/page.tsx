@@ -164,13 +164,11 @@ export default function RoleToMenuPage() {
     try {
       const payload = {
         role_id: Number(roleId),
+        // Every flag the matrix shows, from the same list — a flag left out here
+        // is defaulted to false by the PUT schema and silently revoked on save.
         mappings: rows.map((r) => ({
           menu_id: r.menu_id,
-          can_view: r.can_view,
-          can_add: r.can_add,
-          can_edit: r.can_edit,
-          can_delete: r.can_delete,
-          can_approve: r.can_approve,
+          ...Object.fromEntries(PERM_COLUMNS.map((c) => [c.key, r[c.key]])),
         })),
       };
       const res = await fetch('/api/v1/role-menu-mapping', {

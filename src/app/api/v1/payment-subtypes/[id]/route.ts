@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
+  paymentMethodMaster,
   paymentSubtypeMaster,
   paymentTypeMaster,
   type PaymentSubtypeMasterInsert,
@@ -27,6 +28,8 @@ export const GET = withErrorHandler(
       .select({
         id: paymentSubtypeMaster.id,
         payment_subtype: paymentSubtypeMaster.paymentSubtype,
+        payment_method_id: paymentSubtypeMaster.paymentMethodId,
+        payment_method_name: paymentMethodMaster.paymentMethodName,
         payment_type_id: paymentSubtypeMaster.paymentTypeId,
         payment_type_name: paymentTypeMaster.paymentTypeName,
         display: paymentSubtypeMaster.display,
@@ -34,6 +37,10 @@ export const GET = withErrorHandler(
         updated_at: paymentSubtypeMaster.updatedAt,
       })
       .from(paymentSubtypeMaster)
+      .leftJoin(
+        paymentMethodMaster,
+        eq(paymentMethodMaster.id, paymentSubtypeMaster.paymentMethodId),
+      )
       .leftJoin(
         paymentTypeMaster,
         eq(paymentTypeMaster.id, paymentSubtypeMaster.paymentTypeId),
@@ -62,6 +69,9 @@ export const PUT = withErrorHandler(
     const patch: Partial<PaymentSubtypeMasterInsert> = {};
     if (data.payment_subtype !== undefined) {
       patch.paymentSubtype = data.payment_subtype;
+    }
+    if (data.payment_method_id !== undefined) {
+      patch.paymentMethodId = data.payment_method_id;
     }
     if (data.payment_type_id !== undefined) {
       patch.paymentTypeId = data.payment_type_id;
