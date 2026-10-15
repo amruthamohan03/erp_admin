@@ -92,10 +92,9 @@ export const delayRuleCreateSchema = z.object({
     .default([3, 1]),
   notify_overdue: z.boolean().default(true),
   stages: z.array(delayStageSchema).max(40, 'Forty sub-periods is plenty.').default([]),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type DelayRuleCreateInput = z.infer<typeof delayRuleCreateSchema>;
 
-export const delayRuleUpdateSchema = delayRuleCreateSchema
-  .partial()
-  .extend({ display: z.enum(['Y', 'N']).optional() });
+export const delayRuleUpdateSchema = delayRuleCreateSchema.partial();
 export type DelayRuleUpdateInput = z.infer<typeof delayRuleUpdateSchema>;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 /**
  * The regional office a declaration desk reports to, or nothing.
@@ -15,6 +16,7 @@ const mainOfficeId = z
 export const subOfficeCreateSchema = z.object({
   sub_office_name: z.string().min(1).max(255),
   main_office_id: mainOfficeId,
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type SubOfficeCreateInput = z.infer<typeof subOfficeCreateSchema>;
 
@@ -27,6 +29,9 @@ export type SubOfficeUpdateInput = z.infer<typeof subOfficeUpdateSchema>;
 
 export const subOfficeListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so dropdowns still see only enabled rows; the master's
+  // own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   /** Narrow the list to one region — the point of the link. */
   main_office_id: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).default(1),

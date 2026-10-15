@@ -15,13 +15,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = subOfficeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     main_office_id: searchParams.get('main_office_id') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(subOfficeMaster.display, 'Y')];
+  // The master's own screen lists disabled rows too, so they can be switched back on.
+  const conds: SQL[] = q.include_disabled ? [] : [eq(subOfficeMaster.display, 'Y')];
   if (q.main_office_id) conds.push(eq(subOfficeMaster.mainOfficeId, q.main_office_id));
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
@@ -75,6 +77,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       subOfficeName: data.sub_office_name,
       mainOfficeId: data.main_office_id,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

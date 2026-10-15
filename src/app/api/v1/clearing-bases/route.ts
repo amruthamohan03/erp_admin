@@ -12,14 +12,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = clearingBasisListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(eq(clearingBasisMaster.display, 'Y'), ilike(clearingBasisMaster.clearingBasisName, like))
-    : eq(clearingBasisMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(clearingBasisMaster.display, 'Y'),
+    like ? ilike(clearingBasisMaster.clearingBasisName, like) : undefined,
+  );
 
   const [countRow] = await db.select({ total: count() }).from(clearingBasisMaster).where(where);
 
@@ -49,6 +51,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(clearingBasisMaster)
     .values({
       clearingBasisName: data.clearing_basis_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

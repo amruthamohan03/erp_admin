@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import Toggle from '@/components/ui/Toggle';
 
 interface QuotationCategoryRow {
@@ -34,6 +36,8 @@ export default function QuotationCategoriesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -64,6 +68,11 @@ export default function QuotationCategoriesPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The category has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(r: QuotationCategoryRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/quotation-categories/${r.id}`, active, r.category_name));
     load();
   }
 
@@ -109,8 +118,13 @@ export default function QuotationCategoriesPage() {
                       )}
             </>
           ) },
+        displayStatusColumn<QuotationCategoryRow>({ nameOf: (r) => r.category_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -166,6 +180,7 @@ function QuotationCategoryFormModal({
     category?.display_order != null ? String(category.display_order) : '1',
   );
   const [isCustoms, setIsCustoms] = useState(!!category?.is_customs);
+  const [active, setActive] = useState(category ? category.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -188,6 +203,7 @@ function QuotationCategoryFormModal({
           category_header: header || null,
           display_order: Number(order) || 1,
           is_customs: isCustoms,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -260,6 +276,7 @@ function QuotationCategoryFormModal({
               />
             </div>
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

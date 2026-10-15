@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -58,6 +60,8 @@ export default function ProvincesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -89,6 +93,11 @@ export default function ProvincesPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/provinces/${r.id}`, active, r.province_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -115,8 +124,13 @@ export default function ProvincesPage() {
             {r.origin_name ?? `#${r.origin_id}`}
             </>
           ) },
+        displayStatusColumn<Row>({ nameOf: (r) => r.province_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -174,6 +188,7 @@ function FormModal({
   const [originId, setOriginId] = useState<number>(
     row?.origin_id ?? (origins[0]?.id ?? 1),
   );
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -203,6 +218,7 @@ function FormModal({
         body: JSON.stringify({
           province_name: name,
           origin_id: originId,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -258,6 +274,7 @@ function FormModal({
               onChange={(v) => setOriginId(Number(v))}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

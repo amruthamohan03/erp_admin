@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // §4.7 — the boundary for the cancellation reason master. Messages name the
 // field and the fix (§4.23).
@@ -9,6 +10,7 @@ export const cancellationReasonCreateSchema = z.object({
     .trim()
     .min(1, 'Reason is required.')
     .max(200, 'Reason must be 200 characters or fewer.'),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type CancellationReasonCreateInput = z.infer<typeof cancellationReasonCreateSchema>;
 
@@ -25,6 +27,9 @@ export type CancellationReasonUpdateInput = z.infer<typeof cancellationReasonUpd
 
 export const cancellationReasonListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every dropdown reading this endpoint still sees only
+  // enabled rows; the master's own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

@@ -29,13 +29,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = transitPointListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     capability: searchParams.get('capability') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(transitPointMaster.display, 'Y')];
+  // The master's own screen lists disabled rows too, so they can be switched back on.
+  const conds: SQL[] = q.include_disabled ? [] : [eq(transitPointMaster.display, 'Y')];
   if (q.q?.trim()) {
     conds.push(ilike(transitPointMaster.transitPointName, `%${q.q.trim()}%`));
   }
@@ -93,6 +95,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       location: data.location,
       borderPost: data.border_post,
       borderMaxWorkingDays: data.border_max_working_days,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

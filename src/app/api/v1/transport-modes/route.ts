@@ -15,21 +15,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = transportModeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(transportModeMaster.display, 'Y'),
-        or(
+  const where = and(
+    q.include_disabled ? undefined : eq(transportModeMaster.display, 'Y'),
+    like
+      ? or(
           ilike(transportModeMaster.transportModeName, like),
           ilike(transportModeMaster.transportLetter, like),
-        ),
-      )
-    : eq(transportModeMaster.display, 'Y');
+        )
+      : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -66,6 +67,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       transportModeName: data.transport_mode_name,
       transportLetter: data.transport_letter,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { exchangeRateMaster, currencyMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
@@ -18,12 +18,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const q = exchangeRateListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
     currency_id: searchParams.get('currency_id') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds = [eq(exchangeRateMaster.display, 'Y')];
+  const conds: SQL[] = q.include_disabled ? [] : [eq(exchangeRateMaster.display, 'Y')];
   if (q.currency_id) conds.push(eq(exchangeRateMaster.currencyId, q.currency_id));
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
@@ -80,6 +81,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         currencyId: data.currency_id,
         declarationRate: data.declaration_rate,
         bccRate: data.bcc_rate,
+        display: data.display ?? 'Y',
         createdBy: session.uid,
         updatedBy: session.uid,
       })

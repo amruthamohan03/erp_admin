@@ -12,14 +12,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = paymentMethodListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(eq(paymentMethodMaster.display, 'Y'), ilike(paymentMethodMaster.paymentMethodName, like))
-    : eq(paymentMethodMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(paymentMethodMaster.display, 'Y'),
+    like ? ilike(paymentMethodMaster.paymentMethodName, like) : undefined,
+  );
 
   const [countRow] = await db.select({ total: count() }).from(paymentMethodMaster).where(where);
 
@@ -49,6 +51,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(paymentMethodMaster)
     .values({
       paymentMethodName: data.payment_method_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

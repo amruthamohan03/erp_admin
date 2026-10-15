@@ -12,14 +12,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = paymentTermListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(eq(paymentTermMaster.display, 'Y'), ilike(paymentTermMaster.paymentTermName, like))
-    : eq(paymentTermMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(paymentTermMaster.display, 'Y'),
+    like ? ilike(paymentTermMaster.paymentTermName, like) : undefined,
+  );
 
   const [countRow] = await db.select({ total: count() }).from(paymentTermMaster).where(where);
 
@@ -49,6 +51,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(paymentTermMaster)
     .values({
       paymentTermName: data.payment_term_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

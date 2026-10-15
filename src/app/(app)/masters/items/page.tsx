@@ -5,6 +5,8 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface ItemRow {
   id: number;
@@ -82,6 +84,8 @@ export default function ItemsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -112,6 +116,11 @@ export default function ItemsPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The item has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(r: ItemRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/items/${r.id}`, active, r.item_name));
     load();
   }
 
@@ -159,8 +168,13 @@ export default function ItemsPage() {
             {r.percentage != null ? Number(r.percentage).toFixed(2) : '0.00'}
             </>
           ) },
+        displayStatusColumn<ItemRow>({ nameOf: (r) => r.item_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -222,6 +236,7 @@ function ItemFormModal({
     percentage: item?.percentage != null ? String(item.percentage) : '0',
     item_type: item?.item_type || 'I',
   });
+  const [active, setActive] = useState(item ? item.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -242,6 +257,7 @@ function ItemFormModal({
           tax_not_tax: form.tax_not_tax,
           percentage: Number(form.percentage) || 0,
           item_type: form.item_type,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -338,6 +354,7 @@ function ItemFormModal({
               />
             </div>
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

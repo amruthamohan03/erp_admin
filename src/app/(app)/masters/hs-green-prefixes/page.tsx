@@ -6,6 +6,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { formatDate } from '@/lib/formatDate';
 import { normaliseHsCode } from '@/lib/hscodes/greenCertificate';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 // §4.1 — the standing green-certificate rule, as data an operator maintains.
 //
@@ -40,6 +42,8 @@ export default function HsGreenPrefixesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -94,6 +98,11 @@ export default function HsGreenPrefixesPage() {
       title: 'Deleted',
       message: 'The prefix rule has been disabled.',
     });
+    load();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/hs-green-prefixes/${r.id}`, active, r.prefix));
     load();
   }
 
@@ -152,8 +161,13 @@ export default function HsGreenPrefixesPage() {
             // §4.19 — a column whose key names a date needs a render.
             render: (r) => formatDate(r.created_at),
           },
+          displayStatusColumn<Row>({ nameOf: (r) => r.prefix, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -220,6 +234,7 @@ function FormModal({
   const isEdit = !!row;
   const [prefix, setPrefix] = useState(row?.prefix || '');
   const [note, setNote] = useState(row?.note || '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -239,7 +254,7 @@ function FormModal({
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefix, note: note.trim() || null }),
+        body: JSON.stringify({ prefix, note: note.trim() || null, display: active ? 'Y' : 'N' }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -303,6 +318,8 @@ function FormModal({
               What this range is, so the rule is reviewable a year from now.
             </p>
           </div>
+
+          <ActiveToggleField checked={active} onChange={setActive} />
 
           <div className="flex justify-end gap-2 pt-2">
             {/* §4.21 — a labelled way out, in every mode. */}

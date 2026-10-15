@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -69,6 +71,8 @@ export default function TransitPointsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -100,6 +104,11 @@ export default function TransitPointsPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The transit point has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(t: TransitPointRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/transit-points/${t.id}`, active, t.transit_point_name));
     load();
   }
 
@@ -141,8 +150,13 @@ export default function TransitPointsPage() {
                       </div>
             </>
           ) },
+        displayStatusColumn<TransitPointRow>({ nameOf: (t) => t.transit_point_name, onToggle: handleToggle }),
         ]}
-        actions={(t) => ({ edit: () => setEditing(t), remove: () => handleDelete(t.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(t) => ({
+          edit: () => setEditing(t),
+          ...(t.display === 'Y' ? { remove: () => handleDelete(t.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -209,6 +223,7 @@ function TransitPointFormModal({
   const [borderDays, setBorderDays] = useState<string>(
     String(point?.border_max_working_days ?? 3),
   );
+  const [active, setActive] = useState(point ? point.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -236,6 +251,7 @@ function TransitPointFormModal({
       transit_point_name: name,
       ...flags,
       border_max_working_days: Number(borderDays) || 0,
+      display: active ? 'Y' : 'N',
     };
 
     try {
@@ -325,6 +341,7 @@ function TransitPointFormModal({
               </p>
             </div>
           )}
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

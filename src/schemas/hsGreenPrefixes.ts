@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Body shapes for hs_green_prefix_master_t — the standing green-certificate
 // rule (§4.33's sibling: config, not code).
@@ -26,6 +27,7 @@ const prefixValue = z
 export const hsGreenPrefixCreateSchema = z.object({
   prefix: prefixValue,
   note: z.string().max(255, 'The note must be 255 characters or fewer.').nullish(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type HsGreenPrefixCreateInput = z.infer<typeof hsGreenPrefixCreateSchema>;
 
@@ -38,6 +40,9 @@ export type HsGreenPrefixUpdateInput = z.infer<typeof hsGreenPrefixUpdateSchema>
 
 export const hsGreenPrefixListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so the HS Code master's coverage hint and every other reader
+  // still see only rules in force; this master opts in to list disabled ones.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

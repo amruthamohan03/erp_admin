@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 export const bankCreateSchema = z.object({
   bank_name: z.string().min(1).max(200),
   bank_code: z.string().min(1).max(20),
   for_exchange: z.enum(['Y', 'N']).optional(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type BankCreateInput = z.infer<typeof bankCreateSchema>;
 
@@ -17,6 +19,9 @@ export type BankUpdateInput = z.infer<typeof bankUpdateSchema>;
 
 export const bankListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every dropdown reading this endpoint still sees only
+  // enabled rows; the master's own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   // ?for_exchange=Y scopes to banks that act as exchange-rate sources.
   for_exchange: z.enum(['Y', 'N']).optional(),
   page: z.coerce.number().int().min(1).default(1),

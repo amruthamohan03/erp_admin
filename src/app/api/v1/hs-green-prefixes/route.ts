@@ -17,6 +17,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = hsGreenPrefixListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -25,15 +26,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
   // Both columns, because the note is what an operator remembers a rule by —
   // showing a field and searching a different one is the §4.15 defect.
-  const where = like
-    ? and(
-        eq(hsGreenPrefixMaster.display, 'Y'),
-        or(
+  const where = and(
+    q.include_disabled ? undefined : eq(hsGreenPrefixMaster.display, 'Y'),
+    like
+      ? or(
           ilike(hsGreenPrefixMaster.prefix, like),
           ilike(hsGreenPrefixMaster.note, like),
-        ),
-      )
-    : eq(hsGreenPrefixMaster.display, 'Y');
+        )
+      : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -73,6 +74,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       .values({
         prefix: data.prefix,
         note: data.note?.trim() || null,
+        display: data.display ?? 'Y',
         createdBy: session.uid,
         updatedBy: session.uid,
       })

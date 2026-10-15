@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 export const phaseCreateSchema = z.object({
   phase_name: z.string().min(1).max(150),
   phase_code: z.string().min(1).max(50),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type PhaseCreateInput = z.infer<typeof phaseCreateSchema>;
 
@@ -15,6 +17,9 @@ export type PhaseUpdateInput = z.infer<typeof phaseUpdateSchema>;
 
 export const phaseListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every dropdown reading this endpoint still sees only
+  // enabled rows; the master's own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

@@ -23,12 +23,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     q: searchParams.get('q') ?? undefined,
     year: searchParams.get('year') ?? undefined,
     holiday_type: searchParams.get('holiday_type') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(drcHolidays.display, 'Y')];
+  const conds: SQL[] = q.include_disabled ? [] : [eq(drcHolidays.display, 'Y')];
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     // Both names: an operator looking for "Noël" and one looking for
@@ -98,6 +99,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         nameEn: data.name_en,
         nameFr: data.name_fr ?? null,
         holidayType: data.holiday_type,
+        display: data.display ?? 'Y',
         createdBy: session.uid,
         updatedBy: session.uid,
       })

@@ -12,6 +12,7 @@ export const dashboardCardCreateSchema = z.object({
   card_category: z.string().max(50).optional().nullable(),
   menu_id: z.number().int().positive().nullable().optional(),
   data_source: z.string().max(255).optional().nullable(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type DashboardCardCreateInput = z.infer<typeof dashboardCardCreateSchema>;
 
@@ -30,6 +31,16 @@ export const dashboardCardUpdateSchema = z.object({
   display: z.enum(['Y', 'N']).optional(),
 });
 export type DashboardCardUpdateInput = z.infer<typeof dashboardCardUpdateSchema>;
+
+// GET /dashboard-cards. `includeHidden=1` lists disabled cards too — only the
+// master screen asks for it, so dashboards keep seeing enabled cards alone.
+export const dashboardCardListQuerySchema = z.object({
+  includeHidden: z.enum(['0', '1'], {
+    errorMap: () => ({ message: 'includeHidden must be 0 or 1.' }),
+  }).optional(),
+  menu_id: z.coerce.number().int().positive('Menu must be a valid menu id.').optional(),
+});
+export type DashboardCardListQuery = z.infer<typeof dashboardCardListQuerySchema>;
 
 // Superset shape — /dashboard-cards (admin list) returns everything,
 // /dashboard-cards/me strips menu/order/display since users don't need

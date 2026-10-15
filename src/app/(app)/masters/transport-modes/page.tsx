@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface TransportModeRow {
   id: number;
@@ -31,6 +33,8 @@ export default function TransportModesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -62,6 +66,11 @@ export default function TransportModesPage() {
     load();
   }
 
+  async function handleToggle(t: TransportModeRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/transport-modes/${t.id}`, active, t.transport_mode_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -90,8 +99,13 @@ export default function TransportModesPage() {
                       </span>
             </>
           ) },
+        displayStatusColumn<TransportModeRow>({ nameOf: (t) => t.transport_mode_name, onToggle: handleToggle }),
         ]}
-        actions={(t) => ({ edit: () => setEditing(t), remove: () => handleDelete(t.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(t) => ({
+          edit: () => setEditing(t),
+          ...(t.display === 'Y' ? { remove: () => handleDelete(t.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -143,6 +157,7 @@ function TransportModeFormModal({
   const isEdit = !!mode;
   const [name, setName] = useState(mode?.transport_mode_name || '');
   const [letter, setLetter] = useState(mode?.transport_letter || '');
+  const [active, setActive] = useState(mode ? mode.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -163,6 +178,7 @@ function TransportModeFormModal({
         body: JSON.stringify({
           transport_mode_name: name,
           transport_letter: letter,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -215,6 +231,7 @@ function TransportModeFormModal({
               maxLength={5}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

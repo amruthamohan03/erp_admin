@@ -4,24 +4,21 @@ import { db } from '@/lib/db';
 import { dashboardCardMaster, menuMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { ConflictError } from '@/lib/errors';
-import { dashboardCardCreateSchema } from '@/schemas';
+import { dashboardCardCreateSchema, dashboardCardListQuerySchema } from '@/schemas';
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   const { searchParams } = new URL(req.url);
-  const includeHidden = searchParams.get('includeHidden') === '1';
-  const menuIdParam = searchParams.get('menu_id');
+  const q = dashboardCardListQuerySchema.parse({
+    includeHidden: searchParams.get('includeHidden') || undefined,
+    menu_id: searchParams.get('menu_id') || undefined,
+  });
 
   const conds = [] as ReturnType<typeof eq>[];
-  if (!includeHidden) conds.push(eq(dashboardCardMaster.display, 'Y'));
-  if (menuIdParam) {
-    const mid = Number(menuIdParam);
-    if (Number.isInteger(mid) && mid > 0) {
-      conds.push(eq(dashboardCardMaster.menuId, mid));
-    }
-  }
+  if (q.includeHidden !== '1') conds.push(eq(dashboardCardMaster.display, 'Y'));
+  if (q.menu_id) conds.push(eq(dashboardCardMaster.menuId, q.menu_id));
 
   const rows = await db
     .select({
@@ -74,7 +71,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         dataSource: d.data_source ?? null,
         createdBy: session.uid,
         updatedBy: session.uid,
-        display: 'Y',
+        display: d.display ?? 'Y',
       })
       .returning({ id: dashboardCardMaster.id });
     return ok(row, 201);

@@ -22,7 +22,9 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) return fail('Invalid stage id', 400);
 
-  const body = paymentStageUpdateSchema.parse(await req.json());
+  // Partial: the list's Status switch sends `{ display }` alone, the edit
+  // dialog sends every field. Drizzle's .set() skips the undefined ones.
+  const body = paymentStageUpdateSchema.partial().parse(await req.json());
 
   const [before] = await db.select().from(paymentStageMaster).where(eq(paymentStageMaster.id, id)).limit(1);
   if (!before) return fail('That payment stage no longer exists — reload the page.', 404);

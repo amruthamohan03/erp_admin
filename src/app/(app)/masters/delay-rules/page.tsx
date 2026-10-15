@@ -7,9 +7,10 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { useFetchedData } from '@/lib/hooks/useFetchedData';
-import { displayLabel } from '@/lib/statusTone';
 import type { DelayRuleDetail } from '@/db/queries/delayRules';
 
 // Masters → Delay Rules — where "late" is decided (§4.1).
@@ -70,6 +71,11 @@ export default function DelayRulesPage() {
       return;
     }
     setResult({ status: 'success', title: 'Disabled', message: `"${rule.name}" has been disabled.` });
+    load();
+  }
+
+  async function handleToggle(rule: DelayRuleDetail, active: boolean): Promise<void> {
+    setResult(await setDisplay(`/api/v1/delay-rules/${rule.id}`, active, rule.name));
     load();
   }
 
@@ -142,16 +148,12 @@ export default function DelayRulesPage() {
                 </span>
               ),
           },
-          {
-            key: 'display',
-            header: 'Status',
-            value: (r) => displayLabel(r.display),
-            render: (r) => <StatusBadge status={displayLabel(r.display)} />,
-          },
+          displayStatusColumn<DelayRuleDetail>({ nameOf: (r) => r.name, onToggle: (r, on) => void handleToggle(r, on) }),
         ]}
+        // A disabled row has nothing left to delete — the switch re-enables it.
         actions={(row) => ({
           edit: () => setEditing(row),
-          remove: () => void remove(row),
+          ...(row.display === 'Y' ? { remove: () => void remove(row) } : {}),
         })}
       />
 
@@ -232,6 +234,7 @@ function RuleEditor({
       day_basis: draft.day_basis,
       notify_days_before: draft.notify_days_before,
       notify_overdue: draft.notify_overdue,
+      display: draft.display,
       stages: draft.stages.map((s, i) => ({ ...s, sort_order: i + 1 })),
     };
     const res = await safeFetchJson(isNew ? '/api/v1/delay-rules' : `/api/v1/delay-rules/${draft.id}`, {
@@ -443,6 +446,8 @@ function RuleEditor({
                 </div>
               )}
             </div>
+
+            <ActiveToggleField checked={draft.display === 'Y'} onChange={(v) => set('display', v ? 'Y' : 'N')} />
           </div>
 
           <div className="flex justify-end gap-2 border-t border-border px-5 py-3">

@@ -31,12 +31,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     flag: searchParams.get('flag') ?? undefined,
     pay_for: searchParams.get('pay_for') ?? undefined,
     for_role: searchParams.get('for_role') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(expenseTypeMaster.display, 'Y')];
+  const conds: SQL[] = q.include_disabled ? [] : [eq(expenseTypeMaster.display, 'Y')];
   if (q.q?.trim()) {
     conds.push(
       ilike(expenseTypeMaster.expenseTypeName, `%${q.q.trim()}%`),
@@ -111,6 +112,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       isLocal: data.is_local ?? false,
       isAdvance: data.is_advance ?? false,
       isOther: data.is_other ?? false,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

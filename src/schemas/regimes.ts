@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Customs regime type — Import / Export / Both, matching main.
 const regimeTypeSchema = z.enum(['I', 'E', 'IE']);
@@ -6,6 +7,7 @@ const regimeTypeSchema = z.enum(['I', 'E', 'IE']);
 export const regimeCreateSchema = z.object({
   regime_name: z.string().min(1).max(200),
   type: regimeTypeSchema,
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type RegimeCreateInput = z.infer<typeof regimeCreateSchema>;
 
@@ -18,6 +20,9 @@ export type RegimeUpdateInput = z.infer<typeof regimeUpdateSchema>;
 
 export const regimeListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so dropdowns still see only enabled rows; the master's
+  // own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   type: regimeTypeSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

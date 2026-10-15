@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Body shape for hscode_master_t. HS code number + five rate
 // percentages (0-100%). Rates stored as `numeric(5,2)` strings on the
@@ -51,6 +52,7 @@ export const hscodeCreateSchema = z.object({
   hscode_dcl: ratePercent,
   hscode_tpi: ratePercent,
   requires_green_certificate: greenCertificateOverride,
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type HscodeCreateInput = z.infer<typeof hscodeCreateSchema>;
 
@@ -72,6 +74,9 @@ export type HscodeUpdateInput = z.infer<typeof hscodeUpdateSchema>;
 
 export const hscodeListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every picker reading this endpoint still sees only
+  // enabled HS codes; the master opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

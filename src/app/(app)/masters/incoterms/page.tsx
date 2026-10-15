@@ -6,6 +6,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface Row {
   id: number;
@@ -33,6 +35,8 @@ export default function IncotermsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -64,6 +68,11 @@ export default function IncotermsPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/incoterms/${r.id}`, active, r.incoterm_short_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -86,8 +95,13 @@ export default function IncotermsPage() {
         columns={[
         { key: 'incoterm_short_name', header: 'Code', sortable: true, className: 'font-mono font-medium align-top' },
         { key: 'incoterm_full_name', header: 'Description', sortable: true, className: 'text-sm text-foreground' },
+        displayStatusColumn<Row>({ nameOf: (r) => r.incoterm_short_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -139,6 +153,7 @@ function FormModal({
   const isEdit = !!row;
   const [shortName, setShortName] = useState(row?.incoterm_short_name || '');
   const [fullName, setFullName] = useState(row?.incoterm_full_name || '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -170,6 +185,7 @@ function FormModal({
         body: JSON.stringify({
           incoterm_short_name: shortName,
           incoterm_full_name: fullName,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -226,6 +242,7 @@ function FormModal({
               maxLength={250}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

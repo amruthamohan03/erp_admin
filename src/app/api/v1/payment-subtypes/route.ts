@@ -19,6 +19,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = paymentSubtypeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     payment_method_id: searchParams.get('payment_method_id') ?? undefined,
     payment_type_id: searchParams.get('payment_type_id') ?? undefined,
     page: searchParams.get('page') ?? undefined,
@@ -26,7 +27,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(paymentSubtypeMaster.display, 'Y')];
+  const conds: SQL[] = [];
+  if (!q.include_disabled) conds.push(eq(paymentSubtypeMaster.display, 'Y'));
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     // The list shows the method beside each subtype, so it is searchable too.
@@ -96,6 +98,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       paymentSubtype: data.payment_subtype,
       paymentMethodId: data.payment_method_id,
       paymentTypeId: data.payment_type_id ?? null,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

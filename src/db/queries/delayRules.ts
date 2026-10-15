@@ -154,11 +154,11 @@ export async function createDelayRule(
       await tx.execute(sql`
         INSERT INTO delay_rule_master_t
           (module, rule_key, name, transport_letter, start_field, end_field, target_days,
-           day_basis, notify_days_before, notify_overdue, created_by, updated_by)
+           day_basis, notify_days_before, notify_overdue, display, created_by, updated_by)
         VALUES (${input.module}, ${input.rule_key}, ${input.name}, ${input.transport_letter},
                 ${input.start_field}, ${input.end_field}, ${input.target_days},
                 ${input.day_basis}, ${JSON.stringify(input.notify_days_before)}::jsonb,
-                ${input.notify_overdue}, ${actorUserId}, ${actorUserId})
+                ${input.notify_overdue}, ${input.display ?? 'Y'}, ${actorUserId}, ${actorUserId})
         RETURNING id`),
     );
     await writeStages(tx, row.id, input.stages);
@@ -187,6 +187,14 @@ export async function updateDelayRule(
   const [before] = await listDelayRulesById(id);
   if (!before) throw new ValidationError('That delay rule no longer exists.');
   assertFields((input.module ?? before.module) as DelayModule, input);
+  // The Status switch disables through this PUT, so it needs the same guard as
+  // Delete — one door left open is the whole bug (§4.37).
+  if (input.display === 'N') {
+    assertNotDefaultRule({
+      ...before,
+      transport_letter: input.transport_letter !== undefined ? input.transport_letter : before.transport_letter,
+    });
+  }
 
   return db.transaction(async (tx) => {
     const sets = [];
@@ -222,17 +230,24 @@ export async function updateDelayRule(
   });
 }
 
+/**
+ * The module's default is what every unmatched file falls back to; hiding it
+ * would leave those files unmeasured and silently absent from the tracker.
+ * Shared by Delete and the PUT that the Status switch uses.
+ */
+function assertNotDefaultRule(rule: Pick<DelayRuleDetail, 'name' | 'module' | 'transport_letter'>): void {
+  if (rule.transport_letter === null) {
+    throw new ValidationError(
+      `"${rule.name}" is the default rule for ${rule.module} files — every file with no transport-specific rule is measured by it. Point those files at another default before disabling this one.`,
+    );
+  }
+}
+
 /** Soft delete (§4.27) — a rule is hidden, never destroyed. */
 export async function hideDelayRule(id: number, actorUserId: number): Promise<void> {
   const [before] = await listDelayRulesById(id);
   if (!before) throw new ValidationError('That delay rule no longer exists.');
-  // The module's default is what every unmatched file falls back to; hiding it
-  // would leave those files unmeasured and silently absent from the tracker.
-  if (before.transport_letter === null) {
-    throw new ValidationError(
-      `"${before.name}" is the default rule for ${before.module} files — every file with no transport-specific rule is measured by it. Point those files at another default before disabling this one.`,
-    );
-  }
+  assertNotDefaultRule(before);
   await db.transaction(async (tx) => {
     await tx.execute(sql`UPDATE delay_rule_master_t SET display = 'N', updated_by = ${actorUserId} WHERE id = ${id}`);
     await recordAudit(tx, {

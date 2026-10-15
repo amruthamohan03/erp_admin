@@ -38,6 +38,7 @@ const createSchema = z.object({
   route: z.string().min(1).max(200),
   target_table: z.string().min(1).max(100),
   display_order: z.coerce.number().int().min(0).optional(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
         route: d.route,
         targetTable: d.target_table,
         displayOrder: d.display_order ?? 1,
+        display: d.display ?? 'Y',
         createdBy: session.uid,
         updatedBy: session.uid,
       })

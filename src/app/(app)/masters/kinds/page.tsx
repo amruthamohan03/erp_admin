@@ -5,6 +5,8 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 
 /** Whether a form may offer this kind — read at a glance down the column. */
@@ -46,6 +48,8 @@ export default function KindsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -74,6 +78,11 @@ export default function KindsPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The kind has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(r: KindRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/kinds/${r.id}`, active, r.kind_name));
     load();
   }
 
@@ -114,8 +123,13 @@ export default function KindsPage() {
         { key: 'use_for_export', header: 'Export', align: 'center',
           value: (k: KindRow) => (k.use_for_export ? 'Yes' : 'No'),
           render: (k: KindRow) => <UsedBadge on={k.use_for_export} /> },
+        displayStatusColumn<KindRow>({ nameOf: (r) => r.kind_name, onToggle: handleToggle }),
         ]}
-        actions={(k) => ({ edit: () => setEditing(k), remove: () => handleDelete(k.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(k) => ({
+          edit: () => setEditing(k),
+          ...(k.display === 'Y' ? { remove: () => handleDelete(k.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -169,6 +183,7 @@ function KindFormModal({
   const [shortName, setShortName] = useState(kind?.kind_short_name || '');
   const [useForImport, setUseForImport] = useState(kind?.use_for_import ?? false);
   const [useForExport, setUseForExport] = useState(kind?.use_for_export ?? false);
+  const [active, setActive] = useState(kind ? kind.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -193,6 +208,7 @@ function KindFormModal({
         kind_short_name: shortName,
         use_for_import: useForImport,
         use_for_export: useForExport,
+        display: active ? 'Y' : 'N',
       }),
     });
     setSaving(false);
@@ -260,6 +276,7 @@ function KindFormModal({
             </p>
           </div>
 
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

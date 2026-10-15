@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // item_type: 'I' (Import), 'E' (Export), 'U' (Universal), or combinations
 // up to 3 chars (IE, IU, EU, IEU). The Quotations compute layer filters
@@ -16,6 +17,7 @@ export const itemCreateSchema = z.object({
   tax_not_tax: z.string().length(1).default('A'),
   percentage: z.coerce.number().min(0).default(0),
   item_type: itemTypeSchema,
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
 
@@ -32,6 +34,9 @@ export type ItemUpdateInput = z.infer<typeof itemUpdateSchema>;
 
 export const itemListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every dropdown reading this endpoint still sees only
+  // enabled rows; the master's own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   category_id: z.coerce.number().int().positive().optional(),
   item_type: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),

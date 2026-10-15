@@ -5,6 +5,7 @@ import { drcHolidays, type DrcHolidayInsert } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit/recordAudit';
+import { formatDate } from '@/lib/formatDate';
 import { drcHolidayUpdateSchema } from '@/schemas';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -47,15 +48,22 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const [before] = await db.select(selection).from(drcHolidays).where(eq(drcHolidays.id, id)).limit(1);
   if (!before) throw new NotFoundError('Holiday not found');
 
-  // Moving a holiday onto a day another one already occupies — same reasoning as
-  // the create, and excluding this row so saving it unchanged is not a clash.
-  if (data.holiday_date && data.holiday_date !== before.holiday_date) {
+  // Landing an enabled holiday on a day another one already occupies — by moving
+  // it, or by switching a disabled one back on — same reasoning as the create.
+  // Judged on the row as it will be after the patch, and excluding this row so
+  // saving it unchanged is not a clash. There is no unique index on the date,
+  // so this check is the only guard.
+  const nextDate = data.holiday_date ?? before.holiday_date;
+  const nextDisplay = data.display ?? before.display;
+  const moved = nextDate !== before.holiday_date;
+  const reEnabled = before.display !== 'Y' && nextDisplay === 'Y';
+  if (nextDisplay === 'Y' && (moved || reEnabled)) {
     const [clash] = await db
       .select({ name_en: drcHolidays.nameEn })
       .from(drcHolidays)
       .where(
         and(
-          eq(drcHolidays.holidayDate, data.holiday_date),
+          eq(drcHolidays.holidayDate, nextDate),
           eq(drcHolidays.display, 'Y'),
           ne(drcHolidays.id, id),
         ),
@@ -63,7 +71,7 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
       .limit(1);
     if (clash) {
       throw new ConflictError(
-        `${data.holiday_date} is already recorded as "${clash.name_en}". Pick another date, or edit that holiday instead.`,
+        `${formatDate(nextDate)} is already recorded as "${clash.name_en}". Pick another date, or edit that holiday instead.`,
         { field: 'holiday_date' },
       );
     }

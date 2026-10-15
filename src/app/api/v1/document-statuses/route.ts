@@ -15,13 +15,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = documentStatusListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     type: searchParams.get('type') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(documentStatusMaster.display, 'Y')];
+  const conds: SQL[] = [];
+  if (!q.include_disabled) conds.push(eq(documentStatusMaster.display, 'Y'));
   if (q.q?.trim()) {
     conds.push(ilike(documentStatusMaster.documentStatus, `%${q.q.trim()}%`));
   }
@@ -66,6 +68,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       documentStatus: data.document_status,
       type: data.type,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

@@ -7,6 +7,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import Toggle from '@/components/ui/Toggle';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface Row {
   id: number;
@@ -35,6 +37,8 @@ export default function DoneByPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -63,6 +67,11 @@ export default function DoneByPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The entry has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/done-by/${r.id}`, active, r.done_by_name));
     load();
   }
 
@@ -96,8 +105,13 @@ export default function DoneByPage() {
                       )}
             </>
           ) },
+        displayStatusColumn<Row>({ nameOf: (r) => r.done_by_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -149,6 +163,7 @@ function FormModal({
   const isEdit = !!row;
   const [name, setName] = useState(row?.done_by_name || '');
   const [isCompany, setIsCompany] = useState(row?.is_company ?? false);
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -181,7 +196,9 @@ function FormModal({
         // The company row's label comes from branding, so the server rejects a
         // name alongside the flag — send only what it will accept.
         body: JSON.stringify(
-          isCompany ? { is_company: true } : { done_by_name: name, ...(isEdit ? { is_company: false } : {}) },
+          isCompany
+            ? { is_company: true, display: active ? 'Y' : 'N' }
+            : { done_by_name: name, ...(isEdit ? { is_company: false } : {}), display: active ? 'Y' : 'N' },
         ),
       });
       const json = await res.json();
@@ -252,6 +269,7 @@ function FormModal({
               </p>
             </div>
           )}
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Boundary schemas for the /api/v1/clients endpoints. Mirrors main's
 // clients_t field set: company_name + short_name + client_type are the
@@ -92,6 +93,9 @@ export type ClientUpdateInput = z.infer<typeof clientUpdateSchema>;
 
 export const clientListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so every dropdown reading this endpoint still sees only
+  // enabled rows; the master's own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

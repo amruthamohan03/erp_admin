@@ -15,18 +15,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = clearanceListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(clearanceMaster.display, 'Y'),
-        ilike(clearanceMaster.clearanceName, like),
-      )
-    : eq(clearanceMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(clearanceMaster.display, 'Y'),
+    like ? ilike(clearanceMaster.clearanceName, like) : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -61,6 +60,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(clearanceMaster)
     .values({
       clearanceName: data.clearance_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })
