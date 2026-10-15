@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, Users } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 
 interface ClientRow {
@@ -46,6 +47,8 @@ export default function ClientsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -80,6 +83,11 @@ export default function ClientsPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The client has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(c: ClientRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/clients/${c.id}`, active, c.short_name));
     load();
   }
 
@@ -156,11 +164,13 @@ export default function ClientsPage() {
           { key: 'contact_person', header: 'Contact Person' },
           { key: 'email', header: 'Email' },
           { key: 'phone', header: 'Phone' },
+          displayStatusColumn<ClientRow>({ nameOf: (c) => c.short_name, onToggle: handleToggle }),
         ]}
         actions={(c) => ({
           view: () => setViewId(c.id),
           edit: `/masters/clients/${c.id}`,
-          remove: () => handleDelete(c.id),
+          // A disabled row has nothing left to delete — the switch re-enables it.
+          ...(c.display === 'Y' ? { remove: () => handleDelete(c.id) } : {}),
         })}
         server={{
           page,

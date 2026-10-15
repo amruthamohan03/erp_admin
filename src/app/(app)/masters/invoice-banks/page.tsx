@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -36,6 +38,8 @@ export default function InvoiceBanksPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -69,6 +73,11 @@ export default function InvoiceBanksPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/invoice-banks/${r.id}`, active, r.invoice_bank_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -97,8 +106,13 @@ export default function InvoiceBanksPage() {
             {r.invoice_bank_swift || '—'}
             </>
           ) },
+        displayStatusColumn<Row>({ nameOf: (r) => r.invoice_bank_name, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -157,6 +171,7 @@ function FormModal({
   );
   const [swift, setSwift] = useState(row?.invoice_bank_swift || '');
   const [address, setAddress] = useState(row?.invoice_bank_address || '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -187,6 +202,7 @@ function FormModal({
           invoice_bank_account_number: accountNumber,
           invoice_bank_swift: swift || null,
           invoice_bank_address: address || null,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -272,6 +288,7 @@ function FormModal({
               onChange={(e) => setAddress(e.target.value)}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

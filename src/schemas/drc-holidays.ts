@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 /**
  * DRC public holidays (`drc_holidays_t`).
@@ -26,6 +27,7 @@ export const drcHolidayCreateSchema = z.object({
   // one would have operators retype the English.
   name_fr: z.string().max(150).optional().nullable(),
   holiday_type: z.enum(HOLIDAY_TYPES).default('fixed'),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type DrcHolidayCreateInput = z.infer<typeof drcHolidayCreateSchema>;
 
@@ -43,6 +45,9 @@ export const drcHolidayListQuerySchema = z.object({
   /** Narrow to one calendar year — the way an operator actually reviews these. */
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   holiday_type: z.enum(HOLIDAY_TYPES).optional(),
+  // Off by default so the delay KPIs' calendar and every other reader still see
+  // only enabled holidays; the master's own table opts in to list disabled ones.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

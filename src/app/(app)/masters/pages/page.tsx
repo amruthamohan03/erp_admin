@@ -9,8 +9,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { displayLabel } from '@/lib/statusTone';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 // §4.12 page-builder — admin CRUD over master_page. Ported from main and
 // adapted to this branch's /api/v1 routes + { ok, data } envelope.
@@ -97,6 +97,11 @@ function MasterPagesList() {
     load();
   }
 
+  async function handleToggle(p: MasterPage, active: boolean) {
+    setResult(await setDisplay(`/api/v1/master-pages/${p.id}`, active, p.title));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -132,13 +137,13 @@ function MasterPagesList() {
         { key: 'title', header: 'Title', sortable: true, className: 'font-medium' },
         { key: 'route', header: 'Route', sortable: true, className: 'font-mono text-xs' },
         { key: 'target_table', header: 'Target Table', sortable: true, className: 'font-mono text-xs' },
-        { key: '5', header: 'Status', render: (i: MasterPage) => (
-            <>
-            <StatusBadge status={displayLabel(i.display)} />
-            </>
-          ) },
+        displayStatusColumn<MasterPage>({ nameOf: (i) => i.title, onToggle: handleToggle }),
         ]}
-        actions={(i) => ({ edit: `/masters/pages/${i.id}${editSuffix}`, remove: () => handleDelete(i.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(i) => ({
+          edit: `/masters/pages/${i.id}${editSuffix}`,
+          ...(i.display === 'Y' ? { remove: () => handleDelete(i.id) } : {}),
+        })}
       />
 
       {showCreate && (
@@ -164,6 +169,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     route: '',
     target_table: '',
   });
+  const [active, setActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -185,7 +191,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
       const res = await fetch('/api/v1/master-pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, display: active ? 'Y' : 'N' }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -268,6 +274,7 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               maxLength={100}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

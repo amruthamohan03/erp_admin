@@ -14,6 +14,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { formatDate, isWeekend, toDateInputValue, weekdayName } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import {
   buildMonthGrid,
   MONTH_NAMES,
@@ -75,7 +77,12 @@ export default function DrcHolidaysPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
+      });
       if (search) params.set('q', search);
       if (year) params.set('year', year);
       if (type) params.set('holiday_type', type);
@@ -157,6 +164,11 @@ export default function DrcHolidaysPage() {
       // Say what it costs elsewhere: this is not an inert list.
       message: `"${row.name_en}" has been removed. Delay KPIs will now count ${formatDate(row.holiday_date)} as a working day.`,
     });
+    refresh();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/drc-holidays/${r.id}`, active, r.name_en));
     refresh();
   }
 
@@ -300,8 +312,13 @@ export default function DrcHolidaysPage() {
               </span>
             ),
           },
+          displayStatusColumn<Row>({ nameOf: (r) => r.name_en, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -366,6 +383,7 @@ function FormModal({
   const [nameEn, setNameEn] = useState(row?.name_en ?? '');
   const [nameFr, setNameFr] = useState(row?.name_fr ?? '');
   const [type, setType] = useState<HolidayType>(row?.holiday_type ?? 'fixed');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -384,6 +402,7 @@ function FormModal({
             name_en: nameEn,
             name_fr: nameFr.trim() || null,
             holiday_type: type,
+            display: active ? 'Y' : 'N',
           }),
         },
       );
@@ -474,6 +493,8 @@ function FormModal({
               onChange={(v) => setType(v as HolidayType)}
             />
           </div>
+
+          <ActiveToggleField checked={active} onChange={setActive} />
 
           {/* §4.21 — a labelled way out, in every mode. */}
           <div className="flex justify-end gap-2 pt-2">

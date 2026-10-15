@@ -12,13 +12,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = bankListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     for_exchange: searchParams.get('for_exchange') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
-  const conds: SQL[] = [eq(banklistMaster.display, 'Y')];
+  const conds: SQL[] = [];
+  if (!q.include_disabled) conds.push(eq(banklistMaster.display, 'Y'));
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     const orClause = or(
@@ -69,6 +71,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       bankName: data.bank_name,
       bankCode: data.bank_code,
       forExchange: data.for_exchange ?? 'N',
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

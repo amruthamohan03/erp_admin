@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // transit_point_master_t has 7 boolean capability flags. All default to
 // the same values as the schema defaults (entry/exit/loading/destination
@@ -39,6 +40,7 @@ const flagsUpdateShape = {
 export const transitPointCreateSchema = z.object({
   transit_point_name: z.string().min(1).max(255),
   ...flagsShape,
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type TransitPointCreateInput = z.infer<typeof transitPointCreateSchema>;
 
@@ -51,6 +53,9 @@ export type TransitPointUpdateInput = z.infer<typeof transitPointUpdateSchema>;
 
 export const transitPointListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so dropdowns still see only enabled rows; the master's
+  // own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   /** Filter to points with a specific capability flag set. */
   capability: z
     .enum([

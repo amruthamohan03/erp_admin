@@ -14,18 +14,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = hscodeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(hscodeMaster.display, 'Y'),
-        ilike(hscodeMaster.hscodeNumber, like),
-      )
-    : eq(hscodeMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(hscodeMaster.display, 'Y'),
+    like ? ilike(hscodeMaster.hscodeNumber, like) : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -87,6 +86,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         // NULL unless the operator stated an exception — a new code follows
         // whatever prefix rule covers it.
         requiresGreenCertificate: data.requires_green_certificate,
+        display: data.display ?? 'Y',
         createdBy: session.uid,
         updatedBy: session.uid,
       })

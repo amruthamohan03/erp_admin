@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Body shape for expense_type_master_t. Name + five boolean
 // applicability flags; list filter accepts any of the five flag
@@ -12,6 +13,7 @@ export const expenseTypeCreateSchema = z.object({
   is_local: z.boolean().optional(),
   is_advance: z.boolean().optional(),
   is_other: z.boolean().optional(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type ExpenseTypeCreateInput = z.infer<typeof expenseTypeCreateSchema>;
 
@@ -61,6 +63,9 @@ export const expenseTypeListQuerySchema = z.object({
   // administrator must see every row in order to manage it. A role with no
   // mapping rows is unrestricted and gets the full list.
   for_role: z.literal('me').optional(),
+  // Off by default so every picker reading this endpoint still sees only
+  // enabled expense types; the master opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

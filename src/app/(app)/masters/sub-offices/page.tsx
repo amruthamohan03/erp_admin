@@ -5,6 +5,8 @@ import { Building2, Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
@@ -52,6 +54,8 @@ export default function SubOfficesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -81,6 +85,11 @@ export default function SubOfficesPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The declaration office has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(s: SubOfficeRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/sub-offices/${s.id}`, active, s.sub_office_name));
     load();
   }
 
@@ -144,8 +153,13 @@ export default function SubOfficesPage() {
               <span className="text-amber-700 dark:text-amber-400">Not assigned</span>
             ),
         },
+        displayStatusColumn<SubOfficeRow>({ nameOf: (s) => s.sub_office_name, onToggle: handleToggle }),
         ]}
-        actions={(s) => ({ edit: () => setEditing(s), remove: () => handleDelete(s.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(s) => ({
+          edit: () => setEditing(s),
+          ...(s.display === 'Y' ? { remove: () => handleDelete(s.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -205,6 +219,7 @@ function SubOfficeFormModal({
   const [mainOfficeId, setMainOfficeId] = useState(
     subOffice?.main_office_id != null ? String(subOffice.main_office_id) : '',
   );
+  const [active, setActive] = useState(subOffice ? subOffice.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -234,6 +249,7 @@ function SubOfficeFormModal({
         body: JSON.stringify({
           sub_office_name: name,
           main_office_id: mainOfficeId ? Number(mainOfficeId) : null,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -295,6 +311,7 @@ function SubOfficeFormModal({
               The regional office this declaration desk reports to.
             </p>
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

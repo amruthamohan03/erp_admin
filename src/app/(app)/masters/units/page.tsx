@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface UnitRow {
   id: number;
@@ -31,6 +33,8 @@ export default function UnitsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled units too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -59,6 +63,11 @@ export default function UnitsPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The unit has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(u: UnitRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/units/${u.id}`, active, u.unit_name));
     load();
   }
 
@@ -94,8 +103,13 @@ export default function UnitsPage() {
                       )}
             </>
           ) },
+        displayStatusColumn<UnitRow>({ nameOf: (u) => u.unit_name, onToggle: handleToggle }),
         ]}
-        actions={(u) => ({ edit: () => setEditing(u), remove: () => handleDelete(u.id) })}
+        // A disabled unit has nothing left to delete — the toggle re-enables it.
+        actions={(u) => ({
+          edit: () => setEditing(u),
+          ...(u.display === 'Y' ? { remove: () => handleDelete(u.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -147,6 +161,7 @@ function UnitFormModal({
   const isEdit = !!unit;
   const [name, setName] = useState(unit?.unit_name || '');
   const [code, setCode] = useState(unit?.unit_code || '');
+  const [active, setActive] = useState(unit ? unit.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -165,6 +180,7 @@ function UnitFormModal({
         body: JSON.stringify({
           unit_name: name,
           unit_code: code.trim() || null,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -215,6 +231,7 @@ function UnitFormModal({
               placeholder="Optional"
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

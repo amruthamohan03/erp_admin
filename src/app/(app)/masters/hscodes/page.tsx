@@ -8,6 +8,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import {
   greenCertificateFor,
   matchingPrefix,
@@ -107,6 +109,8 @@ export default function HscodesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -135,6 +139,11 @@ export default function HscodesPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The HS code has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/hscodes/${r.id}`, active, r.hscode_number));
     load();
   }
 
@@ -219,8 +228,13 @@ export default function HscodesPage() {
               return <span className="text-muted-foreground">—</span>;
             },
           },
+          displayStatusColumn<Row>({ nameOf: (r) => r.hscode_number, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -285,6 +299,7 @@ function FormModal({
   const [greenCert, setGreenCert] = useState(
     overrideToValue(row?.requires_green_certificate),
   );
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -325,6 +340,7 @@ function FormModal({
           hscode_number: number,
           ...rates,
           requires_green_certificate: valueToOverride(greenCert),
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -442,6 +458,8 @@ function FormModal({
               </Link>
             </p>
           </div>
+
+          <ActiveToggleField checked={active} onChange={setActive} />
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

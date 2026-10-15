@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Body shapes for exchange_rate_master_t — the day's reference rates (§4.1).
 
@@ -31,6 +32,7 @@ export const exchangeRateCreateSchema = z
     currency_id: z.coerce.number().int().positive('Choose a currency.'),
     declaration_rate: rate,
     bcc_rate: rate,
+    display: z.enum(['Y', 'N']).optional(),
   })
   // A row with neither figure says nothing and would occupy the day's one slot,
   // so the board would find it and still have nothing to prefill (§4.23 — name
@@ -44,8 +46,10 @@ export type ExchangeRateCreateInput = z.infer<typeof exchangeRateCreateSchema>;
 export const exchangeRateUpdateSchema = z.object({
   rate_date: rateDate.optional(),
   currency_id: z.coerce.number().int().positive().optional(),
-  declaration_rate: rate,
-  bcc_rate: rate,
+  // `.optional()` so an absent figure stays absent: `rate` alone maps undefined
+  // to null, which made a status-only PUT (`{ display }`) wipe both rates.
+  declaration_rate: rate.optional(),
+  bcc_rate: rate.optional(),
   display: z.enum(['Y', 'N']).optional(),
 });
 export type ExchangeRateUpdateInput = z.infer<typeof exchangeRateUpdateSchema>;
@@ -53,6 +57,9 @@ export type ExchangeRateUpdateInput = z.infer<typeof exchangeRateUpdateSchema>;
 export const exchangeRateListQuerySchema = z.object({
   q: z.string().optional(),
   currency_id: z.coerce.number().int().positive().nullish(),
+  // Off by default so the Bank Exchange Rate board and every other reader still
+  // see only enabled rates; the master opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

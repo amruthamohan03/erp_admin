@@ -12,18 +12,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = refererListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const where = like
-    ? and(
-        eq(refererMaster.display, 'Y'),
-        ilike(refererMaster.refererName, like),
-      )
-    : eq(refererMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(refererMaster.display, 'Y'),
+    like
+      ? ilike(refererMaster.refererName, like)
+      : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -58,6 +59,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(refererMaster)
     .values({
       refererName: data.referer_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

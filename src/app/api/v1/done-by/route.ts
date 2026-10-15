@@ -14,6 +14,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = doneByListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -27,14 +28,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // to reach it even though the stored text is something else.
   const matchesProject =
     !!term && branding.project_name.toLowerCase().includes(term.toLowerCase());
-  const where = like
-    ? and(
-        eq(doneByMaster.display, 'Y'),
-        matchesProject
-          ? or(ilike(doneByMaster.doneByName, like), eq(doneByMaster.isCompany, true))
-          : ilike(doneByMaster.doneByName, like),
-      )
-    : eq(doneByMaster.display, 'Y');
+  const where = and(
+    q.include_disabled ? undefined : eq(doneByMaster.display, 'Y'),
+    like
+      ? matchesProject
+        ? or(ilike(doneByMaster.doneByName, like), eq(doneByMaster.isCompany, true))
+        : ilike(doneByMaster.doneByName, like)
+      : undefined,
+  );
 
   const [countRow] = await db
     .select({ total: count() })
@@ -74,6 +75,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(doneByMaster)
     .values({
       doneByName: data.done_by_name,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

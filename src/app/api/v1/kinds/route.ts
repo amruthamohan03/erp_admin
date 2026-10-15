@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { kindMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
@@ -15,6 +15,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = kindListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
   });
@@ -28,7 +29,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // express a kind that belongs to both — a temporary import leaves again as a
   // re-export — and quietly reclassified a kind whenever it was renamed (§4.1).
   const group = searchParams.get('group');
-  const conds = [eq(kindMaster.display, 'Y')];
+  const conds: SQL[] = [];
+  if (!q.include_disabled) conds.push(eq(kindMaster.display, 'Y'));
   if (like) conds.push(or(ilike(kindMaster.kindName, like), ilike(kindMaster.kindShortName, like))!);
   if (group === 'import') conds.push(eq(kindMaster.useForImport, true));
   else if (group === 'export') conds.push(eq(kindMaster.useForExport, true));
@@ -73,6 +75,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       kindShortName: data.kind_short_name,
       useForImport: data.use_for_import,
       useForExport: data.use_for_export,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

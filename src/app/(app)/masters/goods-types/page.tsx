@@ -7,6 +7,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import Toggle from '@/components/ui/Toggle';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface GoodsTypeRow {
   id: number;
@@ -36,6 +38,8 @@ export default function GoodsTypesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -64,6 +68,11 @@ export default function GoodsTypesPage() {
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The type of goods has been disabled.' });
+    load();
+  }
+
+  async function handleToggle(g: GoodsTypeRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/goods-types/${g.id}`, active, g.goods_type));
     load();
   }
 
@@ -111,8 +120,13 @@ export default function GoodsTypesPage() {
               </span>
             ),
         },
+        displayStatusColumn<GoodsTypeRow>({ nameOf: (g) => g.goods_type, onToggle: handleToggle }),
         ]}
-        actions={(g) => ({ edit: () => setEditing(g), remove: () => handleDelete(g.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(g) => ({
+          edit: () => setEditing(g),
+          ...(g.display === 'Y' ? { remove: () => handleDelete(g.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -165,6 +179,7 @@ function GoodsTypeFormModal({
   const [type, setType] = useState(goodsType?.goods_type || '');
   const [shortName, setShortName] = useState(goodsType?.goods_short_name || '');
   const [weightLimited, setWeightLimited] = useState(goodsType?.weight_limited ?? true);
+  const [active, setActive] = useState(goodsType ? goodsType.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -221,6 +236,7 @@ function GoodsTypeFormModal({
           goods_type: type,
           goods_short_name: shortName,
           weight_limited: weightLimited,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -283,6 +299,7 @@ function GoodsTypeFormModal({
                 : 'No licence or inspection-report weight limit on files of this type — for goods such as DIVERS, whose licence may carry no weight.'}
             </p>
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

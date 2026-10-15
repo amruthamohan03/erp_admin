@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -32,6 +34,8 @@ export default function TruckStatusesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -65,6 +69,11 @@ export default function TruckStatusesPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/truck-statuses/${r.id}`, active, r.truck_status));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -86,8 +95,13 @@ export default function TruckStatusesPage() {
         }
         columns={[
         { key: 'truck_status', header: 'Truck Status', sortable: true, className: 'font-medium' },
+        displayStatusColumn<Row>({ nameOf: (r) => r.truck_status, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -138,6 +152,7 @@ function FormModal({
 }) {
   const isEdit = !!row;
   const [status, setStatus] = useState(row?.truck_status || '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -166,7 +181,7 @@ function FormModal({
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ truck_status: status }),
+        body: JSON.stringify({ truck_status: status, display: active ? 'Y' : 'N' }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -212,6 +227,7 @@ function FormModal({
             />
             <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

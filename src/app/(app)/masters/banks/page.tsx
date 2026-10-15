@@ -5,6 +5,8 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -35,6 +37,8 @@ export default function BanksPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -66,6 +70,11 @@ export default function BanksPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/banks/${r.id}`, active, r.bank_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -93,8 +102,13 @@ export default function BanksPage() {
             <Flag on={b.for_exchange === 'Y'} />
             </>
           ) },
+          displayStatusColumn<Row>({ nameOf: (b) => b.bank_name, onToggle: handleToggle }),
         ]}
-        actions={(b) => ({ edit: () => setEditing(b), remove: () => handleDelete(b.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(b) => ({
+          edit: () => setEditing(b),
+          ...(b.display === 'Y' ? { remove: () => handleDelete(b.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -154,6 +168,7 @@ function BankFormModal({
   onSaved: () => void;
 }) {
   const isEdit = !!bank;
+  const [active, setActive] = useState(bank ? bank.display === 'Y' : true);
   const [form, setForm] = useState({
     bank_name: bank?.bank_name || '',
     bank_code: bank?.bank_code || 'N/A',
@@ -186,6 +201,7 @@ function BankFormModal({
       bank_name: form.bank_name,
       bank_code: form.bank_code,
       for_exchange: form.for_exchange ? 'Y' : 'N',
+      display: active ? 'Y' : 'N',
     };
 
     try {
@@ -251,6 +267,7 @@ function BankFormModal({
               label="For Exchange"
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

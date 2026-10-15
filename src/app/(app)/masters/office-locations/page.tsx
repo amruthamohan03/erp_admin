@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { MapPin, Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { displayLabel } from '@/lib/statusTone';
 
 interface OfficeLocationRow {
   id: number;
@@ -43,6 +43,8 @@ export default function OfficeLocationsPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -94,6 +96,11 @@ export default function OfficeLocationsPage() {
     load();
   }
 
+  async function handleToggle(o: OfficeLocationRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/office-locations/${o.id}`, active, o.location_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -129,13 +136,13 @@ export default function OfficeLocationsPage() {
             {o.province_name ?? '—'}
             </>
           ) },
-        { key: 'display', header: 'Status', render: (o: OfficeLocationRow) => (
-            <>
-            <StatusBadge status={displayLabel(o.display)} />
-            </>
-          ) },
+        displayStatusColumn<OfficeLocationRow>({ nameOf: (o) => o.location_name, onToggle: handleToggle }),
         ]}
-        actions={(o) => ({ edit: () => setEditing(o), remove: () => handleDelete(o.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(o) => ({
+          edit: () => setEditing(o),
+          ...(o.display === 'Y' ? { remove: () => handleDelete(o.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -193,6 +200,7 @@ function OfficeLocationFormModal({
   const [provinceId, setProvinceId] = useState(
     location?.province_id != null ? String(location.province_id) : '',
   );
+  const [active, setActive] = useState(location ? location.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -222,6 +230,7 @@ function OfficeLocationFormModal({
         body: JSON.stringify({
           location_name: name,
           province_id: provinceId === '' ? null : Number(provinceId),
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -278,6 +287,7 @@ function OfficeLocationFormModal({
               onChange={setProvinceId}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

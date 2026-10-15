@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, count, desc, eq, ilike } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { regimeMaster } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
@@ -12,6 +12,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = regimeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
+    include_disabled: searchParams.get('include_disabled') ?? undefined,
     type: searchParams.get('type') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
@@ -19,7 +20,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const offset = (q.page - 1) * q.pageSize;
 
   const like = q.q?.trim() ? `%${q.q.trim()}%` : null;
-  const conditions = [eq(regimeMaster.display, 'Y')];
+  // The master's own screen lists disabled rows too, so they can be switched back on.
+  const conditions: SQL[] = q.include_disabled ? [] : [eq(regimeMaster.display, 'Y')];
   if (like) conditions.push(ilike(regimeMaster.regimeName, like));
   if (q.type) conditions.push(eq(regimeMaster.type, q.type));
   const where = and(...conditions);
@@ -59,6 +61,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .values({
       regimeName: data.regime_name,
       type: data.type,
+      display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,
     })

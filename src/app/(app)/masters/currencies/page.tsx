@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface CurrencyRow {
   id: number;
@@ -31,6 +33,8 @@ export default function CurrenciesPage() {
     try {
       const params = new URLSearchParams({
         q: search,
+        // The master lists disabled rows too, so they can be switched back on.
+        include_disabled: 'true',
         page: String(page),
         pageSize: String(pageSize),
       });
@@ -62,6 +66,11 @@ export default function CurrenciesPage() {
     load();
   }
 
+  async function handleToggle(r: CurrencyRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/currencies/${r.id}`, active, r.currency_name));
+    load();
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -90,8 +99,13 @@ export default function CurrenciesPage() {
                       </span>
             </>
           ) },
+          displayStatusColumn<CurrencyRow>({ nameOf: (c) => c.currency_name, onToggle: handleToggle }),
         ]}
-        actions={(c) => ({ edit: () => setEditing(c), remove: () => handleDelete(c.id) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(c) => ({
+          edit: () => setEditing(c),
+          ...(c.display === 'Y' ? { remove: () => handleDelete(c.id) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -141,6 +155,7 @@ function CurrencyFormModal({
   onSaved: () => void;
 }) {
   const isEdit = !!currency;
+  const [active, setActive] = useState(currency ? currency.display === 'Y' : true);
   const [name, setName] = useState(currency?.currency_name || '');
   const [shortName, setShortName] = useState(
     currency?.currency_short_name || '',
@@ -165,6 +180,7 @@ function CurrencyFormModal({
         body: JSON.stringify({
           currency_name: name,
           currency_short_name: shortName,
+          display: active ? 'Y' : 'N',
         }),
       });
       const json = await res.json();
@@ -217,6 +233,7 @@ function CurrencyFormModal({
               maxLength={10}
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancel

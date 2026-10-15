@@ -23,7 +23,7 @@ import { formatDateTime } from '@/lib/formatDate';
 import { type ToneKey } from '@/lib/payments/stageConfig';
 import { PAYMENT_STAGE_TONES } from '@/db/schema';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { displayLabel } from '@/lib/statusTone';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface Row {
   id: number;
@@ -71,6 +71,11 @@ export default function PaymentStagesPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  async function handleToggle(r: Row, active: boolean): Promise<void> {
+    setResult(await setDisplay(`/api/v1/payment-stages/${r.id}`, active, r.label));
+    void load();
+  }
 
   return (
     <>
@@ -129,17 +134,11 @@ export default function PaymentStagesPage() {
             value: (r) => (r.print_signature ? 'Yes' : 'No'),
           },
           {
-            key: 'display',
-            header: 'Active',
-            align: 'center',
-            value: (r) => displayLabel(r.display),
-            render: (r) => <StatusBadge status={displayLabel(r.display)} />,
-          },
-          {
             key: 'updated_at',
             header: 'Updated',
             render: (r) => formatDateTime(r.updated_at, '—'),
           },
+          displayStatusColumn<Row>({ nameOf: (r) => r.label, onToggle: (r, on) => void handleToggle(r, on) }),
         ]}
         actions={(r) => ({ edit: () => setEditing(r) })}
       />

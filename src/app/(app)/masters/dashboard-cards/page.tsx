@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Edit2,
-  Eye,
-  EyeOff,
   LayoutDashboard,
   Plus,
   Search,
@@ -16,8 +14,8 @@ import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import type { MenuItem } from '@/types/menu';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { displayLabel } from '@/lib/statusTone';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 interface CardRow {
   id: number;
@@ -52,7 +50,6 @@ const CATEGORY_OPTIONS = ['general', 'import', 'export', 'finance', 'admin'];
 export default function DashboardCardsPage() {
   const [items, setItems] = useState<CardRow[]>([]);
   const [menus, setMenus] = useState<MenuItem[]>([]);
-  const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<CardRow | null>(null);
@@ -62,17 +59,16 @@ export default function DashboardCardsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (showHidden) params.set('includeHidden', '1');
+      // The master lists disabled cards too, so they can be switched back on.
+      const params = new URLSearchParams({ includeHidden: '1' });
       const res = await fetch(`/api/v1/dashboard-cards?${params}`);
       const json = await res.json();
       if (json.ok) setItems(json.data);
     } finally {
       setLoading(false);
     }
-  }, [showHidden]);
+  }, []);
 
-  // Re-fetch the card list whenever the showHidden filter flips (via load deps).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
@@ -100,18 +96,8 @@ export default function DashboardCardsPage() {
     load();
   }
 
-  async function toggleVisibility(c: CardRow) {
-    const res = await fetch(`/api/v1/dashboard-cards/${c.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ display: c.display === 'Y' ? 'N' : 'Y' }),
-    });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This dashboard card could not be disabled.' });
-      return;
-    }
-    setResult({ status: 'success', title: 'Deleted', message: 'The dashboard card has been disabled.' });
+  async function handleToggle(c: CardRow, active: boolean) {
+    setResult(await setDisplay(`/api/v1/dashboard-cards/${c.id}`, active, c.card_title));
     load();
   }
 
@@ -195,28 +181,12 @@ export default function DashboardCardsPage() {
           },
           { key: 'menu_name', header: 'Menu', className: 'text-sm' },
           { key: 'card_order', header: 'Order', sortable: true },
-          {
-            key: 'display',
-            header: 'Status',
-            sortable: true,
-            render: (m: CardRow) => (
-              <StatusBadge status={displayLabel(m.display)} />
-            ),
-          },
+          displayStatusColumn<CardRow>({ nameOf: (m) => m.card_title, onToggle: handleToggle }),
         ]}
+        // A disabled card has nothing left to delete — the switch re-enables it.
         actions={(m) => ({
           edit: () => setEditing(m),
-          remove: () => handleDelete(m.id),
-          // Visibility is neither view/edit/delete, so it keeps its own hue (§4.20).
-          extra: (
-            <button
-              onClick={() => toggleVisibility(m)}
-              className="ico ms-1 text-amber-600 dark:text-amber-400 hover:bg-accent"
-              title={m.display === 'Y' ? 'Disable' : 'Enable'}
-            >
-              {m.display === 'Y' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          ),
+          ...(m.display === 'Y' ? { remove: () => handleDelete(m.id) } : {}),
         })}
       />
 
@@ -297,6 +267,7 @@ function CardFormModal({
     menu_id: card?.menu_id ? String(card.menu_id) : '',
     data_source: card?.data_source || '',
   });
+  const [active, setActive] = useState(card ? card.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -322,6 +293,7 @@ function CardFormModal({
       card_category: form.card_category || null,
       menu_id: form.menu_id ? Number(form.menu_id) : null,
       data_source: form.data_source || null,
+      display: active ? 'Y' : 'N',
     };
 
     try {
@@ -515,6 +487,7 @@ function CardFormModal({
             </p>
           </div>
 
+          <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

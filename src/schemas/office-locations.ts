@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 export const officeLocationCreateSchema = z.object({
   location_name: z.string().min(1).max(255),
   province_id: z.coerce.number().int().positive().optional().nullable(),
+  display: z.enum(['Y', 'N']).optional(),
 });
 export type OfficeLocationCreateInput = z.infer<
   typeof officeLocationCreateSchema
@@ -19,6 +21,9 @@ export type OfficeLocationUpdateInput = z.infer<
 
 export const officeLocationListQuerySchema = z.object({
   q: z.string().optional(),
+  // Off by default so dropdowns still see only enabled rows; the master's
+  // own screen opts in to list disabled ones too.
+  include_disabled: includeDisabledParam,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

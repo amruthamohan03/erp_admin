@@ -9,6 +9,8 @@ import { formatDate, todayIso } from '@/lib/formatDate';
 import { formatRate } from '@/lib/exchangeRates';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import { safeFetchJson } from '@/lib/safeFetch';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
 // §4.1 — the day's reference rates: what the BCC published, and the rate
 // declarations are filed at.
@@ -25,6 +27,11 @@ interface Row {
   bcc_rate: string | null;
   display: 'Y' | 'N';
   updated_at: string | null;
+}
+
+/** A rate row as the operator knows it — its currency and day ("CDF 03-08-2026"). */
+function rateName(r: Row): string {
+  return `${r.currency_name ?? 'Rates'} ${formatDate(r.rate_date)}`;
 }
 
 /** The currency the agency's rates are quoted into, per the brief. */
@@ -59,6 +66,8 @@ export default function ExchangeRateMasterPage() {
     setLoading(true);
     const params = new URLSearchParams({
       q: search,
+      // The master lists disabled rows too, so they can be switched back on.
+      include_disabled: 'true',
       page: String(page),
       pageSize: String(pageSize),
     });
@@ -100,6 +109,11 @@ export default function ExchangeRateMasterPage() {
       title: 'Deleted',
       message: `The rates for ${formatDate(row.rate_date)} have been removed.`,
     });
+    load();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/exchange-rates/${r.id}`, active, rateName(r)));
     load();
   }
 
@@ -155,8 +169,13 @@ export default function ExchangeRateMasterPage() {
             className: 'font-mono tabular-nums',
             render: (r) => formatRate(r.bcc_rate === null ? null : Number(r.bcc_rate)),
           },
+          displayStatusColumn<Row>({ nameOf: rateName, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -220,6 +239,7 @@ function FormModal({
   const [currencyId, setCurrencyId] = useState(row ? String(row.currency_id) : '');
   const [declarationRate, setDeclarationRate] = useState(row?.declaration_rate ?? '');
   const [bccRate, setBccRate] = useState(row?.bcc_rate ?? '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -247,6 +267,7 @@ function FormModal({
           currency_id: Number(currencyId),
           declaration_rate: declarationRate || null,
           bcc_rate: bccRate || null,
+          display: active ? 'Y' : 'N',
         }),
       },
     );
@@ -333,6 +354,8 @@ function FormModal({
               for this day.
             </p>
           </div>
+
+          <ActiveToggleField checked={active} onChange={setActive} />
 
           <div className="flex justify-end gap-2 pt-2">
             {/* §4.21 — a labelled way out, in every mode. */}

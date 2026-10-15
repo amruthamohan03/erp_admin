@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -37,7 +39,13 @@ export default function PaymentSubtypesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ q: search, page: String(page), pageSize: String(pageSize) });
+    const params = new URLSearchParams({
+      q: search,
+      // The master lists disabled rows too, so they can be switched back on.
+      include_disabled: 'true',
+      page: String(page),
+      pageSize: String(pageSize),
+    });
     const res = await safeFetchJson<Row[]>(`/api/v1/payment-subtypes?${params}`);
     if (res.ok) {
       setItems(res.data);
@@ -66,6 +74,11 @@ export default function PaymentSubtypesPage() {
       title: 'Deleted',
       message: `"${row.payment_subtype}" has been disabled. Restore it from the Recycle Bin if you need it back.`,
     });
+    load();
+  }
+
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/payment-subtypes/${r.id}`, active, r.payment_subtype));
     load();
   }
 
@@ -102,8 +115,13 @@ export default function PaymentSubtypesPage() {
             sortable: true,
             render: (r) => r.payment_type_name ?? '—',
           },
+          displayStatusColumn<Row>({ nameOf: (r) => r.payment_subtype, onToggle: handleToggle }),
         ]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -164,6 +182,7 @@ function FormModal({
   const [value, setValue] = useState(row?.payment_subtype ?? '');
   const [methodId, setMethodId] = useState(row?.payment_method_id ? String(row.payment_method_id) : '');
   const [typeId, setTypeId] = useState(row?.payment_type_id ? String(row.payment_type_id) : '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -201,6 +220,7 @@ function FormModal({
           payment_subtype: value,
           payment_method_id: Number(methodId),
           payment_type_id: typeId ? Number(typeId) : null,
+          display: active ? 'Y' : 'N',
         }),
       },
     );
@@ -267,6 +287,7 @@ function FormModal({
               aria-label="Payment Type"
             />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           {/* §4.21 — a labelled way out, in every mode. */}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>

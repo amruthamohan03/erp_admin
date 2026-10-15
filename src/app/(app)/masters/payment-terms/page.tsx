@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import ActiveToggleField from '@/components/ui/ActiveToggleField';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
@@ -29,7 +31,13 @@ export default function PaymentTermsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ q: search, page: String(page), pageSize: String(pageSize) });
+    const params = new URLSearchParams({
+      q: search,
+      // The master lists disabled rows too, so they can be switched back on.
+      include_disabled: 'true',
+      page: String(page),
+      pageSize: String(pageSize),
+    });
     const res = await safeFetchJson<Row[]>(`/api/v1/payment-terms?${params}`);
     if (res.ok) {
       setItems(res.data);
@@ -56,6 +64,11 @@ export default function PaymentTermsPage() {
     load();
   }
 
+  async function handleToggle(r: Row, active: boolean) {
+    setResult(await setDisplay(`/api/v1/payment-terms/${r.id}`, active, r.payment_term_name));
+    load();
+  }
+
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
@@ -75,8 +88,15 @@ export default function PaymentTermsPage() {
             <Plus className="h-4 w-4" /> New Payment Term
           </button>
         }
-        columns={[{ key: 'payment_term_name', header: 'Payment Term', sortable: true, className: 'font-medium' }]}
-        actions={(r) => ({ edit: () => setEditing(r), remove: () => handleDelete(r) })}
+        columns={[
+          { key: 'payment_term_name', header: 'Payment Term', sortable: true, className: 'font-medium' },
+          displayStatusColumn<Row>({ nameOf: (r) => r.payment_term_name, onToggle: handleToggle }),
+        ]}
+        // A disabled row has nothing left to delete — the switch re-enables it.
+        actions={(r) => ({
+          edit: () => setEditing(r),
+          ...(r.display === 'Y' ? { remove: () => handleDelete(r) } : {}),
+        })}
         server={{
           page,
           pageSize,
@@ -119,6 +139,7 @@ export default function PaymentTermsPage() {
 function FormModal({ row, onClose, onSaved }: { row?: Row; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!row;
   const [value, setValue] = useState(row?.payment_term_name ?? '');
+  const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -145,7 +166,7 @@ function FormModal({ row, onClose, onSaved }: { row?: Row; onClose: () => void; 
       {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payment_term_name: value }),
+        body: JSON.stringify({ payment_term_name: value, display: active ? 'Y' : 'N' }),
       },
     );
     setSaving(false);
@@ -187,6 +208,7 @@ function FormModal({ row, onClose, onSaved }: { row?: Row; onClose: () => void; 
             />
             <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
           </div>
+          <ActiveToggleField checked={active} onChange={setActive} />
           {/* §4.21 — a labelled way out, in every mode. */}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
