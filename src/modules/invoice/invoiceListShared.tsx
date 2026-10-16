@@ -206,23 +206,30 @@ export function useInvoiceRowActions(kind: InvoiceKind, onDone: () => void) {
     onDone();
   }
 
+  /**
+   * The workflow step for this row — Validate, then Mark DGI Verified — always
+   * in the LAST slot of the action column. A fully verified invoice has no step
+   * left, so the slot is held by an empty box of the same size: without it the
+   * buttons before it shift right on that row and no column lines up.
+   */
   function buttons(row: ActionRow): ReactNode {
-    return (
-      <>
-        {row.validated === 0 && (
-          <button type="button" title="Validate" onClick={() => setPending({ row, action: 'validate' })}
-            className="btn-icon ms-1 bg-cyan-600 text-white shadow-sm hover:bg-cyan-700">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {row.validated === 1 && (
-          <button type="button" title="Mark DGI Verified" onClick={() => setPending({ row, action: 'dgi' })}
-            className="btn-icon ms-1 bg-violet-600 text-white shadow-sm hover:bg-violet-700">
-            <ShieldCheck className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </>
-    );
+    if (row.validated === 0) {
+      return (
+        <button type="button" title="Validate" aria-label="Validate"
+          onClick={() => setPending({ row, action: 'validate' })} className="btn-approve btn-icon">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        </button>
+      );
+    }
+    if (row.validated === 1) {
+      return (
+        <button type="button" title="Mark DGI Verified" aria-label="Mark DGI Verified"
+          onClick={() => setPending({ row, action: 'dgi' })} className="btn-verify btn-icon">
+          <ShieldCheck className="h-3.5 w-3.5" />
+        </button>
+      );
+    }
+    return <span aria-hidden className="inline-block h-7 w-7 shrink-0" />;
   }
 
   const dialogs = (

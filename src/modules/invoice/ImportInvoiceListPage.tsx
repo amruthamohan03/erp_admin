@@ -175,7 +175,7 @@ export default function ImportInvoiceListPage() {
           remove: r.validated === 0 ? () => actions.askDelete(r) : undefined,
           extra: (
             <>
-              <button type="button" title="Print / PDF — the full invoice" onClick={() => print(r.id)} className="btn-pdf btn-icon ms-1">
+              <button type="button" title="Print / PDF — the full invoice" onClick={() => print(r.id)} className="btn-pdf btn-icon">
                 <Printer className="h-3.5 w-3.5" />
               </button>
               {actions.buttons(r)}

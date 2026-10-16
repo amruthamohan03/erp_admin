@@ -488,7 +488,7 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
               type="button"
               onClick={() => exportOne(l.id)}
               title="Export to Excel"
-              className="btn-excel btn-icon ms-1"
+              className="btn-excel btn-icon"
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
             </button>

@@ -15,7 +15,8 @@ const N = (v: unknown): number => {
 };
 
 // tally_ref + dgi_amount + normalized_by all present ⇒ DGI info complete.
-const DGI_COMPLETE = sql`(inv.tally_ref IS NOT NULL AND inv.tally_ref <> '' AND inv.dgi_amount > 0 AND inv.normalized_by IS NOT NULL AND inv.normalized_by > 0)`;
+// Exported for the invoice dashboard, which must count by the same rule.
+export const DGI_COMPLETE = sql`(inv.tally_ref IS NOT NULL AND inv.tally_ref <> '' AND inv.dgi_amount > 0 AND inv.normalized_by IS NOT NULL AND inv.normalized_by > 0)`;
 
 export interface ImportInvoiceStats {
   total: number;

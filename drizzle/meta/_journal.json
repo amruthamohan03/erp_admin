@@ -1002,6 +1002,13 @@
       "when": 1792900000000,
       "tag": "0141_payment_subtype_by_method",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0142_invoice_dashboard_menus",
+      "breakpoints": true
     }
   ]
 }

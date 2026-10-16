@@ -296,6 +296,18 @@
      emerald reads on either theme's ground unaided (§4.32). */
   .btn-select { @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700; }
 
+  /* Records an outside verification on a record that is already approved — the
+     invoice lists' "Mark DGI Verified". A step PAST approve, so it must not wear
+     approve's colour, and it changes no document, so it is not print either.
+     Violet, matching the DGI Verified status badge (§4.38), and outside the
+     reserved view / edit / delete hues (§4.20). */
+  .btn-verify { @apply btn bg-violet-600 text-white shadow-sm hover:bg-violet-700; }
+
+  /* Opens a record's child list for management — the seals list's "Manage Seal
+     Numbers". It neither produces a document nor changes the row itself, so it
+     has no configured action; fuchsia keeps it apart from edit's blue. */
+  .btn-manage { @apply btn bg-fuchsia-600 text-white shadow-sm hover:bg-fuchsia-700; }
+
   /* Same meanings, unfilled, for tables that use bare glyphs (the master
      screens). Coloured AT REST, not only on hover: an all-grey row of icons that
      reveals which one deletes only once the pointer is on it makes the operator

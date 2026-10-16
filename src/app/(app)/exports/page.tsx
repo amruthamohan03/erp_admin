@@ -467,7 +467,7 @@ function ExportsListPageInner() {
             <a
               href={`/api/v1/exports/${r.id}/export`}
               title="Export to Excel"
-              className="btn-excel btn-icon ms-1"
+              className="btn-excel btn-icon"
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
             </a>
