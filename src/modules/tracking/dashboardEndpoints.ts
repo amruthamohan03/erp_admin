@@ -5,7 +5,13 @@
 // the module segment. Each dashboard binds its own module in a two-line module
 // file, so no call site carries the name and they cannot drift apart (§4.10).
 
-export type TrackingModule = 'imports' | 'exports' | 'licenses' | 'quotations';
+export type TrackingModule =
+  | 'imports'
+  | 'exports'
+  | 'licenses'
+  | 'quotations'
+  | 'export-invoices'
+  | 'import-invoices';
 
 /** The tab data endpoint for one tab key. */
 export function buildTabEndpoint(

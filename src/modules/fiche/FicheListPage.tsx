@@ -231,7 +231,7 @@ export default function FicheListPage() {
                 type="button"
                 title="Print / PDF"
                 onClick={() => window.open(`/api/v1/fiches/${r.id}/print`, '_blank')}
-                className="btn-pdf btn-icon ms-1"
+                className="btn-pdf btn-icon"
               >
                 <Printer className="h-3.5 w-3.5" />
               </button>
@@ -240,7 +240,7 @@ export default function FicheListPage() {
                   key={t.key}
                   type="button"
                   onClick={() => setPending({ row: r, kind: 'step', step: t })}
-                  className="btn-approve btn-sm ms-1"
+                  className="btn-approve btn-sm"
                   title={`${words(t.key)} — moves the fiche to ${words(t.to)}`}
                 >
                   {words(t.key)}

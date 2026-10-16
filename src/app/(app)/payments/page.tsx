@@ -845,7 +845,7 @@ export default function PaymentsPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   title={`Print the Demande de Fonds for request #${r.id}`}
-                  className="btn-pdf btn-icon ms-1"
+                  className="btn-pdf btn-icon"
                 >
                   <Printer className="h-3.5 w-3.5" />
                 </a>

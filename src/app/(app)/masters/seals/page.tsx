@@ -458,14 +458,14 @@ export default function SealsPage() {
                   type="button"
                   onClick={() => setManageFor(m)}
                   title="Manage Seal Numbers"
-                  className="btn-icon ms-1 bg-fuchsia-600 text-white shadow-sm hover:bg-fuchsia-700"
+                  className="btn-manage btn-icon"
                 >
                   <ListOrdered className="h-3.5 w-3.5" />
                 </button>
                 <a
                   href={`/api/v1/seals/${m.id}/export`}
                   title="Export"
-                  className="btn-excel btn-icon ms-1"
+                  className="btn-excel btn-icon"
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5" />
                 </a>

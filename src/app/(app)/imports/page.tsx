@@ -563,7 +563,7 @@ function ImportsListPageInner() {
               type="button"
               onClick={() => exportOne(r.id)}
               title="Export to Excel"
-              className="btn-excel btn-icon ms-1"
+              className="btn-excel btn-icon"
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
             </button>

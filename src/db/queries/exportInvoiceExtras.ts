@@ -16,7 +16,8 @@ const N = (v: unknown): number => {
 };
 
 // dgi_code + dgi_amount + normalized_by all present ⇒ DGI info complete.
-const DGI_COMPLETE = sql`(inv.dgi_code IS NOT NULL AND inv.dgi_code <> '' AND inv.dgi_amount > 0 AND inv.normalized_by IS NOT NULL AND inv.normalized_by > 0)`;
+// Exported for the invoice dashboard, which must count by the same rule.
+export const DGI_COMPLETE = sql`(inv.dgi_code IS NOT NULL AND inv.dgi_code <> '' AND inv.dgi_amount > 0 AND inv.normalized_by IS NOT NULL AND inv.normalized_by > 0)`;
 
 export interface ExportInvoiceStats {
   total: number;

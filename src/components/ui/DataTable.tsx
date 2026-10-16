@@ -492,42 +492,37 @@ export default function DataTable<T>({
                     ))}
                     {hasActions && (
                       <td className="whitespace-nowrap text-right">
-                        {/* Reserved hues, always in this order (§4.20). */}
-                        {act?.view && (
-                          <button type="button" onClick={act.view} title="View" className="ico-view">
-                            <ActionIcon action="view" className="h-4 w-4" />
-                          </button>
-                        )}
-                        {typeof act?.edit === 'string' ? (
-                          <Link href={act.edit} title="Edit" className="ico-edit ms-1">
-                            <ActionIcon action="edit" className="h-4 w-4" />
-                          </Link>
-                        ) : act?.edit ? (
-                          <button type="button" onClick={act.edit} title="Edit" className="ico-edit ms-1">
-                            <ActionIcon action="edit" className="h-4 w-4" />
-                          </button>
-                        ) : null}
-                        {act?.restore && (
-                          <button
-                            type="button"
-                            onClick={act.restore}
-                            title="Restore"
-                            className="ico-restore ms-1"
-                          >
-                            <ActionIcon action="restore" className="h-4 w-4" />
-                          </button>
-                        )}
-                        {act?.remove && (
-                          <button
-                            type="button"
-                            onClick={act.remove}
-                            title="Delete"
-                            className="ico-delete ms-1"
-                          >
-                            <ActionIcon action="delete" className="h-4 w-4" />
-                          </button>
-                        )}
-                        {act?.extra}
+                        {/* One flex row, so bare glyphs (24px) and filled
+                            buttons (28px) share a centre line and a gap instead
+                            of sitting on the text baseline at different heights.
+                            Reserved hues, always in this order (§4.20). */}
+                        <div className="flex items-center justify-end gap-1">
+                          {act?.view && (
+                            <button type="button" onClick={act.view} title="View" className="ico-view">
+                              <ActionIcon action="view" className="h-4 w-4" />
+                            </button>
+                          )}
+                          {typeof act?.edit === 'string' ? (
+                            <Link href={act.edit} title="Edit" className="ico-edit">
+                              <ActionIcon action="edit" className="h-4 w-4" />
+                            </Link>
+                          ) : act?.edit ? (
+                            <button type="button" onClick={act.edit} title="Edit" className="ico-edit">
+                              <ActionIcon action="edit" className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                          {act?.restore && (
+                            <button type="button" onClick={act.restore} title="Restore" className="ico-restore">
+                              <ActionIcon action="restore" className="h-4 w-4" />
+                            </button>
+                          )}
+                          {act?.remove && (
+                            <button type="button" onClick={act.remove} title="Delete" className="ico-delete">
+                              <ActionIcon action="delete" className="h-4 w-4" />
+                            </button>
+                          )}
+                          {act?.extra}
+                        </div>
                       </td>
                     )}
                   </tr>

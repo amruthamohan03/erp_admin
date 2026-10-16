@@ -168,7 +168,7 @@ export default function ExportInvoiceListPage() {
             <>
               <button type="button" title="ALL — print every page (Debit Note + Facture)"
                 onClick={() => window.open(`/api/v1/export-invoices/${r.id}/print?page=full`, '_blank')}
-                className="btn-pdf btn-sm ms-1 h-7 px-2 text-[11px] font-bold">
+                className="btn-pdf btn-sm h-7 px-2 text-[11px] font-bold">
                 ALL
               </button>
               {actions.buttons(r)}

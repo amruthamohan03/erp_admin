@@ -286,6 +286,8 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Quotation Management', name: 'Invoice Quotation', order: 45, url: '/quotations' },
 
   // ── Invoice Management (original menu_id=68) ────────────────────
+  { parent: 'Invoice Management', name: 'Export Invoice Dashboard', order: 1, url: '/export-invoices/dashboard' },
+  { parent: 'Invoice Management', name: 'Import Invoice Dashboard', order: 2, url: '/import-invoices/dashboard' },
   { parent: 'Invoice Management', name: 'Export Invoice', order: 3, url: '/export-invoices' },
   { parent: 'Invoice Management', name: 'Import Invoice', order: 4, url: '/import-invoices' },
   // The four differentiated FV/FA variants are hidden in production — the
