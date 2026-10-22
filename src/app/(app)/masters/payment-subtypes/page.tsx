@@ -15,8 +15,6 @@ import { fetchMasterOptions, type MasterOption } from '@/lib/selectOptions';
 interface Row {
   id: number;
   payment_subtype: string;
-  payment_method_id: number | null;
-  payment_method_name: string | null;
   payment_type_id: number | null;
   payment_type_name: string | null;
   display: 'Y' | 'N';
@@ -34,7 +32,6 @@ export default function PaymentSubtypesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [result, setResult] = useState<SaveResult | null>(null);
-  const [methods, setMethods] = useState<MasterOption[]>([]);
   const [types, setTypes] = useState<MasterOption[]>([]);
 
   const load = useCallback(async () => {
@@ -58,7 +55,6 @@ export default function PaymentSubtypesPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetchMasterOptions('payment-methods', 'payment_method_name').then(setMethods);
     fetchMasterOptions('payment-types', 'payment_type_name').then(setTypes);
   }, []);
 
@@ -93,7 +89,7 @@ export default function PaymentSubtypesPage() {
         rows={items}
         loading={loading}
         rowKey={(r) => r.id}
-        searchPlaceholder="Search subtype, payment method..."
+        searchPlaceholder="Search subtype, payment type..."
         emptyMessage="No payment subtype yet — create the first one."
         toolbar={
           // §4.35 — the create action belongs to the list it adds to.
@@ -103,12 +99,6 @@ export default function PaymentSubtypesPage() {
         }
         columns={[
           { key: 'payment_subtype', header: 'Payment Subtype', sortable: true, className: 'font-medium' },
-          {
-            key: 'payment_method_name',
-            header: 'Payment Method',
-            sortable: true,
-            render: (r) => r.payment_method_name ?? '—',
-          },
           {
             key: 'payment_type_name',
             header: 'Payment Type',
@@ -135,7 +125,6 @@ export default function PaymentSubtypesPage() {
 
       {showCreate && (
         <FormModal
-          methods={methods}
           types={types}
           onClose={() => setShowCreate(false)}
           onSaved={() => {
@@ -149,7 +138,6 @@ export default function PaymentSubtypesPage() {
       {editing && (
         <FormModal
           row={editing}
-          methods={methods}
           types={types}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -167,45 +155,35 @@ export default function PaymentSubtypesPage() {
 
 function FormModal({
   row,
-  methods,
   types,
   onClose,
   onSaved,
 }: {
   row?: Row;
-  methods: MasterOption[];
   types: MasterOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isEdit = !!row;
   const [value, setValue] = useState(row?.payment_subtype ?? '');
-  const [methodId, setMethodId] = useState(row?.payment_method_id ? String(row.payment_method_id) : '');
   const [typeId, setTypeId] = useState(row?.payment_type_id ? String(row.payment_type_id) : '');
   const [active, setActive] = useState(row ? row.display === 'Y' : true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // A name only has to be unique within its Payment Method. Skip the check while
-  // neither the name nor the method has moved — otherwise editing a row reports
-  // it as a duplicate of itself — and until a method is picked to scope it.
-  const unchanged =
-    isEdit && value === row?.payment_subtype && methodId === String(row?.payment_method_id ?? '');
+  // Skip the check while the name has not moved — otherwise editing a row
+  // reports it as a duplicate of itself.
+  const unchanged = isEdit && value === row?.payment_subtype;
   const { status: uniqueStatus, message: uniqueMessage } = useUniqueCheck({
     resource: 'payment-subtypes',
-    value: unchanged || !methodId ? '' : value,
+    value: unchanged ? '' : value,
     excludeId: row?.id ?? null,
-    scopeId: methodId ? Number(methodId) : null,
   });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!methodId) {
-      setError('Payment Method is required.');
-      return;
-    }
     if (uniqueStatus === 'taken') {
-      setError('That payment subtype already exists under this payment method.');
+      setError('That payment subtype already exists.');
       return;
     }
     setSaving(true);
@@ -218,7 +196,6 @@ function FormModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           payment_subtype: value,
-          payment_method_id: Number(methodId),
           payment_type_id: typeId ? Number(typeId) : null,
           display: active ? 'Y' : 'N',
         }),
@@ -250,18 +227,6 @@ function FormModal({
               {error}
             </div>
           )}
-          <div>
-            <label className="label required" htmlFor="payment_method_id">Payment Method</label>
-            <SearchableSelect
-              id="payment_method_id"
-              value={methodId}
-              onChange={setMethodId}
-              options={methods.map((m) => ({ value: String(m.id), label: m.label }))}
-              placeholder="Select payment method"
-              required
-              aria-label="Payment Method"
-            />
-          </div>
           <div>
             <label className="label required" htmlFor="payment_subtype">Payment Subtype</label>
             <input

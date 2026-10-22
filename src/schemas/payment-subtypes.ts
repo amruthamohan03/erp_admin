@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
-// A subtype belongs to a Payment Method — the licence form lists only the
-// subtypes of the method picked (0141), so a new one must name its method.
-// payment_type_id (EXPORT/IMPORT direction) stays optional.
+// A subtype stands on its own — it is not tied to a Payment Method (0144).
+// payment_type_id (EXPORT/IMPORT direction) is optional.
 export const paymentSubtypeCreateSchema = z.object({
   payment_subtype: z.string().min(1).max(100),
-  payment_method_id: z.coerce
-    .number({ invalid_type_error: 'Payment Method is required.' })
-    .int()
-    .positive('Payment Method is required.'),
   payment_type_id: z.coerce.number().int().positive().nullable().optional(),
   display: z.enum(['Y', 'N']).optional(),
 });
@@ -19,7 +14,6 @@ export type PaymentSubtypeCreateInput = z.infer<
 
 export const paymentSubtypeUpdateSchema = z.object({
   payment_subtype: z.string().min(1).max(100).optional(),
-  payment_method_id: z.coerce.number().int().positive().nullable().optional(),
   payment_type_id: z.coerce.number().int().positive().nullable().optional(),
   display: z.enum(['Y', 'N']).optional(),
 });
@@ -32,7 +26,6 @@ export const paymentSubtypeListQuerySchema = z.object({
   // Off by default so every dropdown reading this endpoint still sees only
   // enabled rows; the master's own screen opts in to list disabled ones too.
   include_disabled: includeDisabledParam,
-  payment_method_id: z.coerce.number().int().positive().optional(),
   payment_type_id: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

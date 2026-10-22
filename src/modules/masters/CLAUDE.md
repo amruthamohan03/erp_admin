@@ -92,7 +92,7 @@ Grouped by lifecycle stage from the root CLAUDE.md §2. Each row is a table this
 | `currency_master_t` | currency codes; pair with FX rate table elsewhere |
 | `payment_type_master_t` | inflow vs outflow vs adjustment etc. |
 | `payment_method_master_t` | cash / bank transfer / cheque / mobile money |
-| `payment_subtype_master_t` | child of method (e.g. M-Pesa under mobile money) |
+| `payment_subtype_master_t` | flat list, independent of payment method (0144) |
 | `expense_type_master_t` | expense categorization for payment requests |
 | `perdiem_master_t` | per-diem rate table (role × location, typically) |
 
@@ -156,7 +156,7 @@ export type CurrencyMasterInsert = typeof currencyMaster.$inferInsert;
 
 Then re-export from [src/db/schema/index.ts](../../db/schema/index.ts).
 
-For a hierarchical master (e.g. payment_method → payment_subtype, office → sub_office), use the self-reference pattern from [src/db/schema/roles.ts:14](../../db/schema/roles.ts#L14) with `AnyPgColumn` and `relations(...)`.
+For a hierarchical master (e.g. office → sub_office), use the self-reference pattern from [src/db/schema/roles.ts:14](../../db/schema/roles.ts#L14) with `AnyPgColumn` and `relations(...)`.
 
 ---
 
