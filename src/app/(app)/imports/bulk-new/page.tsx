@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { fetchClientOptions } from '@/lib/clientOptions';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // /imports/bulk-new — sibling of /exports/bulk-new. Same overall
 // shape (client + license + MCA prefix header, editable row grid,
@@ -93,14 +94,14 @@ export default function BulkNewImportsPage() {
         // Clients are labelled by short code, via the shared helper (§4.15).
         // licenses allows pageSize up to 500.
         fetchClientOptions(),
-        fetch('/api/v1/licenses?pageSize=500').then((r) => r.json()),
+        safeFetchJson<
+          { id: number; license_number?: string; license_no?: string; client_id?: number }[]
+        >('/api/v1/licenses?pageSize=500'),
       ]);
       setClients(clientOpts);
       if (lRes.ok) {
         setLicenses(
-          (
-            lRes.data as { id: number; license_number?: string; license_no?: string; client_id?: number }[]
-          ).map((l) => ({
+          lRes.data.map((l) => ({
             value: String(l.id),
             label: l.license_number ?? l.license_no ?? `#${l.id}`,
             clientId: l.client_id != null ? String(l.client_id) : '',
@@ -117,9 +118,8 @@ export default function BulkNewImportsPage() {
     }
     setUsageLoading(true);
     try {
-      const res = await fetch(`/api/v1/licenses/${id}/usage`);
-      const json = await res.json();
-      if (json.ok) setUsage(json.data as LicenseUsage);
+      const res = await safeFetchJson<LicenseUsage>(`/api/v1/licenses/${id}/usage`);
+      if (res.ok) setUsage(res.data);
     } finally {
       setUsageLoading(false);
     }
@@ -200,19 +200,16 @@ export default function BulkNewImportsPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/v1/imports/bulk-create', {
+      const res = await safeFetchJson('/api/v1/imports/bulk-create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Bulk create failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       router.push('/imports');
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

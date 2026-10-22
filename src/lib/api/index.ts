@@ -3,7 +3,8 @@ import { ZodError } from 'zod';
 import { getSession, AuthPayload } from '@/lib/auth';
 import { checkPermission, PERMISSION_LABELS, PermissionAction } from '@/lib/auth/permissions';
 import { AppError } from '@/lib/errors';
-import { messageForPgError, summarizeZodError } from '@/lib/validation/messages';
+import { randomUUID } from 'node:crypto';
+import { describeError, summarizeZodError } from '@/lib/validation/messages';
 
 // Response envelope per root CLAUDE.md §4.4.
 //   success: { ok: true,  data: T, meta?: {...} }
@@ -57,9 +58,12 @@ export function fail(message: string, status = 400, details?: Record<string, unk
   return NextResponse.json(body, { status });
 }
 
+/** §4.39 — a 401 names its cause and its fix rather than the status word. */
+const SIGNED_OUT = 'You are not signed in, or your session has expired. Sign in again to continue.';
+
 export async function requireAuth(): Promise<AuthPayload | NextResponse> {
   const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+  if (!session) return fail(SIGNED_OUT, 401);
   return session;
 }
 
@@ -71,7 +75,7 @@ export async function requirePermission(
   action: PermissionAction,
 ): Promise<AuthPayload | NextResponse> {
   const session = await getSession();
-  if (!session) return fail('Unauthorized', 401);
+  if (!session) return fail(SIGNED_OUT, 401);
   const allowed = await checkPermission(session, resource, action);
   if (!allowed) {
     // §4.23 — name the permission and where to grant it. A bare "Forbidden" told
@@ -96,10 +100,10 @@ export function isResponse(x: unknown): x is NextResponse {
 // Handled cases:
 //   - AppError subclasses (typed errors from @/lib/errors) → use their status/code/details
 //   - ZodError → 422, message names the offending field(s) (§4.23)
-//   - pg length/range/not-null/check violations → 422, also named
-//   - pg unique violation (23505) → 409
-//   - pg foreign key violation (23503) → 400
-//   - everything else → 500 (logged)
+//   - everything else → describeError (§4.39): Drizzle's wrapper is unwrapped to
+//     the driver error, so a length/range/not-null/check violation (422), a
+//     duplicate (409), a missing reference (422) or a schema-drift / connection
+//     fault (500/503, logged with a reference) each says what failed.
 //
 // The message is what every client renders, so it is written for an operator
 // rather than a developer. `details.fields` carries the per-field messages the
@@ -113,16 +117,18 @@ function mapError(err: unknown): NextResponse {
     const { message, fields } = summarizeZodError(err);
     return fail(message, 422, { fields, errors: err.flatten() });
   }
-  const e = err as { code?: string; message?: string; column?: string; constraint?: string; detail?: string };
+  // §4.39 — everything else is described, never collapsed to "Server error".
+  // describeError unwraps Drizzle's wrapper to the driver error inside it, so a
+  // duplicate, a missing reference or a missing column each say so by name.
+  const { message, status, field } = describeError(err);
+  if (status < 500) return fail(message, status, field ? { field } : undefined);
 
-  const constraintMessage = e?.code ? messageForPgError(e) : null;
-  if (constraintMessage) {
-    return fail(constraintMessage.message, constraintMessage.status);
-  }
-  if (e?.code === '23505') return fail('Resource already exists', 409);
-  if (e?.code === '23503') return fail('Referenced resource not found', 400);
-  console.error('[withErrorHandler]', err);
-  return fail('Server error', 500);
+  // A genuine server fault still tells the operator what failed, plus a
+  // reference to quote — the same reference is in the server log beside the
+  // full error, so a report can be matched to its stack trace.
+  const ref = randomUUID().slice(0, 8);
+  console.error(`[withErrorHandler] ref=${ref}`, err);
+  return fail(`${message} (Reference: ${ref})`, status, { ref, ...(field ? { field } : {}) });
 }
 
 // Wraps a route handler so it can `throw` typed errors instead of building

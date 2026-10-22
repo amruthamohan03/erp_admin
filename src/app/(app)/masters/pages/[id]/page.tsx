@@ -12,6 +12,7 @@ import { usePagedList } from '@/lib/hooks/usePagedList';
 import ConditionsTab from '@/modules/page-builder/ConditionsTab';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // §4.12 page-builder — configure one master_page (accordions, role grants,
 // fields, field grants). Ported from main onto /api/v1 + { ok, data }.
@@ -76,13 +77,15 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
   const [tab, setTab] = useState<Tab>(() => tabFromSearch(searchParams.get('tab')));
   const [page, setPage] = useState<MasterPage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await fetch(`/api/v1/master-pages/${pageId}`);
-      const json = await res.json();
-      if (json.ok) setPage(json.data);
+      const res = await safeFetchJson<MasterPage>(`/api/v1/master-pages/${pageId}`);
+      if (res.ok) setPage(res.data);
+      else setLoadError(res.detail ? `${res.message} ${res.detail}` : res.message);
     } finally {
       setLoading(false);
     }
@@ -115,6 +118,12 @@ function MasterPageDetail({ pageId }: { pageId: number }) {
           </p>
         )}
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
+          {loadError}
+        </div>
+      )}
 
       <div className="border-b border-border mb-4 flex gap-1">
         {(['general', 'accordions', 'roles', 'fields', 'conditions'] as Tab[]).map((t) => (
@@ -167,19 +176,16 @@ function GeneralTab({ page, onSaved }: { page: MasterPage; onSaved: () => void }
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/master-pages/${page.id}`, {
+      const res = await safeFetchJson(`/api/v1/master-pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }
@@ -282,9 +288,9 @@ function AccordionsTab({ pageId }: { pageId: number }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/master-page-accordions?page_id=${pageId}`);
-      const json = await res.json();
-      if (json.ok) setItems(json.data);
+      const res = await safeFetchJson<MasterPageAccordion[]>(`/api/v1/master-page-accordions?page_id=${pageId}`);
+      if (res.ok) setItems(res.data);
+      else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     } finally {
       setLoading(false);
     }
@@ -297,10 +303,9 @@ function AccordionsTab({ pageId }: { pageId: number }) {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this accordion?')) return;
-    const res = await fetch(`/api/v1/master-page-accordions/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This accordion could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/master-page-accordions/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The accordion has been disabled.' });
@@ -403,19 +408,16 @@ function AccordionFormModal({
         : '/api/v1/master-page-accordions';
       const method = isEdit ? 'PUT' : 'POST';
       const body = isEdit ? form : { ...form, page_id: pageId };
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }
@@ -520,11 +522,12 @@ function RolesTab({ pageId }: { pageId: number }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/master-page-role-grants?page_id=${pageId}`);
-      const json = await res.json();
-      if (json.ok) {
-        setMatrix(json.data);
+      const res = await safeFetchJson<RoleGrantMatrix>(`/api/v1/master-page-role-grants?page_id=${pageId}`);
+      if (res.ok) {
+        setMatrix(res.data);
         setDirty(false);
+      } else {
+        setError(res.message);
       }
     } finally {
       setLoading(false);
@@ -560,20 +563,17 @@ function RolesTab({ pageId }: { pageId: number }) {
       }
     }
     try {
-      const res = await fetch(`/api/v1/master-page-role-grants?page_id=${pageId}`, {
+      const res = await safeFetchJson(`/api/v1/master-page-role-grants?page_id=${pageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ grants: payload }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setDirty(false);
       setSavedAt(new Date());
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }
@@ -599,6 +599,13 @@ function RolesTab({ pageId }: { pageId: number }) {
     resetPage,
   } = usePagedList(filteredRoles, { initialPageSize: 25 });
 
+  // A failed load would otherwise sit on "Loading matrix..." forever.
+  if (!loading && !matrix && error)
+    return (
+      <div className="rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
+        {error}
+      </div>
+    );
   if (loading || !matrix)
     return <div className="card p-6 text-center text-muted-foreground">Loading matrix...</div>;
   if (matrix.accordions.length === 0)
@@ -739,23 +746,23 @@ function FieldsTab({ pageId }: { pageId: number }) {
 
   // Load accordions list once for the dropdown.
   useEffect(() => {
-    fetch(`/api/v1/master-page-accordions?page_id=${pageId}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) {
-          setAccordions(j.data);
-          if (j.data.length > 0 && accordionId === null) setAccordionId(j.data[0].id);
-        }
-      });
+    safeFetchJson<MasterPageAccordion[]>(`/api/v1/master-page-accordions?page_id=${pageId}`).then((res) => {
+      if (res.ok) {
+        setAccordions(res.data);
+        if (res.data.length > 0 && accordionId === null) setAccordionId(res.data[0].id);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
+      }
+    });
   }, [pageId, accordionId]);
 
   const loadFields = useCallback(async () => {
     if (accordionId === null) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/master-page-fields?accordion_id=${accordionId}`);
-      const json = await res.json();
-      if (json.ok) setFields(json.data);
+      const res = await safeFetchJson<MasterPageField[]>(`/api/v1/master-page-fields?accordion_id=${accordionId}`);
+      if (res.ok) setFields(res.data);
+      else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     } finally {
       setLoading(false);
     }
@@ -772,16 +779,20 @@ function FieldsTab({ pageId }: { pageId: number }) {
     const url = `/api/v1/master-page-field-grants?accordion_id=${accordionId}${
       roleId ? `&role_id=${roleId}` : ''
     }`;
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.ok) {
-      setRoles(json.data.roles);
+    const res = await safeFetchJson<{
+      roles: GrantRole[];
+      fields: Array<{ id: number; override: FieldOverride | null }>;
+    }>(url);
+    if (res.ok) {
+      setRoles(res.data.roles);
       const ov: Record<number, FieldOverride> = {};
-      for (const f of json.data.fields as Array<{ id: number; override: FieldOverride | null }>) {
+      for (const f of res.data.fields) {
         if (f.override) ov[f.id] = f.override;
       }
       setOverrides(ov);
       setGrantDirty(false);
+    } else {
+      setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     }
   }, [accordionId, roleId]);
 
@@ -806,7 +817,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
     try {
       const payload: Record<string, FieldOverride | null> = {};
       for (const f of fields) payload[String(f.id)] = overrides[f.id] ?? null;
-      const res = await fetch(
+      const res = await safeFetchJson(
         `/api/v1/master-page-field-grants?accordion_id=${accordionId}&role_id=${roleId}`,
         {
           method: 'PUT',
@@ -814,9 +825,8 @@ function FieldsTab({ pageId }: { pageId: number }) {
           body: JSON.stringify({ overrides: payload }),
         },
       );
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setResult({ status: 'error', title: 'Not saved', message: json.error?.message || 'The role grants could not be saved.' });
+      if (!res.ok) {
+        setResult({ status: 'error', title: 'Not saved', message: res.message, detail: res.detail });
         return;
       }
       setGrantDirty(false);
@@ -828,10 +838,9 @@ function FieldsTab({ pageId }: { pageId: number }) {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this field?')) return;
-    const res = await fetch(`/api/v1/master-page-fields/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This field could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/master-page-fields/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The field has been disabled.' });
@@ -1068,19 +1077,16 @@ function FieldFormModal({
         ? `/api/v1/master-page-fields/${item!.id}`
         : '/api/v1/master-page-fields';
       const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

@@ -37,6 +37,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -157,12 +158,9 @@ function ExportsListPageInner() {
   const [result, setResult] = useState<SaveResult | null>(null);
 
   const reloadStats = useCallback(() => {
-    fetch('/api/v1/exports/stats')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setStats(j.data as Stats);
-      })
-      .catch(() => {});
+    safeFetchJson<Stats>('/api/v1/exports/stats').then((res) => {
+      if (res.ok) setStats(res.data);
+    });
   }, []);
 
   useEffect(() => {
@@ -172,7 +170,7 @@ function ExportsListPageInner() {
         // Clients are labelled by short code app-wide (§4.15).
         fetchOptions('clients', CLIENT_OPTION_LABEL_FIELD),
         fetchOptions('transport-modes', 'transport_mode_name'),
-        fetch('/api/v1/exports/stats').then((res) => res.json()),
+        safeFetchJson<Stats>('/api/v1/exports/stats'),
       ]);
       if (cancelled) return;
       setClientOpts(c);
@@ -212,17 +210,14 @@ function ExportsListPageInner() {
       const params = buildParams();
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
-      const res = await fetch(`/api/v1/exports?${params.toString()}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<ExportRow[]>(`/api/v1/exports?${params.toString()}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
         setError(null);
       } else {
-        setError(json.error?.message ?? 'Failed to load');
+        setError(res.message);
       }
-    } catch {
-      setError('Network error');
     } finally {
       setLoading(false);
     }

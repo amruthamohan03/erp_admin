@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 export default function SecurityTab() {
   const [next, setNext] = React.useState('');
@@ -27,18 +28,17 @@ export default function SecurityTab() {
 
     setBusy(true);
     try {
-      const r = await fetch('/api/v1/me/password', {
+      const r = await safeFetchJson('/api/v1/me/password', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ new_password: next }),
       });
-      const j = await r.json();
-      if (j.ok) {
+      if (r.ok) {
         setMessage({ kind: 'ok', text: 'Password updated.' });
         setNext('');
         setConfirm('');
       } else {
-        setMessage({ kind: 'err', text: j.error?.message ?? 'Something went wrong.' });
+        setMessage({ kind: 'err', text: r.message });
       }
     } finally {
       setBusy(false);

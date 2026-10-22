@@ -10,7 +10,7 @@
 //
 // Everything that reads or rewrites that list lives here so there is one answer
 // to "which file holds this seal" and one way to take it back out (§4.10).
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { exportT } from '@/db/schema';
 import type { Database, Transaction } from '@/lib/db';
 import { recordAudit } from '@/lib/audit/recordAudit';
@@ -194,4 +194,22 @@ export async function assertSealsReleasable(
 /** Kept beside the split so a count can never be derived a different way. */
 export function countSeals(value: unknown): number {
   return splitSeals(value).length;
+}
+
+/**
+ * The SQL twin of `splitSeals`: one row per DISTINCT seal number on a comma-joined
+ * column, trimmed, empty entries dropped — the same rule (a seal named twice on
+ * one file is still one seal on it), so an aggregate in
+ * SQL and a count in TypeScript cannot disagree by a stray comma.
+ *
+ * Use it as a LATERAL source and compare `seal_no` with `=`. It yields whole
+ * entries, so seal 12 never matches a file carrying seal 123 (§4.37).
+ *
+ *   CROSS JOIN LATERAL (${sealEntries(sql`e.dgda_seal_no`)}) x
+ */
+export function sealEntries(column: SQL): SQL {
+  return sql`
+    SELECT DISTINCT btrim(s.v) AS seal_no
+      FROM unnest(string_to_array(${column}, ',')) AS s(v)
+     WHERE btrim(s.v) <> ''`;
 }

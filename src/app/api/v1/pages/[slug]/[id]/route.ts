@@ -79,7 +79,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   const { slug, id: rawId } = await params;
 
   const target = getPageTarget(slug);
-  if (!target) return fail('Unknown page', 404);
+  if (!target) return fail(`There is no page configured with the slug "${slug}". Check the address, or register it under Developer Options → Pages.`, 404);
 
   let body: {
     accordions?: Array<{ slug?: string; values?: Record<string, unknown> }>;
@@ -196,7 +196,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   const isCreate = rawId === 'new';
   const entityId = isCreate ? null : Number(rawId);
   if (!isCreate && (entityId === null || Number.isNaN(entityId))) {
-    return fail('Invalid entity id', 400);
+    return fail(`"${rawId}" is not a valid record id — the address should end in a number or \"new\".`, 400);
   }
 
   // §4.12 — config-driven conditions reference OTHER fields (e.g. an invoice
@@ -209,7 +209,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   const before = !isCreate && entityId !== null
     ? await fetchEntityValues(slug, entityId, allColumns)
     : null;
-  if (!isCreate && !before) return fail('Entity not found', 404);
+  if (!isCreate && !before) return fail(`Record #${entityId} was not found on the ${slug} page. It may have been deleted — reload the list.`, 404);
 
   // Merged across every submitted accordion: with one page-level save, a condition
   // that references a field in another section sees that section's *new* value in
@@ -653,7 +653,7 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   if (rawId === 'new') return ok({ values: {} });
 
   const entityId = Number(rawId);
-  if (Number.isNaN(entityId)) return fail('Invalid entity id', 400);
+  if (Number.isNaN(entityId)) return fail(`"${rawId}" is not a valid record id — the address should end in a number or \"new\".`, 400);
 
   const { searchParams } = new URL(req.url);
   const accordionSlug = searchParams.get('accordion_slug');
@@ -678,7 +678,7 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
         ),
       )
       .limit(1);
-    if (grants.length === 0) return fail('Forbidden', 403);
+    if (grants.length === 0) return fail(`Your role has not been granted any section of the ${slug} page. An administrator can grant it in the page's role settings.`, 403);
     const fields = await db
       .select({ name: masterPageAccordionField.name })
       .from(masterPageAccordionField)
@@ -699,7 +699,7 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
           eq(masterPageAccordionRole.roleId, session.role_id),
         ),
       );
-    if (grants.length === 0) return fail('Forbidden', 403);
+    if (grants.length === 0) return fail(`Your role has not been granted any section of the ${slug} page. An administrator can grant it in the page's role settings.`, 403);
     const accordionIds = grants.map((g) => g.accordion_id);
     const fields = await db
       .select({ name: masterPageAccordionField.name })
@@ -710,6 +710,6 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
 
   const safeColumns = safeColumnsFor(slug, fieldNames);
   const values = await fetchEntityValues(slug, entityId, safeColumns);
-  if (!values) return fail('Entity not found', 404);
+  if (!values) return fail(`Record #${entityId} was not found on the ${slug} page. It may have been deleted — reload the list.`, 404);
   return ok({ values });
 });

@@ -9,6 +9,7 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import type { MenuItem } from '@/types/menu';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface MenuRow extends MenuItem {
   parent_name: string | null;
@@ -28,9 +29,9 @@ export default function MenuPage() {
     try {
       const params = new URLSearchParams({ flat: '1', all: '1' });
       if (showHidden) params.set('includeHidden', '1');
-      const res = await fetch(`/api/v1/menus?${params}`);
-      const json = await res.json();
-      if (json.ok) setItems(json.data);
+      const res = await safeFetchJson<MenuRow[]>(`/api/v1/menus?${params}`);
+      if (res.ok) setItems(res.data);
+      else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     } finally {
       setLoading(false);
     }
@@ -50,10 +51,9 @@ export default function MenuPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this menu? Children must be disabled first.')) return;
-    const res = await fetch(`/api/v1/menus/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This menu could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/menus/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The menu has been disabled.' });
@@ -61,14 +61,13 @@ export default function MenuPage() {
   }
 
   async function toggleVisibility(m: MenuRow) {
-    const res = await fetch(`/api/v1/menus/${m.id}`, {
+    const res = await safeFetchJson(`/api/v1/menus/${m.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ display: m.display === 'Y' ? 'N' : 'Y' }),
     });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This menu could not be disabled.' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The menu has been disabled.' });
@@ -254,19 +253,16 @@ function MenuFormModal({
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

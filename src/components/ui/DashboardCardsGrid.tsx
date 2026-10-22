@@ -9,6 +9,7 @@ import {
 } from '@/lib/dashboardDataSource';
 import CardIcon from '@/components/ui/CardIcon';
 import { gradient, flatIconBg } from '@/components/ui/cardGradient';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Shared card-grid renderer used by every dashboard page. Fetches
 // /api/v1/dashboard-cards/me, filters to the given category, then
@@ -74,27 +75,29 @@ export default function DashboardCardsGrid({
   const [cards, setCards] = useState<DashboardCard[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
+  // A failed load must not read as "no cards are assigned to your role" —
+  // that sends the operator to the role mapping for a fault that is not there.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/dashboard-cards/me')
-      .then((r) => r.json())
-      .then((j) => {
+    void safeFetchJson<DashboardCard[]>('/api/v1/dashboard-cards/me')
+      .then((res) => {
         if (cancelled) return;
-        if (j.ok) {
-          const all = j.data as DashboardCard[];
-          const filtered = !category
-            ? all
-            : all.filter((c) =>
-                category === 'general'
-                  ? !c.card_category || c.card_category === 'general'
-                  : c.card_category === category,
-              );
-          setCards(filtered);
+        if (!res.ok) {
+          setLoadError(res.message);
+          return;
         }
-      })
-      .catch(() => {
-        /* leave cards empty — UI shows the empty state */
+        setLoadError(null);
+        const all = res.data;
+        const filtered = !category
+          ? all
+          : all.filter((c) =>
+              category === 'general'
+                ? !c.card_category || c.card_category === 'general'
+                : c.card_category === category,
+            );
+        setCards(filtered);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -119,13 +122,9 @@ export default function DashboardCardsGrid({
       const dataMap = new Map<string, unknown>();
       await Promise.all(
         endpoints.map(async (ep) => {
-          try {
-            const res = await fetch(ep);
-            const json = await res.json();
-            if (json?.ok) dataMap.set(ep, json.data);
-          } catch {
-            /* leave dataMap entry absent — card falls back to '—' */
-          }
+          // A failed endpoint leaves its entry absent — the card falls back to '—'.
+          const res = await safeFetchJson<unknown>(ep);
+          if (res.ok) dataMap.set(ep, res.data);
         }),
       );
       if (cancelled) return;
@@ -155,6 +154,10 @@ export default function DashboardCardsGrid({
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading cards…</div>;
+  }
+
+  if (loadError) {
+    return <div className="card p-6 text-sm text-destructive">{loadError}</div>;
   }
 
   if (cards.length === 0) {

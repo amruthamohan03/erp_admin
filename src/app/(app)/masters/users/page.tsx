@@ -8,6 +8,7 @@ import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { safeFetchJson } from '@/lib/safeFetch';
 import type { User, Role } from '@/types';
 
 /**
@@ -57,11 +58,13 @@ export default function UsersPage() {
       });
       if (locationFilter) params.set('location_id', locationFilter);
       if (deptFilter) params.set('dept_id', deptFilter);
-      const res = await fetch(`/api/v1/users?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<User[]>(`/api/v1/users?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(Number(res.meta?.total ?? 0));
+      } else {
+        // An empty list would otherwise read as "no users match".
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -74,10 +77,9 @@ export default function UsersPage() {
   }, [load]);
 
   useEffect(() => {
-    fetch('/api/v1/roles')
-      .then((r) => r.json())
-      .then((j) => j.ok && setRoles(j.data))
-      .catch(() => {});
+    void safeFetchJson<Role[]>('/api/v1/roles').then((r) => {
+      if (r.ok) setRoles(r.data);
+    });
   }, []);
 
   // The two master-backed pickers, through the shared fetcher (§4.16, §4.10).
@@ -110,17 +112,17 @@ export default function UsersPage() {
   async function setEnabled(u: User, enabled: boolean) {
     setBusy((prev) => new Set(prev).add(u.id));
     try {
-      const res = await fetch(`/api/v1/users/${u.id}`, {
+      const res = await safeFetchJson(`/api/v1/users/${u.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display: enabled ? 'Y' : 'N' }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
+      if (!res.ok) {
         setResult({
           status: 'error',
           title: enabled ? 'Not enabled' : 'Not disabled',
-          message: json.error?.message || `${u.username} could not be updated.`,
+          message: res.message,
+          detail: res.detail,
         });
         return;
       }
@@ -140,8 +142,6 @@ export default function UsersPage() {
       } else {
         load();
       }
-    } catch {
-      setResult({ status: 'error', title: 'Not updated', message: 'Network error.' });
     } finally {
       setBusy((prev) => {
         const next = new Set(prev);
@@ -161,10 +161,9 @@ export default function UsersPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this user?')) return;
-    const res = await fetch(`/api/v1/users/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This user could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/users/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The user has been disabled.' });
@@ -407,19 +406,16 @@ function UserFormModal({
     }
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // /bulk-edit — per-row bulk editor. Distinct from /bulk-update
 // (which sets ONE value across many rows). Here every matching row
@@ -131,17 +132,11 @@ export default function BulkEditPage() {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch('/api/v1/bulk-update/targets');
-        const json = await res.json();
-        if (cancelled) return;
-        if (json.ok) setTargets(json.data);
-        else setTargetsError(json.error?.message ?? 'Failed to load targets');
-      } catch {
-        if (!cancelled) setTargetsError('Network error');
-      } finally {
-        if (!cancelled) setLoadingTargets(false);
-      }
+      const res = await safeFetchJson<BulkTarget[]>('/api/v1/bulk-update/targets');
+      if (cancelled) return;
+      if (res.ok) setTargets(res.data);
+      else setTargetsError(res.message);
+      setLoadingTargets(false);
     })();
     return () => {
       cancelled = true;
@@ -208,19 +203,16 @@ export default function BulkEditPage() {
     setNotice(null);
     setLoadingRows(true);
     try {
-      const res = await fetch('/api/v1/bulk-edit/rows', {
+      const res = await safeFetchJson<RowsPayload>('/api/v1/bulk-edit/rows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entity, predicate, page: p, pageSize: ps }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Load failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
-      setRowsPayload(json.data as RowsPayload);
-    } catch {
-      setError('Network error');
+      setRowsPayload(res.data);
     } finally {
       setLoadingRows(false);
     }
@@ -278,23 +270,23 @@ export default function BulkEditPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch('/api/v1/bulk-edit/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity, edits: payload }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Save failed');
+      const res = await safeFetchJson<{ updated_count: number; requested_count: number }>(
+        '/api/v1/bulk-edit/apply',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity, edits: payload }),
+        },
+      );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setNotice(
-        `Saved — ${json.data.updated_count} of ${json.data.requested_count} rows updated.`,
+        `Saved — ${res.data.updated_count} of ${res.data.requested_count} rows updated.`,
       );
       setEdits({});
       await loadRows(page, pageSize);
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

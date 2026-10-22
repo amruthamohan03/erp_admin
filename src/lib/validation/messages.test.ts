@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { humanizeFieldPath, messageForPgError, summarizeZodError } from './messages';
+import { describeError, findPgError, humanizeFieldPath, messageForPgError, summarizeZodError } from './messages';
 
 // §4.23 — the point of these tests is the *wording*. A message that passes
 // type-checking but reads as "Invalid input" is the bug this module exists to
@@ -88,5 +88,90 @@ describe('messageForPgError', () => {
   it('leaves genuinely server-side codes alone so they still 500', () => {
     expect(messageForPgError({ code: '08006' })).toBeNull();
     expect(messageForPgError({ code: '23505' })).toBeNull();
+  });
+});
+
+// §4.39 — what an operator sees when a save fails for a reason that is not a
+// form validation. Drizzle wraps the driver error, so every case is built the
+// way it actually arrives: an outer "Failed query" error with the pg error as
+// its cause.
+const wrapped = (pg: Record<string, unknown>): Error =>
+  Object.assign(new Error('Failed query: insert into "license_t" ... params: 1,2'), { cause: pg });
+
+describe('describeError', () => {
+  it('finds the driver error inside Drizzle\'s wrapper', () => {
+    expect(findPgError(wrapped({ code: '23505' }))?.code).toBe('23505');
+    expect(findPgError(new Error('plain'))).toBeNull();
+  });
+
+  it('names the field and value of a duplicate', () => {
+    const d = describeError(wrapped({
+      code: '23505',
+      detail: 'Key (license_number)=(NMI-12) already exists.',
+    }));
+    expect(d).toEqual({
+      message: 'License Number "NMI-12" already exists — use a different value.',
+      status: 409,
+      field: 'license_number',
+    });
+  });
+
+  it('names a reference that points at a missing record', () => {
+    const d = describeError(wrapped({
+      code: '23503',
+      detail: 'Key (payment_method_id)=(9) is not present in table "payment_method_master_t".',
+    }));
+    expect(d.status).toBe(422);
+    expect(d.field).toBe('payment_method_id');
+    expect(d.message).toBe(
+      'Payment Method refers to a Payment Method (id 9) that does not exist. Pick another value from the list.',
+    );
+  });
+
+  it('names what still uses a record that cannot be deleted', () => {
+    const d = describeError(wrapped({
+      code: '23503',
+      detail: 'Key (id)=(4) is still referenced from table "license_t".',
+    }));
+    expect(d.status).toBe(409);
+    expect(d.message).toContain('still used by License');
+  });
+
+  it('says the database is behind the code when a column is missing', () => {
+    const d = describeError(wrapped({
+      code: '42703',
+      message: 'column "payment_method_id" does not exist',
+    }));
+    expect(d.status).toBe(500);
+    expect(d.message).toContain('column "payment_method_id" does not exist');
+    expect(d.message).toContain('pnpm db:migrate');
+  });
+
+  it('keeps the existing named constraint messages', () => {
+    expect(describeError(wrapped({ code: '23502', column: 'license_number' }))).toEqual({
+      message: 'License Number is required.',
+      status: 422,
+      field: 'license_number',
+    });
+  });
+
+  it('reports a connection failure as such', () => {
+    const d = describeError(Object.assign(new Error('connect'), { code: 'ECONNREFUSED' }));
+    expect(d.status).toBe(503);
+    expect(d.message).toContain('could not reach the database');
+  });
+
+  it('never shows the SQL text from the wrapper', () => {
+    const d = describeError(Object.assign(new Error('Failed query: select secret from x'), {
+      cause: new Error('something odd'),
+    }));
+    expect(d.message).toBe('Unexpected error: something odd');
+    expect(d.message).not.toContain('select');
+  });
+
+  it('passes an unexpected error\'s own reason through', () => {
+    expect(describeError(new TypeError("Cannot read properties of undefined (reading 'id')")).message).toBe(
+      "Unexpected error: Cannot read properties of undefined (reading 'id')",
+    );
   });
 });

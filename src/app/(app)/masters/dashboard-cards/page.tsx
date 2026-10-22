@@ -13,6 +13,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 import type { MenuItem } from '@/types/menu';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
@@ -61,9 +62,9 @@ export default function DashboardCardsPage() {
     try {
       // The master lists disabled cards too, so they can be switched back on.
       const params = new URLSearchParams({ includeHidden: '1' });
-      const res = await fetch(`/api/v1/dashboard-cards?${params}`);
-      const json = await res.json();
-      if (json.ok) setItems(json.data);
+      const res = await safeFetchJson<CardRow[]>(`/api/v1/dashboard-cards?${params}`);
+      if (res.ok) setItems(res.data);
+      else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     } finally {
       setLoading(false);
     }
@@ -75,21 +76,17 @@ export default function DashboardCardsPage() {
   }, [load]);
 
   useEffect(() => {
-    fetch('/api/v1/menus?flat=1&all=1')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setMenus(j.data);
-      })
-      .catch(() => {});
+    safeFetchJson<MenuItem[]>('/api/v1/menus?flat=1&all=1').then((res) => {
+      if (res.ok) setMenus(res.data);
+    });
   }, []);
 
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this dashboard card?')) return;
-    const res = await fetch(`/api/v1/dashboard-cards/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This dashboard card could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/dashboard-cards/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The dashboard card has been disabled.' });
@@ -297,19 +294,16 @@ function CardFormModal({
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

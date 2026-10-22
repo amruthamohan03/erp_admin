@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { masterPageAccordionField } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 // Mirrors the field_type CHECK constraint on master_page_accordion_field_t
@@ -12,7 +12,7 @@ const FIELD_TYPES = [
   'text', 'textarea', 'email', 'tel', 'number', 'date', 'select', 'checkbox-group', 'file', 'seal-picker',
 ] as const;
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     .orderBy(asc(masterPageAccordionField.displayOrder), asc(masterPageAccordionField.id));
 
   return ok(rows);
-}
+});
 
 const createSchema = z.object({
   accordion_id: z.coerce.number().int().positive(),
@@ -59,16 +59,14 @@ const createSchema = z.object({
   display_order: z.coerce.number().int().min(0).optional(),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   try {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
+    if (!parsed.success) throw parsed.error;
     const d = parsed.data;
 
     const [row] = await db
@@ -93,7 +91,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const dup = uniqueViolationResponse(err, 'field name (within this accordion)');
     if (dup) return dup;
-    console.error('[master-page-fields.POST]', err);
-    return fail('Server error', 500);
+    throw err;
   }
-}
+});

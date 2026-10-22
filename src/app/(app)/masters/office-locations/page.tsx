@@ -9,6 +9,7 @@ import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface OfficeLocationRow {
   id: number;
@@ -48,11 +49,12 @@ export default function OfficeLocationsPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/office-locations?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<OfficeLocationRow[]>(`/api/v1/office-locations?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -66,30 +68,24 @@ export default function OfficeLocationsPage() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const res = await fetch('/api/v1/provinces?pageSize=100');
-        const json = await res.json();
-        if (json.ok) {
-          const list = (json.data ?? []) as Array<Record<string, unknown>>;
-          setProvinces(
-            list.map((r) => ({
-              id: r.id as number,
-              province_name: String(r.province_name ?? r.id),
-            })),
-          );
-        }
-      } catch {
-        /* ignore */
+      // The province picker is optional; the form still opens without it.
+      const res = await safeFetchJson<Array<Record<string, unknown>>>('/api/v1/provinces?pageSize=100');
+      if (res.ok) {
+        setProvinces(
+          (res.data ?? []).map((r) => ({
+            id: r.id as number,
+            province_name: String(r.province_name ?? r.id),
+          })),
+        );
       }
     })();
   }, []);
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this office location? References from clients stay intact.')) return;
-    const res = await fetch(`/api/v1/office-locations/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This office location could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/office-locations/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The office location has been disabled.' });
@@ -224,7 +220,7 @@ function OfficeLocationFormModal({
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,14 +229,11 @@ function OfficeLocationFormModal({
           display: active ? 'Y' : 'N',
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

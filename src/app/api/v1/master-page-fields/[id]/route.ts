@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { masterPageAccordionField, type MasterPageAccordionFieldInsert } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
 const FIELD_TYPES = [
@@ -12,13 +13,13 @@ const FIELD_TYPES = [
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('The field id in the address is not a number.');
 
   const [row] = await db
     .select({
@@ -40,9 +41,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .from(masterPageAccordionField)
     .where(eq(masterPageAccordionField.id, id));
 
-  if (!row) return fail('Not found', 404);
+  if (!row) throw new NotFoundError(`Field #${id} was not found. It may have been deleted — reload the list.`);
   return ok(row);
-}
+});
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).regex(/^[a-z_][a-z0-9_]*$/).optional(),
@@ -57,20 +58,18 @@ const updateSchema = z.object({
   display: z.enum(['Y', 'N']).optional(),
 });
 
-export async function PUT(req: NextRequest, { params }: Ctx) {
+export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('The field id in the address is not a number.');
 
   try {
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
+    if (!parsed.success) throw parsed.error;
     const d = parsed.data;
 
     const patch: Partial<MasterPageAccordionFieldInsert> = {};
@@ -96,23 +95,22 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       .where(eq(masterPageAccordionField.id, id))
       .returning({ id: masterPageAccordionField.id });
 
-    if (!row) return fail('Not found', 404);
+    if (!row) throw new NotFoundError(`Field #${id} was not found. It may have been deleted — reload the list.`);
     return ok({ id: row.id });
   } catch (err) {
     const dup = uniqueViolationResponse(err, 'field name (within this accordion)');
     if (dup) return dup;
-    console.error('[master-page-fields.PUT]', err);
-    return fail('Server error', 500);
+    throw err;
   }
-}
+});
 
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
+export const DELETE = withErrorHandler(async (_req: NextRequest, { params }: Ctx) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) return fail('Invalid id', 400);
+  if (Number.isNaN(id)) throw new BadRequestError('The field id in the address is not a number.');
 
   const [row] = await db
     .update(masterPageAccordionField)
@@ -124,6 +122,6 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     .where(eq(masterPageAccordionField.id, id))
     .returning({ id: masterPageAccordionField.id });
 
-  if (!row) return fail('Not found', 404);
+  if (!row) throw new NotFoundError(`Field #${id} was not found. It may have been deleted — reload the list.`);
   return ok({ id: row.id });
-}
+});

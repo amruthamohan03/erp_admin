@@ -327,7 +327,9 @@ export default function BulkNewExportsPage() {
           // licences too, and picking one built an MCA reference carrying an
           // import kind code while drawing the tonnage down the wrong side.
           // Never an id list — re-flagging a kind is a master edit, not a deploy.
-          fetch('/api/v1/licenses?use_for=export&pageSize=500').then((r) => r.json()),
+          safeFetchJson<
+            { id: number; license_number?: string; license_no?: string; client_id?: number }[]
+          >('/api/v1/licenses?use_for=export&pageSize=500'),
           // Export regimes only — the same filter the single-record form applies.
           fetchMasterOptions('regimes?type=E', 'regime_name'),
           fetchMasterOptions('clearances', 'clearance_name'),
@@ -352,9 +354,7 @@ export default function BulkNewExportsPage() {
       setFeetContainers(asOptions(feetOpts));
       if (lRes.ok) {
         setLicenses(
-          (
-            lRes.data as { id: number; license_number?: string; license_no?: string; client_id?: number }[]
-          ).map((l) => ({
+          lRes.data.map((l) => ({
             value: String(l.id),
             label: l.license_number ?? l.license_no ?? `#${l.id}`,
             clientId: l.client_id != null ? String(l.client_id) : '',
@@ -374,9 +374,8 @@ export default function BulkNewExportsPage() {
     }
     setUsageLoading(true);
     try {
-      const res = await fetch(`/api/v1/licenses/${id}/usage`);
-      const json = await res.json();
-      if (json.ok) setUsage(json.data as LicenseUsage);
+      const res = await safeFetchJson<LicenseUsage>(`/api/v1/licenses/${id}/usage`);
+      if (res.ok) setUsage(res.data);
     } finally {
       setUsageLoading(false);
     }
@@ -699,19 +698,16 @@ export default function BulkNewExportsPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/v1/exports/bulk-create', {
+      const res = await safeFetchJson('/api/v1/exports/bulk-create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Bulk create failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       router.push('/exports');
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

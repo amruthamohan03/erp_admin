@@ -38,6 +38,7 @@ import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/sel
 import { formatDate } from '@/lib/formatDate';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { statusFiltersFromParam } from '@/lib/tracking/statusFiltersParam';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -196,12 +197,9 @@ function ImportsListPageInner() {
   const [result, setResult] = useState<SaveResult | null>(null);
 
   const reloadStats = useCallback(() => {
-    fetch('/api/v1/imports/stats')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setStats(j.data as Record<string, number>);
-      })
-      .catch(() => {});
+    safeFetchJson<Record<string, number>>('/api/v1/imports/stats').then((res) => {
+      if (res.ok) setStats(res.data);
+    });
   }, []);
 
   // CSV/XLSX exports: a plain navigation the server answers with an
@@ -224,14 +222,13 @@ function ImportsListPageInner() {
       params.set('pageSize', String(pageSize));
       if (search.trim()) params.set('q', search.trim());
       if (activeFilters.length) params.set('status_filters', activeFilters.join(','));
-      const res = await fetch(`/api/v1/imports?${params.toString()}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<ImportRow[]>(`/api/v1/imports?${params.toString()}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
-    } catch {
-      // ignore
     } finally {
       setLoading(false);
     }
@@ -246,23 +243,16 @@ function ImportsListPageInner() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [cardsRes, statsRes] = await Promise.all([
-          fetch('/api/v1/dashboard-cards/me').then((r) => r.json()),
-          fetch('/api/v1/imports/stats').then((r) => r.json()),
-        ]);
-        if (cancelled) return;
-        if (cardsRes.ok) {
-          setCards(
-            (cardsRes.data as DashboardCard[]).filter(
-              (c) => c.card_category === 'import_dashboard',
-            ),
-          );
-        }
-        if (statsRes.ok) setStats(statsRes.data as Record<string, number>);
-      } catch {
-        // ignore — cards simply won't render
+      // Optional chrome: a failure here leaves the cards out, the grid still works.
+      const [cardsRes, statsRes] = await Promise.all([
+        safeFetchJson<DashboardCard[]>('/api/v1/dashboard-cards/me'),
+        safeFetchJson<Record<string, number>>('/api/v1/imports/stats'),
+      ]);
+      if (cancelled) return;
+      if (cardsRes.ok) {
+        setCards(cardsRes.data.filter((c) => c.card_category === 'import_dashboard'));
       }
+      if (statsRes.ok) setStats(statsRes.data);
     })();
     return () => {
       cancelled = true;

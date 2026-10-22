@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Truck, Files, CalendarClock, CalendarCheck, Calendar, Clock, Weight, Package, MapPin, List } from 'lucide-react';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { TabError } from '@/modules/tracking/dashboardUi';
 
 interface Dash {
   kpi: { total_files: number; today_files: number; week_files: number; month_files: number; year_files: number; avg_ceec_days: number; total_weight: number; total_bags: number };
@@ -40,10 +42,18 @@ function HBars({ data }: { data: Array<{ label: string; value: number }> }) {
 export default function LocalDashboardPage() {
   const [d, setD] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/locals/dashboard').then((r) => r.json()).then((j) => { if (!cancelled) { if (j.ok) setD(j.data); setLoading(false); } }).catch(() => { if (!cancelled) setLoading(false); });
+    void safeFetchJson<Dash>('/api/v1/locals/dashboard').then((res) => {
+      if (cancelled) return;
+      // A failed load keeps `d` null and says why, rather than rendering a
+      // page of zeros that reads as real figures (§4.39).
+      if (res.ok) setD(res.data);
+      else setError(res.message);
+      setLoading(false);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -75,6 +85,8 @@ export default function LocalDashboardPage() {
       </div>
 
       {loading && <div className="card p-6 text-center text-muted-foreground">Loading dashboard…</div>}
+
+      {!loading && error && <TabError message={error} />}
 
       {!loading && d && (
         <>

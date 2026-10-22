@@ -114,14 +114,24 @@ describe('withErrorHandler (§6)', () => {
     });
   });
 
-  it('maps pg foreign key violation (23503) to 400', async () => {
+  // §4.39 — a value pointing at a missing record is the operator's to fix, so
+  // it is a 422 that names the field, not a bare "Referenced resource not found".
+  it('maps pg foreign key violation (23503) to a 422 naming the field', async () => {
     const handler = withErrorHandler(async () => {
-      throw Object.assign(new Error('fk violation'), { code: '23503' });
+      throw Object.assign(new Error('Failed query: insert ...'), {
+        cause: {
+          code: '23503',
+          detail: 'Key (client_id)=(99) is not present in table "client_master_t".',
+        },
+      });
     });
     const res = await handler();
-    expect(res.status).toBe(400);
-    expect((await bodyOf(res)) as { error: { code: string } }).toMatchObject({
-      error: { code: 'BAD_REQUEST' },
+    expect(res.status).toBe(422);
+    expect((await bodyOf(res)) as { error: { code: string; message: string } }).toMatchObject({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Client refers to a Client (id 99) that does not exist. Pick another value from the list.',
+      },
     });
   });
 
@@ -137,9 +147,10 @@ describe('withErrorHandler (§6)', () => {
       });
       const res = await handler();
       expect(res.status).toBe(500);
-      expect((await bodyOf(res)) as { error: { code: string } }).toMatchObject({
-        error: { code: 'INTERNAL_ERROR' },
-      });
+      const body = (await bodyOf(res)) as { error: { code: string; message: string } };
+      expect(body).toMatchObject({ error: { code: 'INTERNAL_ERROR' } });
+      // §4.39 — the reason and a reference to quote, never a bare "Server error".
+      expect(body.error.message).toMatch(/^Unexpected error: something unexpected \(Reference: [0-9a-f]{8}\)$/u);
     } finally {
       console.error = original;
     }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import Toggle from '@/components/ui/Toggle';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
@@ -42,11 +43,12 @@ export default function DoneByPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/done-by?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/done-by?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -60,10 +62,9 @@ export default function DoneByPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this entry?')) return;
-    const res = await fetch(`/api/v1/done-by/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This entry could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/done-by/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The entry has been disabled.' });
@@ -190,7 +191,7 @@ function FormModal({
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         // The company row's label comes from branding, so the server rejects a
@@ -201,14 +202,11 @@ function FormModal({
             : { done_by_name: name, ...(isEdit ? { is_company: false } : {}), display: active ? 'Y' : 'N' },
         ),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

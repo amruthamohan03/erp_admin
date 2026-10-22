@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Clock, Search, X, FileInput, ChartBar, AlertOctagon, CircleCheck, Route, CalendarOff, Users, Download } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface StageKpi {
   key: string; label: string; short: string; from: string; to: string; threshold: number; priority: boolean; color: string; icon: string;
@@ -88,13 +89,22 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
   const [statusF, setStatusF] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [recError, setRecError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams(applied);
-      const res = await fetch(`/api/v1/${cfg.endpoint}?${p}`);
-      const j = await res.json();
-      if (j.ok) setData(j.data);
+      const res = await safeFetchJson<Payload>(`/api/v1/${cfg.endpoint}?${p}`);
+      if (res.ok) {
+        setData(res.data);
+        setLoadError(null);
+      } else {
+        // The last figures stay (they also feed the filter dropdowns); the
+        // error card above them says they could not be refreshed.
+        setLoadError(res.message);
+      }
     } finally { setLoading(false); }
   }, [applied, cfg.endpoint]);
 
@@ -105,9 +115,11 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
     setRecLoading(true); setExpanded(null);
     try {
       const p = new URLSearchParams({ ...applied, stage, status_filter: sf });
-      const res = await fetch(`/api/v1/${cfg.endpoint}/stage-records?${p}`);
-      const j = await res.json();
-      setRecords(j.ok ? j.data.records : []);
+      const res = await safeFetchJson<{ records: Record<string, unknown>[] }>(
+        `/api/v1/${cfg.endpoint}/stage-records?${p}`,
+      );
+      setRecords(res.ok ? res.data.records : []);
+      setRecError(res.ok ? null : res.message);
     } finally { setRecLoading(false); }
   }, [applied, cfg.endpoint]);
 
@@ -192,6 +204,9 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
       </div>
 
       {loading && <div className="card p-6 text-center text-muted-foreground">Loading KPIs…</div>}
+
+      {/* Without this a failed load rendered nothing below the filters. */}
+      {!loading && loadError && <div className="card p-6 text-center text-sm text-destructive">{loadError}</div>}
 
       {!loading && data && (
         <>
@@ -385,7 +400,13 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                       <tr><th className="w-6" /><th>ID</th><th>MCA Ref</th><th>Client</th><th>Clearance</th><th>{fl(drill.from)}</th><th>{fl(drill.to)}</th><th className="text-center">Total</th><th className="text-center">Working</th><th className="text-center">Delay</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                      {records.length === 0 && <tr><td colSpan={11} className="text-center text-muted-foreground py-6">No records found</td></tr>}
+                      {records.length === 0 && (
+                        <tr>
+                          <td colSpan={11} className={`text-center py-6 ${recError ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {recError ?? 'No records found'}
+                          </td>
+                        </tr>
+                      )}
                       {records.map((r, idx) => {
                         const st = r.delay_status as string;
                         const pending = r.is_pending === 1;

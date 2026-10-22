@@ -77,6 +77,15 @@ interface ManageNumberRow {
   location: string | null;
 }
 
+/** The fields of `GET /api/v1/seals/{id}` the edit form reads. */
+interface SealMasterDetail {
+  office_location_id: number | null;
+  sub_office_code: string | null;
+  purchase_date: string | null;
+  total_amount: number | string | null;
+  display: 'Y' | 'N' | null;
+}
+
 // Static presentation for the top status cards. The counts come from
 // /api/v1/seals/stats; the labels/colors mirror main's default seal_dashboard
 // cards (no seal_dashboard cards are seeded in this repo).
@@ -124,39 +133,38 @@ export default function SealsPage() {
   }, [form.total_amount]);
 
   const loadStats = useCallback(async () => {
-    try {
-      const r = await fetch('/api/v1/seals/stats'); const j = await r.json();
-      if (j.ok) setStats(j.data);
-    } catch { /* ignore */ }
+    // The stat cards are a summary; a failure here stays quiet because the
+    // lists below report the same outage with their own message.
+    const r = await safeFetchJson<SealStats>('/api/v1/seals/stats');
+    if (r.ok) setStats(r.data);
   }, []);
   const loadMasters = useCallback(async () => {
     const p = new URLSearchParams();
     if (masterStatus) p.set('status', masterStatus);
     if (masterLocation) p.set('office_location_id', String(masterLocation));
-    try {
-      const r = await fetch(`/api/v1/seals?${p.toString()}`); const j = await r.json();
-      if (j.ok) setMasters(j.data);
-    } catch { /* ignore */ }
+    const r = await safeFetchJson<SealMasterRow[]>(`/api/v1/seals?${p.toString()}`);
+    if (r.ok) setMasters(r.data);
+    else setResult({ status: 'error', title: 'Not loaded', message: r.message, detail: r.detail });
   }, [masterStatus, masterLocation]);
   const loadNumbers = useCallback(async () => {
     const p = new URLSearchParams();
     if (numStatus) p.set('status', numStatus);
     if (numLocation) p.set('office_id', String(numLocation));
-    try {
-      const r = await fetch(`/api/v1/seal-numbers?${p.toString()}`); const j = await r.json();
-      if (j.ok) {
-        const seals = (j.data?.seals ?? []) as Array<Record<string, unknown>>;
-        setNumbers(seals.map((s) => ({
-          id: s.id as number,
-          seal_number: s.seal_number as string,
-          status: s.status as SealStatus,
-          notes: (s.notes as string | null) ?? null,
-          location: (s.location_name as string | null) ?? null,
-          purchase_date: (s.purchase_date as string | null) ?? null,
-          created_at: (s.created_at as string | null) ?? null,
-        })));
-      }
-    } catch { /* ignore */ }
+    const r = await safeFetchJson<{ seals?: Array<Record<string, unknown>> }>(`/api/v1/seal-numbers?${p.toString()}`);
+    if (r.ok) {
+      const seals = r.data?.seals ?? [];
+      setNumbers(seals.map((s) => ({
+        id: s.id as number,
+        seal_number: s.seal_number as string,
+        status: s.status as SealStatus,
+        notes: (s.notes as string | null) ?? null,
+        location: (s.location_name as string | null) ?? null,
+        purchase_date: (s.purchase_date as string | null) ?? null,
+        created_at: (s.created_at as string | null) ?? null,
+      })));
+    } else {
+      setResult({ status: 'error', title: 'Not loaded', message: r.message, detail: r.detail });
+    }
   }, [numStatus, numLocation]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -167,13 +175,11 @@ export default function SealsPage() {
   useEffect(() => { loadNumbers(); }, [loadNumbers]);
   useEffect(() => {
     (async () => {
-      try {
-        const r = await fetch('/api/v1/main-offices?pageSize=100'); const j = await r.json();
-        if (j.ok) {
-          const list = (j.data ?? []) as Array<Record<string, unknown>>;
-          setOffices(list.map((row) => ({ id: row.id as number, label: String(row.main_location_name ?? row.id) })));
-        }
-      } catch { /* ignore */ }
+      // The office picker is optional; the page still works without it.
+      const r = await safeFetchJson<Array<Record<string, unknown>>>('/api/v1/main-offices?pageSize=100');
+      if (r.ok) {
+        setOffices((r.data ?? []).map((row) => ({ id: row.id as number, label: String(row.main_location_name ?? row.id) })));
+      }
     })();
   }, []);
 
@@ -204,9 +210,9 @@ export default function SealsPage() {
     setEditId(null); setForm({ office_location_id: '', sub_location: '', purchase_date: '', total_amount: '', display: 'Y' }); setFormErr(null);
   }
   async function loadForEdit(id: number) {
-    const r = await fetch(`/api/v1/seals/${id}`); const j = await r.json();
-    if (!j.ok) return;
-    const d = j.data;
+    const r = await safeFetchJson<SealMasterDetail>(`/api/v1/seals/${id}`);
+    if (!r.ok) { setResult({ status: 'error', title: 'Not loaded', message: r.message, detail: r.detail }); return; }
+    const d = r.data;
     setEditId(id);
     setForm({
       office_location_id: d.office_location_id ? String(d.office_location_id) : '',
@@ -233,25 +239,25 @@ export default function SealsPage() {
     };
     try {
       const url = editId ? `/api/v1/seals/${editId}` : '/api/v1/seals';
-      const res = await fetch(url, { method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const j = await res.json();
-      if (!res.ok || !j.ok) { setFormErr(j.error?.message || 'Save failed'); return; }
+      const res = await safeFetchJson(url, { method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) { setFormErr(res.message); return; }
       resetForm(); await loadMasters(); await loadStats();
-    } catch { setFormErr('Save failed'); } finally { setSaving(false); }
+    } finally { setSaving(false); }
   }
   async function deleteMaster(id: number) {
     if (!confirm('Delete this seal master (and its seal numbers)?')) return;
-    const res = await fetch(`/api/v1/seals/${id}`, { method: 'DELETE' }); const j = await res.json();
-    if (!j.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: j.error?.message || 'This seal master could not be deleted.' });
+    const res = await safeFetchJson(`/api/v1/seals/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The seal master and its seal numbers have been deleted.' });
     await loadMasters(); await loadStats(); await loadNumbers();
   }
   async function openView(id: number) {
-    const r = await fetch(`/api/v1/seals/${id}`); const j = await r.json();
-    if (j.ok) setViewData(j.data);
+    const r = await safeFetchJson<Record<string, unknown>>(`/api/v1/seals/${id}`);
+    if (r.ok) setViewData(r.data);
+    else setResult({ status: 'error', title: 'Not loaded', message: r.message, detail: r.detail });
   }
 
   async function afterNumbersChanged() {
@@ -574,8 +580,9 @@ function ManageNumbersModal({ master, refreshToken, onClose, onChanged, onEditNu
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/v1/seals/${master.id}/numbers`); const j = await r.json();
-    if (j.ok) setList(j.data);
+    const r = await safeFetchJson<ManageNumberRow[]>(`/api/v1/seals/${master.id}/numbers`);
+    if (r.ok) setList(r.data);
+    else setErr(r.message);
   }, [master.id]);
   // `refreshToken` is a dependency with no use inside `load` on purpose: it is
   // the signal that a seal changed somewhere else on the page.
@@ -615,12 +622,11 @@ function ManageNumbersModal({ master, refreshToken, onClose, onChanged, onEditNu
     if (nums.length > limit - added) { setErr(`Only ${limit - added} slot(s) available`); return; }
     setBusy(true);
     try {
-      const res = await fetch(`/api/v1/seals/${master.id}/numbers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seal_numbers: nums }) });
-      const j = await res.json();
-      if (!res.ok || !j.ok) { setErr(j.error?.message || 'Failed'); return; }
+      const res = await safeFetchJson(`/api/v1/seals/${master.id}/numbers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seal_numbers: nums }) });
+      if (!res.ok) { setErr(res.message); return; }
       setSingle(''); setStart(''); setEnd('');
       await load(); await onChanged();
-    } catch { setErr('Failed'); } finally { setBusy(false); }
+    } finally { setBusy(false); }
   }
 
   return (

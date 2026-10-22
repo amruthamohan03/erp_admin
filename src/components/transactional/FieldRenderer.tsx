@@ -471,10 +471,11 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
 
       // No Content-Type header — the browser sets it with the multipart boundary.
       const result = await safeFetchJson<{ id: number }>('/api/v1/files', { method: 'POST', body });
-      if (!result.ok) throw new Error(result.message);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
       onChange(String(result.data.id));
-    } catch (err) {
-      setError((err as Error).message || 'Upload failed');
     } finally {
       setUploading(false);
       // Let the same file be re-picked after a failure.
@@ -761,21 +762,23 @@ function QuickAddSelect({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/${source}`, {
+      const res = await safeFetchJson<Record<string, unknown> | null>(`/api/v1/${source}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [config.field]: name }),
       });
-      const json = await res.json();
-      if (!res.ok || !json?.ok || json.data?.id == null) {
-        throw new Error(json?.error?.message || `Could not add (HTTP ${res.status})`);
+      if (!res.ok) {
+        setError(res.message);
+        return;
       }
-      const row = json.data as Record<string, unknown>;
+      const row = res.data;
+      if (row?.id == null) {
+        setError(`"${name}" may have been added, but the server did not return its id — reload the page to pick it from the list.`);
+        return;
+      }
       onAdded({ value: row.id as string | number, label: String(row[labelField] ?? name) });
       setDraft('');
       setAdding(false);
-    } catch (e) {
-      setError((e as Error).message || 'Could not add');
     } finally {
       setBusy(false);
     }
@@ -862,26 +865,36 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
   const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  // Same reasoning as DynamicSelect: an empty picker must not look like a
+  // licence with no PARTIELLE allotments when the load actually failed.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadOptions = useCallback(async () => {
     if (!licenseId) {
       setOptions([]);
+      setLoadError(null);
       return;
     }
     setLoading(true);
     try {
-      const j = await fetch(`/api/v1/partielle-options?license_id=${licenseId}`).then((r) => r.json());
-      if (j?.ok && Array.isArray(j.data)) {
+      const res = await safeFetchJson<Array<{ id: unknown; label: unknown }>>(
+        `/api/v1/partielle-options?license_id=${licenseId}`,
+      );
+      if (!res.ok) {
+        setLoadError(res.message);
+        setOptions([]);
+        return;
+      }
+      setLoadError(null);
+      if (Array.isArray(res.data)) {
         // Unsorted on purpose — SearchableSelect puts them in id order (§4.16).
         setOptions(
-          j.data.map((o: { id: unknown; label: unknown }) => ({
+          res.data.map((o) => ({
             value: String(o.id),
             label: String(o.label),
           })),
         );
       }
-    } catch {
-      // leave empty
     } finally {
       setLoading(false);
     }
@@ -903,7 +916,7 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
           className="min-w-0 flex-1"
           aria-label={field.label}
           required={requiredOverride ?? field.required}
-          invalid={invalid}
+          invalid={invalid || !!loadError}
           disabled={readonly || loading}
           value={asString(value)}
           emptyLabel={licenseId ? '— Select PARTIELLE —' : 'Select License First'}
@@ -923,6 +936,11 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
           </button>
         )}
       </div>
+      {loadError && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+          Could not load options: {loadError}
+        </p>
+      )}
       {showManage && licenseId != null && (
         <PartielleManageModal
           licenseId={licenseId}

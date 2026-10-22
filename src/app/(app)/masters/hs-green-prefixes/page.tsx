@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Leaf, Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import { normaliseHsCode } from '@/lib/hscodes/greenCertificate';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
@@ -47,11 +48,10 @@ export default function HsGreenPrefixesPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/hs-green-prefixes?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/hs-green-prefixes?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
         setLoadError(null);
       } else {
         // A failed load must not render as an empty table. "No prefix rules
@@ -59,12 +59,8 @@ export default function HsGreenPrefixesPage() {
         // the first one invites an operator to add a rule that already exists.
         setItems([]);
         setTotal(0);
-        setLoadError(json.error?.message || 'The prefix rules could not be loaded.');
+        setLoadError(res.message);
       }
-    } catch {
-      setItems([]);
-      setTotal(0);
-      setLoadError('The prefix rules could not be loaded. Check your connection and refresh.');
     } finally {
       setLoading(false);
     }
@@ -83,13 +79,13 @@ export default function HsGreenPrefixesPage() {
     ) {
       return;
     }
-    const res = await fetch(`/api/v1/hs-green-prefixes/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
+    const res = await safeFetchJson(`/api/v1/hs-green-prefixes/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
       setResult({
         status: 'error',
         title: 'Not deleted',
-        message: json.error?.message || 'This prefix rule could not be disabled.',
+        message: res.message,
+        detail: res.detail,
       });
       return;
     }
@@ -251,22 +247,16 @@ function FormModal({
     const url = isEdit ? `/api/v1/hs-green-prefixes/${row!.id}` : '/api/v1/hs-green-prefixes';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prefix, note: note.trim() || null, display: active ? 'Y' : 'N' }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(
-          json.error?.message ||
-            'This prefix rule could not be saved. Check the digits and try again.',
-        );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

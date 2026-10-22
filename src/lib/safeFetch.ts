@@ -66,12 +66,7 @@ export async function safeFetchJson<T = unknown>(
   try {
     res = await fetch(input, init);
   } catch (err) {
-    return {
-      ok: false,
-      status: 0,
-      message: 'Network error',
-      detail: (err as Error)?.message,
-    };
+    return { ok: false, status: 0, message: networkFailureMessage(err) };
   }
 
   // Read the body as text first so we can show it on parse failure.
@@ -82,7 +77,7 @@ export async function safeFetchJson<T = unknown>(
     return {
       ok: false,
       status: res.status,
-      message: 'Could not read response body',
+      message: `The server's answer was cut off before it finished (${httpLabel(res)}). Try again.`,
       detail: (err as Error)?.message,
     };
   }
@@ -91,9 +86,9 @@ export async function safeFetchJson<T = unknown>(
     return {
       ok: false,
       status: res.status,
-      message: `Empty response (status ${res.status})`,
-      detail:
-        'The server returned no body. Check the dev server console for an error or a crashed handler.',
+      message: res.ok
+        ? `The server answered with an empty response (${httpLabel(res)}) instead of data. Try again, and report it if it repeats.`
+        : httpFailureMessage(res.status, res.statusText),
     };
   }
 
@@ -106,12 +101,16 @@ export async function safeFetchJson<T = unknown>(
   try {
     json = JSON.parse(text);
   } catch {
-    const snippet = text.length > 200 ? text.slice(0, 200) + '...' : text;
+    // An HTML error page from Next or a proxy: its <title> is the one readable
+    // line in it, and the markup itself is never shown.
+    const title = /<title[^>]*>([^<]*)<\/title>/iu.exec(text)?.[1]?.trim();
     return {
       ok: false,
       status: res.status,
-      message: 'Server returned non-JSON response',
-      detail: snippet,
+      message: res.ok
+        ? `The server answered with a web page instead of data (${httpLabel(res)}). The address may be wrong, or the server may be running a different version of the application.`
+        : httpFailureMessage(res.status, res.statusText),
+      detail: title || undefined,
     };
   }
 
@@ -122,12 +121,12 @@ export async function safeFetchJson<T = unknown>(
     const fieldMessages = parseFieldMessages(bag?.fields);
     const namedField = typeof bag?.field === 'string' ? bag.field : undefined;
     const field = namedField ?? Object.keys(fieldMessages ?? {})[0];
-    const message = json?.error?.message ?? `Request failed (status ${res.status})`;
+    const message = json?.error?.message || httpFailureMessage(res.status, res.statusText);
 
     // Keys the envelope carries for machines, not for reading. Printing them is
     // how a user ends up staring at {"fieldErrors":{…}} under a save failure —
     // `fields` is rendered as prose below and `errors` is Zod's raw flatten().
-    const MACHINE_KEYS = ['field', 'fields', 'errors'];
+    const MACHINE_KEYS = ['field', 'fields', 'errors', 'ref'];
     const hasProse = !!bag && Object.keys(bag).some((k) => !MACHINE_KEYS.includes(k));
 
     return {
@@ -176,4 +175,34 @@ function fieldSentences(
   const all = Object.values(fieldMessages).flat();
   const rest = all.filter((m) => m !== message);
   return rest.length ? rest.join(' ') : undefined;
+}
+
+// §4.39 — the sentences a failed request is reported with when the server's own
+// envelope is missing. Each names what happened and what to do, so a caller
+// never needs a "Network error" / "Save failed" fallback of its own.
+
+function httpLabel(res: Response): string {
+  return `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`;
+}
+
+/** The fetch itself threw — nothing reached the server, or nothing came back. */
+export function networkFailureMessage(err: unknown): string {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return 'The request was cancelled before the server answered.';
+  }
+  const reason = err instanceof Error && err.message ? ` (${err.message})` : '';
+  return `Could not reach the server — check your network connection, or whether the server is running${reason}.`;
+}
+
+/** A failed HTTP status with no usable error message from the server. */
+export function httpFailureMessage(status: number, statusText = ''): string {
+  const label = `HTTP ${status}${statusText ? ` ${statusText}` : ''}`;
+  if (status === 401) return 'You are not signed in, or your session has expired. Sign in again to continue.';
+  if (status === 403) return `Your role is not allowed to do this (${label}). An administrator can grant it under Mapping → Role to Menu.`;
+  if (status === 404) return `The server has no endpoint at this address (${label}). The server may be running an older version of the application.`;
+  if (status === 408 || status === 504) return `The server took too long to answer (${label}). Try again in a moment.`;
+  if (status === 413) return `The request is too large for the server to accept (${label}). Choose a smaller file.`;
+  if (status === 502 || status === 503) return `The server is not available right now (${label}) — it may be restarting. Wait a moment and try again.`;
+  if (status >= 500) return `The server failed while handling the request (${label}) and gave no reason. Try again, and report it if it repeats.`;
+  return `The server refused the request (${label}) and gave no reason.`;
 }

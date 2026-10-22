@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Toggle from '@/components/ui/Toggle';
 import BrandMark from '@/components/ui/BrandMark';
 import { useBranding } from '@/lib/hooks/useBranding';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 function LoginForm() {
   const sp = useSearchParams();
@@ -23,25 +24,19 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, remember }),
-        credentials: 'include',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Login failed');
-        setLoading(false);
-        return;
-      }
-      // Hard navigation: ensures the cookie is attached before the proxy runs.
-      window.location.href = next;
-    } catch {
-      setError('Network error');
+    const res = await safeFetchJson('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, remember }),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      setError(res.message);
       setLoading(false);
+      return;
     }
+    // Hard navigation: ensures the cookie is attached before the proxy runs.
+    window.location.href = next;
   }
 
   return (

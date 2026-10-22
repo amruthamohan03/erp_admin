@@ -16,9 +16,9 @@ import {
   masterPageAccordionRole,
   roleMaster,
 } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -70,14 +70,14 @@ export async function GET(req: NextRequest) {
   }
 
   return ok({ accordions, roles, grants });
-}
+});
 
 const putSchema = z.object({
   // Map of "accordion_id:role_id" → 'view' | 'edit' | null (null = remove grant).
   grants: z.record(z.string(), z.union([z.literal('view'), z.literal('edit'), z.null()])),
 });
 
-export async function PUT(req: NextRequest) {
+export const PUT = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const parsed = putSchema.safeParse(body);
-  if (!parsed.success) return fail('Invalid input', 422, { errors: parsed.error.flatten() });
+  if (!parsed.success) throw parsed.error;
 
   // Look up which accordions belong to this page (server-side whitelist).
   const accordions = await db
@@ -157,4 +157,4 @@ export async function PUT(req: NextRequest) {
   });
 
   return ok({ saved: ops.length });
-}
+});

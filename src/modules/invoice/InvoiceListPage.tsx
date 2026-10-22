@@ -10,6 +10,7 @@ import { Plus, Search, Edit2, Trash2, CheckCircle2, FileText, Layers, X } from '
 import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 type Kind = 'export' | 'import';
 
@@ -64,17 +65,22 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
   const [confirm, setConfirm] = useState<{ row: Row; action: 'validate' | 'dgi' | 'delete' } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams({ page: String(page), pageSize: String(pageSize), status: filter });
       if (search.trim()) p.set('q', search.trim());
-      const res = await fetch(`${base}?${p}`);
-      const j = await res.json();
-      if (j.ok) {
-        setItems(j.data);
-        setTotal(j.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`${base}?${p}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(Number(res.meta?.total ?? 0));
+        setLoadError(null);
+      } else {
+        setItems([]);
+        setTotal(0);
+        setLoadError(res.message);
       }
     } finally {
       setLoading(false);
@@ -87,12 +93,11 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
   }, [load]);
 
   const loadStats = useCallback(() => {
-    fetch(`${base}/statistics`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setStats(j.data);
-      })
-      .catch(() => {});
+    // The stat cards keep their last figures if this fails; the list below
+    // reports a load failure on its own.
+    void safeFetchJson<Stats>(`${base}/statistics`).then((res) => {
+      if (res.ok) setStats(res.data);
+    });
   }, [base]);
   useEffect(() => {
     loadStats();
@@ -106,15 +111,14 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
       const { row, action } = confirm;
       const res =
         action === 'delete'
-          ? await fetch(`${base}/${row.id}`, { method: 'DELETE' })
-          : await fetch(`${base}/${row.id}/validate`, {
+          ? await safeFetchJson(`${base}/${row.id}`, { method: 'DELETE' })
+          : await safeFetchJson(`${base}/${row.id}/validate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ validated: action === 'dgi' ? 2 : 1 }),
             });
-      const j = await res.json();
-      if (!j.ok) {
-        setErr(j.error?.message ?? 'Action failed');
+      if (!res.ok) {
+        setErr(res.message);
         return;
       }
       setConfirm(null);
@@ -175,7 +179,8 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
         rowKey={(r) => r.id}
         title={`${kind === 'export' ? 'Export' : 'Import'} Invoices`}
         searchPlaceholder="Search invoice ref, client..."
-        emptyMessage="No invoices yet — create the first one."
+        // A failed load names its cause instead of claiming there are no invoices.
+        emptyMessage={loadError ?? 'No invoices yet — create the first one.'}
         columns={[
           { key: 'invoice_ref', header: 'Invoice Ref', className: 'font-medium' },
           { key: 'client_name', header: 'Client' },

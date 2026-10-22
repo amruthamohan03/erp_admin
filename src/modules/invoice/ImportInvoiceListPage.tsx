@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, FileText, FileSpreadsheet, Printer } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
 import TransactionFormPanel from '@/components/transactional/TransactionFormPanel';
@@ -33,6 +34,8 @@ const fmt = (n: number): string =>
 
 export default function ImportInvoiceListPage() {
   const [items, setItems] = useState<Row[]>([]);
+  // §4.39 — a failed load says why, in the table, instead of looking like "no invoices".
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -55,11 +58,16 @@ export default function ImportInvoiceListPage() {
       if (search.trim()) p.set('q', search.trim());
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
-      const j = await fetch(`/api/v1/import-invoices?${p}`).then((r) => r.json());
-      if (j.ok) {
-        setItems(j.data);
-        setTotal(j.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/import-invoices?${p}`);
+      if (!res.ok) {
+        setLoadError(res.message);
+        setItems([]);
+        setTotal(0);
+        return;
       }
+      setLoadError(null);
+      setItems(res.data);
+      setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
     } finally {
       setLoading(false);
     }
@@ -71,7 +79,8 @@ export default function ImportInvoiceListPage() {
   }, [load]);
 
   const loadStats = useCallback(() => {
-    fetch('/api/v1/import-invoices/statistics').then((r) => r.json()).then((j) => { if (j.ok) setCounts(j.data); }).catch(() => {});
+    // The cards are a summary of the list below, which reports its own failure.
+    void safeFetchJson<InvoiceCounts>('/api/v1/import-invoices/statistics').then((res) => { if (res.ok) setCounts(res.data); });
   }, []);
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -130,7 +139,7 @@ export default function ImportInvoiceListPage() {
         rowKey={(r) => r.id}
         title="Import Invoices List"
         searchPlaceholder="Search reference, MCA, client, goods, created by..."
-        emptyMessage="No import invoices match — clear the filters, or create the first one."
+        emptyMessage={loadError ?? 'No import invoices match — clear the filters, or create the first one.'}
         filters={<DateRangeFilter from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(1); }} />}
         toolbar={
           <>

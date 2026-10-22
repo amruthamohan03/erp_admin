@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { defaultLocale, isLocale, type Locale } from '@/i18n/config';
 import { setLocaleAction } from '@/i18n/actions';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface TranslateContextValue {
   locale: Locale;
@@ -117,22 +118,17 @@ async function fetchTranslations(texts: string[], target: string): Promise<Recor
   const chunkSize = 50;
   for (let i = 0; i < texts.length; i += chunkSize) {
     const slice = texts.slice(i, i + chunkSize);
-    try {
-      const r = await fetch('/api/v1/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: slice, target, source: 'en' }),
-      });
-      const j = await r.json();
-      if (j.ok && Array.isArray(j.data?.translations)) {
-        for (let k = 0; k < slice.length; k++) {
-          out[slice[k]] = j.data.translations[k] ?? slice[k];
-        }
-      } else {
-        for (const t of slice) out[t] = t;
-      }
-    } catch {
-      for (const t of slice) out[t] = t;
+    // A failed chunk leaves its text in English — translation is cosmetic, so it
+    // degrades silently rather than interrupting the operator.
+    const r = await safeFetchJson<{ translations?: unknown }>('/api/v1/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: slice, target, source: 'en' }),
+    });
+    const translations = r.ok && Array.isArray(r.data?.translations) ? r.data.translations : null;
+    for (let k = 0; k < slice.length; k++) {
+      const t = translations?.[k];
+      out[slice[k]] = typeof t === 'string' ? t : slice[k];
     }
   }
   return out;
