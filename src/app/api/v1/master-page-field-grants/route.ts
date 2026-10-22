@@ -16,9 +16,9 @@ import {
   masterPageAccordionFieldRole,
   roleMaster,
 } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     roles,
     fields: fields.map((f) => ({ ...f, override: overrides[f.id] ?? null })),
   });
-}
+});
 
 const putSchema = z.object({
   overrides: z.record(
@@ -82,7 +82,7 @@ const putSchema = z.object({
   ),
 });
 
-export async function PUT(req: NextRequest) {
+export const PUT = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -99,7 +99,7 @@ export async function PUT(req: NextRequest) {
     return fail('Invalid JSON', 400);
   }
   const parsed = putSchema.safeParse(body);
-  if (!parsed.success) return fail('Invalid input', 422, { errors: parsed.error.flatten() });
+  if (!parsed.success) throw parsed.error;
 
   // Whitelist: only fields that belong to this accordion.
   const fields = await db
@@ -153,4 +153,4 @@ export async function PUT(req: NextRequest) {
   });
 
   return ok({ saved: ops.length });
-}
+});

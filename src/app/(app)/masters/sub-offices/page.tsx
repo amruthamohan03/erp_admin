@@ -10,6 +10,7 @@ import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface SubOfficeRow {
   id: number;
@@ -60,11 +61,12 @@ export default function SubOfficesPage() {
         pageSize: String(pageSize),
       });
       if (officeFilter) params.set('main_office_id', officeFilter);
-      const res = await fetch(`/api/v1/sub-offices?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<SubOfficeRow[]>(`/api/v1/sub-offices?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -78,10 +80,9 @@ export default function SubOfficesPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this declaration office?')) return;
-    const res = await fetch(`/api/v1/sub-offices/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This declaration office could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/sub-offices/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The declaration office has been disabled.' });
@@ -243,7 +244,7 @@ function SubOfficeFormModal({
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -252,14 +253,11 @@ function SubOfficeFormModal({
           display: active ? 'Y' : 'N',
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

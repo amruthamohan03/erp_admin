@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, FileSpreadsheet, FileText } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
 import TransactionFormPanel from '@/components/transactional/TransactionFormPanel';
@@ -29,6 +30,8 @@ interface Row {
 
 export default function ExportInvoiceListPage() {
   const [items, setItems] = useState<Row[]>([]);
+  // §4.39 — a failed load says why, in the table, instead of looking like "no invoices".
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -51,11 +54,16 @@ export default function ExportInvoiceListPage() {
       if (search.trim()) p.set('q', search.trim());
       if (dateFrom) p.set('date_from', dateFrom);
       if (dateTo) p.set('date_to', dateTo);
-      const j = await fetch(`/api/v1/export-invoices?${p}`).then((r) => r.json());
-      if (j.ok) {
-        setItems(j.data);
-        setTotal(j.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/export-invoices?${p}`);
+      if (!res.ok) {
+        setLoadError(res.message);
+        setItems([]);
+        setTotal(0);
+        return;
       }
+      setLoadError(null);
+      setItems(res.data);
+      setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
     } finally {
       setLoading(false);
     }
@@ -67,7 +75,8 @@ export default function ExportInvoiceListPage() {
   }, [load]);
 
   const loadStats = useCallback(() => {
-    fetch('/api/v1/export-invoices/statistics').then((r) => r.json()).then((j) => { if (j.ok) setCounts(j.data); }).catch(() => {});
+    // The cards are a summary of the list below, which reports its own failure.
+    void safeFetchJson<InvoiceCounts>('/api/v1/export-invoices/statistics').then((res) => { if (res.ok) setCounts(res.data); });
   }, []);
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -124,7 +133,7 @@ export default function ExportInvoiceListPage() {
         rowKey={(r) => r.id}
         title="Export Invoices"
         searchPlaceholder="Search reference, client, goods, encoded by..."
-        emptyMessage="No export invoices match — clear the filters, or create the first one."
+        emptyMessage={loadError ?? 'No export invoices match — clear the filters, or create the first one.'}
         filters={<DateRangeFilter from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(1); }} />}
         toolbar={
           <>

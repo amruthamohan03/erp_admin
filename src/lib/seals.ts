@@ -20,3 +20,15 @@ export function computeTotalSeal(totalAmount: number): number {
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) return 0;
   return Math.floor(totalAmount / SEAL_UNIT_PRICE);
 }
+
+/**
+ * An office is "low on seals" when it has fewer than this many Available.
+ *
+ * Ten is one standard batch: SEAL_UNIT_PRICE is $10 and offices buy in $100
+ * lots, so below this an office has less than one purchase left on the shelf
+ * and should reorder before the next run of export files. Nothing in the
+ * masters carries a stock threshold today; like the unit price above, it stays
+ * a constant until it needs to vary per office.
+ */
+// TODO(config): move to a per-office threshold on main_office_master_t if offices start to differ.
+export const SEAL_LOW_STOCK_THRESHOLD = 10;

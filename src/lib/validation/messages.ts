@@ -211,3 +211,182 @@ export function messageForPgError(err: {
       return null;
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §4.39 — every failure says exactly what went wrong
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The fields of a Postgres driver error this module reads. */
+interface PgErrorLike {
+  code?: string;
+  message?: string;
+  column?: string;
+  table?: string;
+  constraint?: string;
+  detail?: string;
+}
+
+export interface ErrorDescription {
+  /** The sentence to show — names what failed and, where it can, the fix. */
+  message: string;
+  status: number;
+  /** The wire field to mark, when the failure belongs to one input (§4.18). */
+  field?: string;
+}
+
+/** A SQLSTATE is five characters; a Node error code (ECONNREFUSED) is not. */
+const isSqlState = (code: unknown): code is string =>
+  typeof code === 'string' && /^[0-9A-Z]{5}$/u.test(code);
+
+/**
+ * The Postgres error inside whatever was thrown.
+ *
+ * Drizzle wraps every driver error in a DrizzleQueryError whose own message is
+ * "Failed query: <the SQL>" and whose `.cause` is the real error carrying the
+ * SQLSTATE. Reading `.code` off the outer object therefore finds nothing, and
+ * every database failure — a duplicate, a missing reference, a missing column —
+ * fell through to "Server error". This walks the cause chain instead.
+ */
+export function findPgError(err: unknown): PgErrorLike | null {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  while (cur && typeof cur === 'object' && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as PgErrorLike & { cause?: unknown };
+    if (isSqlState(e.code)) return e;
+    cur = e.cause;
+  }
+  return null;
+}
+
+/** Network-level failure codes from Node, anywhere on the cause chain. */
+function findNodeErrorCode(err: unknown): string | null {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  while (cur && typeof cur === 'object' && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as { code?: unknown; cause?: unknown };
+    if (typeof e.code === 'string' && /^E[A-Z]+$/u.test(e.code)) return e.code;
+    cur = e.cause;
+  }
+  return null;
+}
+
+/** `Key (license_number)=(NMI-12) already exists.` → ['license_number', 'NMI-12'] */
+function keyFromDetail(detail: string | undefined): [string, string] | null {
+  const m = /Key \(([^)]+)\)=\((.*)\)/u.exec(detail ?? '');
+  return m ? [m[1], m[2]] : null;
+}
+
+/** `payment_method_master_t` → `Payment Method` — a table named the way a screen names it. */
+function humanizeTable(table: string | undefined): string {
+  if (!table) return 'another record';
+  return humanizeFieldPath([table.replace(/(_master)?_t$/u, '')]);
+}
+
+/**
+ * Turns anything a route can throw into a sentence that says what failed.
+ *
+ * The rule (§4.39): an operator who reads the message must be able to tell
+ * WHAT went wrong without asking a developer to open the server log. Known
+ * database failures are translated into the field and value involved; a
+ * failure this module has no translation for still reports the underlying
+ * reason. What is never shown is the SQL text, its parameters or a stack trace
+ * — Drizzle's own message embeds the query, which is why the reason is taken
+ * from the driver error inside it.
+ */
+export function describeError(err: unknown): ErrorDescription {
+  const pg = findPgError(err);
+  if (pg) {
+    const known = messageForPgError(pg);
+    if (known) return { ...known, ...(pg.column ? { field: pg.column } : {}) };
+
+    const key = keyFromDetail(pg.detail);
+    switch (pg.code) {
+      case '23505': {
+        if (key) {
+          const [col, value] = key;
+          return {
+            message: `${humanizeFieldPath([col.split(',')[0].trim()])} "${value}" already exists — use a different value.`,
+            status: 409,
+            field: col.includes(',') ? undefined : col,
+          };
+        }
+        return { message: `This record already exists${pg.constraint ? ` (${pg.constraint})` : ''}.`, status: 409 };
+      }
+      case '23503': {
+        // Two shapes: a value pointing at a row that does not exist (insert or
+        // update), and a row that cannot go because others still point at it
+        // (delete). The detail says which.
+        if (pg.detail?.includes('is still referenced')) {
+          const by = /from table "([^"]+)"/u.exec(pg.detail)?.[1];
+          return {
+            message: `This record is still used by ${humanizeTable(by)} and cannot be removed. Remove or change those ${humanizeTable(by).toLowerCase()} records first.`,
+            status: 409,
+          };
+        }
+        if (key) {
+          const [col, value] = key;
+          const target = /in table "([^"]+)"/u.exec(pg.detail ?? '')?.[1];
+          return {
+            message: `${humanizeFieldPath([col])} refers to a ${humanizeTable(target)} (id ${value}) that does not exist. Pick another value from the list.`,
+            status: 422,
+            field: col,
+          };
+        }
+        return { message: 'A selected value refers to a record that no longer exists. Re-select it and try again.', status: 422 };
+      }
+      // The code is ahead of the database: a migration has not been applied.
+      case '42703':
+      case '42P01':
+      case '42883':
+        return {
+          message: `The database is not up to date with this version of the application (${pg.message ?? pg.code}). An administrator must apply the pending migrations (pnpm db:migrate).`,
+          status: 500,
+        };
+      case '40001':
+      case '40P01':
+        return { message: 'Another save changed the same records at the same moment. Nothing was saved — try again.', status: 409 };
+      case '57014':
+        return { message: 'The database took too long to answer and the request was cancelled. Try again; if it keeps happening, narrow the filters.', status: 503 };
+      case '53300':
+        return { message: 'The database has too many open connections right now. Wait a moment and try again.', status: 503 };
+      default:
+        if (pg.code?.startsWith('08')) {
+          return { message: `The application lost its connection to the database (${pg.message ?? pg.code}). Try again in a moment.`, status: 503 };
+        }
+        return { message: `The database rejected the request: ${pg.message ?? 'no reason given'} (code ${pg.code}).`, status: 500 };
+    }
+  }
+
+  const net = findNodeErrorCode(err);
+  if (net === 'ECONNREFUSED' || net === 'ENOTFOUND' || net === 'ETIMEDOUT' || net === 'ECONNRESET') {
+    return { message: `The application could not reach the database (${net}). Check that the database server is running.`, status: 503 };
+  }
+
+  if (err instanceof SyntaxError) {
+    return { message: `The request body is not valid JSON: ${err.message}`, status: 400 };
+  }
+  const reason = firstPlainMessage(err);
+  if (reason) return { message: `Unexpected error: ${reason}`, status: 500 };
+  return { message: `Unexpected error: ${typeof err === 'string' ? err : 'the server gave no reason'}.`, status: 500 };
+}
+
+/**
+ * The first message on the cause chain that is not Drizzle's "Failed query:"
+ * wrapper — that one embeds the SQL text and its parameters, which are never
+ * shown to an operator.
+ */
+function firstPlainMessage(err: unknown): string | null {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  while (cur && typeof cur === 'object' && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as { message?: unknown; cause?: unknown };
+    if (typeof e.message === 'string' && e.message && !e.message.startsWith('Failed query')) {
+      return e.message;
+    }
+    cur = e.cause;
+  }
+  return typeof err === 'string' && err ? err : null;
+}

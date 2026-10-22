@@ -11,7 +11,9 @@ export type TrackingModule =
   | 'licenses'
   | 'quotations'
   | 'export-invoices'
-  | 'import-invoices';
+  | 'import-invoices'
+  | 'fiches'
+  | 'seals';
 
 /** The tab data endpoint for one tab key. */
 export function buildTabEndpoint(

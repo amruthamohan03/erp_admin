@@ -505,7 +505,7 @@ Rules that follow:
 
 - **Name the field the way the user sees it.** Paths are humanized (`favicon_url` → `Favicon`), so a field whose key reads badly gets an explicit message rather than a special case in the renderer.
 - **Quantities go in the message.** "3.4 MB, limit 1 MB" — not "too large". "at least 3 characters" — not "too short".
-- **Never leak a raw error object into the UI.** A stringified `{"fieldErrors":{…}}`, a pg driver message, or a stack trace is not a validation message. `safeFetchJson` deliberately renders `details.fields` as prose and never prints the machine keys.
+- **Never leak a raw error object into the UI.** A stringified `{"fieldErrors":{…}}`, SQL text, query parameters or a stack trace is not a message. `safeFetchJson` deliberately renders `details.fields` as prose and never prints the machine keys. A failure that is *not* a validation problem still has to say what went wrong — that is §4.39.
 - **A 500 is not a validation outcome.** If a save is rejected because of what the user typed, it is a 4xx with a sentence. A "Server error" for a value that is three characters too long is a bug in the mapping, not in the input.
 - **File uploads validate content, not the filename.** The browser's `File.type` is unreliable (a `.ico` arrives as `image/x-icon`, `image/vnd.microsoft.icon`, or `''` depending on the machine). [saveUploadedImage](src/lib/storage.ts) sniffs magic bytes, falls back to the extension only when the browser declared nothing, and names both the accepted formats and the rejected one. Pass `label` so the message says "Favicon", not "File".
 
@@ -933,6 +933,38 @@ Rules that follow:
 - **Search and column filters still match the words.** The badge is how the cell is *drawn*; `cellText` reads the field, so typing `cancelled` finds the red rows (§4.25.1).
 - **This is not the action palette.** View / Edit / Delete hues (§4.20) and the configured action colours (§4.26) mark what a *button* does. A badge marks what state a *record* is in. Do not reuse one for the other.
 
+### 4.39 Every failure says exactly what went wrong — never "Server error"
+
+**When anything fails — a save, a delete, a load, an export — the message on screen tells the operator what happened, in words they can act on or repeat to support.** `"Server error"`, `"Save failed"`, `"Network error"`, `"Something went wrong"`, `"Failed"`, `"Not found"`, `"Forbidden"` and a bare HTTP status are all defects. §4.23 covers input the user typed; this rule covers everything else, and the two together mean **no failure is ever anonymous**.
+
+A message has to answer, in this order:
+
+| | Bad | Good |
+| --- | --- | --- |
+| **What failed** | `Server error` | `Payment Method refers to a Payment Method (id 9) that does not exist. Pick another value from the list.` |
+| **Why**, if known | `Not saved` | `License Number "NMI-12" already exists — use a different value.` |
+| **What to do / who can fix it** | `Error 500` | `The database is not up to date with this version of the application (column "payment_method_id" does not exist). An administrator must apply the pending migrations (pnpm db:migrate).` |
+| **A reference**, for a real server fault | — | `… (Reference: 3f9a1c2e)` — the same reference is in the server log beside the stack trace |
+
+**One describer on the server.** [describeError](src/lib/validation/messages.ts) turns anything a route can throw into `{ message, status, field? }`, and `withErrorHandler` calls it for every error that is not an `AppError` or a `ZodError`. **A route gets this by throwing** — it must never catch an error and replace it with its own vague sentence.
+
+- **It unwraps Drizzle.** Drizzle wraps every driver error in a `DrizzleQueryError` whose `.cause` holds the SQLSTATE; reading `.code` off the outer error finds nothing. That one fact is why every duplicate, missing reference and missing column used to reach the screen as "Server error". `findPgError` walks the cause chain — use it; never read `err.code` directly.
+- **Known database failures are translated, by name.** 23505 duplicate → the field and the value; 23503 → which field points at which missing record, or which table still uses the one being deleted; 42703 / 42P01 → "the database is not up to date … apply the pending migrations"; 40001 / 40P01 → "another save changed the same records — try again"; 57014 → timeout; 08xxx / ECONNREFUSED → connection lost.
+- **Unknown failures still say why.** Anything without a translation reports its own reason — `Unexpected error: Cannot read properties of undefined (reading 'id')` — plus a reference. An operator quoting that sentence is a bug report; one quoting "Server error" is not.
+- **What is never shown:** the SQL text, its parameters, or a stack trace. Drizzle's own message *is* the SQL ("Failed query: insert into …"), which is why the reason is taken from the driver error inside it and the wrapper's text is skipped.
+- **Status follows whose problem it is.** Something the operator can fix (a duplicate, a dangling reference) is a 4xx with a `field` so the form marks the input (§4.18). A fault they cannot fix is a 5xx — but it still names the fault.
+
+**One translator in the browser.** [safeFetchJson](src/lib/safeFetch.ts) is the only way a screen calls the API. When the server's envelope is missing — the network dropped, a proxy answered 502 with an HTML page, the body was empty — it produces the sentence itself through `networkFailureMessage` / `httpFailureMessage`: "Could not reach the server — check your network connection …", "The server is not available right now (HTTP 502 Bad Gateway) — it may be restarting …". A proxy's HTML page contributes only its `<title>`, never its markup.
+
+Rules that follow:
+
+- **No fallback strings at a call site.** `json.error?.message || 'Save failed'` is a defect: the fallback is exactly the vague message this rule forbids, and it fires precisely when something unusual happened. Call `safeFetchJson` and show `res.message` — it is never empty.
+- **No raw `fetch(…).json()` in a screen.** It throws on an empty or HTML body, the `catch` becomes "Network error", and the real cause — a 502, a crashed handler — is lost. `safeFetchJson` is the boundary.
+- **No `catch { return fail('Server error', 500) }` in a route.** Throw, or rethrow after handling the cases you genuinely handle; `withErrorHandler` describes the rest.
+- **Not-found and forbidden name the thing.** ``throw new NotFoundError(`Page #${id} was not found. It may have been deleted — reload the list.`)``, not `fail('Not found', 404)`. The typed errors' defaults are full sentences, but a message that names the record is always better than the default.
+- **The outcome dialog shows the message verbatim** (§4.22), with the title stating the outcome (`Not saved`, `Not deleted`). The sticky action bar's error line shows the same sentence — never a shorter one.
+- **Tests pin the wording.** [messages.test.ts](src/lib/validation/messages.test.ts) asserts the exact sentence for each translated failure; add a case when you add a translation.
+
 ## 5. Directory layout
 
 ```
@@ -1100,6 +1132,9 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to drop the Cancel button from a modal, or to hide it while editing → no, every modal keeps a labelled way out (§4.21).
 - Requests to report a save/delete with `alert()`, a toast-only, or a silent redirect → no, use `<ResultDialog>` and let OK do the navigating (§4.22).
 - Requests to ship "Invalid input" / "Save failed" / a bare status code as a user-facing message, or to hand-format a Zod issue at a call site → no, name the field and the fix via `summarizeZodError` (§4.23).
+- Requests to show "Server error" / "Network error" / "Something went wrong", to catch an error in a route and replace it with a vague `fail(…, 500)`, to add a `|| 'Save failed'` fallback at a call site, or to call `fetch().json()` directly from a screen → no, throw and let `describeError` name the failure; call `safeFetchJson` and show its message (§4.39).
+- Requests to read `err.code` off a database error directly → no, Drizzle wraps it; use `findPgError` (§4.39).
+- Requests to put SQL text, query parameters or a stack trace in a user-facing message "so it is exact" → no, show the reason the driver gave, translated where known, with a reference to the log (§4.39).
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
 - Requests to let `public/` serve uploads directly ("it works locally") → no, Next only serves what was there at build time; uploads go through the route handler (§4.24).
 - Requests to hand-roll a `<table>` for a new list screen → no, use `<DataTable>` (§4.25).

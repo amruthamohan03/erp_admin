@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { X, FileText, Eye, Edit2, FileSpreadsheet } from 'lucide-react';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { optionRows } from '@/lib/selectOptions';
 import { accentFor } from './accents';
 import type { PageDef, PageFieldDef, PageFetchResponse } from '@/types';
 import { formatDate } from '@/lib/formatDate';
@@ -166,17 +167,9 @@ export default function RecordViewModal({
         // pageSize=100 is the universal cap the list-query schemas accept.
         // `src` may already carry a query string (e.g. 'kinds?group=import') — join
         // with & in that case so we don't emit a malformed double '?'.
-        const p = fetch(`/api/v1/${src}${src.includes('?') ? '&' : '?'}pageSize=100`)
-          .then((r) => r.json())
-          .then((j) => {
-            if (!j?.ok) return [];
-            return Array.isArray(j.data)
-              ? (j.data as Record<string, unknown>[])
-              : Array.isArray(j.data?.items)
-                ? (j.data.items as Record<string, unknown>[])
-                : [];
-          })
-          .catch(() => []);
+        // A failed lookup yields no rows, and the view falls back to the raw value.
+        const p = safeFetchJson(`/api/v1/${src}${src.includes('?') ? '&' : '?'}pageSize=100`)
+          .then(optionRows);
         sourceRows.set(src, p);
         return p;
       };

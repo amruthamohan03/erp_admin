@@ -6,6 +6,7 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { safeFetchJson } from '@/lib/safeFetch';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 
@@ -49,11 +50,12 @@ export default function CancellationReasonsPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/cancellation-reasons?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/cancellation-reasons?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -67,13 +69,13 @@ export default function CancellationReasonsPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this cancellation reason?')) return;
-    const res = await fetch(`/api/v1/cancellation-reasons/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
+    const res = await safeFetchJson(`/api/v1/cancellation-reasons/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
       setResult({
         status: 'error',
         title: 'Not deleted',
-        message: json.error?.message || 'This reason could not be disabled.',
+        message: res.message,
+        detail: res.detail,
       });
       return;
     }
@@ -199,22 +201,16 @@ function FormModal({
 
     const url = isEdit ? `/api/v1/cancellation-reasons/${row!.id}` : '/api/v1/cancellation-reasons';
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason_name: name, display: active ? 'Y' : 'N' }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(
-          json.error?.message ||
-            'This reason could not be saved. Check the wording and try again.',
-        );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

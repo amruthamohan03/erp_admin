@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Debounced live uniqueness check for form fields. Adapted from
 // main with the branch's `{ ok, data }` response envelope.
@@ -75,32 +76,27 @@ export function useUniqueCheck({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      try {
-        const params = new URLSearchParams({ name: trimmed });
-        if (excludeId != null) params.set('exclude_id', String(excludeId));
-        if (scopeId != null) params.set('scope_id', String(scopeId));
-        if (field) params.set('field', field);
-        const res = await fetch(
-          `/api/v1/uniqueness/${resource}?${params.toString()}`,
-          { signal: controller.signal },
-        );
-        const json = await res.json();
-        if (!res.ok || !json.ok) {
-          setStatus('error');
-          setMessage(json.error?.message ?? 'Could not check');
-          return;
-        }
-        if (json.data?.available === true) {
-          setStatus('available');
-          setMessage('Available');
-        } else {
-          setStatus('taken');
-          setMessage('Already exists');
-        }
-      } catch (err) {
-        if ((err as { name?: string })?.name === 'AbortError') return;
+      const params = new URLSearchParams({ name: trimmed });
+      if (excludeId != null) params.set('exclude_id', String(excludeId));
+      if (scopeId != null) params.set('scope_id', String(scopeId));
+      if (field) params.set('field', field);
+      const res = await safeFetchJson<{ available?: boolean }>(
+        `/api/v1/uniqueness/${resource}?${params.toString()}`,
+        { signal: controller.signal },
+      );
+      // Superseded by a newer keystroke — that check owns the indicator now.
+      if (controller.signal.aborted) return;
+      if (!res.ok) {
         setStatus('error');
-        setMessage('Network error');
+        setMessage(res.message);
+        return;
+      }
+      if (res.data?.available === true) {
+        setStatus('available');
+        setMessage('Available');
+      } else {
+        setStatus('taken');
+        setMessage('Already exists');
       }
     }, debounceMs);
 

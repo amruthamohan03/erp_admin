@@ -87,10 +87,9 @@ function MasterPagesList() {
       )
     )
       return;
-    const res = await fetch(`/api/v1/master-pages/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This page could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/master-pages/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The page has been disabled.' });
@@ -188,19 +187,16 @@ function CreatePageModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/v1/master-pages', {
+      const res = await safeFetchJson('/api/v1/master-pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, display: active ? 'Y' : 'N' }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

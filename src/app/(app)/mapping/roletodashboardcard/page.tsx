@@ -6,6 +6,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { safeFetchJson } from '@/lib/safeFetch';
 import type { Role } from '@/types';
 
 interface MappingRow {
@@ -37,13 +38,11 @@ export default function RoleToDashboardCardPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingRoles(true);
-    fetch('/api/v1/roles')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setRoles(j.data);
-      })
-      .catch(() => setError('Failed to load roles'))
-      .finally(() => setLoadingRoles(false));
+    safeFetchJson<Role[]>('/api/v1/roles').then((res) => {
+      if (res.ok) setRoles(res.data);
+      else setError(res.message);
+      setLoadingRoles(false);
+    });
   }, []);
 
   const loadMapping = useCallback(async (rid: number) => {
@@ -51,20 +50,16 @@ export default function RoleToDashboardCardPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(
+      const res = await safeFetchJson<{ cards: MappingRow[] }>(
         `/api/v1/role-dashboard-card-mapping?role_id=${rid}`,
       );
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Failed to load mapping');
+      if (!res.ok) {
+        setError(res.message);
         setRows([]);
         return;
       }
-      setRows(json.data.cards);
+      setRows(res.data.cards);
       setDirty(false);
-    } catch {
-      setError('Network error');
-      setRows([]);
     } finally {
       setLoadingRows(false);
     }
@@ -158,22 +153,22 @@ export default function RoleToDashboardCardPage() {
           card_order: r.role_order,
         })),
       };
-      const res = await fetch('/api/v1/role-dashboard-card-mapping', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      const res = await safeFetchJson<{ saved: number; removed: number }>(
+        '/api/v1/role-dashboard-card-mapping',
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setDirty(false);
       setNotice(
-        `Saved — ${json.data.saved} kept, ${json.data.removed} cleared.`,
+        `Saved — ${res.data.saved} kept, ${res.data.removed} cleared.`,
       );
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

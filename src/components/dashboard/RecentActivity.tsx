@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Anchor, ChevronRight, ClipboardList, FileText, Ship } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Recent-activity feed for /dashboard. Four panels (imports, exports,
 // quotations, licences), each showing the most recently created rows with the
@@ -116,23 +117,17 @@ function PanelSkeleton() {
 export default function RecentActivity() {
   const [data, setData] = useState<ActivityPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  /** Why the feed failed to load, in the server's words (§4.39); null when it did not. */
+  const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/dashboard/recent-activity')
-      .then((r) => r.json())
-      .then((j) => {
-        if (cancelled) return;
-        if (j.ok) setData(j.data as ActivityPayload);
-        else setFailed(true);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    void safeFetchJson<ActivityPayload>('/api/v1/dashboard/recent-activity').then((res) => {
+      if (cancelled) return;
+      if (res.ok) setData(res.data);
+      else setFailure(res.message);
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -144,19 +139,19 @@ export default function RecentActivity() {
 
       {/* A failure says so rather than removing the section, which is
           indistinguishable from "there has been no activity". */}
-      {failed && !loading && (
+      {failure && !loading && (
         <div
           role="alert"
           className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
         >
-          Recent activity could not be loaded. Refresh the page to try again.
+          {failure}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {loading
           ? PANELS.map((p) => <PanelSkeleton key={p.key} />)
-          : !failed &&
+          : !failure &&
             PANELS.map((p) => {
               const rows = data?.[p.key] ?? [];
               const Icon = p.icon;

@@ -23,6 +23,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import InboxMenu from './InboxMenu';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface Me {
   id: number;
@@ -38,10 +39,10 @@ export default function Topbar() {
   const { toggleMobile, collapsed, toggleCollapsed } = useSidebar();
 
   useEffect(() => {
-    fetch('/api/v1/auth/me')
-      .then((r) => r.json())
-      .then((j) => j.ok && setMe(j.data))
-      .catch(() => {});
+    // A failed lookup leaves `me` null and the menu falls back to '?' initials.
+    void safeFetchJson<Me>('/api/v1/auth/me').then((res) => {
+      if (res.ok) setMe(res.data);
+    });
   }, []);
 
   async function logout() {

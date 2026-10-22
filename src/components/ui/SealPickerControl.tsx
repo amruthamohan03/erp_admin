@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { Shield, Search, X, Check, Plus } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface SealPickerControlProps {
   // Comma-joined seal numbers (e.g. "AA74423, AA74424").
@@ -24,6 +25,7 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
   const [open, setOpen] = useState(false);
   const [avail, setAvail] = useState<Array<{ id: number; seal_number: string }>>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const current = value ?? '';
@@ -33,10 +35,13 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
     setSearch('');
     setOpen(true);
     setLoading(true);
-    fetch('/api/v1/seal-numbers/available?limit=1000')
-      .then((r) => r.json())
-      .then((j) => { if (j.ok) setAvail(j.data.seals.map((s: { id: number; seal_number: string }) => ({ id: s.id, seal_number: s.seal_number }))); })
-      .catch(() => {})
+    setLoadError(null);
+    void safeFetchJson<{ seals: Array<{ id: number; seal_number: string }> }>('/api/v1/seal-numbers/available?limit=1000')
+      .then((res) => {
+        // An empty list would read as "no seals available", so a failure says why (§4.39).
+        if (res.ok) setAvail(res.data.seals.map((s) => ({ id: s.id, seal_number: s.seal_number })));
+        else setLoadError(res.message);
+      })
       .finally(() => setLoading(false));
   }
   const options = (() => {
@@ -82,7 +87,8 @@ export default function SealPickerControl({ value, onChange, readonly = false, c
               <div className="text-xs text-muted-foreground mb-2">{checked.size} selected</div>
               <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-md">
                 {loading && <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>}
-                {!loading && options.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">No available seals.</div>}
+                {!loading && loadError && <div role="alert" className="px-3 py-6 text-center text-sm text-red-700 dark:text-red-300">{loadError}</div>}
+                {!loading && !loadError && options.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">No available seals.</div>}
                 {!loading && options.map((s) => (
                   <div key={s} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent">
                     <Toggle size="sm" checked={checked.has(s)} onChange={() => toggle(s)} aria-label={`Select seal ${s}`} />

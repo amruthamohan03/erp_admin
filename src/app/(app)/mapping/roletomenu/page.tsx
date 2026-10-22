@@ -6,6 +6,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
+import { safeFetchJson } from '@/lib/safeFetch';
 import type { Role } from '@/types';
 import { PERMISSION_FLAGS, type PermissionFlagKey } from '@/schemas/role-menu-mapping';
 
@@ -42,13 +43,11 @@ export default function RoleToMenuPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingRoles(true);
-    fetch('/api/v1/roles')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setRoles(j.data);
-      })
-      .catch(() => setError('Failed to load roles'))
-      .finally(() => setLoadingRoles(false));
+    safeFetchJson<Role[]>('/api/v1/roles').then((res) => {
+      if (res.ok) setRoles(res.data);
+      else setError(res.message);
+      setLoadingRoles(false);
+    });
   }, []);
 
   // Load mapping rows whenever the role changes.
@@ -57,18 +56,16 @@ export default function RoleToMenuPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/v1/role-menu-mapping?role_id=${rid}`);
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Failed to load mapping');
+      const res = await safeFetchJson<{ menus: MappingRow[] }>(
+        `/api/v1/role-menu-mapping?role_id=${rid}`,
+      );
+      if (!res.ok) {
+        setError(res.message);
         setRows([]);
         return;
       }
-      setRows(json.data.menus);
+      setRows(res.data.menus);
       setDirty(false);
-    } catch {
-      setError('Network error');
-      setRows([]);
     } finally {
       setLoadingRows(false);
     }
@@ -171,22 +168,22 @@ export default function RoleToMenuPage() {
           ...Object.fromEntries(PERM_COLUMNS.map((c) => [c.key, r[c.key]])),
         })),
       };
-      const res = await fetch('/api/v1/role-menu-mapping', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      const res = await safeFetchJson<{ saved: number; removed: number }>(
+        '/api/v1/role-menu-mapping',
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setDirty(false);
       setNotice(
-        `Saved — ${json.data.saved} granted, ${json.data.removed} cleared.`,
+        `Saved — ${res.data.saved} granted, ${res.data.removed} cleared.`,
       );
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

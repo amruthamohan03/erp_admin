@@ -5,6 +5,7 @@ import { Edit2, Plus, Search, Trash2, X } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 
@@ -60,20 +61,19 @@ export default function ItemsPage() {
   // Categories for the picker — small list, fetch once.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/quotation-categories?pageSize=100')
-      .then((r) => r.json())
-      .then((j) => {
-        if (cancelled) return;
-        if (j.ok) {
-          setCategories(
-            (j.data as Array<{ id: number; category_name: string }>).map((c) => ({
-              id: c.id,
-              category_name: c.category_name,
-            })),
-          );
-        }
-      })
-      .catch(() => {});
+    safeFetchJson<Array<{ id: number; category_name: string }>>(
+      '/api/v1/quotation-categories?pageSize=100',
+    ).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        setCategories(
+          res.data.map((c) => ({
+            id: c.id,
+            category_name: c.category_name,
+          })),
+        );
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -91,11 +91,12 @@ export default function ItemsPage() {
       });
       if (categoryFilter) params.set('category_id', categoryFilter);
       if (typeFilter) params.set('item_type', typeFilter);
-      const res = await fetch(`/api/v1/items?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<ItemRow[]>(`/api/v1/items?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -109,10 +110,9 @@ export default function ItemsPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this item?')) return;
-    const res = await fetch(`/api/v1/items/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This item could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/items/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The item has been disabled.' });
@@ -247,7 +247,7 @@ function ItemFormModal({
     const url = isEdit ? `/api/v1/items/${item!.id}` : '/api/v1/items';
     const method = isEdit ? 'PUT' : 'POST';
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -260,14 +260,11 @@ function ItemFormModal({
           display: active ? 'Y' : 'N',
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

@@ -197,7 +197,7 @@ export default function TransactionalPage({
       current: Record<string, unknown>,
       mode: 'replace' | 'fill' = 'replace',
     ) => {
-      const res = await fetch(`/api/v1/pages/${slug}/derive`, {
+      const res = await safeFetchJson<{ values: Record<string, unknown> }>(`/api/v1/pages/${slug}/derive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // The record being edited goes along, so a source computing "what is
@@ -208,11 +208,13 @@ export default function TransactionalPage({
           entity_id: entityId === 'new' ? null : entityId,
         }),
       });
-      const json: { ok: boolean; data?: { values: Record<string, unknown> } } = await res.json();
-      if (!res.ok || !json.ok || !json.data) return;
+      // A derive is a convenience fill: when it fails the fields stay as they
+      // were, and the save's own required checks name anything left empty.
+      if (!res.ok || !res.data) return;
+      const derived = res.data.values;
 
       if (mode === 'replace') {
-        setValues((prev) => ({ ...prev, ...json.data!.values }));
+        setValues((prev) => ({ ...prev, ...derived }));
         return;
       }
 
@@ -221,7 +223,7 @@ export default function TransactionalPage({
       // state updater.
       const empty = (v: unknown) => v === null || v === undefined || v === '';
       const filled: Record<string, unknown> = {};
-      for (const [name, value] of Object.entries(json.data.values)) {
+      for (const [name, value] of Object.entries(derived ?? {})) {
         if (empty(value) || !empty(current[name])) continue;
         if (!authoritativeFields.has(name)) continue;
         filled[name] = value;
@@ -407,25 +409,35 @@ export default function TransactionalPage({
       });
 
       if (!result.ok) {
-        const field = result.field;
-        if (field) {
-          setInvalidFields(new Set([field]));
+        // Every input the server named — the single `field` it pointed at, plus
+        // each key of a multi-field validation failure (§4.23).
+        const named = new Set<string>(Object.keys(result.fieldMessages ?? {}));
+        if (result.field) named.add(result.field);
+        if (named.size > 0) {
+          setInvalidFields(named);
           // The offending field may sit in a collapsed section — open it so the
           // message points at something the user can actually see.
+          const toOpen: string[] = [];
           for (const [accSlug, fields] of resolvedByAccordion) {
-            if (fields.some((r) => r.field.name === field && r.state.visible)) {
-              setOpenSlugs((prev) => new Set(prev).add(accSlug));
-              break;
-            }
+            if (fields.some((r) => named.has(r.field.name) && r.state.visible)) toOpen.push(accSlug);
+          }
+          if (toOpen.length > 0) {
+            setOpenSlugs((prev) => {
+              const next = new Set(prev);
+              for (const s of toOpen) next.add(s);
+              return next;
+            });
           }
         }
-        setSaveError([result.message, result.detail].filter(Boolean).join(' — ') || 'Save failed');
+        // §4.39 — the action bar carries the dialog's own sentence, never a
+        // shorter one; the detail rides along when there is one.
+        setSaveError([result.message, result.detail].filter(Boolean).join(' — '));
         // §4.22 — state the outcome. Dismissing returns to the form, which still
         // holds the work with the offending field marked.
         setSaveResult({
           status: 'error',
           title: entityId === 'new' ? 'Not created' : 'Not saved',
-          message: result.message || 'The record could not be saved.',
+          message: result.message,
           detail: result.detail,
         });
         return;
@@ -445,7 +457,12 @@ export default function TransactionalPage({
             : `Your changes to this ${page.title.toLowerCase()} have been saved.`,
       });
     } catch (e) {
-      setSaveError((e as Error).message || 'Save failed');
+      // safeFetchJson never throws, so this is the browser failing to build the
+      // request itself (e.g. a value JSON cannot encode) — say that, not "failed".
+      const reason = e instanceof Error && e.message ? ` (${e.message})` : '';
+      const message = `The form could not be sent to the server — the browser could not prepare the request${reason}. Reload the page and try again.`;
+      setSaveError(message);
+      setSaveResult({ status: 'error', title: entityId === 'new' ? 'Not created' : 'Not saved', message });
     } finally {
       setSaving(false);
     }

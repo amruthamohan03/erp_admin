@@ -7,6 +7,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import type { Role } from '@/types';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -19,9 +20,9 @@ export default function RolesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/roles');
-      const json = await res.json();
-      if (json.ok) setRoles(json.data);
+      const res = await safeFetchJson<Role[]>('/api/v1/roles');
+      if (res.ok) setRoles(res.data);
+      else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
     } finally {
       setLoading(false);
     }
@@ -36,10 +37,9 @@ export default function RolesPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this role?')) return;
-    const res = await fetch(`/api/v1/roles/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This role could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/roles/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The role has been disabled.' });
@@ -167,19 +167,16 @@ function RoleFormModal({
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

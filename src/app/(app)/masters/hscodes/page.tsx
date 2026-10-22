@@ -6,6 +6,7 @@ import { Leaf, Plus, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { safeFetchJson } from '@/lib/safeFetch';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
@@ -89,16 +90,13 @@ export default function HscodesPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/hs-green-prefixes?pageSize=100')
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled && j.ok) {
-          setPrefixes((j.data as { prefix: string }[]).map((p) => p.prefix));
-        }
-      })
-      // A failed load costs the preview, not the form — the server still
-      // decides, so saving remains correct either way.
-      .catch(() => {});
+    // A failed load costs the preview, not the form — the server still
+    // decides, so saving remains correct either way.
+    safeFetchJson<{ prefix: string }[]>('/api/v1/hs-green-prefixes?pageSize=100').then((res) => {
+      if (!cancelled && res.ok) {
+        setPrefixes(res.data.map((p) => p.prefix));
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -114,11 +112,12 @@ export default function HscodesPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/hscodes?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<Row[]>(`/api/v1/hscodes?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -132,10 +131,9 @@ export default function HscodesPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this HS code?')) return;
-    const res = await fetch(`/api/v1/hscodes/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This HS code could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/hscodes/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The HS code has been disabled.' });
@@ -333,7 +331,7 @@ function FormModal({
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -343,20 +341,13 @@ function FormModal({
           display: active ? 'Y' : 'N',
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        // The server's sentence first — it names the field and the fix. The
-        // fallback used to be "Save failed", which §4.23 lists as a defect by
-        // name: it tells the operator something broke and nothing else.
-        setError(
-          json.error?.message ||
-            'This HS code could not be saved. Check the number and the rate percentages, then try again.',
-        );
+      if (!res.ok) {
+        // safeFetchJson's sentence names the field and the fix, or what went
+        // wrong in transit — never a bare "Save failed" (§4.23).
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

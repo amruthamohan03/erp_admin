@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { masterPageAccordion } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     .orderBy(asc(masterPageAccordion.displayOrder), asc(masterPageAccordion.id));
 
   return ok(rows);
-}
+});
 
 const createSchema = z.object({
   page_id: z.coerce.number().int().positive(),
@@ -43,16 +43,14 @@ const createSchema = z.object({
   display_order: z.coerce.number().int().min(0).optional(),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   try {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
+    if (!parsed.success) throw parsed.error;
     const d = parsed.data;
 
     const [row] = await db
@@ -72,7 +70,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const dup = uniqueViolationResponse(err, 'accordion slug (within this page)');
     if (dup) return dup;
-    console.error('[master-page-accordions.POST]', err);
-    return fail('Server error', 500);
+    throw err;
   }
-}
+});

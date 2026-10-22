@@ -28,6 +28,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -188,6 +189,8 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  // A failed load must not read as "no licences match these filters".
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [clientOpts, setClientOpts] = useState<Option[]>([]);
   const [transportOpts, setTransportOpts] = useState<Option[]>([]);
@@ -228,14 +231,16 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
       if (search.trim()) params.set('q', search.trim());
-      const res = await fetch(`/api/v1/licenses?${params.toString()}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<LicenseRow[]>(`/api/v1/licenses?${params.toString()}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(Number(res.meta?.total ?? 0));
+        setLoadError(null);
+      } else {
+        setItems([]);
+        setTotal(0);
+        setLoadError(res.message);
       }
-    } catch {
-      // ignore — list stays empty
     } finally {
       setLoading(false);
     }
@@ -250,23 +255,17 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [cardsRes, statsRes] = await Promise.all([
-          fetch('/api/v1/dashboard-cards/me').then((r) => r.json()),
-          fetch(`/api/v1/licenses/stats?use_for=${config.useFor}`).then((r) => r.json()),
-        ]);
-        if (cancelled) return;
-        if (cardsRes.ok) {
-          setCards(
-            (cardsRes.data as DashboardCard[]).filter(
-              (c) => c.card_category === 'license_dashboard',
-            ),
-          );
-        }
-        if (statsRes.ok) setStats(statsRes.data as Record<string, number>);
-      } catch {
-        // ignore — cards simply won't render
+      // Optional chrome: a failure leaves the cards off, and the list below
+      // reports its own load failure.
+      const [cardsRes, statsRes] = await Promise.all([
+        safeFetchJson<DashboardCard[]>('/api/v1/dashboard-cards/me'),
+        safeFetchJson<Record<string, number>>(`/api/v1/licenses/stats?use_for=${config.useFor}`),
+      ]);
+      if (cancelled) return;
+      if (cardsRes.ok) {
+        setCards(cardsRes.data.filter((c) => c.card_category === 'license_dashboard'));
       }
+      if (statsRes.ok) setStats(statsRes.data);
     })();
     return () => {
       cancelled = true;
@@ -442,7 +441,7 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
           </span>
         }
         searchPlaceholder="Search license, client, bank, invoice..."
-        emptyMessage="No licences match these filters — clear them, or create one."
+        emptyMessage={loadError ?? 'No licences match these filters — clear them, or create one.'}
         onExport={exportAll}
         toolbar={
           // §4.20/§4.25 — the create action lives in the table's toolbar, as a

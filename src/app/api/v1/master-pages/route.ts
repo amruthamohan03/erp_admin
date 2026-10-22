@@ -7,10 +7,10 @@ import { z } from 'zod';
 import { asc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { masterPage } from '@/db/schema';
-import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { uniqueViolationResponse } from '@/lib/api/uniqueness';
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
@@ -30,7 +30,7 @@ export async function GET() {
     .orderBy(asc(masterPage.displayOrder), asc(masterPage.id));
 
   return ok(rows);
-}
+});
 
 const createSchema = z.object({
   slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, 'slug must be lowercase letters, digits, or hyphens'),
@@ -41,16 +41,14 @@ const createSchema = z.object({
   display: z.enum(['Y', 'N']).optional(),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const session = await requireAuth();
   if (isResponse(session)) return session;
 
   try {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail('Invalid input', 422, { errors: parsed.error.flatten() });
-    }
+    if (!parsed.success) throw parsed.error;
     const d = parsed.data;
 
     const [row] = await db
@@ -71,7 +69,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const dup = uniqueViolationResponse(err, 'page slug');
     if (dup) return dup;
-    console.error('[master-pages.POST]', err);
-    return fail('Server error', 500);
+    throw err;
   }
-}
+});

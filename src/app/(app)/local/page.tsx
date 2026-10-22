@@ -6,6 +6,7 @@ import { Plus, Search, Eye, Edit2, Trash2, Truck, MapPin, X } from 'lucide-react
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import DataTable from '@/components/ui/DataTable';
 import { formatDate as fmtDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Local Tracking list. The create/edit form is a transaction-page
 // (/local/new, /local/[id]); this page owns the stat cards (total + per-office
@@ -54,9 +55,13 @@ export default function LocalPage() {
     try {
       const p = new URLSearchParams({ page: String(page), pageSize: String(pageSize), location_filter: String(locationFilter) });
       if (search.trim()) p.set('q', search.trim());
-      const res = await fetch(`/api/v1/locals?${p}`);
-      const j = await res.json();
-      if (j.ok) { setItems(j.data); setTotal(j.meta?.total ?? 0); }
+      const res = await safeFetchJson<Row[]>(`/api/v1/locals?${p}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
+      }
     } finally { setLoading(false); }
   }, [page, pageSize, locationFilter, search]);
 
@@ -64,23 +69,22 @@ export default function LocalPage() {
   useEffect(() => { load(); }, [load]);
 
   const loadStats = useCallback(() => {
-    fetch('/api/v1/locals/statistics').then((r) => r.json()).then((j) => { if (j.ok) setStats(j.data); }).catch(() => {});
+    safeFetchJson<Stats>('/api/v1/locals/statistics').then((res) => { if (res.ok) setStats(res.data); });
   }, []);
   useEffect(() => { loadStats(); }, [loadStats]);
 
   async function openView(id: number) {
     setView(null);
-    const res = await fetch(`/api/v1/locals/${id}`);
-    const j = await res.json();
-    if (j.ok) setView(j.data);
+    const res = await safeFetchJson<Record<string, unknown>>(`/api/v1/locals/${id}`);
+    if (res.ok) setView(res.data);
+    else setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
   }
 
   async function del(id: number) {
     if (!confirm('Delete this local tracking record?')) return;
-    const res = await fetch(`/api/v1/locals/${id}`, { method: 'DELETE' });
-    const j = await res.json();
-    if (!j.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: j.error?.message || 'This tracking record could not be deleted.' });
+    const res = await safeFetchJson(`/api/v1/locals/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The local tracking record has been deleted.' });

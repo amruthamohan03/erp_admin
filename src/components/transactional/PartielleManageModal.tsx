@@ -10,6 +10,7 @@
 // onChanged so the picker's dropdown refreshes.
 import { useCallback, useEffect, useState } from 'react';
 import { X, Plus, Save, Loader2, Layers } from 'lucide-react';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface Row {
   id: number;
@@ -53,9 +54,9 @@ export default function PartielleManageModal({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const j = await fetch(`/api/v1/partielles/summary?license_id=${licenseId}`).then((r) => r.json());
-      if (j.ok) setData(j.data);
-      else setError(j.error?.message ?? 'Failed to load');
+      const res = await safeFetchJson<Summary>(`/api/v1/partielles/summary?license_id=${licenseId}`);
+      if (res.ok) setData(res.data);
+      else setError(res.message);
     } finally {
       setLoading(false);
     }
@@ -106,7 +107,7 @@ export default function PartielleManageModal({
     setBusy(true);
     setError(null);
     try {
-      const j = await fetch('/api/v1/partielles', {
+      const res = await safeFetchJson('/api/v1/partielles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,9 +119,9 @@ export default function PartielleManageModal({
           partial_weight: Number(form.weight) || 0,
           partial_fob: Number(form.fob) || 0,
         }),
-      }).then((r) => r.json());
-      if (!j.ok) {
-        setError(j.error?.message ?? 'The PARTIELLE could not be created.');
+      });
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setForm({ name: '', weight: '', fob: '' });
@@ -137,13 +138,13 @@ export default function PartielleManageModal({
     setBusy(true);
     setError(null);
     try {
-      const j = await fetch(`/api/v1/partielles/${edit.id}`, {
+      const res = await safeFetchJson(`/api/v1/partielles/${edit.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ partial_weight: Number(edit.weight) || 0, partial_fob: Number(edit.fob) || 0 }),
-      }).then((r) => r.json());
-      if (!j.ok) {
-        setError(j.error?.message ?? 'Save failed');
+      });
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setEdit(null);

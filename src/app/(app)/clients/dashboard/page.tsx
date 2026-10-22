@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Users, BarChart3, Sun, FileSpreadsheet } from 'lucide-react';
 import DashboardCardsGrid from '@/components/ui/DashboardCardsGrid';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Client dashboard — visual parity with main's /clients/dashboard.
 // Stat cards on top come from card_category='client_dashboard'
@@ -41,20 +42,11 @@ export default function ClientsDashboardPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch('/api/v1/clients/dashboard');
-        const json = await res.json();
-        if (cancelled) return;
-        if (json?.ok) {
-          setChartData(json.data as ChartPayload);
-        } else {
-          setError(json?.error?.message ?? 'Failed to load dashboard');
-        }
-      } catch {
-        if (!cancelled) setError('Failed to load dashboard');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const res = await safeFetchJson<ChartPayload>('/api/v1/clients/dashboard');
+      if (cancelled) return;
+      if (res.ok) setChartData(res.data);
+      else setError(res.message);
+      setLoading(false);
     })();
     return () => {
       cancelled = true;

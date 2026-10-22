@@ -18,7 +18,9 @@ import {
   masterPageAccordionRole,
   masterPageAccordionField,
 } from '@/db/schema';
+import { randomUUID } from 'node:crypto';
 import { ok, fail, requireAuth, isResponse } from '@/lib/api';
+import { describeError } from '@/lib/validation/messages';
 import { fetchEntityValues, safeColumnsFor, getPageTarget } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
 import { isAsyncDerive, parseDerive } from '@/lib/pages/derive';
@@ -59,73 +61,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     return await loadPage(slug, session.role_id, entityIdRaw, copyFrom);
   } catch (err) {
-    // Defensive: anything that throws inside this handler MUST still produce a
-    // JSON response. If our own error analysis throws, fall back to a bare 500.
-    try {
-      console.error('[pages.GET]', err);
-      const info = describeDbError(err);
-      // 42P01 = undefined_table, 42703 = undefined_column.
-      if (info.code === '42P01') {
-        return fail(
-          'Page master tables not found — run `pnpm db:migrate` to apply the master_page migrations.',
-          500,
-          { sqlstate: '42P01', detail: info.fullMessage },
-        );
-      }
-      if (info.code === '42703') {
-        return fail(
-          'A column referenced by the page runtime does not exist — partial migration. Try `pnpm db:generate` + `pnpm db:migrate`.',
-          500,
-          { sqlstate: '42703', detail: info.fullMessage },
-        );
-      }
-      return fail('Server error loading page', 500, {
-        sqlstate: info.code,
-        detail: info.fullMessage,
-      });
-    } catch (fallback) {
-      console.error('[pages.GET fallback]', fallback);
-      return fail('Server error (error handler crashed)', 500, {
-        original: safeStringify(err),
-        fallbackError: safeStringify(fallback),
-      });
-    }
-  }
-}
-
-function describeDbError(err: unknown): { code: string | undefined; fullMessage: string } {
-  // Walk the cause chain. Drizzle wraps pg errors in a DrizzleQueryError-like
-  // object whose .message starts with "Failed query: ..." and whose .cause is
-  // the original pg error (with .code = SQLSTATE).
-  const messages: string[] = [];
-  let code: string | undefined;
-  let cur: unknown = err;
-  const seen = new WeakSet<object>();
-
-  while (cur && typeof cur === 'object') {
-    if (seen.has(cur as object)) break;
-    seen.add(cur as object);
-    const obj = cur as Record<string, unknown>;
-    if (typeof obj.message === 'string') messages.push(obj.message);
-    if (!code && typeof obj.code === 'string') code = obj.code;
-    cur = obj.cause;
-  }
-
-  return {
-    code,
-    fullMessage:
-      messages.length > 0
-        ? messages.join(' | ')
-        : (typeof err === 'string' ? err : 'Unknown error'),
-  };
-}
-
-function safeStringify(v: unknown): string {
-  try {
-    if (v instanceof Error) return `${v.name}: ${v.message}`;
-    return JSON.stringify(v) ?? String(v);
-  } catch {
-    return String(v);
+    // §4.39 — anything that throws still produces a JSON answer, and that
+    // answer says what failed. describeError unwraps the driver error and names
+    // a missing table or column (a migration not applied) in plain words. The
+    // raw failure text is not echoed: Drizzle's embeds the SQL and parameters.
+    const d = describeError(err);
+    if (d.status < 500) return fail(`The ${slug} page could not be loaded: ${d.message}`, d.status);
+    const ref = randomUUID().slice(0, 8);
+    console.error(`[pages.GET] ref=${ref}`, err);
+    return fail(`The ${slug} page could not be loaded: ${d.message} (Reference: ${ref})`, d.status, { ref });
   }
 }
 
@@ -148,13 +92,13 @@ async function loadPage(
     .where(and(eq(masterPage.slug, slug), eq(masterPage.display, 'Y')))
     .limit(1);
 
-  if (!page) return fail('Page not found', 404);
+  if (!page) return fail(`There is no page configured with the slug "${slug}". Check the address, or register it under Developer Options → Pages.`, 404);
 
   // Defensive: refuse to serve a page whose target_table isn't in the runtime
   // whitelist. This stops a misconfigured master_page row from exposing a table
   // the runtime can't safely query.
   if (!getPageTarget(slug)) {
-    return fail('Page target is not registered in the runtime', 500);
+    return fail(`The "${slug}" page is configured, but its target table is not registered in the page runtime (src/lib/pages/targets.ts), so it cannot be opened.`, 500);
   }
 
   // 2) Load accordions the user's role has access to. We join through

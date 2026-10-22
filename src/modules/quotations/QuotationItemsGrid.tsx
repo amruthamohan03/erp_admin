@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, Plus, Trash2 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
-import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
+import { fetchMasterOptions, optionRows, type SelectOption } from '@/lib/selectOptions';
+import { safeFetchJson } from '@/lib/safeFetch';
 import {
   computeLine,
   detectKind,
@@ -122,6 +123,7 @@ export default function QuotationItemsGrid({
   const [currencies, setCurrencies] = useState<SelectOption[]>([]);
   const [kindName, setKindName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // The kind's NAME decides the column set, and the form only holds its id.
   // Fetched as a list once rather than per change: seven kinds is one request,
@@ -132,8 +134,8 @@ export default function QuotationItemsGrid({
     let live = true;
     void (async () => {
       const [catRes, itemRes, unitRows, curRows, kindRows] = await Promise.all([
-        fetch('/api/v1/quotation-categories?pageSize=100').then((r) => r.json()).catch(() => null),
-        fetch('/api/v1/items?pageSize=100').then((r) => r.json()).catch(() => null),
+        safeFetchJson('/api/v1/quotation-categories?pageSize=100'),
+        safeFetchJson('/api/v1/items?pageSize=100'),
         // The short code when a unit has one, else its name — main's
         // `unit_code || unit_name`. Every unit in this database has a null
         // code, so asking for the code alone rendered the picker as ids.
@@ -143,16 +145,16 @@ export default function QuotationItemsGrid({
       ]);
       if (!live) return;
 
-      const rows = (j: unknown): Record<string, unknown>[] => {
-        const body = j as { ok?: boolean; data?: unknown };
-        if (!body?.ok) return [];
-        if (Array.isArray(body.data)) return body.data as Record<string, unknown>[];
-        const inner = (body.data as { items?: unknown })?.items;
-        return Array.isArray(inner) ? (inner as Record<string, unknown>[]) : [];
-      };
+      // An empty category or item list would read as "nothing to quote", so a
+      // failed load says why instead (§4.39).
+      const failures = [
+        catRes.ok ? null : `Quotation categories could not be loaded: ${catRes.message}`,
+        itemRes.ok ? null : `Items could not be loaded: ${itemRes.message}`,
+      ].filter((m): m is string => m !== null);
+      setLoadError(failures.length ? failures.join(' ') : null);
 
       setCategories(
-        rows(catRes)
+        optionRows(catRes)
           .map((c) => ({
             id: Number(c.id),
             category_name: String(c.category_name ?? ''),
@@ -163,7 +165,7 @@ export default function QuotationItemsGrid({
           .sort((a, b) => a.display_order - b.display_order),
       );
       setItems(
-        rows(itemRes).map((i) => ({
+        optionRows(itemRes).map((i) => ({
           id: Number(i.id),
           name: String(i.item_name ?? i.name ?? i.id),
           category_id: i.category_id == null ? null : Number(i.category_id),
@@ -283,6 +285,12 @@ export default function QuotationItemsGrid({
       <h3 className="text-sm font-semibold text-foreground">
         {detectKind(kindName).isExport ? 'Export Items (ED)' : 'Quotation Items'}
       </h3>
+
+      {loadError && (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+          {loadError}
+        </p>
+      )}
 
       {categories.map((cat) => {
         const mode = modeFor(cat);

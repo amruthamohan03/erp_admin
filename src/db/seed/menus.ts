@@ -245,6 +245,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Tracking Management', name: 'Import Tracking', order: 39, url: '/imports' },
   { parent: 'Tracking Management', name: 'Export Tracking', order: 40, url: '/exports' },
   { parent: 'Tracking Management', name: 'File Cancellation', order: 41, url: '/tracking/file-cancellation' },
+  { parent: 'Tracking Management', name: 'Fiche de Calcul Dashboard', order: 41, url: '/fiches/dashboard' },
   { parent: 'Tracking Management', name: 'Fiche de Calcul', order: 42, url: '/fiches' },
   // §4.29 — mirrored by migration 0114 so a fresh DB and a migrated one agree.
   { parent: 'Tracking Management', name: 'Import Tracking Dashboard', order: 43, url: '/imports/dashboard' },
@@ -333,6 +334,7 @@ const CHILDREN: ChildSpec[] = [
   },
 
   // ── Seal Tracker (original menu_id=75) ──────────────────────────
+  { parent: 'Seal Tracker', name: 'Seal Dashboard', order: 49, url: '/masters/seals/dashboard' },
   { parent: 'Seal Tracker', name: 'Seal Tracker', order: 50, url: '/masters/seals' },
 
   // ── Advance Payment (original menu_id=83) ───────────────────────

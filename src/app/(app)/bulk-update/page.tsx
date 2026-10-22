@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Bulk-update operator UI. Single-page flow:
 //   1. Pick entity (from /api/v1/bulk-update/targets)
@@ -114,17 +115,11 @@ export default function BulkUpdatePage() {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch('/api/v1/bulk-update/targets');
-        const json = await res.json();
-        if (cancelled) return;
-        if (json.ok) setTargets(json.data);
-        else setTargetsError(json.error?.message ?? 'Failed to load targets');
-      } catch {
-        if (!cancelled) setTargetsError('Network error');
-      } finally {
-        if (!cancelled) setLoadingTargets(false);
-      }
+      const res = await safeFetchJson<BulkTarget[]>('/api/v1/bulk-update/targets');
+      if (cancelled) return;
+      if (res.ok) setTargets(res.data);
+      else setTargetsError(res.message);
+      setLoadingTargets(false);
     })();
     return () => {
       cancelled = true;
@@ -226,19 +221,16 @@ export default function BulkUpdatePage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch('/api/v1/bulk-update/preview', {
+      const res = await safeFetchJson<{ matched_count: number }>('/api/v1/bulk-update/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entity, predicate }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Preview failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
-      setMatchedCount(json.data.matched_count);
-    } catch {
-      setError('Network error');
+      setMatchedCount(res.data.matched_count);
     } finally {
       setPreviewing(false);
     }
@@ -264,23 +256,23 @@ export default function BulkUpdatePage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch('/api/v1/bulk-update/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity, predicate, patch }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Apply failed');
+      const res = await safeFetchJson<{ updated_count: number; matched_count: number }>(
+        '/api/v1/bulk-update/apply',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity, predicate, patch }),
+        },
+      );
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setNotice(
-        `Applied — ${json.data.updated_count} of ${json.data.matched_count} rows updated.`,
+        `Applied — ${res.data.updated_count} of ${res.data.matched_count} rows updated.`,
       );
       // Stale preview after write — force a re-preview before next apply.
       setMatchedCount(null);
-    } catch {
-      setError('Network error');
     } finally {
       setApplying(false);
     }

@@ -83,20 +83,19 @@ export default function ApplicationSettingsPage() {
   });
 
   useEffect(() => {
-    // Read the envelope directly here rather than through safeFetchJson: this is
-    // the one call that needs `meta`, which the helper drops.
-    fetch('/api/v1/application-settings')
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j?.ok) {
+    // `meta` carries the missing-file flags (§4.24) alongside the settings row.
+    void safeFetchJson<Partial<Record<keyof SettingsForm, string | null>>>('/api/v1/application-settings')
+      .then((res) => {
+        if (!res.ok) {
           setResult({
             status: 'error',
             title: 'Not loaded',
-            message: j?.error?.message || 'The application settings could not be loaded.',
+            message: res.message,
+            detail: res.detail,
           });
           return;
         }
-        const d = j.data;
+        const d = res.data;
         setForm({
           project_name: d.project_name ?? '',
           app_title: d.app_title ?? '',
@@ -111,18 +110,10 @@ export default function ApplicationSettingsPage() {
           letterhead_text: d.letterhead_text ?? '',
         });
         setMissingFiles({
-          logo: !!j.meta?.logo_file_missing,
-          favicon: !!j.meta?.favicon_file_missing,
+          logo: !!res.meta?.logo_file_missing,
+          favicon: !!res.meta?.favicon_file_missing,
         });
       })
-      .catch((err: unknown) =>
-        setResult({
-          status: 'error',
-          title: 'Not loaded',
-          message: 'The application settings could not be loaded.',
-          detail: (err as Error)?.message,
-        }),
-      )
       .finally(() => setLoading(false));
   }, []);
 

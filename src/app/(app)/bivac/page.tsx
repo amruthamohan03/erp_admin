@@ -8,6 +8,7 @@ import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { clientOptionLabel } from '@/lib/clientOptions';
 import { formatDate } from '@/lib/formatDate';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 const fmtDate = (v: unknown): string => formatDate(v, '-');
 
@@ -104,9 +105,11 @@ export default function BivacPage() {
       const p = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search.trim()) p.set('q', search.trim());
       if (clientFilter !== '0') p.set('client_id', clientFilter);
-      const res = await fetch(`/api/v1/bivac/licenses?${p}`);
-      const j = await res.json();
-      if (j.ok) { setItems(j.data); setTotal(j.meta?.total ?? 0); }
+      const res = await safeFetchJson<LicenseRow[]>(`/api/v1/bivac/licenses?${p}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      }
     } finally {
       setLoading(false);
     }
@@ -117,10 +120,8 @@ export default function BivacPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/bivac/clients')
-      .then((r) => r.json())
-      .then((j) => { if (!cancelled && j.ok) setClientOpts(j.data); })
-      .catch(() => {});
+    safeFetchJson<Array<{ id: number; short_name: string | null }>>('/api/v1/bivac/clients')
+      .then((res) => { if (!cancelled && res.ok) setClientOpts(res.data); });
     return () => { cancelled = true; };
   }, []);
 
@@ -131,9 +132,8 @@ export default function BivacPage() {
     setPartials(null);
     setPartialsLoading(true);
     try {
-      const res = await fetch(`/api/v1/bivac/licenses/${lic.id}/partials`);
-      const j = await res.json();
-      setPartials(j.ok ? j.data : []);
+      const res = await safeFetchJson<PartialRow[]>(`/api/v1/bivac/licenses/${lic.id}/partials`);
+      setPartials(res.ok ? res.data : []);
     } finally {
       setPartialsLoading(false);
     }
@@ -144,9 +144,8 @@ export default function BivacPage() {
     setFiles(null);
     setFilesLoading(true);
     try {
-      const res = await fetch(`/api/v1/bivac/partials/${p.id}/files`);
-      const j = await res.json();
-      setFiles(j.ok ? j.data : []);
+      const res = await safeFetchJson<FileRow[]>(`/api/v1/bivac/partials/${p.id}/files`);
+      setFiles(res.ok ? res.data : []);
     } finally {
       setFilesLoading(false);
     }
@@ -166,7 +165,7 @@ export default function BivacPage() {
     setSaving(true);
     setEditError(null);
     try {
-      const res = await fetch(`/api/v1/bivac/partials/${edit.id}`, {
+      const res = await safeFetchJson(`/api/v1/bivac/partials/${edit.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,8 +174,7 @@ export default function BivacPage() {
           partial_other_costs: Number(form.o) || 0,
         }),
       });
-      const j = await res.json();
-      if (!j.ok) { setEditError(j.error?.message ?? 'Update failed'); return; }
+      if (!res.ok) { setEditError(res.message); return; }
       setEdit(null);
       if (viewLicense) await openPartials(viewLicense);
       load();

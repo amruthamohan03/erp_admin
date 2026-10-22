@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { BarChart3, CreditCard, CircleCheck, XCircle, Clock, Wallet, TrendingUp } from 'lucide-react';
 import { type ToneKey } from '@/lib/payments/stageConfig';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { TabError } from '@/modules/tracking/dashboardUi';
 
 // Payment Dashboard — KPIs, monthly revenue trend, status breakdown, top
 // clients. Data from /api/v1/payments/dashboard. Charts are inline (no new dep).
@@ -27,14 +29,18 @@ const money = (n: number) => (n ?? 0).toLocaleString('en-US', { minimumFractionD
 export default function PaymentDashboardPage() {
   const [d, setD] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/payments/dashboard').then((r) => r.json()).then((j) => {
+    void safeFetchJson<Dash>('/api/v1/payments/dashboard').then((res) => {
       if (cancelled) return;
-      if (j.ok) setD(j.data);
+      // A failed load keeps `d` null and says why, rather than rendering a
+      // page of zeros that reads as real figures (§4.39).
+      if (res.ok) setD(res.data);
+      else setError(res.message);
       setLoading(false);
-    }).catch(() => { if (!cancelled) setLoading(false); });
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -66,6 +72,8 @@ export default function PaymentDashboardPage() {
       </div>
 
       {loading && <div className="card p-6 text-center text-muted-foreground">Loading dashboard…</div>}
+
+      {!loading && error && <TabError message={error} />}
 
       {!loading && d && (
         <>

@@ -25,37 +25,37 @@ export class AppError extends Error {
 }
 
 export class BadRequestError extends AppError {
-  constructor(message = 'Bad request', details?: Record<string, unknown>) {
+  constructor(message = 'The request is missing information or is not in the expected form.', details?: Record<string, unknown>) {
     super(message, 400, 'BAD_REQUEST', details);
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized') {
+  constructor(message = 'You are not signed in, or your session has expired. Sign in again to continue.') {
     super(message, 401, 'UNAUTHORIZED');
   }
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message = 'Forbidden') {
+  constructor(message = 'Your role is not allowed to do this. An administrator can grant it under Mapping → Role to Menu.') {
     super(message, 403, 'FORBIDDEN');
   }
 }
 
 export class NotFoundError extends AppError {
-  constructor(message = 'Not found') {
+  constructor(message = 'The record was not found. It may have been deleted, or the link you followed is out of date.') {
     super(message, 404, 'NOT_FOUND');
   }
 }
 
 export class ConflictError extends AppError {
-  constructor(message = 'Conflict', details?: Record<string, unknown>) {
+  constructor(message = 'This change conflicts with the record as it is now. Reload the page and try again.', details?: Record<string, unknown>) {
     super(message, 409, 'CONFLICT', details);
   }
 }
 
 export class ValidationError extends AppError {
-  constructor(message = 'Invalid input', details?: Record<string, unknown>) {
+  constructor(message = 'Some of the values entered are not valid.', details?: Record<string, unknown>) {
     super(message, 422, 'VALIDATION_ERROR', details);
   }
 }

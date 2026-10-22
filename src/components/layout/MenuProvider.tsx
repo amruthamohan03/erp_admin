@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { MenuTreeNode } from '@/types/menu';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // The role-scoped sidebar tree, fetched ONCE for the whole shell.
 //
@@ -28,19 +29,13 @@ export default function MenuProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/menus')
-      .then((r) => r.json())
-      .then((j) => {
-        if (cancelled) return;
-        if (j.ok) setMenus(j.data as MenuTreeNode[]);
-      })
-      .catch(() => {
-        // A sidebar that cannot load is a visible failure on its own; the title
-        // falls back to the path, so neither needs to throw here.
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    void safeFetchJson<MenuTreeNode[]>('/api/v1/menus').then((res) => {
+      if (cancelled) return;
+      // A sidebar that cannot load is a visible failure on its own; the title
+      // falls back to the path, so a failure needs no message here.
+      if (res.ok) setMenus(res.data);
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };

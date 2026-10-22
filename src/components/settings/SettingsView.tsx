@@ -6,6 +6,7 @@ import ProfileTab from './ProfileTab';
 import SecurityTab from './SecurityTab';
 import PreferencesTab from './PreferencesTab';
 import SignatureTab from './SignatureTab';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 export interface MeProfile {
   id: number;
@@ -26,11 +27,17 @@ export interface MeProfile {
 export default function SettingsView() {
   const [me, setMe] = React.useState<MeProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
+  // Without this a failed load sat on "Loading..." forever (§4.39).
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   const reload = React.useCallback(async () => {
-    const r = await fetch('/api/v1/me/profile');
-    const j = await r.json();
-    if (j.ok) setMe(j.data);
+    const r = await safeFetchJson<MeProfile>('/api/v1/me/profile');
+    if (r.ok) {
+      setMe(r.data);
+      setLoadError(null);
+    } else {
+      setLoadError(r.message);
+    }
     setLoading(false);
   }, []);
 
@@ -49,7 +56,9 @@ export default function SettingsView() {
       </div>
 
       {loading || !me ? (
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className={loadError && !loading ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+          {loadError && !loading ? loadError : 'Loading...'}
+        </div>
       ) : (
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="w-full justify-start sm:w-auto">

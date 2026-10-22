@@ -6,6 +6,7 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 interface TransportModeRow {
   id: number;
@@ -38,11 +39,12 @@ export default function TransportModesPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/v1/transport-modes?${params}`);
-      const json = await res.json();
-      if (json.ok) {
-        setItems(json.data);
-        setTotal(json.meta?.total ?? 0);
+      const res = await safeFetchJson<TransportModeRow[]>(`/api/v1/transport-modes?${params}`);
+      if (res.ok) {
+        setItems(res.data);
+        setTotal(typeof res.meta?.total === 'number' ? res.meta.total : 0);
+      } else {
+        setResult({ status: 'error', title: 'Not loaded', message: res.message, detail: res.detail });
       }
     } finally {
       setLoading(false);
@@ -56,10 +58,9 @@ export default function TransportModesPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Disable this transport mode?')) return;
-    const res = await fetch(`/api/v1/transport-modes/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.ok) {
-      setResult({ status: 'error', title: 'Not deleted', message: json.error?.message || 'This transport mode could not be disabled.' });
+    const res = await safeFetchJson(`/api/v1/transport-modes/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message, detail: res.detail });
       return;
     }
     setResult({ status: 'success', title: 'Deleted', message: 'The transport mode has been disabled.' });
@@ -172,7 +173,7 @@ function TransportModeFormModal({
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,14 +182,11 @@ function TransportModeFormModal({
           display: active ? 'Y' : 'N',
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message || 'Save failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onSaved();
-    } catch {
-      setError('Network error');
     } finally {
       setSaving(false);
     }

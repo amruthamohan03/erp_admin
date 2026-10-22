@@ -90,14 +90,13 @@ export default function SealBatchDetailPage() {
     setError(null);
     try {
       const [bRes, nRes] = await Promise.all([
-        fetch(`/api/v1/seals/${batchId}`).then((r) => r.json()),
-        fetch(`/api/v1/seals/${batchId}/numbers`).then((r) => r.json()),
+        safeFetchJson<BatchDetail>(`/api/v1/seals/${batchId}`),
+        safeFetchJson<SealRow[]>(`/api/v1/seals/${batchId}/numbers`),
       ]);
       if (bRes.ok) setBatch(bRes.data);
-      else setError(bRes.error?.message ?? 'Failed to load batch');
+      else setError(bRes.message);
       if (nRes.ok) setNumbers(nRes.data);
-    } catch {
-      setError('Network error');
+      else if (bRes.ok) setError(nRes.message);
     } finally {
       setLoading(false);
     }
@@ -134,21 +133,18 @@ export default function SealBatchDetailPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/v1/seals/${batchId}/numbers`, {
+      const res = await safeFetchJson<{ added: number; total: number }>(`/api/v1/seals/${batchId}/numbers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seal_numbers: pasteText }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Add failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
-      setNotice(`Added ${json.data.added} of ${json.data.total} numbers.`);
+      setNotice(`Added ${res.data.added} of ${res.data.total} numbers.`);
       setPasteText('');
       await load();
-    } catch {
-      setError('Network error');
     } finally {
       setAdding(false);
     }
@@ -161,7 +157,7 @@ export default function SealBatchDetailPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch('/api/v1/seal-numbers/mark-used', {
+      const res = await safeFetchJson<{ marked: number; failed: string[] }>('/api/v1/seal-numbers/mark-used', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,14 +165,13 @@ export default function SealBatchDetailPage() {
           reference_info: referenceInfo.trim() || undefined,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Mark-used failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       setNotice(
-        `Marked ${json.data.marked} used.${
-          json.data.failed.length ? ` Skipped ${json.data.failed.length}.` : ''
+        `Marked ${res.data.marked} used.${
+          res.data.failed.length ? ` Skipped ${res.data.failed.length}.` : ''
         }`,
       );
       setSelected(new Set());
@@ -221,7 +216,7 @@ export default function SealBatchDetailPage() {
           setDetachAsk({ seals: nums, holders: details.holders });
           return;
         }
-        setResult({ status: 'error', title: 'Not released', message: res.message });
+        setResult({ status: 'error', title: 'Not released', message: res.message, detail: res.detail });
         return;
       }
 
@@ -258,15 +253,17 @@ export default function SealBatchDetailPage() {
       // own transaction with its own audit row.
       const ids = Array.from(selected);
       const results = await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/v1/seal-numbers/${id}`, { method: 'DELETE' }).then((r) =>
-            r.json(),
-          ),
-        ),
+        ids.map((id) => safeFetchJson(`/api/v1/seal-numbers/${id}`, { method: 'DELETE' })),
       );
-      const failed = results.filter((r) => !r.ok).length;
+      // Name why each one was refused — the usual reason is a seal still on an
+      // export file, and the server's sentence names that file (§4.37).
+      const reasons = results.flatMap((r) => (r.ok ? [] : [r.message]));
       setNotice(
-        `Deleted ${ids.length - failed}.${failed ? ` ${failed} failed.` : ''}`,
+        `Deleted ${ids.length - reasons.length}.${
+          reasons.length
+            ? ` ${reasons.length} not deleted: ${Array.from(new Set(reasons)).join(' ')}`
+            : ''
+        }`,
       );
       setSelected(new Set());
       await load();

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Download, Loader2, Paperclip, Upload, X } from 'lucide-react';
+import { safeFetchJson } from '@/lib/safeFetch';
 
 // Single-file upload widget backed by /api/v1/files. Bytes flow:
 // user picks a file → POST multipart to /api/v1/files with
@@ -75,23 +76,26 @@ export default function FileUpload({
       form.append('file', file);
       form.append('entity_type', entityType);
       if (entityId) form.append('entity_id', entityId);
-      const res = await fetch('/api/v1/files', {
+      // No Content-Type header — the browser sets it with the multipart boundary.
+      const res = await safeFetchJson<{
+        id: number;
+        original_name: string;
+        mime?: string | null;
+        size?: number | null;
+      }>('/api/v1/files', {
         method: 'POST',
         body: form,
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Upload failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onChange({
-        id: json.data.id,
-        original_name: json.data.original_name,
-        mime: json.data.mime ?? null,
-        size: json.data.size ?? null,
+        id: res.data.id,
+        original_name: res.data.original_name,
+        mime: res.data.mime ?? null,
+        size: res.data.size ?? null,
       });
-    } catch {
-      setError('Network error');
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -103,17 +107,14 @@ export default function FileUpload({
     if (!confirm(`Remove attached file "${value.original_name}"?`)) return;
     setUploading(true);
     try {
-      const res = await fetch(`/api/v1/files/${value.id}`, {
+      const res = await safeFetchJson(`/api/v1/files/${value.id}`, {
         method: 'DELETE',
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error?.message ?? 'Delete failed');
+      if (!res.ok) {
+        setError(res.message);
         return;
       }
       onChange(null);
-    } catch {
-      setError('Network error');
     } finally {
       setUploading(false);
     }

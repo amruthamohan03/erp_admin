@@ -233,13 +233,10 @@ export default function McaRefGrid({
   useEffect(() => {
     if (!auto || !locationId) return;
     let cancelled = false;
-    fetch(`/api/v1/main-offices/${locationId}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled && j?.ok) setLocationName(j.data?.main_location_name ?? null);
-      })
-      .catch(() => {
-        // Falls back to the XX placeholder in autoRef().
+    void safeFetchJson<{ main_location_name?: string | null }>(`/api/v1/main-offices/${locationId}`)
+      .then((res) => {
+        // A failed lookup falls back to the XX placeholder in autoRef().
+        if (!cancelled && res.ok) setLocationName(res.data?.main_location_name ?? null);
       });
     return () => {
       cancelled = true;
@@ -268,7 +265,7 @@ export default function McaRefGrid({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      fetch('/api/v1/payments/mca-validate', {
+      void safeFetchJson<Verdict[]>('/api/v1/payments/mca-validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -280,16 +277,15 @@ export default function McaRefGrid({
           payment_id: paymentId,
         }),
       })
-        .then((r) => r.json())
-        .then((j) => {
-          if (!j?.ok || !Array.isArray(j.data)) return;
+        .then((res) => {
+          // safeFetchJson reports an abort as a failure rather than throwing, so
+          // a superseded request is recognised by its signal. Aborted or failed,
+          // leave the previous verdicts rather than flashing every row to
+          // "invalid" on a dropped connection.
+          if (controller.signal.aborted || !res.ok || !Array.isArray(res.data)) return;
           const next: Record<string, Verdict> = {};
-          for (const v of j.data as Verdict[]) next[v.mca_ref.toUpperCase()] = v;
+          for (const v of res.data) next[v.mca_ref.toUpperCase()] = v;
           setVerdicts(next);
-        })
-        .catch(() => {
-          // Aborted or offline — leave the previous verdicts rather than
-          // flashing every row to "invalid" on a dropped connection.
         })
         .finally(() => setChecking(false));
     }, VALIDATE_DEBOUNCE_MS);
