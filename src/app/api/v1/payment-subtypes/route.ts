@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
-  paymentMethodMaster,
   paymentSubtypeMaster,
   paymentTypeMaster,
 } from '@/db/schema';
@@ -20,7 +19,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const q = paymentSubtypeListQuerySchema.parse({
     q: searchParams.get('q') ?? undefined,
     include_disabled: searchParams.get('include_disabled') ?? undefined,
-    payment_method_id: searchParams.get('payment_method_id') ?? undefined,
     payment_type_id: searchParams.get('payment_type_id') ?? undefined,
     page: searchParams.get('page') ?? undefined,
     pageSize: searchParams.get('pageSize') ?? undefined,
@@ -31,16 +29,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   if (!q.include_disabled) conds.push(eq(paymentSubtypeMaster.display, 'Y'));
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
-    // The list shows the method beside each subtype, so it is searchable too.
+    // The list shows the type beside each subtype, so it is searchable too.
     conds.push(
       or(
         ilike(paymentSubtypeMaster.paymentSubtype, like),
-        ilike(paymentMethodMaster.paymentMethodName, like),
+        ilike(paymentTypeMaster.paymentTypeName, like),
       )!,
     );
-  }
-  if (q.payment_method_id) {
-    conds.push(eq(paymentSubtypeMaster.paymentMethodId, q.payment_method_id));
   }
   if (q.payment_type_id) {
     conds.push(eq(paymentSubtypeMaster.paymentTypeId, q.payment_type_id));
@@ -51,8 +46,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .select({ total: count() })
     .from(paymentSubtypeMaster)
     .leftJoin(
-      paymentMethodMaster,
-      eq(paymentMethodMaster.id, paymentSubtypeMaster.paymentMethodId),
+      paymentTypeMaster,
+      eq(paymentTypeMaster.id, paymentSubtypeMaster.paymentTypeId),
     )
     .where(where);
 
@@ -60,8 +55,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .select({
       id: paymentSubtypeMaster.id,
       payment_subtype: paymentSubtypeMaster.paymentSubtype,
-      payment_method_id: paymentSubtypeMaster.paymentMethodId,
-      payment_method_name: paymentMethodMaster.paymentMethodName,
       payment_type_id: paymentSubtypeMaster.paymentTypeId,
       payment_type_name: paymentTypeMaster.paymentTypeName,
       display: paymentSubtypeMaster.display,
@@ -69,10 +62,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       updated_at: paymentSubtypeMaster.updatedAt,
     })
     .from(paymentSubtypeMaster)
-    .leftJoin(
-      paymentMethodMaster,
-      eq(paymentMethodMaster.id, paymentSubtypeMaster.paymentMethodId),
-    )
     .leftJoin(
       paymentTypeMaster,
       eq(paymentTypeMaster.id, paymentSubtypeMaster.paymentTypeId),
@@ -96,7 +85,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(paymentSubtypeMaster)
     .values({
       paymentSubtype: data.payment_subtype,
-      paymentMethodId: data.payment_method_id,
       paymentTypeId: data.payment_type_id ?? null,
       display: data.display ?? 'Y',
       createdBy: session.uid,
@@ -105,7 +93,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .returning({
       id: paymentSubtypeMaster.id,
       payment_subtype: paymentSubtypeMaster.paymentSubtype,
-      payment_method_id: paymentSubtypeMaster.paymentMethodId,
       payment_type_id: paymentSubtypeMaster.paymentTypeId,
       display: paymentSubtypeMaster.display,
       created_at: paymentSubtypeMaster.createdAt,

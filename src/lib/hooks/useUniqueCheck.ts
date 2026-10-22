@@ -22,8 +22,8 @@ export interface UseUniqueCheckArgs {
   /** When editing, the id of the row being edited — so it doesn't collide with itself. */
   excludeId?: number | null;
   /**
-   * For scoped resources (e.g. `payment-subtypes` under a parent
-   * `payment_type_id`), the FK value the uniqueness is scoped under.
+   * For scoped resources (a name unique only within a parent row), the FK
+   * value the uniqueness is scoped under.
    * When the resource requires scoping and this is missing/null,
    * the check stays in `idle` rather than firing an invalid request.
    */
