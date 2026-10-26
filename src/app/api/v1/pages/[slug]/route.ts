@@ -232,9 +232,9 @@ async function loadPage(
       values.items = await loadQuotationLines(entityId);
     }
 
-    // Same shape for an invoice's MCA rows and priced lines — both child tables,
+    // Same shape for an invoice's file rows and priced lines — both child tables,
     // both edited through one virtual `invoice_grid` field.
-    // Not on a copy: an invoice's MCA rows claim tracking files, and a second
+    // Not on a copy: an invoice's file rows claim tracking files, and a second
     // invoice silently claiming the same ones is not a copy anybody wants.
     const invoiceKind = invoiceKindForSlug(slug);
     if (invoiceKind && row && copyFrom === null) {

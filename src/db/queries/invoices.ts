@@ -3,7 +3,7 @@
 //
 // The invoice HEADER is written by the transaction-pages runtime (master_page
 // slug export-invoices / import-invoices). These helpers own everything the
-// custom grid needs: the child MCA details + line items, the option lists the
+// custom grid needs: the child file details + line items, the option lists the
 // grid selects from, and the aggregate totals recomputed on every grid save.
 //
 // Totals here are the BASIC aggregation (sum of line items). The client-specific
@@ -316,7 +316,7 @@ export async function gridPickers(
 }
 
 /**
- * Narrows the MCA picker the way main's getMCAReferences does.
+ * Narrows the file picker the way main's getMCAReferences does.
  *
  * `invoiceId` is the invoice being edited: its OWN files stay offered, so
  * reopening a saved invoice does not hide the files it already carries.
@@ -408,7 +408,7 @@ async function availableExportMcas(
   );
 }
 
-/** An MCA file as the invoice pickers offer it. Import fills the licence fields. */
+/** A file as the invoice pickers offer it. Import fills the licence fields. */
 export interface PickerMca {
   id: number;
   mca_ref: string | null;
@@ -473,7 +473,7 @@ async function availableImportMcas(
  * somebody typed onto the invoice afterwards.
  *
  * Returned as its own object so the caller can patch the header with it
- * whenever the quotation changes, not only when the MCA files do
+ * whenever the quotation changes, not only when the files do
  * (`mcaHeaderPatch` covers that path). A read-only field that only refreshes on
  * one of the two routes into it would show a stale figure with no way to
  * correct it, which is worse than leaving it editable.
@@ -704,7 +704,7 @@ export function computeGrid(kind: InvoiceKind, payload: GridSaveInput): GridComp
           mca_ids: mcaIds.join(',') || null,
           mca_id: mcaIds[0] ?? null,
           // `poids_kg` is NOT written here. It used to be — as the sum of the
-          // MCA rows' weights — but an import MCA row carries no weight (the
+          // File rows' weights — but an import file row carries no weight (the
           // file's weight is a header field, auto-filled from the files and
           // editable), so every save silently zeroed the weight the operator
           // had in front of them.
@@ -1069,7 +1069,7 @@ function emptyMca(mcaId: number): GridMca {
   };
 }
 
-// exported for callers that need to look up a single MCA's prefill columns
+// exported for callers that need to look up a single File's prefill columns
 export async function exportMcaPrefill(mcaId: number): Promise<Partial<GridMca> | null> {
   const rows = await db.execute(sql`
     SELECT mca_ref, buyer, lot_number, weight,
@@ -1107,7 +1107,7 @@ export async function exportMcaPrefill(mcaId: number): Promise<Partial<GridMca> 
 }
 
 // ---------------------------------------------------------------------------
-// HEADER FROM FILES — what the selected MCA files say the invoice header is
+// HEADER FROM FILES — what the selected files say the invoice header is
 // ---------------------------------------------------------------------------
 
 /**

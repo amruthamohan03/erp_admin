@@ -1,13 +1,13 @@
 'use client';
 
-// §2 step 5 — an invoice's MCA files and priced lines, rendered INSIDE the
+// §2 step 5 — an invoice's files and priced lines, rendered INSIDE the
 // transaction page by FieldRenderer (`field_type: 'invoice-grid'`). The page's
 // single Save writes the header and these rows in one transaction (§4.17); this
 // component holds no Save of its own and no state the page cannot see.
 //
 // Laid out as main's two invoice screens:
 //
-//   Export — "MCA References": one editable row per file (lot, declaration,
+//   Export — "File References": one editable row per file (lot, declaration,
 //            liquidation, DGDA rate, quittance, truck, weight, buyer and the five
 //            government charges), a DGDA rate applied to every file at once, and
 //            Liquidation USD = CDF ÷ that file's rate. Items priced per file
@@ -105,7 +105,7 @@ export interface InvoiceGridValue {
   first_categoty_edited?: 'H' | 'S';
 }
 
-/** An MCA file the pickers offer. Import files carry their licence. */
+/** A file the pickers offer. Import files carry their licence. */
 export interface PickerMca {
   id: number;
   mca_ref: string | null;
@@ -415,7 +415,7 @@ export default function InvoiceGrid({
       setZeroStash(null);
       emit({ quotation_id: id, items: lines });
       // ARSP is a term of the quotation and the header field is read-only, so it
-      // has to follow every route that changes the quotation — not just the MCA
+      // has to follow every route that changes the quotation — not just the File
       // files (`onFilesChanged`). Picking a different quotation from the
       // dropdown otherwise left the previous one's ARSP on the invoice with no
       // way to correct it.
@@ -481,7 +481,7 @@ export default function InvoiceGrid({
   );
 
   // Import picks its files in the HEADER (InvoiceFilesPicker — Client, then
-  // licences, then their MCA references, as main laid it out), which writes
+  // licences, then their file references, as main laid it out), which writes
   // `mcaDetails` straight into this field's value. The consequences of a new
   // file set — header fields filled from the files, the matching quotation
   // loaded — are still the grid's job, so it watches the set and runs the same
@@ -662,7 +662,7 @@ export default function InvoiceGrid({
   }, [pickers, fileQuotations]);
 
   const mcaLabel = useCallback(
-    (id: number | null) => pickers.availableMcas.find((m) => m.id === id)?.mca_ref ?? (id ? `MCA #${id}` : '—'),
+    (id: number | null) => pickers.availableMcas.find((m) => m.id === id)?.mca_ref ?? (id ? `File #${id}` : '—'),
     [pickers],
   );
 
@@ -710,7 +710,7 @@ export default function InvoiceGrid({
   if (error) {
     return (
       <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-        The MCA files and quotations could not be loaded: {error}
+        The files and quotations could not be loaded: {error}
       </div>
     );
   }
@@ -731,8 +731,8 @@ export default function InvoiceGrid({
         value={addMcaId}
         onChange={setAddMcaId}
         options={mcaOptions}
-        placeholder={mcaOptions.length ? 'Select an MCA file…' : 'No files available to invoice'}
-        aria-label="MCA file to add"
+        placeholder={mcaOptions.length ? 'Select a file…' : 'No files available to invoice'}
+        aria-label="File to add"
       />
       <button
         type="button"
@@ -762,13 +762,13 @@ export default function InvoiceGrid({
         </div>
       )}
 
-      {/* ---- MCA files ------------------------------------------------- */}
-      {/* Import picks its files in the header (licences → MCA references). */}
+      {/* ---- files ------------------------------------------------- */}
+      {/* Import picks its files in the header (licences → file references). */}
       {kind === 'export' && (
       <section className="rounded-lg border border-border">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-lg bg-muted px-3 py-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
-            MCA References — Select Files
+            File References — Select Files
             {mca.length > 0 && (
               <span className="ms-2 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] text-white">
                 {mca.length} selected{kind === 'export' ? ` | ${totals.weight.toFixed(3)} MT` : ''}
@@ -805,15 +805,15 @@ export default function InvoiceGrid({
         {mca.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {kind === 'export' && !licenseId
-              ? 'Choose a License above, then select its MCA files.'
-              : 'No MCA files selected yet.'}
+              ? 'Choose a License above, then select its files.'
+              : 'No files selected yet.'}
           </p>
         ) : kind === 'export' ? (
           <div className="max-h-[500px] overflow-auto">
             <table className="table-base whitespace-nowrap text-xs">
               <thead className="sticky top-0 z-10">
                 <tr>
-                  <th>MCA Ref</th>
+                  <th>File Ref</th>
                   {EXPORT_MCA_COLUMNS.flatMap((c) =>
                     // Liquidation USD follows Liquidation CDF, as on main.
                     c.key === 'liquidation_amount'
@@ -943,7 +943,7 @@ export default function InvoiceGrid({
                   quotationId
                     ? "Replace the lines below with this quotation's"
                     : kind === 'import'
-                      ? 'Select the MCA files above first — they decide which quotation prices this invoice'
+                      ? 'Select the files above first — they decide which quotation prices this invoice'
                       : 'Select a quotation first'
                 }
               >
@@ -959,7 +959,7 @@ export default function InvoiceGrid({
         {items.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {kind === 'import'
-              ? 'No lines yet — select the MCA files above and their quotation’s lines load automatically, or add rows by hand.'
+              ? 'No lines yet — select the files above and their quotation’s lines load automatically, or add rows by hand.'
               : 'No lines yet — select files to auto-match the quotation, or pick one and load its items.'}
           </p>
         ) : (

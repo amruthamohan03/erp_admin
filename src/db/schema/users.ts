@@ -16,7 +16,9 @@ export const usersT = pgTable('users_t', {
   username: varchar('username', { length: 255 }).notNull().unique(),
   password: text('password').notNull(),
   email: varchar('email', { length: 100 }).notNull().unique(),
-  mobile: varchar('mobile', { length: 15 }),
+  // 20, like the client phones: a full international number is stored as
+  // + and up to 15 digits (§4.40), which a varchar(15) could not hold.
+  mobile: varchar('mobile', { length: 20 }),
   fullName: varchar('full_name', { length: 255 }).notNull(),
   roleId: integer('role_id')
     .notNull()

@@ -69,8 +69,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   for (const { name, spec } of targets) {
     if (!isAsyncDerive(spec)) continue; // narrows spec to fromRelated | template
     // Gated derive: when the guard is false, leave the field untouched (do not
-    // emit it in `out`) so a manually-entered value survives — e.g. the MCA
-    // number generator is skipped, not blanked, for non-MCA kinds.
+    // emit it in `out`) so a manually-entered value survives — e.g. the File
+    // number generator is skipped, not blanked, for non-file kinds.
     if (spec.when && !evaluatePredicate(spec.when, values)) continue;
     const resolved = await resolveSource(spec.source);
     if (!resolved) {

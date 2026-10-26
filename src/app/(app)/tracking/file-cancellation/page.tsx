@@ -3,7 +3,7 @@
 // §2 step 3 — Tracking Management → File Cancellation.
 //
 // Choose the tracking type (Import / Export / Local), the client, the licences
-// (Import and Export only — a Local file has none), then the MCA references to
+// (Import and Export only — a Local file has none), then the file references to
 // cancel, with a reason and date. Cancelling sets each file's clearing status to
 // CANCELLED and writes the reason and date into its remarks, so the tracking
 // screens show why it stopped. A cancelled file takes no further activity —
@@ -302,18 +302,18 @@ export default function FileCancellationPage() {
             </div>
           )}
           <div className="min-w-0">
-            <label className="label required">MCA References</label>
+            <label className="label required">File References</label>
             <MultiSelect
               values={fileIds}
               onChange={setFileIds}
               options={fileOptions}
-              placeholder={licensed && licenseIds.length === 0 ? 'Select licences first' : 'Select MCA references'}
+              placeholder={licensed && licenseIds.length === 0 ? 'Select licences first' : 'Select file references'}
               noun="MCAs"
               emptyText="No live file to cancel"
               disabled={!kind || !clientId || (licensed && licenseIds.length === 0)}
               required
               invalid={invalid === 'files'}
-              aria-label="MCA References"
+              aria-label="File References"
             />
           </div>
           <div className="min-w-0">
@@ -378,7 +378,7 @@ export default function FileCancellationPage() {
         rows={rows}
         loading={loadingRows}
         rowKey={(r) => r.key}
-        searchPlaceholder="Search type, MCA ref, client, licence, reason, date..."
+        searchPlaceholder="Search type, file ref, client, licence, reason, date..."
         exportHref="/api/v1/file-cancellations/export"
         emptyMessage="No file has been cancelled yet — choose one above to cancel it."
         columns={[
@@ -392,7 +392,7 @@ export default function FileCancellationPage() {
               </span>
             ),
           },
-          { key: 'mca_ref', header: 'MCA Reference', sortable: true, className: 'font-mono' },
+          { key: 'mca_ref', header: 'File Reference', sortable: true, className: 'font-mono' },
           {
             key: 'client_name',
             header: 'Client',

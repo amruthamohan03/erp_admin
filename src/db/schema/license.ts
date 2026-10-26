@@ -82,8 +82,8 @@ export const licenseT = pgTable(
     // the License form offered "EXPORT"/"IMPORT" here.
     paymentMethodId: integer('payment_method_id').references(() => paymentMethodMaster.id),
     paymentSubtypeId: integer('payment_subtype_id').references(() => paymentSubtypeMaster.id),
-    // The MCA reference lives here so Import Tracking can narrow
-    // Client → MCA Reference → License without a join table.
+    // The file reference lives here so Import Tracking can narrow
+    // Client → File Reference → License without a join table.
     mcaRef: varchar('mca_ref', { length: 100 }),
     destinationId: integer('destination_id').references(() => originMaster.id),
 

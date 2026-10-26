@@ -5,7 +5,7 @@
 // no fetch, no Node APIs) so the SAME rules run on the client (to show/hide and
 // constrain inputs) and on the server (to enforce them — §4.12 defense in depth).
 //
-// The business values that drive a form (e.g. which `kind_id`s are MCA) live in
+// The business values that drive a form (e.g. which `kind_id`s are File) live in
 // the seed-row JSON, never here. This file only knows how to evaluate predicates.
 
 export type Scalar = string | number | boolean | null;

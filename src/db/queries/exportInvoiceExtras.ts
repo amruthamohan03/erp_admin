@@ -2,7 +2,7 @@
 // ExportInvoiceController getStatistics / listInvoices / getDgiInfo / updateDgiInfo.
 // "DGI info complete" = a DGI code + a positive amount + a normalizer are all
 // present; a validated (=1) invoice that becomes DGI-complete is promoted to DGI
-// Verified (=2), matching main. MCA files link via export_invoice_mca_details_t
+// Verified (=2), matching main. Files link via export_invoice_mca_details_t
 // (not a CSV like imports).
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -26,7 +26,7 @@ export interface ExportInvoiceStats {
   dgi_verified: number;
   dgi_info_done: number;
   dgi_info_pending: number;
-  pending_invoicing: number; // export MCA files with quittance, not yet invoiced
+  pending_invoicing: number; // export files with quittance, not yet invoiced
 }
 
 export async function exportInvoiceStats(): Promise<ExportInvoiceStats> {

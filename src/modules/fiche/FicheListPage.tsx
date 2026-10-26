@@ -142,7 +142,7 @@ export default function FicheListPage() {
             <Calculator className="h-5 w-5 text-primary-600" /> Fiche de Calcul
           </h1>
           <p className="text-sm text-muted-foreground">
-            Duty calculated per import file — licence, MCA reference, then a line per tariff position.
+            Duty calculated per import file — licence, file reference, then a line per tariff position.
           </p>
         </div>
       </div>
@@ -190,7 +190,7 @@ export default function FicheListPage() {
         loading={loading}
         rowKey={(r) => r.id}
         title="Fiches List"
-        searchPlaceholder="Search fiche ref, client, licence, MCA ref, status, date..."
+        searchPlaceholder="Search fiche ref, client, licence, file ref, status, date..."
         emptyMessage="No fiche matches — clear the filters, or raise the first one on an import file."
         exportHref={`/api/v1/fiches/export?${exportParams}`}
         toolbar={
@@ -208,7 +208,7 @@ export default function FicheListPage() {
             render: (r) => r.client_name ?? '—',
           },
           { key: 'license_number', header: 'License Number', render: (r) => r.license_number ?? '—' },
-          { key: 'mca_ref', header: 'MCA Ref', className: 'font-mono', render: (r) => r.mca_ref ?? '—' },
+          { key: 'mca_ref', header: 'File Ref', className: 'font-mono', render: (r) => r.mca_ref ?? '—' },
           { key: 'fiche_date', header: 'Fiche Date', render: (r) => formatDate(r.fiche_date) },
           { key: 'poids', header: 'Weight', align: 'right', className: 'tabular-nums', render: (r) => fmt(r.poids) },
           { key: 'cif', header: 'CIF', align: 'right', className: 'tabular-nums', render: (r) => fmt(r.cif) },

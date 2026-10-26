@@ -44,6 +44,12 @@ export interface UseUniqueCheckArgs {
 export interface UseUniqueCheckResult {
   status: UniqueStatus;
   message: string;
+  /**
+   * The record already holding the value, named the way a person knows it
+   * (a client's short code), when the resource declares a label column — so a
+   * duplicate warning can say WHICH record (§4.40). Null otherwise.
+   */
+  conflictLabel: string | null;
 }
 
 export function useUniqueCheck({
@@ -57,6 +63,7 @@ export function useUniqueCheck({
 }: UseUniqueCheckArgs): UseUniqueCheckResult {
   const [status, setStatus] = useState<UniqueStatus>('idle');
   const [message, setMessage] = useState<string>('');
+  const [conflictLabel, setConflictLabel] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -65,6 +72,7 @@ export function useUniqueCheck({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus('idle');
       setMessage('');
+      setConflictLabel(null);
       abortRef.current?.abort();
       return;
     }
@@ -80,7 +88,7 @@ export function useUniqueCheck({
       if (excludeId != null) params.set('exclude_id', String(excludeId));
       if (scopeId != null) params.set('scope_id', String(scopeId));
       if (field) params.set('field', field);
-      const res = await safeFetchJson<{ available?: boolean }>(
+      const res = await safeFetchJson<{ available?: boolean; conflict_label?: string | null }>(
         `/api/v1/uniqueness/${resource}?${params.toString()}`,
         { signal: controller.signal },
       );
@@ -94,9 +102,11 @@ export function useUniqueCheck({
       if (res.data?.available === true) {
         setStatus('available');
         setMessage('Available');
+        setConflictLabel(null);
       } else {
         setStatus('taken');
         setMessage('Already exists');
+        setConflictLabel(res.data?.conflict_label || null);
       }
     }, debounceMs);
 
@@ -105,5 +115,5 @@ export function useUniqueCheck({
     };
   }, [resource, value, excludeId, scopeId, field, minLength, debounceMs]);
 
-  return { status, message };
+  return { status, message, conflictLabel };
 }

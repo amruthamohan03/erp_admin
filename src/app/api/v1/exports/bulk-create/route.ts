@@ -30,7 +30,7 @@ import {
 // cap (license.amount minus SUM(fob) of existing live exports on
 // the same license).
 //
-// MCA refs are auto-generated as `{prefix}-NNNN` (4-digit
+// File refs are auto-generated as `{prefix}-NNNN` (4-digit
 // zero-pad), starting from 1. If any generated ref collides with
 // an existing exports_t.mca_ref (unique index), the whole batch
 // rolls back — no partial success. The caller can retry with a
@@ -203,7 +203,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
     if (refs.length !== rows.length) {
       throw new BadRequestError(
-        'The MCA reference could not be built — the licence is missing its kind, type of goods or transport mode, or the client has no short code. Complete the licence and try again.',
+        'The file reference could not be built — the licence is missing its kind, type of goods or transport mode, or the client has no short code. Complete the licence and try again.',
       );
     }
 
@@ -226,7 +226,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         // here means another batch claimed this reference between the two —
         // retrying picks up from the new highest.
         throw new ConflictError(
-          `MCA ref "${mcaRef}" was taken while this batch was being saved. Nothing was created — submit it again to get the next free references.`,
+          `File ref "${mcaRef}" was taken while this batch was being saved. Nothing was created — submit it again to get the next free references.`,
         );
       }
 

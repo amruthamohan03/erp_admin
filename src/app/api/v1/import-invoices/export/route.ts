@@ -1,6 +1,6 @@
 // GET /api/v1/import-invoices/export?profile=debit|invoice|full&date_from=&date_to=
 // Excel download (exceljs). debit = all invoices (Debit Note), invoice = validated
-// only, full = everything. One row per MCA file, amounts bucketed by item category.
+// only, full = everything. One row per file, amounts bucketed by item category.
 import { type NextRequest, NextResponse } from 'next/server';
 import { isResponse, requireAuth, withErrorHandler } from '@/lib/api';
 import { xlsxResponse, dateStamp } from '@/lib/xlsx';

@@ -172,11 +172,11 @@ export default function UsageTab({ active }: { active: boolean }) {
           rows={files}
           rowKey={(f) => f.export_id}
           loading={loading}
-          searchPlaceholder="Search MCA ref, client, seal number, date..."
+          searchPlaceholder="Search file ref, client, seal number, date..."
           emptyMessage="No export file names a seal yet — seals are added on the export file's Seals section."
           exportHref={exportHref('files')}
           columns={[
-            { key: 'mca_ref', header: 'MCA Ref', sortable: true, render: (f) => f.mca_ref ?? `export #${f.export_id}` },
+            { key: 'mca_ref', header: 'File Ref', sortable: true, render: (f) => f.mca_ref ?? `export #${f.export_id}` },
             { key: 'used_on', header: 'Date', sortable: true, render: (f) => formatDate(f.used_on) },
             {
               key: 'client_name',

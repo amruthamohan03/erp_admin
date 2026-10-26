@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Boundary schema for POST /api/v1/imports/bulk-create.
 //
-// Mirrors exports-bulk (same cap-enforcement shape, same MCA
+// Mirrors exports-bulk (same cap-enforcement shape, same File
 // prefix scheme) but with import-side fields — supplier, invoice,
 // pre-alert date, transport docs. Kept as a separate file so the
 // two entity flavors can evolve independently (imports carry more

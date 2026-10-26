@@ -387,7 +387,7 @@ export default function BivacPage() {
             <table className="table-base whitespace-nowrap">
               <thead>
                 <tr>
-                  <th className="w-10">#</th><th>MCA Ref</th><th>Inspection</th><th>Declaration</th>
+                  <th className="w-10">#</th><th>File Ref</th><th>Inspection</th><th>Declaration</th>
                   <th>DGDA In</th><th>Liquidation Ref</th><th>Liq. Date</th><th>Quittance Ref</th>
                   <th>Quit. Date</th><th className="text-right">Weight</th><th className="text-right">FOB</th>
                 </tr>

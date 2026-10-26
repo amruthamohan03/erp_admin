@@ -7,7 +7,7 @@ import { BadRequestError, NotFoundError } from '@/lib/errors';
 import { roleExpenseTypeMappingPutSchema } from '@/schemas';
 
 // §4.1 — which expense types a role may file a Payment Request against.
-// The expense type decides which MCA references are claimable (one-to-one), so
+// The expense type decides which file references are claimable (one-to-one), so
 // this is the master row behind "who may spend against what".
 
 // GET /api/v1/role-expense-type-mapping?role_id=N

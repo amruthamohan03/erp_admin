@@ -1,5 +1,5 @@
 // POST /api/v1/sydonia/[kind]/update  (kind = import | export)
-// Applies the confirmed (valid) rows: matches by MCA ref, writes only non-empty
+// Applies the confirmed (valid) rows: matches by file ref, writes only non-empty
 // milestone columns, never inserts. Returns updated/failed counts + per-row errors.
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';

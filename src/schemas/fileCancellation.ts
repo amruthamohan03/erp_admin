@@ -36,8 +36,8 @@ export const fileCancellationSchema = z.object({
   client_id: z.coerce.number().int().positive('Client: choose a client.'),
   file_ids: z
     .array(z.coerce.number().int().positive())
-    .min(1, 'MCA References: choose at least one file to cancel.')
-    .max(200, 'MCA References: cancel at most 200 files at a time.'),
+    .min(1, 'File References: choose at least one file to cancel.')
+    .max(200, 'File References: cancel at most 200 files at a time.'),
   reason_id: z.coerce
     .number({ invalid_type_error: 'Cancellation Reason: choose a reason.' })
     .int()

@@ -7,7 +7,7 @@ import type { RemarkLine } from '@/db/schema';
 
 // A dated remarks log: many entries, each with its own date and text.
 //
-// Stored as JSONB on the parent row, the same way the payment request's MCA
+// Stored as JSONB on the parent row, the same way the payment request's File
 // lines are (`mca_data` + the `mca-grid` field type). A child table would need
 // its own routes and would sit outside the page's single save transaction
 // (§4.17); as a column the whole log is written with everything else.

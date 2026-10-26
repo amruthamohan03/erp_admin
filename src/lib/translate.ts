@@ -14,7 +14,7 @@ import crypto from 'node:crypto';
  * In both cases failures fall back to the original English string — the UI never crashes.
  *
  * Only interface CHROME reaches this module. The caller (TranslateProvider) holds
- * operator data back: a client short name, an MCA reference or an amount is not
+ * operator data back: a client short name, a file reference or an amount is not
  * prose, and it must not leave the deployment to be rewritten by a third party.
  */
 type Provider = 'mymemory' | 'libretranslate';

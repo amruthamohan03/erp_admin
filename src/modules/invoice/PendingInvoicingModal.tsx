@@ -1,7 +1,7 @@
 'use client';
 
 // §2 step 5 — the "Pending for invoicing" card's modal, shared by the export and
-// import invoice lists (ports main's pending-MCA modal). Lists every cleared file
+// import invoice lists (ports main's pending-file modal). Lists every cleared file
 // no live invoice carries yet, a client summary above it, and lets the operator
 // hold a file back from invoicing with a reason — or release it again. The
 // spreadsheet lists the held-back files on their own sheet.
@@ -152,12 +152,12 @@ export default function PendingInvoicingModal({ kind, open, onClose, onChanged }
               rows={shown}
               loading={loading}
               rowKey={(r) => r.id}
-              searchPlaceholder="Search MCA ref, client..."
+              searchPlaceholder="Search file ref, client..."
               exportHref={`/api/v1/${kind}-invoices/pending/export`}
               emptyMessage="Nothing is waiting — every cleared file is on an invoice."
               columns={[
                 { key: 'client_code', header: 'Client', sortable: true, value: (r) => `${r.client_code ?? ''} ${r.client_name ?? ''}`, render: (r) => <span title={r.client_name ?? undefined}>{r.client_code ?? '—'}</span> },
-                { key: 'mca_ref', header: 'MCA Reference', sortable: true, className: 'font-mono font-medium' },
+                { key: 'mca_ref', header: 'File Reference', sortable: true, className: 'font-mono font-medium' },
                 { key: 'quittance_date', header: 'Quittance Date', sortable: true, render: (r) => formatDate(r.quittance_date) },
                 { key: 'weight', header: kind === 'export' ? 'Weight (MT)' : 'Weight (KG)', align: 'right', className: 'tabular-nums', render: (r) => num(r.weight, kind === 'export' ? 3 : 2) },
                 { key: 'fob', header: 'FOB (USD)', align: 'right', className: 'tabular-nums', render: (r) => num(r.fob) },

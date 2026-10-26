@@ -66,7 +66,7 @@ function staticLabels(optionsStatic: unknown): Map<string, string> | null {
 const DATE_TYPES = new Set(['date', 'datetime']);
 
 /**
- * A repeating-row field (the remarks log, the MCA grid) flattened into one cell.
+ * A repeating-row field (the remarks log, the file grid) flattened into one cell.
  *
  * A spreadsheet cell has no rows of its own, so each entry becomes a line and the
  * whole thing stays readable when the column is widened — far better than the

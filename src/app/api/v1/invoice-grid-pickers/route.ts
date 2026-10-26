@@ -7,7 +7,7 @@ import { gridPickers } from '@/db/queries/invoices';
 //                                 [&license_id=45][&invoice_id=67]
 //
 // The dropdowns an invoice's items grid renders: the client's quotations, and
-// the MCA files still available to invoice.
+// the files still available to invoice.
 //
 // Scoped to the CLIENT, not to an invoice, which is the whole point: the grid
 // lives inside the transaction page and has to work on /new, where no invoice

@@ -314,7 +314,7 @@ export default function BulkUpdateModal({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 className="input w-64 pl-9 text-sm"
-                placeholder="Search MCA ref, client, horse, trailer, container…"
+                placeholder="Search file ref, client, horse, trailer, container…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search every matching row"
@@ -390,7 +390,7 @@ export default function BulkUpdateModal({
                 <thead>
                   <tr>
                     <th className="w-10">#</th>
-                    <th>MCA Ref</th>
+                    <th>File Ref</th>
                     <th>Client</th>
                     {leadColumns.map((c) => (
                       <th key={c.header}>{c.header}</th>

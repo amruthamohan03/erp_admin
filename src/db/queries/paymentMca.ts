@@ -1,4 +1,4 @@
-// §2 step 6 (Payment Request) — MCA reference management for the payment grid.
+// §2 step 6 (Payment Request) — file reference management for the payment grid.
 // Ported from main's validate_mca_exists / check_mca_duplicate / get_mca_refs_by_client
 // (PaymentController.php). References live on payment_request_t.mca_data (JSONB
 // [{mca_ref, amount}]); the header amount must equal the sum of the lines.

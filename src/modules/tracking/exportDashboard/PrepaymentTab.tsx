@@ -170,7 +170,7 @@ export default function PrepaymentTab({ active }: { active: boolean }) {
         autoColumns={false}
         emptyMessage="No export files yet — agency fees appear here once a file carries them."
         columns={[
-          { key: 'mca_ref', header: 'MCA Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
           { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
           { key: 'weight', header: 'Weight', align: 'right', sortable: true, render: (r) => nf2.format(r.weight ?? 0) },
           { key: 'ceec', header: 'CEEC', align: 'right', sortable: true, render: (r) => money(r.ceec) },

@@ -1,5 +1,5 @@
 // §2 step 5 — Import invoice Excel exports (Debit Note / Invoice / Full).
-// Ports the legacy exportDebit/exportInvoiced/exportFull: one row per MCA file,
+// Ports the legacy exportDebit/exportInvoiced/exportFull: one row per file,
 // amounts bucketed by item category and split evenly across the invoice's MCAs.
 //   cat 1 = reimbursable/liquidation (CDF)   cat 2 = other charges
 //   cat 3 = operational costs                cat 4 = agency fee
@@ -23,7 +23,7 @@ const r2 = (n: number): number => Math.round(n * 100) / 100;
 // readable as either 3 April or 4 March, with nothing on the sheet to settle it.
 const d = (v: unknown): string => formatDate(v, '');
 
-// Compress consecutive MCA refs sharing a prefix into "A0001 to A0003".
+// Compress consecutive file refs sharing a prefix into "A0001 to A0003".
 function formatMcaRange(refs: string[]): string {
   const clean = refs.filter(Boolean);
   if (clean.length <= 1) return clean.join(', ');

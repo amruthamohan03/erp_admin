@@ -324,7 +324,7 @@ export default function BulkNewExportsPage() {
           // §4.1 — only licences an EXPORT may draw on, by the kind's own flag
           // (kind_master_t.use_for_export: IMPORT TEMPORARY, EXPORT DEFINITVE,
           // EXPORT TEMPORARY today). Unfiltered, this offered import-only
-          // licences too, and picking one built an MCA reference carrying an
+          // licences too, and picking one built a file reference carrying an
           // import kind code while drawing the tonnage down the wrong side.
           // Never an id list — re-flagging a kind is a master edit, not a deploy.
           safeFetchJson<
@@ -567,7 +567,7 @@ export default function BulkNewExportsPage() {
     }
     if (previewRefs.length === 0) {
       setError(
-        'The MCA reference cannot be built for this licence, so the exports would have no reference. Complete the licence first.',
+        'The file reference cannot be built for this licence, so the exports would have no reference. Complete the licence first.',
       );
       return;
     }
@@ -824,7 +824,7 @@ export default function BulkNewExportsPage() {
           <FromLicense label="Transport Mode" value={usage?.transport_mode_name} />
 
           <div>
-            <label className="label required">MCA Ref</label>
+            <label className="label required">File Ref</label>
             {/* §4.33 — issued by the configured format, never typed. One box for
                 a batch of N, so it shows the range that will be taken. */}
             <input
@@ -833,7 +833,7 @@ export default function BulkNewExportsPage() {
               tabIndex={-1}
               value={mcaRefSummary}
               placeholder="Auto-generated"
-              aria-label="MCA reference (auto-generated)"
+              aria-label="File reference (auto-generated)"
             />
           </div>
 
@@ -986,7 +986,7 @@ export default function BulkNewExportsPage() {
       {/* Step two — the entries grid. Hidden until the header is complete, so
           the batch-wide decisions are settled before any row is typed.
 
-          `#` and MCA Ref are FROZEN to the left; everything else scrolls under
+          `#` and File Ref are FROZEN to the left; everything else scrolls under
           them. A row is identified by its reference, so scrolling right to reach
           the FOB column and losing sight of which consignment you are typing
           into is how the wrong row gets filled in. The two frozen cells carry
@@ -1010,7 +1010,7 @@ export default function BulkNewExportsPage() {
                 {/* The two frozen header cells sit above the frozen body cells and
                     need the same opaque ground, which `.table-entry th` gives them. */}
                 <th className="sticky left-0 z-20 w-12 px-1 text-center">#</th>
-                <th className="sticky left-12 z-20 min-w-[11rem]">MCA Ref</th>
+                <th className="sticky left-12 z-20 min-w-[11rem]">File Ref</th>
                 <th className="min-w-[9rem]">License</th>
                 <th className="min-w-[9rem]">Loading Date</th>
                 <th className="min-w-[9rem]">BP Receive Date</th>

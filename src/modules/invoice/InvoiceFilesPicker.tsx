@@ -1,7 +1,7 @@
 'use client';
 
 // §2 step 5 — an import invoice's files, picked in the HEADER the way main laid
-// it out: Client, then "License Numbers" (many), then "MCA References" (many,
+// it out: Client, then "License Numbers" (many), then "File References" (many,
 // only the files on the chosen licences). Rendered by FieldRenderer for
 // `field_type: 'invoice-files'`.
 //
@@ -166,18 +166,18 @@ export default function InvoiceFilesPicker({
         {hint && <p className={error ? 'mt-1 text-xs text-destructive' : 'mt-1 text-xs text-muted-foreground'}>{hint}</p>}
       </div>
       <div className="min-w-0">
-        <label className="label required">MCA References</label>
+        <label className="label required">File References</label>
         <MultiSelect
           values={picked.map(String)}
           onChange={(v) => writeFiles(v.map(Number))}
           options={mcaOptions}
-          placeholder={licenses.length === 0 ? 'Select licences first' : 'Select MCA references'}
+          placeholder={licenses.length === 0 ? 'Select licences first' : 'Select file references'}
           noun="MCAs"
           emptyText="Choose a licence to list its files"
           disabled={disabled || licenses.length === 0}
           required
           invalid={invalid}
-          aria-label="MCA References"
+          aria-label="File References"
         />
       </div>
     </div>

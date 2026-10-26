@@ -6,7 +6,7 @@ import TransactionalPage from '@/components/transactional/TransactionalPage';
 // §4.12 page shim — master_page slug 'import-invoices'. `[id]` is the
 // import_invoices_t id.
 //
-// The MCA-detail + line-item grid is the `invoice_grid` field INSIDE the form
+// The File-detail + line-item grid is the `invoice_grid` field INSIDE the form
 // (field_type 'invoice-grid'), so its rows are written by the page's single
 // Save along with the header (§4.17).
 //

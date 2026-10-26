@@ -1,4 +1,4 @@
-// §4.7 — Zod schemas for the Payment Request MCA-reference grid.
+// §4.7 — Zod schemas for the Payment Request File-reference grid.
 import { z } from 'zod';
 
 export const mcaLineSchema = z.object({

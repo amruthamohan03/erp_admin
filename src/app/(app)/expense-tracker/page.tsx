@@ -214,7 +214,7 @@ export default function ExpenseTrackerPage() {
         rows={items}
         loading={loading}
         rowKey={(r) => `${r.module}-${r.file_id}`}
-        searchPlaceholder="Search MCA reference, client..."
+        searchPlaceholder="Search file reference, client..."
         emptyMessage="No files match these filters — widen the date range or clear the module filter."
         exportHref={`/api/v1/expense-tracker/export?${query}`}
         filters={
@@ -245,7 +245,7 @@ export default function ExpenseTrackerPage() {
         columns={[
           {
             key: 'mca_ref',
-            header: 'MCA Reference',
+            header: 'File Reference',
             sortable: true,
             className: 'font-mono',
             // Links to the file, so a figure can be traced to what produced it.

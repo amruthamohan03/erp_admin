@@ -138,7 +138,7 @@ export default function ImportInvoiceListPage() {
         loading={loading}
         rowKey={(r) => r.id}
         title="Import Invoices List"
-        searchPlaceholder="Search reference, MCA, client, goods, created by..."
+        searchPlaceholder="Search reference, File, client, goods, created by..."
         emptyMessage={loadError ?? 'No import invoices match — clear the filters, or create the first one.'}
         filters={<DateRangeFilter from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(1); }} />}
         toolbar={

@@ -16,7 +16,7 @@ import { fetchClientOptions } from '@/lib/clientOptions';
 import { safeFetchJson } from '@/lib/safeFetch';
 
 // /imports/bulk-new — sibling of /exports/bulk-new. Same overall
-// shape (client + license + MCA prefix header, editable row grid,
+// shape (client + license + file prefix header, editable row grid,
 // live cap check) but with import-side columns. The license usage
 // endpoint reflects both imports + exports on the same license so
 // the "remaining" figure is shared between the two flows.
@@ -169,7 +169,7 @@ export default function BulkNewImportsPage() {
       return;
     }
     if (!mcaPrefix.trim()) {
-      setError('MCA reference prefix is required.');
+      setError('File reference prefix is required.');
       return;
     }
     if (rows.every((r) => (r.fob.trim() === '' ? 0 : Number(r.fob)) <= 0)) {
@@ -276,7 +276,7 @@ export default function BulkNewImportsPage() {
             />
           </div>
           <div>
-            <label className="label required">MCA reference prefix</label>
+            <label className="label required">File reference prefix</label>
             <input required
               className="input"
               value={mcaPrefix}

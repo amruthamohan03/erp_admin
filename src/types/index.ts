@@ -76,7 +76,7 @@ export type FieldType =
    */
   | 'quotation-items'
   /**
-   * An invoice's MCA detail rows and priced line items, edited together.
+   * An invoice's file detail rows and priced line items, edited together.
    *
    * Like `quotation-items` these are child tables rather than a JSONB column
    * (§4.5's exception), so the field is virtual and the page save route's
@@ -86,7 +86,7 @@ export type FieldType =
   | 'invoice-grid'
   /**
    * An import invoice's files, picked in the header as main did: licences
-   * (many), then the MCA references on them (many). Virtual — it reads and
+   * (many), then the file references on them (many). Virtual — it reads and
    * writes `invoice_grid.mcaDetails`, so it has no column and nothing of its
    * own to save. Carries its own two labels; configure it with
    * `props.hideLabel`.

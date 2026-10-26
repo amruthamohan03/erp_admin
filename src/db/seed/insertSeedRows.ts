@@ -10,7 +10,7 @@ import type { Database, Transaction } from '@/lib/db';
 //
 // Rows carry their original ids. That is deliberate: master_page config,
 // bulk-filter predicates, derive/conditions rules and sample data all reference
-// masters by id (kind_id 5/6/7 = the MCA kinds, transport_mode 1 = ROAD, …), so
+// masters by id (kind_id 5/6/7 = the file kinds, transport_mode 1 = ROAD, …), so
 // a renumbered seed would silently break the forms. The serial sequence is
 // pushed past the seeded max afterwards, same as seedBootstrapRole does.
 

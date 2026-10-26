@@ -16,7 +16,7 @@ import Toggle from '@/components/ui/Toggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { McaLine } from '@/db/schema';
 
-// §2 step 6 — the payment request's MCA reference lines, rendered inside the
+// §2 step 6 — the payment request's file reference lines, rendered inside the
 // transaction form by FieldRenderer (`field_type: 'mca-grid'`), so the rows are
 // written by the page's single Save along with everything else (§4.17, §4.5).
 //
@@ -226,7 +226,7 @@ export default function McaRefGrid({
   const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const auto = isAutoRefCategory(payFor);
-  const sectionTitle = (payFor != null ? SECTION_TITLE[payFor] : undefined) ?? 'MCA References';
+  const sectionTitle = (payFor != null ? SECTION_TITLE[payFor] : undefined) ?? 'File References';
 
   // Only Other / Pre Payment build a reference out of the location, so the
   // lookup is skipped entirely for the tracking categories.
@@ -397,7 +397,7 @@ export default function McaRefGrid({
       } else if (res.data.refs.length > 0) {
         say('Every reference this client has is already on this request.', 'warn');
       } else {
-        say('No MCA references found for this client in the tracking system.', 'warn');
+        say('No file references found for this client in the tracking system.', 'warn');
       }
     }
   }

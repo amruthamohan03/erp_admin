@@ -19,7 +19,7 @@
 //     and then: anything already PAID becomes a recollection to recover
 //     (payment_recollection_t), recorded from the Cancelled Files list; anything
 //     still IN APPROVAL is rejected at the stage it waits on, with the reason
-//     "Reference file deleted (<MCA ref>)".
+//     "Reference file deleted (<file ref>)".
 //
 // The CANCELLED row is found by its name, not by id 7 — ids differ between
 // databases, and the name is what the master screen shows.
@@ -39,7 +39,7 @@ import type { FileKind } from '@/schemas/fileCancellation';
 
 /**
  * The rejection note written on every payment request still in approval when
- * the file it was raised on is cancelled (the file's MCA reference is appended).
+ * the file it was raised on is cancelled (the file's file reference is appended).
  */
 export const FILE_CANCELLED_REJECT_REASON = 'Reference file deleted';
 
@@ -373,7 +373,7 @@ export async function cancelFiles(
       FOR UPDATE`);
     const rows = (found as unknown as Rows<Record<string, unknown>>).rows;
     if (rows.length !== input.fileIds.length) {
-      throw new NotFoundError('One or more of the chosen MCA references no longer exist for this client — reload the list and choose again.');
+      throw new NotFoundError('One or more of the chosen file references no longer exist for this client — reload the list and choose again.');
     }
     const already = rows.filter((r) => Number(r['clearing_status']) === statusId).map((r) => String(r['ref_value']));
     if (already.length > 0) {

@@ -463,7 +463,7 @@ function ImportsListPageInner() {
         loading={loading}
         rowKey={(r) => r.id}
         title="Import List"
-        searchPlaceholder="Search MCA ref, client, license, invoice..."
+        searchPlaceholder="Search file ref, client, license, invoice..."
         emptyMessage="No import files match these filters — clear them, or create one."
         onExport={exportAll}
         toolbar={
@@ -506,7 +506,7 @@ function ImportsListPageInner() {
         columns={[
           {
             key: 'mca_ref',
-            header: 'MCA Ref',
+            header: 'File Ref',
             render: (r: ImportRow) =>
               r.mca_ref ? (
                 <span className="inline-block rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 text-[11px] font-mono font-medium">

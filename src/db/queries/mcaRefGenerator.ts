@@ -195,7 +195,7 @@ async function partielleTokens(values: Values, exec: Executor): Promise<McaRefTo
   };
 }
 
-/** A Fiche de Calcul is raised on one import file: its MCA reference and client. */
+/** A Fiche de Calcul is raised on one import file: its file reference and client. */
 async function ficheTokens(values: Values, exec: Executor): Promise<McaRefTokens | null> {
   const importId = toId(values['import_id']);
   if (!importId) return null;

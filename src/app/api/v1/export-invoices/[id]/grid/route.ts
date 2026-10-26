@@ -1,5 +1,5 @@
 // GET  /api/v1/export-invoices/[id]/grid — everything the grid renders
-// POST /api/v1/export-invoices/[id]/grid — replace MCA details + items, recompute totals
+// POST /api/v1/export-invoices/[id]/grid — replace file details + items, recompute totals
 import { type NextRequest } from 'next/server';
 import { ok, fail, isResponse, requireAuth, withErrorHandler } from '@/lib/api';
 import { gridData, saveGrid } from '@/db/queries/invoices';

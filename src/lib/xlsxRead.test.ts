@@ -23,7 +23,7 @@ describe('parseRefSheet', () => {
   });
 
   it('skips a header row when it sees one', async () => {
-    const out = await parseRefSheet(await sheet([['MCA Reference', 'Amount'], ['A-1', 5]]));
+    const out = await parseRefSheet(await sheet([['File Reference', 'Amount'], ['A-1', 5]]));
     expect(out.headerSkipped).toBe(true);
     expect(out.lines).toEqual([{ ref: 'A-1', amount: 5 }]);
   });

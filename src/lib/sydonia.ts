@@ -10,7 +10,7 @@ export type SydoniaKind = 'import' | 'export';
 
 /** Excel columns A–H. Column C ("Declaration Date") writes dgda_in_date, per the legacy mapping. */
 export const SYDONIA_COLUMNS = [
-  { key: 'mca_ref', letter: 'A', label: 'MCA Ref', type: 'ref', column: 'mca_ref' },
+  { key: 'mca_ref', letter: 'A', label: 'File Ref', type: 'ref', column: 'mca_ref' },
   { key: 'declaration_reference', letter: 'B', label: 'Declaration Ref', type: 'text', column: 'declaration_reference' },
   { key: 'declaration_date', letter: 'C', label: 'Declaration Date', type: 'date', column: 'dgda_in_date' },
   { key: 'liquidation_reference', letter: 'D', label: 'Liquidation Ref', type: 'text', column: 'liquidation_reference' },

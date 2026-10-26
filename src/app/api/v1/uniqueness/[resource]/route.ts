@@ -86,6 +86,18 @@ interface ResourceConfig {
    * caller is unaffected.
    */
   fields?: Record<string, PgColumn>;
+  /**
+   * Fields compared by DIGITS rather than text (§4.40) — a phone number stored
+   * as "+243 812 345 678" on one client and "+243812345678" on another is the
+   * same number, and the duplicate warning has to say so.
+   */
+  digitsFields?: readonly string[];
+  /**
+   * The column that names a conflicting row to a person, returned as
+   * `conflict_label` so a warning can say WHICH record already holds the
+   * value ("Another client (NMI) already uses this email").
+   */
+  labelColumn?: PgColumn;
 }
 
 const RESOURCES: Record<string, ResourceConfig> = {
@@ -373,6 +385,27 @@ const RESOURCES: Record<string, ResourceConfig> = {
     idColumn: clientMaster.id,
     displayColumn: clientMaster.display,
   },
+  // §4.40 — the client contact and registration fields, checked for DUPLICATES
+  // as a warning (two clients can legitimately share an accountant's email or a
+  // group phone line), selected with ?field=. Phones compare by digits.
+  'client-contacts': {
+    table: clientMaster,
+    nameColumn: clientMaster.email,
+    idColumn: clientMaster.id,
+    displayColumn: clientMaster.display,
+    labelColumn: clientMaster.shortName,
+    fields: {
+      email: clientMaster.email,
+      email_secondary: clientMaster.emailSecondary,
+      payment_contact_email: clientMaster.paymentContactEmail,
+      phone: clientMaster.phone,
+      phone_secondary: clientMaster.phoneSecondary,
+      payment_contact_phone: clientMaster.paymentContactPhone,
+      nif_number: clientMaster.nifNumber,
+      rccm_number: clientMaster.rccmNumber,
+    },
+    digitsFields: ['phone', 'phone_secondary', 'payment_contact_phone'],
+  },
 
   // A transaction entity rather than a master — the licence form checks this live
   // while the operator types, moving the answer from save time to typing time.
@@ -433,8 +466,13 @@ export const GET = withErrorHandler(
     // all `UPPER(BTRIM(col))`. Without it a stored " CO " looked available to
     // the live check and was then refused on save — the live badge saying one
     // thing and the database another is worse than no badge at all.
+    const byDigits = !!fieldKey && (config.digitsFields ?? []).includes(fieldKey);
     const conds: SQL[] = [
-      sql`lower(btrim(${column})) = lower(btrim(${name}))`,
+      byDigits
+        ? // [^0-9] rather than \D: a backslash inside this template literal
+          // would be swallowed before it reached Postgres.
+          sql`regexp_replace(${column}, '[^0-9]', '', 'g') = regexp_replace(${name}, '[^0-9]', '', 'g') AND regexp_replace(${name}, '[^0-9]', '', 'g') <> ''`
+        : sql`lower(btrim(${column})) = lower(btrim(${name}))`,
     ];
     if (config.displayColumn) {
       conds.push(eq(config.displayColumn, 'Y'));
@@ -448,7 +486,7 @@ export const GET = withErrorHandler(
     const where = and(...conds);
 
     const [hit] = await db
-      .select({ id: config.idColumn })
+      .select({ id: config.idColumn, label: config.labelColumn ?? config.idColumn })
       .from(config.table)
       .where(where)
       .limit(1);
@@ -456,6 +494,7 @@ export const GET = withErrorHandler(
     return ok({
       available: !hit,
       conflict_id: hit ? (hit.id as number) : null,
+      conflict_label: hit && config.labelColumn ? String(hit.label ?? '') : null,
     });
   },
 );

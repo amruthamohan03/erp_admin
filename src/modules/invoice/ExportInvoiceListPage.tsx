@@ -158,7 +158,7 @@ export default function ExportInvoiceListPage() {
         columns={[
           { key: 'invoice_ref', header: 'Référence Interne', className: 'font-medium' },
           { key: 'client_name', header: 'Client' },
-          { key: 'mca_count', header: 'MCA Count', align: 'center', render: (r: Row) => `${r.mca_count} file(s)` },
+          { key: 'mca_count', header: 'File Count', align: 'center', render: (r: Row) => `${r.mca_count} file(s)` },
           { key: 'type_of_goods', header: 'Type of Goods' },
           { key: 'created_at', header: 'Date', render: (r: Row) => formatDate(r.created_at) },
           { key: 'encoded_by', header: 'Encoded By' },

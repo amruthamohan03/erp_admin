@@ -17,7 +17,7 @@ describe('fileCancellationSchema', () => {
   it('names the field when no file is chosen', () => {
     const r = fileCancellationSchema.safeParse({ ...valid, file_ids: [] });
     expect(r.success).toBe(false);
-    expect(r.error?.issues[0]?.message).toBe('MCA References: choose at least one file to cancel.');
+    expect(r.error?.issues[0]?.message).toBe('File References: choose at least one file to cancel.');
   });
 
   it('refuses a tracking type that is not Import, Export or Local', () => {

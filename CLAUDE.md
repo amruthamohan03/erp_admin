@@ -738,12 +738,12 @@ The dark side is a **translucent fill of the mid shade** (`-500/10`, `-500/20`) 
 
 ### 4.33 A generated reference number is assembled from config, never from a template in code
 
-**Every auto-generated reference — the MCA references, the licence number, the LT reference, the invoice references — is an ordered list of segments in `mca_ref_format_master_t`, edited under Developer Options → Reference Formats.** No source file states what a reference looks like.
+**Every auto-generated reference — the file references, the licence number, the LT reference, the invoice references — is an ordered list of segments in `mca_ref_format_master_t`, edited under Developer Options → Reference Formats.** No source file states what a reference looks like.
 
 | Reference | `target_key` | Written to | Ships as |
 | --- | --- | --- | --- |
-| Import Tracking — MCA Reference | `import` | `imports_t.mca_ref` | `NMI-IDCOR26-0001` |
-| Export Tracking — MCA Reference | `export` | `exports_t.mca_ref` | `NMI-IDCOR26-0001` |
+| Import Tracking — File Reference | `import` | `imports_t.mca_ref` | `NMI-IDCOR26-0001` |
+| Export Tracking — File Reference | `export` | `exports_t.mca_ref` | `NMI-IDCOR26-0001` |
 | License — License Number | `license` | `license_t.license_number` | `NMI-ID-CO-R` |
 | Local Tracking — LT Reference | `local` | `locals_t.mca_lt_reference` | `NMI-LTKI26-0001` |
 | Export Invoice — Invoice Reference | `export-invoice` | `export_invoices_t.invoice_ref` | `2026-NMI-EXP-0001` |
@@ -965,6 +965,46 @@ Rules that follow:
 - **The outcome dialog shows the message verbatim** (§4.22), with the title stating the outcome (`Not saved`, `Not deleted`). The sticky action bar's error line shows the same sentence — never a shorter one.
 - **Tests pin the wording.** [messages.test.ts](src/lib/validation/messages.test.ts) asserts the exact sentence for each translated failure; add a case when you add a translation.
 
+### 4.40 Every field is validated by its kind, on both sides, with errors that block and warnings that do not
+
+**An email is checked as an email, a phone as a phone, a configured pattern as that pattern — in the browser as the operator types, and again in the route on save, with the same sentence both times.** A field that accepts any text up to its column width is not validated; it is merely truncated.
+
+**One rules module.** [src/lib/validation/fields.ts](src/lib/validation/fields.ts) is pure (no DB, no React) and is the only place these rules live:
+
+| Kind | Rule | Stored as |
+| --- | --- | --- |
+| **Email** (`field_type: 'email'`, `emailField()`) | one `@`, a local part with allowed characters, a dotted domain with a real ending, no spaces, within the column length | local part as typed, domain lower-cased |
+| **Phone** (`field_type: 'tel'`, `phoneField()`) | any international number: digits plus spaces / dashes / dots / brackets, a single leading `+` (or `00`), 8–15 digits (ITU E.164) | `+<digits>`; a number with no country code is kept as digits and warned about — never guessed |
+| **Pattern** (`props.pattern`) | the field's configured regex, whole-value | as typed |
+
+**Two severities, and the difference is the point:**
+
+- **Error** — the value cannot be right. Red under the field; the route refuses the save with a 422 naming the field (§4.23). `Email is missing the "@" — it should look like name@company.com.` · `Phone is too short — 5 digits, a phone number has at least 8.`
+- **Warning** — the value is allowed but looks wrong. Amber under the field; it **never blocks a save**, because the operator may know better. Likely typos (`did you mean jean@gmail.com?`, a phone with no country code, the same email or phone in two fields of one form), unusual values (a year more than 30 years back or 20 ahead, a zero or negative number), and **duplicates in the database** (`Another client (NMI) already uses this email`).
+
+**Where each piece lives — reuse them, never re-implement:**
+
+- **Configurable pages** get all of it with no call-site change. The save route runs `checkFieldValue` for every field it writes and stores the normalised email/phone; [FieldHints](src/components/transactional/FieldHints.tsx) under each field shows, in order, the server's own sentence after a refused save, the live error, then warnings.
+- **Hand-written forms** use [`useFieldCheck`](src/lib/hooks/useFieldCheck.ts) for the live check (it waits for typing to pause) and [`<FieldMessages>`](src/components/ui/FieldMessages.tsx) for the red/amber lines — the users master and the profile tab are the references.
+- **API schemas** use `emailField(label)` / `phoneField(label)` from the same module. A required field yields a checked `string`; `{ optional: true }` keeps three meanings apart — **not sent** stays `undefined` (so a `.partial()` update never erases the stored value), **cleared** (`''`/`null`) becomes `null`, **a value** is checked and normalised. Use `emailField(label).optional()` for an update that may omit a required email but must not blank it.
+
+**Configuration, not code (§4.1)** — all on the field's `props` in the page builder:
+
+| `props` key | Effect |
+| --- | --- |
+| `pattern` + `patternMessage` | a format rule with the analyst's own sentence: `NIF Number: use the format A1234567B.` A malformed pattern is ignored rather than blocking every save. |
+| `duplicateCheck: { resource, field, noun }` | warn when another row already holds the value, via `/api/v1/uniqueness/{resource}` (`client-contacts` covers client email, phone, NIF and RCCM; phones compare by digits). |
+| `warnUnusual: false` | silence the zero / far-date warnings on a field where they are normal. |
+
+Rules that follow:
+
+- **Validate by `field_type`, not by field name.** A field whose name says `phone` but whose type is `text` gets no phone rule — fix the type in config.
+- **Never a bare `z.string().email()` or `z.string().max(15)` for a phone.** Zod's own email message is "Invalid email"; ours names the field and the fix.
+- **Judge what the request writes.** The save route checks only values in this submission, so a record saved before a rule existed does not block an unrelated edit.
+- **A warning must never block.** Not on the client, not on the server, not "just this once" — if it should block, it is an error, and belongs in the rule above.
+- **The marked-field line shows the server's sentence**, never a fixed "This field needs a value" over an error that says something else.
+- **Tests pin the sentences** — [fields.test.ts](src/lib/validation/fields.test.ts). Add a case with every new rule.
+
 ## 5. Directory layout
 
 ```
@@ -1134,6 +1174,9 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to ship "Invalid input" / "Save failed" / a bare status code as a user-facing message, or to hand-format a Zod issue at a call site → no, name the field and the fix via `summarizeZodError` (§4.23).
 - Requests to show "Server error" / "Network error" / "Something went wrong", to catch an error in a route and replace it with a vague `fail(…, 500)`, to add a `|| 'Save failed'` fallback at a call site, or to call `fetch().json()` directly from a screen → no, throw and let `describeError` name the failure; call `safeFetchJson` and show its message (§4.39).
 - Requests to read `err.code` off a database error directly → no, Drizzle wraps it; use `findPgError` (§4.39).
+- Requests to validate an email or phone with a bare `z.string().email()` / `z.string().max(15)`, a private regex, or only in the browser → no, use `emailField` / `phoneField` / `checkFieldValue` from `src/lib/validation/fields.ts` so both sides say the same thing (§4.40).
+- Requests to make a warning (possible typo, unusual value, duplicate) block the save → no; if it must block it is an error rule, otherwise it stays amber (§4.40).
+- Requests to hardcode a format rule for one page's field → no, it is `props.pattern` + `props.patternMessage` on the field row (§4.40).
 - Requests to put SQL text, query parameters or a stack trace in a user-facing message "so it is exact" → no, show the reason the driver gave, translated where known, with a reference to the log (§4.39).
 - Requests to trust `File.type` for an upload, or to delete the previous file before the new URL is committed → no (§4.23, §4.24).
 - Requests to let `public/` serve uploads directly ("it works locally") → no, Next only serves what was there at build time; uploads go through the route handler (§4.24).

@@ -3,7 +3,7 @@
 import SydoniaBulkUpdate from '@/modules/sydonia/SydoniaBulkUpdate';
 
 // §3 Import Sydonia — Excel bulk-update of declaration/liquidation/quittance
-// milestones onto existing import files (matched by MCA ref).
+// milestones onto existing import files (matched by file ref).
 export default function ImportSydoniaPage() {
   return <SydoniaBulkUpdate kind="import" />;
 }

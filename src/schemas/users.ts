@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailField, phoneField } from '@/lib/validation/fields';
 
 /**
  * A master row id, or nothing.
@@ -16,9 +17,9 @@ const masterId = z
 export const userCreateSchema = z.object({
   username: z.string().min(3).max(255),
   password: z.string().min(6).max(100),
-  email: z.string().email().max(100),
+  email: emailField('Email'),
   full_name: z.string().min(1).max(255),
-  mobile: z.string().max(15).optional().nullable(),
+  mobile: phoneField('Mobile', { optional: true }),
   role_id: z.number().int().positive(),
   location_id: masterId,
   dept_id: masterId,
@@ -32,9 +33,10 @@ export type UserCreateInput = z.infer<typeof userCreateSchema>;
 
 // Username is intentionally absent — it's immutable post-creation.
 export const userUpdateSchema = z.object({
-  email: z.string().email().max(100).optional(),
+  // §4.40 — may be left out of an update, never blanked.
+  email: emailField('Email').optional(),
   full_name: z.string().min(1).max(255).optional(),
-  mobile: z.string().max(15).optional().nullable(),
+  mobile: phoneField('Mobile', { optional: true }),
   role_id: z.number().int().positive().optional(),
   password: z.string().min(6).max(100).optional(),
   location_id: masterId,
