@@ -1,7 +1,7 @@
 // §2 step 5 — printable export invoice (no PDF library; self-contained HTML the
 // client opens and saves as PDF). Condensed version of the legacy mPDF pages:
 //   p1  = Debit Note  (reimbursable items, category ≤ 2)
-//   p2  = Facture     (operational items, category ≥ 3) + MCA detail table
+//   p2  = Facture     (operational items, category ≥ 3) + file detail table
 //   full = both
 // Per §6 CLAUDE.md, every table renders solid black borders on all cells.
 import { sql } from 'drizzle-orm';
@@ -189,7 +189,7 @@ export async function buildExportInvoicePrintHtml(id: number, page: PrintPage): 
     fac += totalsBlock(sub, tva);
     fac += signatureHtml;
 
-    // MCA financial detail table
+    // File financial detail table
     if (mcas.length) {
       let rows = '';
       let tQty = 0;
@@ -205,8 +205,8 @@ export async function buildExportInvoicePrintHtml(id: number, page: PrintPage): 
         tUsd += usd;
         rows += `<tr><td class="c">${i + 1}</td><td>${esc(m.mca_ref)}</td><td class="r">${money(w)}</td><td>${esc(m.declaration_no)}</td><td class="c">${fmtDate(m.declaration_date)}</td><td>${esc(m.liquidation_no)}</td><td class="c">${fmtDate(m.liquidation_date)}</td><td class="r">${money(cdf)}</td><td class="r">${money(rate)}</td><td class="r">${money(usd)}</td></tr>`;
       });
-      fac += `<div class="cat" style="margin-top:12px;">MCA DETAILS</div><table class="items">
-        <tr class="g"><th>#</th><th>MCA File</th><th class="r">Qty(Mt)</th><th>Decl. Ref</th><th>Decl. Date</th><th>Liq. Ref</th><th>Liq. Date</th><th class="r">Liq. CDF</th><th class="r">Rate</th><th class="r">Liq. USD</th></tr>
+      fac += `<div class="cat" style="margin-top:12px;">File DETAILS</div><table class="items">
+        <tr class="g"><th>#</th><th>File</th><th class="r">Qty(Mt)</th><th>Decl. Ref</th><th>Decl. Date</th><th>Liq. Ref</th><th>Liq. Date</th><th class="r">Liq. CDF</th><th class="r">Rate</th><th class="r">Liq. USD</th></tr>
         ${rows}
         <tr class="g bo"><td colspan="2" class="r">Total</td><td class="r">${money(tQty)}</td><td colspan="4"></td><td class="r">${money(tCdf)}</td><td></td><td class="r">${money(tUsd)}</td></tr>
       </table>`;

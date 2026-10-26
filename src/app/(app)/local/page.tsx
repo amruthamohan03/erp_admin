@@ -143,7 +143,7 @@ export default function LocalPage() {
         columns={[
           { key: 'client_name', header: 'Client', className: 'font-medium' },
           { key: 'location_name', header: 'Location' },
-          { key: 'mca_lt_reference', header: 'MCA LT Reference', className: 'font-mono' },
+          { key: 'mca_lt_reference', header: 'File LT Reference', className: 'font-mono' },
           { key: 'lot_num', header: 'Lot Num' },
           { key: 'horse', header: 'Horse' },
           { key: 'transporter', header: 'Transporter' },
@@ -176,7 +176,7 @@ export default function LocalPage() {
             <div className="p-5 max-h-[72vh] overflow-y-auto">
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
                 {([
-                  ['Client', D('client_name')], ['Location', D('location_name')], ['MCA LT Reference', D('mca_lt_reference')],
+                  ['Client', D('client_name')], ['Location', D('location_name')], ['File LT Reference', D('mca_lt_reference')],
                   ['Lot Num', D('lot_num')], ['Horse', D('horse')], ['Trailer 1', D('trailer_1')],
                   ['Trailer 2', D('trailer_2')], ['Transporter', D('transporter')], ['Nbr of Bags', D('nbr_of_bags')],
                   ['Weight (T)', D('weight')], ['Arrival Date', Ddate('arrival_date')], ['Loading Date', Ddate('loading_date')],

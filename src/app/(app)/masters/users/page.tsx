@@ -9,6 +9,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { safeFetchJson } from '@/lib/safeFetch';
+import FieldMessages from '@/components/ui/FieldMessages';
+import { useFieldCheck } from '@/lib/hooks/useFieldCheck';
 import type { User, Role } from '@/types';
 
 /**
@@ -368,6 +370,9 @@ function UserFormModal({
     // unless somebody deliberately ties it to a client.
     client_id: user?.client_id != null ? String(user.client_id) : '',
   });
+  // §4.40 — the same live checks the server runs on save.
+  const emailCheck = useFieldCheck('email', 'Email', form.email);
+  const mobileCheck = useFieldCheck('tel', 'Mobile', form.mobile);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -441,7 +446,7 @@ function UserFormModal({
                 onChange={(e) => setForm({ ...form, username: e.target.value })} required />
             </div>
             <div>
-              <label className="label">Password {isEdit ? '(leave empty to keep)' : '*'}</label>
+              <label className={isEdit ? 'label' : 'label required'}>Password{isEdit ? ' (leave empty to keep)' : ''}</label>
               <input type="password" className="input" value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} required={!isEdit} />
             </div>
@@ -454,13 +459,17 @@ function UserFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label required">Email</label>
-              <input type="email" className="input" value={form.email}
+              <input type="email" className="input" value={form.email} maxLength={100}
+                aria-invalid={emailCheck.error ? true : undefined}
                 onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              <FieldMessages error={emailCheck.error} warnings={emailCheck.warnings} />
             </div>
             <div>
               <label className="label">Mobile</label>
-              <input className="input" value={form.mobile}
+              <input type="tel" className="input" value={form.mobile} placeholder="+243 812 345 678"
+                aria-invalid={mobileCheck.error ? true : undefined}
                 onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+              <FieldMessages error={mobileCheck.error} warnings={mobileCheck.warnings} />
             </div>
           </div>
           <div>

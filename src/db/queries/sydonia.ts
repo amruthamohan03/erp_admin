@@ -1,6 +1,6 @@
-// §3 Sydonia bulk-update — an Excel of MCA refs patches declaration / liquidation
+// §3 Sydonia bulk-update — an Excel of file refs patches declaration / liquidation
 // / quittance milestones onto existing tracking rows (imports_t or exports_t).
-// Ports importsydonia / exportsydonia: match by MCA ref (case/space-insensitive),
+// Ports importsydonia / exportsydonia: match by file ref (case/space-insensitive),
 // update only the non-empty columns, never insert. Both kinds share every column
 // name, so one code path handles them via the table identifier (§4.10).
 //

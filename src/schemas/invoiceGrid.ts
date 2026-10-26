@@ -1,4 +1,4 @@
-// §4.7 — Zod schema for the invoice-grid save payload (MCA details + line items).
+// §4.7 — Zod schema for the invoice-grid save payload (File details + line items).
 // Shared by the export and import grid POST routes.
 import { z } from 'zod';
 

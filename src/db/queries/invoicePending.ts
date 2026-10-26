@@ -106,7 +106,7 @@ export async function buildPendingInvoiceXlsx(kind: InvoiceKind): Promise<Buffer
     { key: 'n', header: '#', width: 6, align: 'center' },
     { key: 'client_code', header: 'Client Code', width: 12 },
     { key: 'client_name', header: 'Client', width: 36 },
-    { key: 'mca_ref', header: 'MCA Reference', width: 24 },
+    { key: 'mca_ref', header: 'File Reference', width: 24 },
     { key: 'quittance_date', header: 'Quittance Date', width: 15, align: 'center' },
     { key: 'weight', header: weightUnit, width: 14, numFmt: '#,##0.00', align: 'right' },
     { key: 'fob', header: 'FOB (USD)', width: 14, numFmt: '#,##0.00', align: 'right' },

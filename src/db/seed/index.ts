@@ -143,7 +143,7 @@ export async function seedMasters(db: Database): Promise<void> {
   await seedApplicationSettings(db);
 
   // --- Reference-number formats (§4.1) --------------------------------
-  // How the MCA references, licence number, LT reference and invoice refs
+  // How the file references, licence number, LT reference and invoice refs
   // are assembled. Seeded to what the hardcoded resolvers used to produce,
   // ON CONFLICT DO NOTHING so an operator's rearrangement survives a re-seed.
   await seedMcaRefFormats(db);

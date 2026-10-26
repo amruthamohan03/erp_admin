@@ -1,7 +1,7 @@
 // POST /api/v1/sydonia/[kind]/validate  (kind = import | export)
 //
 // Multipart upload of the Sydonia Excel. Parsed server-side (exceljs — no client
-// dependency): column A = MCA Ref, B–H = declaration/liquidation/quittance
+// dependency): column A = File Ref, B–H = declaration/liquidation/quittance
 // ref+date + amount.
 //
 // Every row comes back with a verdict, so the preview can tell the operator
@@ -75,8 +75,8 @@ export const POST = withErrorHandler(
     const rows: Array<SydoniaRow & { excel_row: number }> = [];
     ws.eachRow((row, rowNumber) => {
       const mca = cellStr(row.getCell(1).value).trim();
-      // Skip a header row (first cell says MCA/REF and isn't itself a reference).
-      if (rowNumber === 1 && /MCA|REF/i.test(mca) && !/[/-]/.test(mca)) return;
+      // Skip a header row (first cell says File/REF and isn't itself a reference).
+      if (rowNumber === 1 && /File|REF/i.test(mca) && !/[/-]/.test(mca)) return;
       if (!mca) return;
       rows.push({
         excel_row: rowNumber,
@@ -93,7 +93,7 @@ export const POST = withErrorHandler(
 
     if (rows.length === 0) {
       return fail(
-        'No data rows were found. Column A must hold the MCA reference of an existing record, one per row.',
+        'No data rows were found. Column A must hold the file reference of an existing record, one per row.',
         422,
       );
     }

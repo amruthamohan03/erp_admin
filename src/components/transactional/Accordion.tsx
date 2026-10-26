@@ -7,6 +7,8 @@ import type { FieldState } from '@/lib/pages/conditions';
 import { parseDerive, isEditableDerive } from '@/lib/pages/derive';
 import { accentFor } from './accents';
 import FieldRenderer from './FieldRenderer';
+import FieldHints from './FieldHints';
+import { repeatedContactWarnings } from '@/lib/validation/fields';
 import { companionOf } from '@/lib/pages/companion';
 
 // §4.17 — presentational only. The accordion renders fields and reports clicks; it
@@ -30,6 +32,8 @@ interface AccordionProps {
   onToggle: () => void;
   /** Field names that failed server validation — highlighted after a failed save. */
   invalidFields?: ReadonlySet<string>;
+  /** §4.40 — the server's sentence for each marked field, shown under it. */
+  fieldErrors?: Readonly<Record<string, string>>;
   // Position of this accordion on the page — picks a stable accent colour from
   // ACCENTS so sibling sections read as one harmonious set (see §4.10: one
   // shared palette, not per-page ad-hoc colours).
@@ -74,6 +78,7 @@ export default function Accordion({
   open,
   onToggle,
   invalidFields,
+  fieldErrors,
   accentIndex = 0,
   entityType,
   entityId,
@@ -95,6 +100,10 @@ export default function Accordion({
   }
   const consumed = new Set([...companions.values()].map((r) => r.field.name));
   const laidOut = visibleFields.filter((r) => !consumed.has(r.field.name));
+  // §4.40 — the same email or phone typed into two fields of this section.
+  const repeated = repeatedContactWarnings(
+    visibleFields.map((r) => ({ name: r.field.name, label: r.field.label, type: r.field.field_type, value: values[r.field.name] })),
+  );
   const errorCount = invalidFields
     ? visibleFields.filter((r) => invalidFields.has(r.field.name)).length
     : 0;
@@ -169,7 +178,7 @@ export default function Accordion({
                 {/* §4.18 — the `required` class renders the star; never type one
                     into the label text. */}
                 {/* `props.hideLabel` — a composite field that labels its own
-                    controls (the invoice's licence + MCA pickers). */}
+                    controls (the invoice's licence + file pickers). */}
                 {field.props?.['hideLabel'] !== true && (
                 <label htmlFor={field.name} className={clsx('label', state.required && 'required')}>
                   {field.label}
@@ -195,7 +204,7 @@ export default function Accordion({
                   // §4.14 — read-only via resolved permission, §4.12 — via a
                   // readonlyWhen condition, and derived fields (computed/fetched)
                   // are read-only since their value isn't hand-entered — unless the
-                  // derive is an editable prefill/generate (e.g. MCA number) that
+                  // derive is an editable prefill/generate (e.g. File number) that
                   // the user may override afterwards.
                   readonly={
                     readonly ||
@@ -203,7 +212,7 @@ export default function Accordion({
                     state.readonly ||
                     (field.derive != null && !isEditableDerive(parseDerive(field.derive))) ||
                     // `props.readOnly` — the SYSTEM fills this field (an invoice's
-                    // kind, goods and transport come from its MCA files), so the
+                    // kind, goods and transport come from its files), so the
                     // operator does not type it. Display-only: unlike a
                     // `readonlyWhen` condition, the value is still submitted and
                     // saved, exactly as a non-editable derive's is.
@@ -224,9 +233,15 @@ export default function Accordion({
                   }}
                 />
                 </PairedField>
-                {invalidFields?.has(field.name) && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">This field needs a value.</p>
-                )}
+                <FieldHints
+                  field={field}
+                  value={values[field.name]}
+                  entityId={entityId}
+                  invalid={invalidFields?.has(field.name)}
+                  serverMessage={fieldErrors?.[field.name]}
+                  extraWarning={repeated[field.name]}
+                  readonly={readonly || field.permission === 'view'}
+                />
                 </div>
               </div>
             ))}

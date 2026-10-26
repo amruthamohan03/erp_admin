@@ -7,12 +7,12 @@ import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 
 // GET /api/v1/license-mca-refs?client_id=N
 //
-// The middle step of Import Tracking's Client → MCA Reference → License cascade.
-// Returns the distinct MCA references recorded on that client's licences.
+// The middle step of Import Tracking's Client → File Reference → License cascade.
+// Returns the distinct file references recorded on that client's licences.
 //
 // Shaped like a master options endpoint (`id` + a label column) so the standard
 // metadata select can consume it with no special case in the renderer. The `id`
-// IS the reference string: an MCA reference has no surrogate key of its own, and
+// IS the reference string: a file reference has no surrogate key of its own, and
 // imports_t.mca_ref stores the text. Non-numeric values also mean the dropdown
 // keeps the order given here rather than being re-sorted by id (§4.16), so the
 // ORDER BY below is what the operator sees.

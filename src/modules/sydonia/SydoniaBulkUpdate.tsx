@@ -2,7 +2,7 @@
 
 // §3 Sydonia bulk-update UI, shared by Import & Export Sydonia.
 //
-// Upload an Excel whose column A holds MCA references → the server checks every
+// Upload an Excel whose column A holds file references → the server checks every
 // reference against the tracking table → the screen LEADS with two lists: the
 // references it found, in green, and the ones it cannot add data to, in red,
 // each with the reason. The row-by-row table sits underneath for detail.
@@ -277,7 +277,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
               <tbody>
                 <tr>
                   <td className="font-mono font-bold">A</td>
-                  <td className="font-semibold text-foreground">MCA Reference</td>
+                  <td className="font-semibold text-foreground">File Reference</td>
                   <td className="text-muted-foreground">Identifies the record — must already exist</td>
                 </tr>
                 {[
@@ -415,10 +415,10 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   className="input ps-8"
-                  placeholder="Search MCA reference..."
+                  placeholder="Search file reference..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  aria-label="Search MCA reference"
+                  aria-label="Search file reference"
                 />
               </div>
               {([
@@ -457,7 +457,7 @@ export default function SydoniaBulkUpdate({ kind }: { kind: 'import' | 'export' 
                 <thead className="sticky top-0">
                   <tr>
                     <th className="w-12">Sheet row</th>
-                    <th>MCA Ref</th>
+                    <th>File Ref</th>
                     <th>Declaration Ref</th>
                     <th>Declaration Date</th>
                     <th>Liquidation Ref</th>

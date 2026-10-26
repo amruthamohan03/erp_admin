@@ -1,6 +1,6 @@
 // GET /api/v1/export-invoices/export?profile=dn|inv&date_from=&date_to=
 // Excel download (exceljs). dn = Debit Note (reimbursable view), inv = Invoice
-// (operational + agency). One row per MCA file.
+// (operational + agency). One row per file.
 import { type NextRequest, NextResponse } from 'next/server';
 import { isResponse, requireAuth, withErrorHandler } from '@/lib/api';
 import { xlsxResponse, dateStamp } from '@/lib/xlsx';

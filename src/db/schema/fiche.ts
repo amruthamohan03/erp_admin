@@ -20,7 +20,7 @@ import { transportModeMaster } from './transportModeMaster';
 import { incotermMaster } from './incotermMaster';
 
 // §2 step 3 — Fiche de Calcul: the duty calculation raised on ONE import file
-// (licence → MCA reference) during tracking. Ported from main's
+// (licence → file reference) during tracking. Ported from main's
 // fiche_de_calculs + fiche_items.
 //
 // The header copies the file's values (regime, currency, transport, weight,

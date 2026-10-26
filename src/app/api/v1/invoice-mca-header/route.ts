@@ -5,7 +5,7 @@ import { mcaHeaderPatch } from '@/db/queries/invoices';
 
 // GET /api/v1/invoice-mca-header?kind=import|export&client_id=12&mca_ids=4,9
 //
-// What the selected MCA files say an invoice's header is — kind, goods and
+// What the selected files say an invoice's header is — kind, goods and
 // transport; for Import also FOB, freight, weight, duty, the truck and the
 // customs references — plus the quotation main would auto-select for them.
 //
@@ -14,7 +14,7 @@ import { mcaHeaderPatch } from '@/db/queries/invoices';
 
 const querySchema = z.object({
   kind: z.enum(['import', 'export']),
-  client_id: z.coerce.number().int().positive({ message: 'Choose a client before selecting MCA files.' }),
+  client_id: z.coerce.number().int().positive({ message: 'Choose a client before selecting files.' }),
   mca_ids: z
     .string()
     .max(4000)

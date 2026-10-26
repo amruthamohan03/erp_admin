@@ -11,7 +11,7 @@ import { usePagedList } from '@/lib/hooks/usePagedList';
 import type { Role } from '@/types';
 
 // §4.1 — Role → Expense Type. Which expense types a role may file a Payment
-// Request against. The expense type decides which MCA references are claimable
+// Request against. The expense type decides which file references are claimable
 // (a reference maps ONE-TO-ONE to an expense type), so this screen is where
 // "who may spend against what" is decided, not a list in a route handler.
 

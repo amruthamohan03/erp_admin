@@ -84,7 +84,7 @@ function refsTable(lines: McaLine[], expense: unknown): string {
     })
     .join('');
   return `<table class="grid">
-    <thead><tr><th style="width:32px">#</th><th>Référence dossier (MCA)</th><th>Dépense</th><th class="r" style="width:120px">Montant</th></tr></thead>
+    <thead><tr><th style="width:32px">#</th><th>Référence dossier (File)</th><th>Dépense</th><th class="r" style="width:120px">Montant</th></tr></thead>
     <tbody>${rows}</tbody>
     <tfoot><tr><td colspan="3" class="r"><strong>Total</strong></td><td class="r mono"><strong>${esc(moneyFr(total))}</strong></td></tr></tfoot>
   </table>`;

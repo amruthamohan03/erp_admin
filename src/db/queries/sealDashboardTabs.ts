@@ -116,7 +116,7 @@ export interface SealRow {
   purchase_date: string | null;
   updated_on: string | null;
   notes: string | null;
-  /** MCA references of the live export files naming this seal. */
+  /** file references of the live export files naming this seal. */
   files: string;
   file_count: number;
 }

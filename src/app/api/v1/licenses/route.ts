@@ -25,7 +25,7 @@ import {
 const querySchema = z.object({
   q: z.string().optional(),
   client_id: z.coerce.number().int().positive().optional(),
-  // Import Tracking narrows Client → MCA Reference → License (§ import cascade).
+  // Import Tracking narrows Client → File Reference → License (§ import cascade).
   mca_ref: z.string().max(100).optional(),
   kind_id: z.coerce.number().int().positive().optional(),
   // Which side of the business may USE this licence, from the kind's own flags

@@ -33,7 +33,7 @@ export default function FicheTable({
       rows={rows}
       rowKey={(r) => r.id}
       loading={loading}
-      searchPlaceholder="Search fiche ref, client, licence, MCA ref, regime, status, date..."
+      searchPlaceholder="Search fiche ref, client, licence, file ref, regime, status, date..."
       emptyMessage={emptyMessage}
       exportHref={exportHref(scope)}
       columns={[
@@ -49,7 +49,7 @@ export default function FicheTable({
           render: (r) => <span title={r.client_company ?? undefined}>{r.client_name ?? '—'}</span>,
         },
         { key: 'license_number', header: 'License Number', sortable: true, defaultHidden: true },
-        { key: 'mca_ref', header: 'MCA Ref', sortable: true, className: 'font-mono' },
+        { key: 'mca_ref', header: 'File Ref', sortable: true, className: 'font-mono' },
         { key: 'regime', header: 'Regime', sortable: true, defaultHidden: true },
         { key: 'transport_mode', header: 'Transport', sortable: true, defaultHidden: true },
         { key: 'state_label', header: 'Status', sortable: true, badge: true },

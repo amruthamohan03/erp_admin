@@ -93,7 +93,7 @@ export function getPageTarget(pageSlug: string): PageTarget | null {
  *   remarks = [ {...} ]   →  remarks = ($1)      — not the array either
  *
  * So every repeating group saved as a JSONB column (§4.5 — the remark log, the
- * payment MCA grid) broke the save of any record that carried one, and an EMPTY
+ * payment file grid) broke the save of any record that carried one, and an EMPTY
  * log broke it hardest: an export that had never had a remark could not be
  * updated at all.
  *

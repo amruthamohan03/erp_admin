@@ -1,4 +1,4 @@
-// §2 step 3 — the fiche form's MCA Reference options: the chosen licence's
+// §2 step 3 — the fiche form's File Reference options: the chosen licence's
 // import files that are live, not cancelled and not already on another fiche
 // (options_source 'fiches/files', optionsParams license_id + current).
 import { NextRequest } from 'next/server';

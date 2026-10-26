@@ -13,7 +13,7 @@ import { expenseTypeMaster } from './expenseTypeMaster';
 
 // §4.1 — which expense types a role may file a Payment Request against.
 //
-// Master-driven rather than coded: the expense type decides which MCA
+// Master-driven rather than coded: the expense type decides which File
 // references are claimable (they map one-to-one), so "who may spend against
 // what" is a business decision an administrator changes in the browser, not a
 // list in a route handler.

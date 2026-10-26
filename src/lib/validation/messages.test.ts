@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { describeError, findPgError, humanizeFieldPath, messageForPgError, summarizeZodError } from './messages';
+import { describeError, findPgError, humanizeFieldPath, messageForPgError, placeholderColumns, summarizeZodError } from './messages';
 
 // §4.23 — the point of these tests is the *wording*. A message that passes
 // type-checking but reads as "Invalid input" is the bug this module exists to
@@ -173,5 +173,72 @@ describe('describeError', () => {
     expect(describeError(new TypeError("Cannot read properties of undefined (reading 'id')")).message).toBe(
       "Unexpected error: Cannot read properties of undefined (reading 'id')",
     );
+  });
+});
+
+// The users-master case: Postgres reports "value too long" with no column, so
+// the field has to be found from the statement Drizzle kept on the error.
+const tooLong = (query: string, params: unknown[]): Error =>
+  Object.assign(new Error(`Failed query: ${query}`), {
+    query,
+    params,
+    cause: { code: '22001', message: 'value too long for type character varying(15)' },
+  });
+
+describe('a value that is too long', () => {
+  it('names the field and the limit on an UPDATE', () => {
+    const d = describeError(
+      tooLong('update "users_t" set "full_name" = $1, "mobile" = $2, "updated_at" = now() where "users_t"."id" = $3', [
+        'Jean Paul',
+        '+2438123456789012',
+        7,
+      ]),
+    );
+    expect(d).toEqual({
+      message: 'Mobile is too long — 17 characters, the limit is 15. Shorten it and save again.',
+      status: 422,
+      field: 'mobile',
+    });
+  });
+
+  it('names the field and the limit on an INSERT', () => {
+    const d = describeError(
+      tooLong('insert into "users_t" ("id", "username", "mobile", "role_id") values (default, $1, $2, $3) returning "id"', [
+        'jpaul',
+        '+2438123456789012',
+        2,
+      ]),
+    );
+    expect(d.message).toBe('Mobile is too long — 17 characters, the limit is 15. Shorten it and save again.');
+    expect(d.field).toBe('mobile');
+  });
+
+  it('maps placeholders across a multi-row insert', () => {
+    const map = placeholderColumns('insert into "t" ("a", "b") values ($1, $2), ($3, $4)');
+    expect([...map.entries()]).toEqual([[1, 'a'], [2, 'b'], [3, 'a'], [4, 'b']]);
+  });
+
+  it('still states the limit when the statement cannot be read', () => {
+    const d = describeError(Object.assign(new Error('x'), { cause: { code: '22001', message: 'value too long for type character varying(50)' } }));
+    expect(d.message).toBe(
+      'A value you entered is longer than its field allows (at most 50 characters). Check the longest text on the form and shorten it.',
+    );
+  });
+});
+
+describe('other driver messages carry their specifics', () => {
+  it('names the rejected value and the expected kind', () => {
+    expect(messageForPgError({ code: '22P02', message: 'invalid input syntax for type integer: "12a"' })?.message).toBe(
+      '"12a" is not a whole number — correct it and save again.',
+    );
+    expect(messageForPgError({ code: '22P02', column: 'weight', message: 'invalid input syntax for type numeric: "1,2,3"' })?.message).toBe(
+      'Weight: "1,2,3" is not a number.',
+    );
+  });
+
+  it('states the ceiling of a numeric overflow', () => {
+    expect(
+      messageForPgError({ code: '22003', detail: 'A field with precision 15, scale 2 must round to an absolute value less than 10^13.' })?.message,
+    ).toBe('A number you entered is too large for its field — it must be less than 10,000,000,000,000. Check the amount for an extra digit.');
   });
 });

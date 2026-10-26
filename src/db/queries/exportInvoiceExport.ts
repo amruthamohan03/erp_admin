@@ -1,10 +1,10 @@
 // §2 step 5 — Export invoice Excel exports (Debit Note / Invoice). Ports the
-// legacy exportAllDebitNotes / exportAllInvoices: one row per MCA file.
-//   DN  = reimbursable view — liquidation (per MCA) + CEEC/CGEA/OCC/LMC/OGEFREM
-//         (stored per MCA) + category-2 "other charges" split by weight.
-//   INV = category-3 operational + category-4 agency, split evenly per MCA file.
+// legacy exportAllDebitNotes / exportAllInvoices: one row per file.
+//   DN  = reimbursable view — liquidation (per File) + CEEC/CGEA/OCC/LMC/OGEFREM
+//         (stored per File) + category-2 "other charges" split by weight.
+//   INV = category-3 operational + category-4 agency, split evenly per file.
 // The heavy per-item breakdown columns of the legacy export are condensed to the
-// stored per-MCA duty amounts + category buckets (faithful totals, fewer columns).
+// stored per-file duty amounts + category buckets (faithful totals, fewer columns).
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { buildXlsx, type XlsxColumn } from '@/lib/xlsx';

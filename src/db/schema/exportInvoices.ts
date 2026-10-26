@@ -1,6 +1,6 @@
 // Export Invoice (§2 step 5, Invoicing — Export). Ported from main's
 // export_invoices_t + export_invoice_mca_details_t + export_invoice_items_t.
-// Header is a transaction-page; MCA details + items are managed by the custom
+// Header is a transaction-page; file details + items are managed by the custom
 // invoice grid (main's calculation UI). validated: 0 not-validated, 1 validated,
 // 2 DGI-verified.
 import { pgTable, serial, integer, varchar, date, numeric, text, timestamp, index } from 'drizzle-orm/pg-core';
@@ -31,7 +31,7 @@ export const exportInvoices = pgTable(
     // main's "Mode de paiement" — the value DGI is told the invoice is settled by.
     paymentMode: varchar('payment_mode', { length: 30 }).notNull().default('CREDIT'),
     // The BCC CDF/USD rate on the invoice date, fetched from dgi_currency_rate_t
-    // and editable. Distinct from each MCA row's DGDA rate (`bcc_rate` below).
+    // and editable. Distinct from each file row's DGDA rate (`bcc_rate` below).
     liveBccRate: numeric('live_bcc_rate', { precision: 18, scale: 4 }),
     // Free comments A–H, printed on the facture. A is reserved (AO clients).
     cmta: varchar('cmta', { length: 100 }),

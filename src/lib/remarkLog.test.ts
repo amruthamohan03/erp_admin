@@ -4,7 +4,7 @@ import { todayIso, formatDate } from '@/lib/formatDate';
 
 // Import Tracking's Remarks is a dated log, not a paragraph: many entries, each
 // with its own date. Stored as JSONB on the row, the same way the payment
-// request's MCA lines are.
+// request's file lines are.
 
 const parse = (remarks: unknown) => importBodySchema.safeParse({ remarks });
 

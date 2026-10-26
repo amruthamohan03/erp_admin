@@ -195,7 +195,7 @@ export default function BorderSection({
         autoColumns={false}
         emptyMessage="Nothing is waiting at a border post — every file that entered has been dispatched."
         columns={[
-          { key: 'mca_ref', header: 'MCA Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
           { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
           { key: 'horse', header: 'Horse', render: (r) => r.horse || '—' },
           { key: 'trailer_1', header: 'Trailer 1', render: (r) => r.trailer_1 || '—' },

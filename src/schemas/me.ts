@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailField, phoneField } from '@/lib/validation/fields';
 
 // Changing your own password takes the new password alone — the session is the
 // proof of identity. "Confirm new password" is a typo guard on the form and
@@ -22,8 +23,9 @@ export type PreferencesUpdateInput = z.infer<typeof preferencesUpdateSchema>;
 
 export const profileUpdateSchema = z.object({
   full_name: z.string().min(1).max(255).optional(),
-  email: z.string().email().max(100).optional(),
-  mobile: z.string().max(15).nullable().optional(),
+  // §4.40 — the shared rules; email may be left out, never blanked.
+  email: emailField('Email').optional(),
+  mobile: phoneField('Mobile', { optional: true }),
   bio: z.string().max(1000).nullable().optional(),
 });
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;

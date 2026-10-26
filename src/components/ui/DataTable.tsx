@@ -476,7 +476,7 @@ export default function DataTable<T>({
                     {visibleColumns.map((c) => (
                       // `data-no-translate` — a body cell holds operator data, and
                       // the language switcher must not rewrite it. A client's short
-                      // name, an MCA reference or a tonnage is not prose; the column
+                      // name, a file reference or a tonnage is not prose; the column
                       // HEADER above it is, and that one still translates.
                       <td
                         key={c.key}

@@ -93,6 +93,9 @@ export default function TransactionalPage({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  // §4.40 — the server's own sentence per marked field, shown under the input,
+  // so a refused email says why instead of a generic "needs a value".
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   // §4.22 — the acknowledged outcome of the save. On success, dismissing it is
   // what navigates to the list; on failure it just closes.
@@ -143,6 +146,7 @@ export default function TransactionalPage({
     // file yet, and leaving the page clean would let it be abandoned unasked.
     setDirty(copying);
     setInvalidFields(new Set());
+    setFieldErrors({});
     setLoading(false);
   }, [slug, entityId, copying, copyFrom]);
 
@@ -161,7 +165,7 @@ export default function TransactionalPage({
 
   // Fields whose change triggers an async (fromRelated / template) derive — e.g.
   // picking a license autofills kind/goods/currency/remaining, picking a client
-  // fills Liquidation Paid By, and either rebuilds the MCA reference.
+  // fills Liquidation Paid By, and either rebuilds the file reference.
   const asyncTriggers = useMemo(() => {
     const s = new Set<string>();
     for (const f of allFields) {
@@ -296,6 +300,12 @@ export default function TransactionalPage({
       next.delete(fieldName);
       return next;
     });
+    setFieldErrors((prev) => {
+      if (!(fieldName in prev)) return prev;
+      const next = { ...prev };
+      delete next[fieldName];
+      return next;
+    });
     setValues((prev) => {
       const next = { ...prev, [fieldName]: value };
       if (asyncTriggers.has(fieldName)) void runAsyncDerive(fieldName, next);
@@ -372,6 +382,7 @@ export default function TransactionalPage({
         open={openSlugs.has(acc.slug)}
         onToggle={() => toggleAccordion(acc.slug)}
         invalidFields={invalidFields}
+        fieldErrors={fieldErrors}
         accentIndex={idx}
         entityType={`page:${slug}`}
         entityId={entityId}
@@ -388,6 +399,7 @@ export default function TransactionalPage({
     setSaving(true);
     setSaveError(null);
     setInvalidFields(new Set());
+    setFieldErrors({});
 
     const accordions = editableAccordions.map((acc) => {
       const visible = (resolvedByAccordion.get(acc.slug) ?? []).filter((r) => r.state.visible);
@@ -415,6 +427,12 @@ export default function TransactionalPage({
         if (result.field) named.add(result.field);
         if (named.size > 0) {
           setInvalidFields(named);
+          // Each field's own sentence; the single named field carries the
+          // message itself when the server sent no per-field bag.
+          const messages: Record<string, string> = {};
+          for (const [name, list] of Object.entries(result.fieldMessages ?? {})) if (list[0]) messages[name] = list[0];
+          if (result.field && !messages[result.field]) messages[result.field] = result.message;
+          setFieldErrors(messages);
           // The offending field may sit in a collapsed section — open it so the
           // message points at something the user can actually see.
           const toOpen: string[] = [];

@@ -25,7 +25,7 @@ export interface ImportInvoiceStats {
   dgi_verified: number;
   dgi_complete: number;
   dgi_incomplete: number;
-  pending_invoicing: number; // MCA files with quittance, not yet on any invoice
+  pending_invoicing: number; // files with quittance, not yet on any invoice
 }
 
 export async function importInvoiceStats(): Promise<ImportInvoiceStats> {

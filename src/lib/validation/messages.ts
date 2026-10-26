@@ -187,24 +187,70 @@ export function summarizeZodError(error: ZodError): ValidationSummary {
  */
 export function messageForPgError(err: {
   code?: string;
+  message?: string;
   column?: string;
   table?: string;
   constraint?: string;
   detail?: string;
 }): { message: string; status: number } | null {
-  const target = err.column ? humanizeFieldPath([err.column]) : 'One of the values';
+  // §4.39 / §4.40 — never "one of the values" when the driver's own message
+  // carries the specifics: the length limit, the rejected value, the type
+  // that was expected. Those go into the sentence.
+  const named = err.column ? humanizeFieldPath([err.column]) : null;
+  const pgMsg = err.message ?? '';
   switch (err.code) {
-    case '22001':
-      return { message: `${target} is too long for the field it is stored in.`, status: 422 };
-    case '22003':
-      return { message: `${target} is outside the range this field accepts.`, status: 422 };
+    case '22001': {
+      const limit = /\((\d+)\)/u.exec(pgMsg)?.[1];
+      if (named) {
+        return {
+          message: limit
+            ? `${named} is too long — the limit is ${limit} characters. Shorten it and save again.`
+            : `${named} is too long for the field it is stored in.`,
+          status: 422,
+        };
+      }
+      return {
+        message: `A value you entered is longer than its field allows${limit ? ` (at most ${limit} characters)` : ''}. Check the longest text on the form and shorten it.`,
+        status: 422,
+      };
+    }
+    case '22003': {
+      // detail: "A field with precision 15, scale 2 must round to an absolute value less than 10^13."
+      const pow = /less than 10\^(\d+)/u.exec(err.detail ?? '')?.[1];
+      const ceiling = pow ? ` — it must be less than ${Number(`1e${pow}`).toLocaleString('en-US')}` : '';
+      return {
+        message: `${named ?? 'A number you entered'} is too large for its field${ceiling}. Check the amount for an extra digit.`,
+        status: 422,
+      };
+    }
     case '22P02':
-      return { message: `${target} is not in the expected format.`, status: 422 };
+    case '22007':
+    case '22008': {
+      // "invalid input syntax for type integer: "abc"" / "… for type date: "31-02-2026""
+      const m = /for type ([\w ]+): "(.*)"/u.exec(pgMsg);
+      const type = m?.[1] ?? '';
+      const kind = /int|serial/u.test(type)
+        ? 'a whole number'
+        : /numeric|real|double|decimal/u.test(type)
+          ? 'a number'
+          : /date|timestamp/u.test(type)
+            ? 'a valid date'
+            : /bool/u.test(type)
+              ? 'yes or no'
+              : type
+                ? `a valid ${type}`
+                : 'in the expected format';
+      const value = m?.[2] !== undefined ? `"${m[2]}"` : 'A value you entered';
+      return {
+        message: named ? `${named}: ${value} is not ${kind}.` : `${value} is not ${kind} — correct it and save again.`,
+        status: 422,
+      };
+    }
     case '23502':
-      return { message: `${target} is required.`, status: 422 };
+      return { message: `${named ?? 'A required value'} is required.`, status: 422 };
     case '23514':
       return {
-        message: `${target} is not an accepted value${err.constraint ? ` (${err.constraint})` : ''}.`,
+        message: `${named ?? 'A value you entered'} is not an accepted value${err.constraint ? ` (rule: ${humanizeFieldPath([err.constraint.replace(/_check$/u, '')])})` : ''}.`,
         status: 422,
       };
     default:
@@ -298,6 +344,13 @@ function humanizeTable(table: string | undefined): string {
 export function describeError(err: unknown): ErrorDescription {
   const pg = findPgError(err);
   if (pg) {
+    // "Too long" is reported WITHOUT a column name, so on its own it can only
+    // say "one of the values". The failed query still knows which value went
+    // where — name the field and the limit from it.
+    if (pg.code === '22001' && !pg.column) {
+      const precise = describeTooLong(err, pg.message);
+      if (precise) return precise;
+    }
     const known = messageForPgError(pg);
     if (known) return { ...known, ...(pg.column ? { field: pg.column } : {}) };
 
@@ -389,4 +442,82 @@ function firstPlainMessage(err: unknown): string | null {
     cur = e.cause;
   }
   return typeof err === 'string' && err ? err : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Too long" — name the field Postgres would not
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The SQL text and parameters Drizzle keeps on the error it wraps. */
+function findFailedQuery(err: unknown): { query: string; params: unknown[] } | null {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  while (cur && typeof cur === 'object' && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as { query?: unknown; params?: unknown; cause?: unknown };
+    if (typeof e.query === 'string' && Array.isArray(e.params)) return { query: e.query, params: e.params };
+    cur = e.cause;
+  }
+  return null;
+}
+
+const unquote = (s: string): string => s.trim().replace(/^"|"$/gu, '');
+
+/**
+ * Which column each `$n` placeholder of an INSERT or UPDATE writes. Reads the
+ * statement Drizzle generated — never shown to anyone, only used to point at a
+ * field. Returns an empty map for any other statement.
+ */
+export function placeholderColumns(query: string): Map<number, string> {
+  const map = new Map<number, string>();
+  const insert = /insert\s+into\s+"?[\w.]+"?\s*\(([^)]*)\)\s*values\s*([\s\S]+?)(?:\s+on\s+conflict|\s+returning|$)/iu.exec(query);
+  if (insert) {
+    const cols = insert[1].split(',').map(unquote);
+    // Each "( … )" group is one row, in the same column order.
+    for (const group of insert[2].match(/\(([^()]*)\)/gu) ?? []) {
+      group.slice(1, -1).split(',').forEach((tok, i) => {
+        const n = /^\s*\$(\d+)\s*$/u.exec(tok)?.[1];
+        if (n && cols[i]) map.set(Number(n), cols[i]);
+      });
+    }
+    return map;
+  }
+  const update = /update\s+"?[\w.]+"?\s+set\s+([\s\S]+?)(?:\s+where|\s+returning|$)/iu.exec(query);
+  if (update) {
+    for (const m of update[1].matchAll(/"?(\w+)"?\s*=\s*\$(\d+)/gu)) map.set(Number(m[2]), m[1]);
+  }
+  return map;
+}
+
+/**
+ * `value too long for type character varying(15)` → which written value was
+ * longer than 15, by name: "Mobile is too long — 16 characters, the limit is 15."
+ * Null when the statement cannot be read, so the caller falls back.
+ */
+export function describeTooLong(err: unknown, pgMessage: string | undefined): ErrorDescription | null {
+  const limit = Number(/\((\d+)\)/u.exec(pgMessage ?? '')?.[1]);
+  const failed = findFailedQuery(err);
+  if (!failed || !Number.isFinite(limit) || limit <= 0) return null;
+  const columns = placeholderColumns(failed.query);
+  const over: Array<{ column: string; length: number }> = [];
+  failed.params.forEach((p, i) => {
+    if (typeof p !== 'string' || p.length <= limit) return;
+    const column = columns.get(i + 1);
+    if (column && !over.some((o) => o.column === column)) over.push({ column, length: p.length });
+  });
+  if (over.length === 0) return null;
+  if (over.length === 1) {
+    const [{ column, length }] = over;
+    return {
+      message: `${humanizeFieldPath([column])} is too long — ${length} characters, the limit is ${limit}. Shorten it and save again.`,
+      status: 422,
+      field: column,
+    };
+  }
+  const names = over.map((o) => `${humanizeFieldPath([o.column])} (${o.length})`).join(', ');
+  return {
+    message: `These values are longer than the ${limit} characters their fields allow: ${names}. Shorten them and save again.`,
+    status: 422,
+    field: over[0].column,
+  };
 }

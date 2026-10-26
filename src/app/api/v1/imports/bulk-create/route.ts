@@ -22,7 +22,7 @@ import { importsBulkCreateSchema } from '@/schemas/imports-bulk';
 // Sibling of /api/v1/exports/bulk-create. Same shape: N rows
 // against ONE license in a single transaction, FOB cap enforced
 // (license.amount − SUM(fob) of BOTH live exports and live
-// imports on the same license — a shared cap), MCA refs generated
+// imports on the same license — a shared cap), file refs generated
 // as `{prefix}-NNNN`, all-or-nothing on any collision.
 
 const num = (v: number | undefined): string | null =>
@@ -118,7 +118,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         .limit(1);
       if (dup) {
         throw new ConflictError(
-          `MCA ref "${mcaRef}" already exists — pick a different prefix or ` +
+          `File ref "${mcaRef}" already exists — pick a different prefix or ` +
             `resolve the existing row.`,
         );
       }

@@ -1,5 +1,5 @@
 // GET /api/v1/export-invoices/[id]/print?page=full|p1|p2 — printable HTML invoice
-// (open in a new tab, then "Save as PDF"). p1 = Debit Note, p2 = Facture + MCA
+// (open in a new tab, then "Save as PDF"). p1 = Debit Note, p2 = Facture + File
 // details, full = both. No PDF library is installed.
 import { type NextRequest, NextResponse } from 'next/server';
 import { fail, isResponse, requireAuth, withErrorHandler } from '@/lib/api';

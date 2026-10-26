@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailField, phoneField } from '@/lib/validation/fields';
 import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 
 // Boundary schemas for the /api/v1/clients endpoints. Mirrors main's
@@ -10,12 +11,8 @@ import { includeDisabledParam } from '@/lib/validation/includeDisabled';
 const optionalString = (max: number) =>
   z.string().max(max).optional().nullable();
 
-const optionalEmail = (max: number) =>
-  z
-    .union([z.literal(''), z.string().email().max(max)])
-    .optional()
-    .nullable()
-    .transform((v) => (v === '' ? null : v));
+// §4.40 — the shared email/phone rules, so this API and the clients page
+// refuse the same value with the same sentence, and store it normalised.
 
 const optionalIntId = z.coerce.number().int().positive().nullable().optional();
 
@@ -41,10 +38,10 @@ const clientFieldsBase = z.object({
   phase_start_date: optionalDate,
   phase_end_date: optionalDate,
   contact_person: optionalString(100),
-  email: optionalEmail(100),
-  email_secondary: optionalEmail(100),
-  phone: optionalString(20),
-  phone_secondary: optionalString(20),
+  email: emailField('Email', { optional: true }),
+  email_secondary: emailField('Secondary Email', { optional: true }),
+  phone: phoneField('Phone', { optional: true }),
+  phone_secondary: phoneField('Phone (Secondary)', { optional: true }),
   id_nat_number: optionalString(50),
   id_nat_file: optionalString(255),
   id_nat_file_id: optionalIntId,
@@ -60,8 +57,8 @@ const clientFieldsBase = z.object({
   attestation_file: optionalString(255),
   attestation_file_id: optionalIntId,
   nif_number: optionalString(50),
-  payment_contact_email: optionalEmail(100),
-  payment_contact_phone: optionalString(20),
+  payment_contact_email: emailField('Payment Contact Email', { optional: true }),
+  payment_contact_phone: phoneField('Payment Contact Phone', { optional: true }),
   payment_term: optionalString(50),
   credit_term: optionalInt,
   liquidation_paid_by: optionalIntId,

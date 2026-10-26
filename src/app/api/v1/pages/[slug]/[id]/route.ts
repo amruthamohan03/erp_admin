@@ -31,6 +31,7 @@ import {
 import { ok, fail, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { bindColumnValue, fetchEntityValues, getPageTarget, safeColumnsFor } from '@/lib/pages/targets';
 import { effectiveFieldPermission, fetchFieldOverrides } from '@/lib/pages/fieldGrants';
+import { checkFieldValue } from '@/lib/validation/fields';
 import { recordAudit } from '@/lib/audit/recordAudit';
 import { parseConditions, resolveFieldState, checkBounds, checkNumericBounds } from '@/lib/pages/conditions';
 import { parseDerive, isPureDerive, computePureDerive } from '@/lib/pages/derive';
@@ -200,7 +201,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
   }
 
   // §4.12 — config-driven conditions reference OTHER fields (e.g. an invoice
-  // field hidden when kind_id is MCA), which may live on a different accordion.
+  // field hidden when kind_id is File), which may live on a different accordion.
   // Build the evaluation context from the full existing row (for updates) merged
   // with this submission, so the rules see the complete form state. This is the
   // server-side mirror of the client's reactive evaluation — defense in depth.
@@ -301,6 +302,24 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     // too — otherwise the rule holds on screen and not against the API.
     const numError = checkNumericBounds(f.props, f.label, resulting);
     if (numError) return fail(numError, 422, { field: f.name });
+
+    // §4.40 — the format rules the browser shows under the field, enforced on
+    // the door too: an email that is not an address, a phone that is not a
+    // number, or a value that misses the field's configured `props.pattern` is
+    // refused with the same sentence. Only what THIS request writes is judged,
+    // so a stored value from before the rule existed does not block an
+    // unrelated edit. Email and phone are stored in their normalised form.
+    if (f.name in patch && typeof patch[f.name] === 'string') {
+      const props = (f.props ?? {}) as Record<string, unknown>;
+      const check = checkFieldValue(f.field_type, patch[f.name], f.label, {
+        maxLength: typeof props.maxLength === 'number' ? props.maxLength : undefined,
+        pattern: typeof props.pattern === 'string' ? props.pattern : undefined,
+        patternMessage: typeof props.patternMessage === 'string' ? props.patternMessage : undefined,
+        warnUnusual: false,
+      });
+      if (check.error) return fail(check.error, 422, { field: f.name });
+      if (check.value !== undefined && check.value !== '') patch[f.name] = check.value;
+    }
   }
 
   // §5 C-02 — a consignment must fit inside its selected PARTIELLE allotment.
@@ -395,7 +414,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     }
   }
 
-  // §2 step 5 — an invoice's MCA rows and priced lines, through the same virtual
+  // §2 step 5 — an invoice's file rows and priced lines, through the same virtual
   // field. Its header totals are derived the same way a quotation's are, so they
   // are computed here and spliced into the patch rather than trusted.
   const invoiceKind = invoiceKindForSlug(slug);
@@ -412,11 +431,11 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
       );
     }
     const payload = parseInvoiceGridValue(mergedSubmitted['invoice_grid']);
-    // main's "At least one MCA Reference is required": an import invoice bills
+    // main's "At least one File Reference is required": an import invoice bills
     // the files it names, and one naming none bills nothing anyone can trace.
     if (payload && invoiceKind === 'import' && payload.mcaDetails.length === 0) {
       return fail(
-        'MCA References: choose at least one file — pick the licence, then the MCA references on it.',
+        'File References: choose at least one file — pick the licence, then the file references on it.',
         422,
         { field: 'invoice_files' },
       );

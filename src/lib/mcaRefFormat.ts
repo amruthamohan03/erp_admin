@@ -40,7 +40,7 @@ export const MCA_REF_SEGMENT_TYPES = [
   // master code: it is a full customs reference, spaces and all, so it is kept
   // verbatim rather than sliced.
   'refcod',
-  // §2 step 3 — the MCA reference of the file a record is raised on, verbatim.
+  // §2 step 3 — the reference of the tracking file a record is raised on, verbatim.
   // A Fiche de Calcul is one per file, so its reference is the file's own with a
   // prefix, and needs no counter.
   'mca',
@@ -80,7 +80,7 @@ export interface McaRefTokens {
   transport?: string | null;
   office?: string | null;
   refcod?: string | null;
-  /** The file's MCA reference (Fiche de Calcul). */
+  /** The file's file reference (Fiche de Calcul). */
   mca?: string | null;
   /** Always the full four-digit year; the segment slices it to `digits`. */
   year?: string | null;
@@ -118,7 +118,7 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
   import: {
     key: 'import',
     label: 'Import Tracking',
-    fieldLabel: 'MCA Reference',
+    fieldLabel: 'File Reference',
     hint: "Client code from the consignment; kind, goods and transport codes from the selected licence.",
     tokens: ['client', 'kind', 'goods', 'transport', ...ALWAYS],
     sample: SAMPLE,
@@ -126,7 +126,7 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
   export: {
     key: 'export',
     label: 'Export Tracking',
-    fieldLabel: 'MCA Reference',
+    fieldLabel: 'File Reference',
     hint: "Client code from the consignment; kind, goods and transport codes from the selected licence. Re-Export forces the kind code RE.",
     tokens: ['client', 'kind', 'goods', 'transport', ...ALWAYS],
     sample: SAMPLE,
@@ -175,7 +175,7 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
     key: 'fiche',
     label: 'Fiche de Calcul',
     fieldLabel: 'Fiche Reference',
-    hint: "The MCA reference and client code of the import file the fiche is raised on. One fiche per file, so a number is not needed.",
+    hint: "The file reference and client code of the import file the fiche is raised on. One fiche per file, so a number is not needed.",
     tokens: ['mca', 'client', ...ALWAYS],
     sample: SAMPLE,
   },

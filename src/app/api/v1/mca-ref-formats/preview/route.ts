@@ -3,7 +3,7 @@
 // The references a create would actually be given, built by the same generator
 // that will assign them (§4.33) — not an illustration of the format.
 //
-// This exists because taking the typed MCA prefix off the bulk-create screen
+// This exists because taking the typed file prefix off the bulk-create screen
 // also took away the operator's sight of what the records would be called. A
 // reference that appears only after the batch is committed is one an operator
 // cannot check beforehand, which is exactly when checking is cheap.

@@ -50,7 +50,7 @@ export async function buildFichePrintHtml(id: number): Promise<string | null> {
     ['Fiche Date', esc(formatDate(h['fiche_date_iso'], ''))],
     ['Client', esc(h['client_legal_name'])],
     ['License Number', esc(h['license_number'])],
-    ['MCA Reference', esc(h['mca_ref'])],
+    ['File Reference', esc(h['mca_ref'])],
     ['Supplier', esc(h['supplier'])],
     ['Type of Goods', esc(h['goods_type'])],
     ['Regime', esc(h['regime_name'])],

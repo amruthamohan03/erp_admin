@@ -6,7 +6,7 @@
 // always authoritative. Two async kinds (fromRelated, template) need a DB lookup
 // and resolve through POST /api/pages/:slug/derive (see deriveSources.ts).
 //
-// The business values (which date combo maps to which status, the MCA template
+// The business values (which date combo maps to which status, the file template
 // string, which source column feeds which field) live in the JSONB config, never
 // here. This module only knows how to evaluate the shapes.
 
@@ -44,7 +44,7 @@ export interface TieredDerive {
 // Shared knobs for the two async derive kinds.
 interface AsyncDeriveCommon {
   // The field(s) whose change triggers this fetch. A single name or a list — a
-  // template that recomputes from several inputs (e.g. the MCA reference from
+  // template that recomputes from several inputs (e.g. the file reference from
   // client/kind/goods/transport) lists them all.
   trigger: string | string[];
   // A vetted source name in deriveSources.ts (e.g. 'license', 'client').
@@ -52,11 +52,11 @@ interface AsyncDeriveCommon {
   // Optional gate: only fire (and only ever overwrite the field) when this
   // predicate holds against the current values. When it doesn't hold the field
   // is left exactly as-is — NOT blanked — so a manual value survives (e.g. a
-  // Standard licence's hand-typed number when the MCA generator is gated off).
+  // Standard licence's hand-typed number when the file generator is gated off).
   when?: Predicate;
   // By default a derived field renders read-only (its value isn't hand-entered).
   // Set true for a prefill/generate that the user may still override afterwards
-  // (e.g. the MCA number is generated but editable; the client default for
+  // (e.g. the file number is generated but editable; the client default for
   // License Cleared By can be changed per-licence).
   editable?: boolean;
 }

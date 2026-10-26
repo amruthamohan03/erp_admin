@@ -43,7 +43,7 @@ interface FieldRendererProps {
   invalid?: boolean;
   /**
    * Write OTHER fields of the form, keyed by field name. For a composite field
-   * whose content determines header values — an invoice's MCA files decide its
+   * whose content determines header values — an invoice's files decide its
    * kind, goods, transport and weights. Each key goes through the page's normal
    * change path, so dirty tracking and derives behave as if it were typed.
    */
@@ -278,7 +278,7 @@ export default function FieldRenderer({
         />
       );
 
-    // §2 step 5 — an invoice's MCA rows and priced lines. Reads the client off
+    // §2 step 5 — an invoice's file rows and priced lines. Reads the client off
     // the header accordion so both its pickers scope themselves as it changes,
     // which is also what lets it work before the invoice has been saved once.
     case 'invoice-grid': {
@@ -308,7 +308,7 @@ export default function FieldRenderer({
       );
     }
 
-    // §2 step 5 — Import picks its files in the header: licences, then the MCA
+    // §2 step 5 — Import picks its files in the header: licences, then the File
     // references on them. The pick lives in the invoice grid's value, so this
     // writes that field through the page's change path rather than its own.
     case 'invoice-files': {
@@ -666,7 +666,7 @@ function DynamicSelect({ field, value, readonly, onChange, requiredOverride, val
       // the amount box beside it, which is the field being typed into (§4.36).
       emptyLabel="Select"
       // A configured `props.placeholder` says where an empty value comes from —
-      // the invoice's Kind / Goods / Transport read "From MCA" until files are
+      // the invoice's Kind / Goods / Transport read "From File" until files are
       // picked, rather than a "Select" on a control that cannot be opened.
       placeholder={
         source != null && loading

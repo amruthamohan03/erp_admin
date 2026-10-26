@@ -10,7 +10,7 @@ import { useAnchoredPanel } from './useAnchoredPanel';
 
 // The project's pick-MANY dropdown — the sibling of SearchableSelect (§4.16) for
 // lists where an operator ticks several rows: an invoice's licences, then the
-// MCA files on them.
+// Files on them.
 //
 // Each row is a <Toggle> (§4.11 — there are no checkboxes in this app), with an
 // optional second line of detail under the label. A "Select all" button acts on

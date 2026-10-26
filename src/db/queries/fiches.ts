@@ -52,7 +52,7 @@ function noOtherFiche(importCol: SQL, selfFicheId: number | null): SQL {
 }
 
 // ---------------------------------------------------------------------------
-// PICKERS — the licence, then the MCA references on it
+// PICKERS — the licence, then the file references on it
 // ---------------------------------------------------------------------------
 
 /**
@@ -192,15 +192,15 @@ export async function computeFicheSave(
       FROM imports_t i WHERE i.id = ${importId} AND i.display = 'Y'`);
     const f = (rows as unknown as Rows<{ license_id: number | null; cancelled: boolean; other: string | null }>).rows[0];
     const keptOwn = before != null && toId(before['import_id']) === importId;
-    if (!f) return { columns: {}, problem: { message: 'MCA Reference: the chosen file no longer exists — choose another.', field: 'import_id' } };
+    if (!f) return { columns: {}, problem: { message: 'File Reference: the chosen file no longer exists — choose another.', field: 'import_id' } };
     if (f.license_id !== licenseId) {
-      return { columns: {}, problem: { message: 'MCA Reference: this file is not on the chosen licence — choose the licence first, then one of its files.', field: 'import_id' } };
+      return { columns: {}, problem: { message: 'File Reference: this file is not on the chosen licence — choose the licence first, then one of its files.', field: 'import_id' } };
     }
     if (f.cancelled && !keptOwn) {
-      return { columns: {}, problem: { message: 'MCA Reference: this file is CANCELLED, so no fiche can be raised on it.', field: 'import_id' } };
+      return { columns: {}, problem: { message: 'File Reference: this file is CANCELLED, so no fiche can be raised on it.', field: 'import_id' } };
     }
     if (f.other) {
-      return { columns: {}, problem: { message: `MCA Reference: this file already has fiche ${f.other}. A file carries one fiche.`, field: 'import_id' } };
+      return { columns: {}, problem: { message: `File Reference: this file already has fiche ${f.other}. A file carries one fiche.`, field: 'import_id' } };
     }
   }
 
@@ -235,7 +235,7 @@ export async function computeFicheSave(
   // taken from the submission (the field is read-only, not trusted).
   const reference = importId ? await buildReference('fiche', ctx) : null;
   if (!reference) {
-    return { columns: {}, problem: { message: 'Fiche Reference: choose the MCA reference first — the fiche is named after its file.', field: 'import_id' } };
+    return { columns: {}, problem: { message: 'Fiche Reference: choose the file reference first — the fiche is named after its file.', field: 'import_id' } };
   }
 
   const columns: Record<string, unknown> = {

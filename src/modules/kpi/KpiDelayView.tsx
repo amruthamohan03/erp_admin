@@ -397,7 +397,7 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                 {recLoading ? <div className="py-10 text-center text-muted-foreground">Loading records…</div> : (
                   <table className="table-base whitespace-nowrap text-xs">
                     <thead>
-                      <tr><th className="w-6" /><th>ID</th><th>MCA Ref</th><th>Client</th><th>Clearance</th><th>{fl(drill.from)}</th><th>{fl(drill.to)}</th><th className="text-center">Total</th><th className="text-center">Working</th><th className="text-center">Delay</th><th>Status</th></tr>
+                      <tr><th className="w-6" /><th>ID</th><th>File Ref</th><th>Client</th><th>Clearance</th><th>{fl(drill.from)}</th><th>{fl(drill.to)}</th><th className="text-center">Total</th><th className="text-center">Working</th><th className="text-center">Delay</th><th>Status</th></tr>
                     </thead>
                     <tbody>
                       {records.length === 0 && (

@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { MeProfile } from './SettingsView';
+import FieldMessages from '@/components/ui/FieldMessages';
+import { useFieldCheck } from '@/lib/hooks/useFieldCheck';
 
 export default function ProfileTab({
   me,
@@ -20,6 +22,9 @@ export default function ProfileTab({
   const [fullName, setFullName] = React.useState(me.full_name);
   const [email, setEmail] = React.useState(me.email);
   const [mobile, setMobile] = React.useState(me.mobile ?? '');
+  // §4.40 — the same live checks the server runs on save.
+  const emailCheck = useFieldCheck('email', 'Email', email);
+  const mobileCheck = useFieldCheck('tel', 'Mobile', mobile);
   const [bio, setBio] = React.useState(me.bio ?? '');
   const [saving, setSaving] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -130,11 +135,13 @@ export default function ProfileTab({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input id="email" type="email" value={email} maxLength={100} aria-invalid={emailCheck.error ? true : undefined} onChange={(e) => setEmail(e.target.value)} />
+              <FieldMessages error={emailCheck.error} warnings={emailCheck.warnings} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mobile">Mobile</Label>
-              <Input id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+              <Input id="mobile" type="tel" value={mobile} placeholder="+243 812 345 678" aria-invalid={mobileCheck.error ? true : undefined} onChange={(e) => setMobile(e.target.value)} />
+              <FieldMessages error={mobileCheck.error} warnings={mobileCheck.warnings} />
             </div>
           </div>
 
