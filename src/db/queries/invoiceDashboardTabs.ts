@@ -80,14 +80,15 @@ export type PeriodFlag = 'TODAY' | 'THISWEEK' | 'THISMONTH' | 'THISYEAR' | 'OLDE
 export type AgeBand = 'D0_7' | 'D8_30' | 'D31_60' | 'D60_PLUS';
 
 /**
- * The normalised invoice row every aggregate reads.
+ * The normalised invoice row every aggregate reads — exported so the Client
+ * Comparison dashboard bills by the same total rule instead of restating it.
  *
  * Counted on `created_at` — the date the invoice list shows and filters by — so
  * a card and the list it points at agree on which month an invoice belongs to.
  * The export table has an `invoice_date` too, but the import table does not,
  * and the two dashboards must not count periods by different rules.
  */
-function base(kind: InvoiceKind): SQL {
+export function invoiceBase(kind: InvoiceKind): SQL {
   const k = KIND[kind];
   return sql`
     SELECT inv.id,
@@ -166,7 +167,7 @@ export interface InvoiceRow {
 /** Every live invoice of a kind, newest first. `pendingOnly` = not DGI-verified. */
 export async function getInvoiceRows(kind: InvoiceKind, pendingOnly = false): Promise<InvoiceRow[]> {
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)})
+    WITH b AS (${invoiceBase(kind)})
     SELECT b.id, b.invoice_ref, to_char(b.inv_date, 'YYYY-MM-DD') AS inv_date,
            b.client_id, b.client_name, b.client_company, b.goods_type, b.payment_mode,
            b.sub_total::float AS sub_total, b.vat::float AS vat, b.total::float AS total,
@@ -222,7 +223,7 @@ export interface InvoiceOverview {
 
 async function kpiFor(kind: InvoiceKind): Promise<InvoiceKpi> {
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)})
+    WITH b AS (${invoiceBase(kind)})
     SELECT count(*)::int AS total,
            COALESCE(SUM(b.total), 0)::float AS total_usd,
            COALESCE(SUM(b.sub_total), 0)::float AS sub_total_usd,
@@ -244,7 +245,7 @@ async function kpiFor(kind: InvoiceKind): Promise<InvoiceKpi> {
 
 async function monthlyFor(kind: InvoiceKind): Promise<MonthPoint[]> {
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)}), months AS (${MONTHS})
+    WITH b AS (${invoiceBase(kind)}), months AS (${MONTHS})
     SELECT to_char(months.m, 'Mon YY') AS month_short,
            count(b.id)::int AS count,
            COALESCE(SUM(b.total), 0)::float AS value_usd
@@ -257,7 +258,7 @@ async function monthlyFor(kind: InvoiceKind): Promise<MonthPoint[]> {
 
 async function distributionBy(kind: InvoiceKind, column: SQL, nullLabel: string): Promise<Distribution[]> {
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)})
+    WITH b AS (${invoiceBase(kind)})
     SELECT COALESCE(${column}, ${nullLabel}) AS label,
            count(*)::int AS count,
            COALESCE(SUM(b.total), 0)::float AS value_usd
@@ -304,7 +305,7 @@ export interface InvoiceClients {
 
 export async function getInvoiceClients(kind: InvoiceKind): Promise<InvoiceClients> {
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)}),
+    WITH b AS (${invoiceBase(kind)}),
          g AS (SELECT COALESCE(SUM(b.total), 0) AS grand FROM b)
     SELECT b.client_id,
            max(b.client_name) AS client_name,
@@ -368,7 +369,7 @@ export async function getInvoiceValidation(kind: InvoiceKind): Promise<InvoiceVa
     distributionBy(kind, sql`b.status`, 'Not Validated'),
     getInvoiceRows(kind, true),
     db.execute(sql`
-      WITH b AS (${base(kind)}), months AS (${MONTHS})
+      WITH b AS (${invoiceBase(kind)}), months AS (${MONTHS})
       SELECT to_char(months.m, 'Mon YY') AS month_short,
              count(b.id)::int AS created,
              count(b.id) FILTER (WHERE b.verified)::int AS verified,
@@ -407,7 +408,7 @@ export interface InvoicePayment {
 export async function getInvoicePayment(kind: InvoiceKind): Promise<InvoicePayment> {
   const modes = await distributionBy(kind, sql`b.payment_mode`, 'UNSPECIFIED');
   const res = await db.execute(sql`
-    WITH b AS (${base(kind)}), months AS (${MONTHS})
+    WITH b AS (${invoiceBase(kind)}), months AS (${MONTHS})
     SELECT to_char(months.m, 'Mon YY') AS month_short,
            b.payment_mode,
            count(b.id)::int AS count,
