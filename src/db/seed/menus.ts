@@ -188,6 +188,7 @@ const CHILDREN: ChildSpec[] = [
   // ── Client Management (original menu_id=2) ──────────────────────
   { parent: 'Client Management', name: 'Clients', order: 1, url: '/masters/clients' },
   { parent: 'Client Management', name: 'Client Dashboard', order: 47, url: '/clients/dashboard' },
+  { parent: 'Client Management', name: 'Client Comparison', order: 48, url: '/clients/comparison' },
   // One client's own picture, as against the dashboard above which reports on
   // the client BASE. Fills the 'Client Import Dashboard' placeholder that sat
   // under Tracking Management pointing at '#' (migration 0116).
@@ -203,6 +204,7 @@ const CHILDREN: ChildSpec[] = [
   // ── Import License (original menu_id=110) ───────────────────────
   { parent: 'Import License', name: 'Create Import License', order: 1, url: '/licenses/new' },
   { parent: 'Import License', name: 'Import License Dashboard', order: 2, url: '/licenses/dashboard' },
+  { parent: 'Import License', name: 'License Comparison', order: 3, url: '/licenses/comparison' },
   { parent: 'Import License', name: 'Import Licenses (list)', order: 3, url: '/licenses' },
 
   // ── Export License (mirrors the group above; migration 0115) ─────
@@ -249,6 +251,7 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Tracking Management', name: 'Fiche de Calcul', order: 42, url: '/fiches' },
   // §4.29 — mirrored by migration 0114 so a fresh DB and a migrated one agree.
   { parent: 'Tracking Management', name: 'Import Tracking Dashboard', order: 43, url: '/imports/dashboard' },
+  { parent: 'Tracking Management', name: 'Tracking Comparison', order: 44, url: '/tracking/comparison' },
   { parent: 'Tracking Management', name: 'Export Tracking Dashboard', order: 44, url: '/exports/dashboard' },
   {
     parent: 'Tracking Management',
