@@ -3,21 +3,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  Boxes,
+  CalendarClock,
   History,
   LogIn,
+  PieChart,
   Pencil,
   RotateCcw,
+  ShieldAlert,
+  ShieldCheck,
   Trash2,
-  CalendarDays,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import StatCard from '@/components/ui/StatCard';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
+import { DonutChart, HBarChart } from '@/components/charts/Charts';
+import { GaugeRing, HeatmapGrid, RadialBars, StackedAreaChart } from '@/components/charts/AdvancedCharts';
+import { ChartCard, Empty, KpiCard, TabSkeleton, nf } from '@/modules/tracking/dashboardUi';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDateTime } from '@/lib/formatDate';
+import type { AuditStats } from '@/db/queries/auditLog';
 import AuditDetailDialog from './AuditDetailDialog';
-import AuditTrend from './AuditTrend';
 
 // §4.28 — the read side of the audit trail, and §4.29 for its dashboard: every
 // figure is a SQL aggregate over live rows, honouring the same filters as the
@@ -42,19 +50,6 @@ interface AuditRow {
   change_count: number;
 }
 
-interface AuditStats {
-  total: number;
-  today: number;
-  data_changes: number;
-  logins: number;
-  deletes: number;
-  restores: number;
-  by_action: Array<{ key: string; count: number }>;
-  by_module: Array<{ key: string; count: number }>;
-  by_user: Array<{ key: string; count: number }>;
-  by_day: Array<{ key: string; count: number }>;
-}
-
 interface FilterOptions {
   modules: string[];
   actions: string[];
@@ -63,15 +58,31 @@ interface FilterOptions {
 
 const EMPTY_OPTIONS: FilterOptions = { modules: [], actions: [], users: [] };
 
+const WEEKDAYS = [
+  { key: 1, label: 'Mon' },
+  { key: 2, label: 'Tue' },
+  { key: 3, label: 'Wed' },
+  { key: 4, label: 'Thu' },
+  { key: 5, label: 'Fri' },
+  { key: 6, label: 'Sat' },
+  { key: 7, label: 'Sun' },
+];
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+
+/** Slices past this are folded into "Other" — a ring of twenty is unreadable. */
+const DONUT_SLICES = 5;
+
 function humanize(value: string): string {
   return value.replace(/[_-]/gu, ' ').replace(/\b\w/gu, (c) => c.toUpperCase());
 }
 
-/** DD-MM for the daily strip — the year is implied by the 30-day window (§4.19). */
+/** DD-MM for the daily axis — the year is implied by the 30-day window (§4.19). */
 function dayLabel(iso: string): string {
   const [, m, d] = iso.split('-');
   return d && m ? `${d}-${m}` : iso;
 }
+
+const fmt = (v: number): string => nf.format(v);
 
 export default function AuditLogPage() {
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -152,6 +163,24 @@ export default function AuditLogPage() {
 
   const hasFilters = query.toString().length > 0;
 
+  const trend = stats?.by_day_kind ?? [];
+  const trendHasData = trend.some((d) => d.changes + d.deletes + d.sessions + d.other > 0);
+
+  const actionSlices = useMemo(() => {
+    const all = stats?.by_action ?? [];
+    const head = all.slice(0, DONUT_SLICES).map((a) => ({ label: humanize(a.key), value: a.count }));
+    const rest = all.slice(DONUT_SLICES).reduce((s, a) => s + a.count, 0);
+    return rest > 0 ? [...head, { label: 'Other', value: rest }] : head;
+  }, [stats]);
+
+  const heat = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of stats?.by_hour ?? []) m.set(`${c.dow}-${c.hour}`, c.count);
+    return m;
+  }, [stats]);
+
+  const signInAttempts = (stats?.sign_ins ?? 0) + (stats?.failed_logins ?? 0);
+
   return (
     <>
       <div className="mb-6">
@@ -165,62 +194,165 @@ export default function AuditLogPage() {
         </p>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <StatCard icon={<Activity className="h-5 w-5" />} label="Entries" value={stats?.total ?? 0} />
-        <StatCard icon={<CalendarDays className="h-5 w-5" />} label="Today" value={stats?.today ?? 0} />
-        <StatCard
-          icon={<Pencil className="h-5 w-5" />}
-          label="Data Changes"
-          value={stats?.data_changes ?? 0}
-          onClick={() => filterByAction('update')}
-          active={action === 'update'}
-          title="Show updates"
-        />
-        <StatCard
-          icon={<LogIn className="h-5 w-5" />}
-          label="Sign-ins"
-          value={stats?.logins ?? 0}
-          onClick={() => filterByAction('login')}
-          active={action === 'login'}
-          title="Show sign-ins"
-        />
-        <StatCard
-          icon={<Trash2 className="h-5 w-5" />}
-          label="Deletions"
-          value={stats?.deletes ?? 0}
-          onClick={() => filterByAction('delete')}
-          active={action === 'delete'}
-          title="Show deletions"
-        />
-        <StatCard
-          icon={<RotateCcw className="h-5 w-5" />}
-          label="Restores"
-          value={stats?.restores ?? 0}
-          onClick={() => filterByAction('restore')}
-          active={action === 'restore'}
-          title="Show restores"
-        />
-      </div>
+      {!stats && loading ? (
+        <div className="mb-4">
+          <TabSkeleton tiles={6} panels={2} />
+        </div>
+      ) : (
+        <div className="mb-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <KpiCard
+              color="blue"
+              icon={<Activity />}
+              label="Entries"
+              value={fmt(stats?.total ?? 0)}
+              sub={`${fmt(stats?.today ?? 0)} today · ${fmt(stats?.active_users ?? 0)} users`}
+            />
+            <KpiCard
+              color="emerald"
+              icon={<Pencil />}
+              label="Data Changes"
+              value={fmt(stats?.data_changes ?? 0)}
+              sub="Creates, updates, deletes"
+              onClick={() => filterByAction('update')}
+              active={action === 'update'}
+            />
+            <KpiCard
+              color="sky"
+              icon={<LogIn />}
+              label="Sign-ins"
+              value={fmt(stats?.logins ?? 0)}
+              sub="Sign-ins and sign-outs"
+              onClick={() => filterByAction('login')}
+              active={action === 'login'}
+            />
+            <KpiCard
+              color="amber"
+              icon={<ShieldAlert />}
+              label="Failed Sign-ins"
+              value={fmt(stats?.failed_logins ?? 0)}
+              sub="Wrong password or disabled account"
+              onClick={() => filterByAction('failed_login')}
+              active={action === 'failed_login'}
+            />
+            <KpiCard
+              color="rose"
+              icon={<Trash2 />}
+              label="Deletions"
+              value={fmt(stats?.deletes ?? 0)}
+              sub="Soft and permanent"
+              onClick={() => filterByAction('delete')}
+              active={action === 'delete'}
+            />
+            <KpiCard
+              color="violet"
+              icon={<RotateCcw />}
+              label="Restores"
+              value={fmt(stats?.restores ?? 0)}
+              sub="Back from the Recycle Bin"
+              onClick={() => filterByAction('restore')}
+              active={action === 'restore'}
+            />
+          </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <AuditTrend
-          title="Activity — last 30 days"
-          data={stats?.by_day ?? []}
-          formatKey={dayLabel}
-          emptyMessage="No activity in this range."
-        />
-        <AuditTrend
-          title="By module"
-          data={stats?.by_module.slice(0, 8) ?? []}
-          formatKey={humanize}
-          emptyMessage="Nothing recorded yet."
-        />
-        <AuditTrend
-          title="Most active users"
-          data={stats?.by_user.slice(0, 8) ?? []}
-          emptyMessage="Nothing recorded yet."
-        />
-      </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ChartCard
+              className="lg:col-span-2"
+              title={to ? `Activity — 30 days to ${dayLabel(to)}` : 'Activity — last 30 days'}
+              icon={<TrendingUp className="h-4 w-4 text-primary-600" />}
+            >
+              {trendHasData ? (
+                <StackedAreaChart
+                  width={700}
+                  height={190}
+                  labels={trend.map((d) => dayLabel(d.key))}
+                  format={fmt}
+                  series={[
+                    { label: 'Data changes', values: trend.map((d) => d.changes) },
+                    { label: 'Sessions', values: trend.map((d) => d.sessions) },
+                    { label: 'Other (view, export, print…)', values: trend.map((d) => d.other) },
+                    { label: 'Deletions', values: trend.map((d) => d.deletes) },
+                  ]}
+                />
+              ) : (
+                <Empty>No activity in this window — widen the date range.</Empty>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Actions" icon={<PieChart className="h-4 w-4 text-primary-600" />}>
+              {actionSlices.length > 0 ? (
+                <DonutChart slices={actionSlices} format={fmt} size={150} thickness={22} />
+              ) : (
+                <Empty>Nothing recorded yet.</Empty>
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ChartCard
+              className="lg:col-span-2"
+              title="When activity happens"
+              icon={<CalendarClock className="h-4 w-4 text-primary-600" />}
+            >
+              {(stats?.by_hour.length ?? 0) > 0 ? (
+                <HeatmapGrid
+                  rows={WEEKDAYS}
+                  columns={HOURS}
+                  value={(dow, hour) => heat.get(`${dow}-${hour}`) ?? 0}
+                  columnLabel={(h) => (h % 3 === 0 ? `${String(h).padStart(2, '0')}h` : '')}
+                  format={(v) => `${fmt(v)} ${v === 1 ? 'entry' : 'entries'}`}
+                />
+              ) : (
+                <Empty>Nothing recorded yet.</Empty>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Sign-in health" icon={<ShieldCheck className="h-4 w-4 text-primary-600" />}>
+              <div className="flex flex-col items-center gap-4">
+                <GaugeRing
+                  label="Successful sign-ins"
+                  done={stats?.sign_ins ?? 0}
+                  total={signInAttempts}
+                  noun="succeeded"
+                  colorIndex={2}
+                  size={130}
+                />
+                <dl className="grid w-full grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md bg-muted/50 p-2">
+                    <dt className="text-[11px] text-muted-foreground">Succeeded</dt>
+                    <dd className="text-base font-bold text-foreground">{fmt(stats?.sign_ins ?? 0)}</dd>
+                  </div>
+                  <div className="rounded-md bg-muted/50 p-2">
+                    <dt className="text-[11px] text-muted-foreground">Failed</dt>
+                    <dd className="text-base font-bold text-foreground">{fmt(stats?.failed_logins ?? 0)}</dd>
+                  </div>
+                  <div className="rounded-md bg-muted/50 p-2">
+                    <dt className="text-[11px] text-muted-foreground">Active users</dt>
+                    <dd className="text-base font-bold text-foreground">{fmt(stats?.active_users ?? 0)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </ChartCard>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ChartCard title="By module" icon={<Boxes className="h-4 w-4 text-primary-600" />}>
+              <HBarChart
+                items={(stats?.by_module ?? []).slice(0, 8).map((m) => ({ label: humanize(m.key), value: m.count }))}
+                format={fmt}
+                emptyLabel="Nothing recorded yet."
+              />
+            </ChartCard>
+            <ChartCard title="Most active users" icon={<Users className="h-4 w-4 text-primary-600" />}>
+              <RadialBars
+                items={(stats?.by_user ?? []).map((u) => ({ label: u.key === 'system' ? 'System' : u.key, value: u.count }))}
+                format={fmt}
+                emptyLabel="Nothing recorded yet."
+              />
+            </ChartCard>
+          </div>
+        </div>
+      )}
 
       <DataTable<AuditRow>
         rows={rows}
