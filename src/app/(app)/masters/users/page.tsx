@@ -5,6 +5,7 @@ import { Download, Plus, X } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
+import PasswordInput from '@/components/ui/PasswordInput';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
@@ -447,7 +448,7 @@ function UserFormModal({
             </div>
             <div>
               <label className={isEdit ? 'label' : 'label required'}>Password{isEdit ? ' (leave empty to keep)' : ''}</label>
-              <input type="password" className="input" value={form.password}
+              <PasswordInput value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} required={!isEdit} />
             </div>
           </div>

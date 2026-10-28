@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Toggle from '@/components/ui/Toggle';
+import PasswordInput from '@/components/ui/PasswordInput';
 import BrandMark from '@/components/ui/BrandMark';
 import { useBranding } from '@/lib/hooks/useBranding';
 import { safeFetchJson } from '@/lib/safeFetch';
@@ -95,10 +96,8 @@ function LoginForm() {
               <label htmlFor="password" className="label">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
-                className="input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"

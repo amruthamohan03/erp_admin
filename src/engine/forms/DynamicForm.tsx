@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, inputClassName } from '@/components/ui/input';
+import PasswordInput from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Toggle from '@/components/ui/Toggle';
@@ -243,13 +244,22 @@ function FieldInput({
 }) {
   const id = field.fieldKey;
   switch (field.fieldType) {
+    case 'password':
+      return (
+        <PasswordInput
+          id={id}
+          className={inputClassName}
+          value={(value as string | undefined) ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+      );
     case 'text':
     case 'email':
-    case 'password':
       return (
         <Input
           id={id}
-          type={field.fieldType === 'text' ? 'text' : field.fieldType}
+          type={field.fieldType}
           value={(value as string | undefined) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
