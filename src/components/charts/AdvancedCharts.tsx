@@ -28,8 +28,7 @@ import {
  * of what kind": the top edge is the total, which a multi-line chart makes the
  * reader add up by eye.
  */
-export function StackedAreaChart({ labels, series, height = 150, format }: CartesianProps) {
-  const width = 320;
+export function StackedAreaChart({ labels, series, height = 150, width = 320, format }: CartesianProps) {
   const tops = stackSeries(series.map((s) => s.values));
   const max = niceMax(tops.at(-1) ?? []);
   const slot = width / Math.max(1, labels.length);
@@ -91,6 +90,7 @@ export function GaugeRing({
   size = 112,
   thickness = 11,
   colorIndex = 0,
+  noun = 'validated',
 }: {
   label: string;
   done: number;
@@ -98,6 +98,8 @@ export function GaugeRing({
   size?: number;
   thickness?: number;
   colorIndex?: number;
+  /** What `done` means, for the tooltip — "40 of 42 validated". */
+  noun?: string;
 }) {
   const radius = (size - thickness) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -121,7 +123,7 @@ export function GaugeRing({
             // the ring reads as rotated.
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           >
-            <title>{`${label}: ${done} of ${total} validated`}</title>
+            <title>{`${label}: ${done} of ${total} ${noun}`}</title>
           </circle>
         )}
         {/* An em dash, not 0%, when there is nothing to measure — "none raised"
@@ -219,6 +221,77 @@ export function RadialBars({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * A grid of cells shaded by count — "when does this happen".
+ *
+ * Rows and columns are both ordered scales (weekday × hour), so a pattern like
+ * "weekday mornings" reads as a block of colour, which no bar or line can show
+ * without splitting into seven series. Shade is scaled to the busiest cell, and
+ * an empty cell keeps a faint track so the grid stays a grid.
+ */
+export function HeatmapGrid({
+  rows,
+  columns,
+  value,
+  columnLabel = (c) => String(c),
+  colorIndex = 0,
+  format,
+}: {
+  rows: Array<{ key: number; label: string }>;
+  columns: number[];
+  value: (row: number, column: number) => number;
+  /** Axis text for a column; return '' to leave that column unlabelled. */
+  columnLabel?: (column: number) => string;
+  colorIndex?: number;
+  format?: (v: number) => string;
+}) {
+  const max = Math.max(1, ...rows.flatMap((r) => columns.map((c) => value(r.key, c))));
+  const color = chartColor(colorIndex);
+  const template = { gridTemplateColumns: `2.5rem repeat(${columns.length}, minmax(0, 1fr))` };
+
+  return (
+    <div className="space-y-1" role="img">
+      {rows.map((r) => (
+        <div key={r.key} className="grid items-center gap-[3px]" style={template}>
+          <span className="text-[10px] font-medium text-muted-foreground">{r.label}</span>
+          {columns.map((c) => {
+            const v = value(r.key, c);
+            // A floor of 12% so the quietest non-zero cell is still visibly lit.
+            const pct = v > 0 ? Math.round(12 + (v / max) * 88) : 0;
+            return (
+              <span
+                key={c}
+                className="aspect-square rounded-[3px] bg-muted transition-transform hover:scale-125"
+                style={v > 0 ? { background: `color-mix(in srgb, ${color} ${pct}%, transparent)` } : undefined}
+                title={`${r.label} ${columnLabel(c) || c} — ${format ? format(v) : v}`}
+              />
+            );
+          })}
+        </div>
+      ))}
+      <div className="grid gap-[3px] pt-0.5" style={template} aria-hidden="true">
+        <span />
+        {columns.map((c) => (
+          <span key={c} className="text-center text-[9px] text-muted-foreground">
+            {columnLabel(c)}
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center justify-end gap-1.5 pt-1 text-[10px] text-muted-foreground" aria-hidden="true">
+        Less
+        {[0, 25, 50, 75, 100].map((p) => (
+          <span
+            key={p}
+            className="h-2.5 w-2.5 rounded-[2px] bg-muted"
+            style={p > 0 ? { background: `color-mix(in srgb, ${color} ${p}%, transparent)` } : undefined}
+          />
+        ))}
+        More
+      </div>
     </div>
   );
 }

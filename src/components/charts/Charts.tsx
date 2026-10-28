@@ -83,9 +83,12 @@ export function Grid({
 export function XLabels({ labels, width, height }: { labels: string[]; width: number; height: number }) {
   if (labels.length === 0) return null;
   const step = labels.length === 1 ? 0 : width / (labels.length - 1);
+  // A label needs ~36 units at font size 9; past that they overprint, so a long
+  // run (thirty days) labels every nth point and keeps the last one.
+  const every = Math.max(1, Math.ceil(labels.length / Math.max(1, Math.floor(width / 36))));
   return (
     <g aria-hidden="true">
-      {labels.map((l, i) => (
+      {labels.map((l, i) => (i % every !== 0 && i !== labels.length - 1) ? null : (
         <text
           key={`${l}-${i}`}
           x={labels.length === 1 ? width / 2 : i * step}

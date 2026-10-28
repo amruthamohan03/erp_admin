@@ -5,6 +5,7 @@
 import { and, count, desc, eq, gte, ilike, lte, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { auditLog, usersT } from '@/db/schema';
+import { toDateInputValue } from '@/lib/formatDate';
 
 export interface AuditFilters {
   q?: string;
@@ -162,10 +163,38 @@ export interface AuditStats {
   logins: number;
   deletes: number;
   restores: number;
+  /** Successful and failed sign-ins on their own — `logins` also counts logouts. */
+  sign_ins: number;
+  failed_logins: number;
+  active_users: number;
   by_action: Array<{ key: string; count: number }>;
   by_module: Array<{ key: string; count: number }>;
   by_user: Array<{ key: string; count: number }>;
   by_day: Array<{ key: string; count: number }>;
+  /**
+   * Every day of the trend window, gaps included, split by kind of action — a
+   * stacked chart that skipped quiet days would draw a slope where there was none.
+   */
+  by_day_kind: AuditDayKind[];
+  /** ISO weekday (1 = Monday) × hour of day, for the "when does work happen" grid. */
+  by_hour: Array<{ dow: number; hour: number; count: number }>;
+}
+
+export interface AuditDayKind {
+  key: string;
+  changes: number;
+  deletes: number;
+  sessions: number;
+  other: number;
+}
+
+const TREND_DAYS = 30;
+
+/** YYYY-MM-DD plus n days, done on the string so no timezone can shift it. */
+function addDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -184,6 +213,9 @@ export async function auditStats(filters: AuditFilters): Promise<AuditStats> {
       logins: sql<number>`count(*) filter (where ${auditLog.action} in ('login','logout','failed_login'))`,
       deletes: sql<number>`count(*) filter (where ${auditLog.action} in ('delete','permanent_delete'))`,
       restores: sql<number>`count(*) filter (where ${auditLog.action} = 'restore')`,
+      sign_ins: sql<number>`count(*) filter (where ${auditLog.action} = 'login')`,
+      failed_logins: sql<number>`count(*) filter (where ${auditLog.action} = 'failed_login')`,
+      active_users: sql<number>`count(distinct ${auditLog.actorId})`,
     })
     .from(auditLog)
     .leftJoin(usersT, eq(usersT.id, auditLog.actorId))
@@ -208,17 +240,51 @@ export async function auditStats(filters: AuditFilters): Promise<AuditStats> {
   ]);
 
   // Daily trend over the last 30 days, oldest first so a chart reads left to right.
-  const dayRows = await db
-    .select({
-      key: sql<string>`to_char(date_trunc('day', ${auditLog.createdAt}), 'YYYY-MM-DD')`,
-      count: count(),
-    })
-    .from(auditLog)
-    .leftJoin(usersT, eq(usersT.id, auditLog.actorId))
-    .where(where)
-    .groupBy(sql`1`)
-    .orderBy(sql`1 desc`)
-    .limit(30);
+  // The window ends at the `to` filter (or today) and never starts before `from`.
+  const end = filters.to ?? toDateInputValue(new Date());
+  const windowStart = addDays(end, -(TREND_DAYS - 1));
+  const start = filters.from && filters.from > windowStart ? filters.from : windowStart;
+  const countOf = (actions: string[]): SQL<number> =>
+    sql<number>`count(*) filter (where ${auditLog.action} in (${sql.join(
+      actions.map((a) => sql`${a}`),
+      sql`, `,
+    )}))`;
+
+  const [dayRows, hourRows] = await Promise.all([
+    db
+      .select({
+        key: sql<string>`to_char(date_trunc('day', ${auditLog.createdAt}), 'YYYY-MM-DD')`,
+        count: count(),
+        changes: countOf(['create', 'update']),
+        deletes: countOf(['delete', 'permanent_delete']),
+        sessions: countOf(['login', 'logout', 'failed_login']),
+      })
+      .from(auditLog)
+      .leftJoin(usersT, eq(usersT.id, auditLog.actorId))
+      .where(and(where, gte(auditLog.createdAt, new Date(`${start}T00:00:00`))))
+      .groupBy(sql`1`),
+    db
+      .select({
+        dow: sql<number>`extract(isodow from ${auditLog.createdAt})::int`,
+        hour: sql<number>`extract(hour from ${auditLog.createdAt})::int`,
+        count: count(),
+      })
+      .from(auditLog)
+      .leftJoin(usersT, eq(usersT.id, auditLog.actorId))
+      .where(where)
+      .groupBy(sql`1`, sql`2`),
+  ]);
+
+  const byKey = new Map(dayRows.map((r) => [String(r.key), r]));
+  const by_day_kind: AuditDayKind[] = [];
+  for (let day = start; day <= end; day = addDays(day, 1)) {
+    const r = byKey.get(day);
+    const changes = Number(r?.changes ?? 0);
+    const deletes = Number(r?.deletes ?? 0);
+    const sessions = Number(r?.sessions ?? 0);
+    const other = Number(r?.count ?? 0) - changes - deletes - sessions;
+    by_day_kind.push({ key: day, changes, deletes, sessions, other });
+  }
 
   return {
     total: Number(totals?.total ?? 0),
@@ -227,10 +293,18 @@ export async function auditStats(filters: AuditFilters): Promise<AuditStats> {
     logins: Number(totals?.logins ?? 0),
     deletes: Number(totals?.deletes ?? 0),
     restores: Number(totals?.restores ?? 0),
+    sign_ins: Number(totals?.sign_ins ?? 0),
+    failed_logins: Number(totals?.failed_logins ?? 0),
+    active_users: Number(totals?.active_users ?? 0),
     by_action,
     by_module,
     by_user,
-    by_day: dayRows.map((r) => ({ key: String(r.key), count: Number(r.count) })).reverse(),
+    by_day: by_day_kind.map((d) => ({
+      key: d.key,
+      count: d.changes + d.deletes + d.sessions + d.other,
+    })),
+    by_day_kind,
+    by_hour: hourRows.map((r) => ({ dow: Number(r.dow), hour: Number(r.hour), count: Number(r.count) })),
   };
 }
 
