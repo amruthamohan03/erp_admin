@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { inputClassName } from '@/components/ui/input';
+import PasswordInput from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { safeFetchJson } from '@/lib/safeFetch';
 
@@ -55,9 +56,9 @@ export default function SecurityTab() {
         <form onSubmit={submit} className="space-y-4 max-w-md">
           <div className="space-y-1.5">
             <Label htmlFor="new_password">New password</Label>
-            <Input
+            <PasswordInput
               id="new_password"
-              type="password"
+              className={inputClassName}
               value={next}
               onChange={(e) => setNext(e.target.value)}
               autoComplete="new-password"
@@ -65,9 +66,9 @@ export default function SecurityTab() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirm_password">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm_password"
-              type="password"
+              className={inputClassName}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               autoComplete="new-password"
