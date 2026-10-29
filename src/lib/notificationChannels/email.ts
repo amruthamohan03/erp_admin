@@ -50,7 +50,12 @@ function transporterFromEnv(): Transporter | null {
   return cachedTransporter;
 }
 
-export function buildSmtpEmailChannel(): NotificationChannel | null {
+/**
+ * The configured SMTP transport and sender, or null when SMTP_HOST is unset.
+ * Shared by the notification outbox and the Email & WhatsApp composer, so both
+ * send through one connection pool and one From address.
+ */
+export function smtpSender(): { transporter: Transporter; from: string } | null {
   const transporter = transporterFromEnv();
   if (!transporter) return null;
   const from = process.env.SMTP_FROM;
@@ -59,6 +64,13 @@ export function buildSmtpEmailChannel(): NotificationChannel | null {
       'SMTP_FROM is required when SMTP_HOST is set — set the sender address in .env.local',
     );
   }
+  return { transporter, from };
+}
+
+export function buildSmtpEmailChannel(): NotificationChannel | null {
+  const smtp = smtpSender();
+  if (!smtp) return null;
+  const { transporter, from } = smtp;
   return {
     async send(row) {
       // Minimal rendering: subject = template name, body = JSON of the row's

@@ -16,6 +16,13 @@ const allowedDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? '')
 const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins,
+  experimental: {
+    // With a proxy (src/proxy.ts) every request body is buffered and capped at
+    // 10 MB by default, which would cut off an email's attachments part-way
+    // through the upload. 30 MB covers the 25 MB attachment limit in
+    // src/lib/messaging/attachments.ts plus the rest of the form.
+    proxyClientMaxBodySize: '30mb',
+  },
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },
