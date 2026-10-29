@@ -1,17 +1,12 @@
 import { NextRequest } from 'next/server';
 import { and, count, desc, eq, ne, type SQL } from 'drizzle-orm';
-import crypto from 'node:crypto';
 import { db } from '@/lib/db';
 import { filesT } from '@/db/schema';
 import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { BadRequestError } from '@/lib/errors';
 import { fileListQuerySchema } from '@/schemas';
-import {
-  activeBucket,
-  buildStorageKey,
-  putObject,
-  slugifyName,
-} from '@/lib/files';
+import { activeBucket } from '@/lib/files';
+import { storeFile } from '@/db/queries/files';
 
 // GET /api/v1/files?entity_type=&entity_id=&status=&page=&pageSize=
 // Paginated list of uploaded files. Defaults exclude `deleted`
@@ -101,48 +96,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const entityId = (form.get('entity_id') as string | null) ?? null;
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-  const safeName = slugifyName(file.name);
-
-  // Two-phase insert because the key embeds the row id — insert
-  // first with a placeholder key, then update with the real key
-  // and write the bytes. One transaction so a write failure rolls
-  // back the row.
-  const inserted = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(filesT)
-      .values({
-        bucket: activeBucket(),
-        key: 'pending',
-        mime: file.type || null,
-        size: bytes.length,
-        sha256,
-        originalName: file.name,
-        uploaderId: session.uid,
-        entityType,
-        entityId,
-        status: 'committed',
-      })
-      .returning({
-        id: filesT.id,
-      });
-
-    const key = buildStorageKey({
-      entityType,
-      entityId,
-      fileId: row.id,
-      name: safeName,
-    });
-
-    await putObject(key, bytes);
-
-    await tx
-      .update(filesT)
-      .set({ key })
-      .where(eq(filesT.id, row.id));
-
-    return { id: row.id, key };
-  });
+  // One transaction so a write failure rolls back the row (see storeFile).
+  const inserted = await db.transaction((tx) =>
+    storeFile(tx, { bytes, name: file.name, mime: file.type, uploaderId: session.uid, entityType, entityId }),
+  );
+  const { sha256 } = inserted;
 
   return ok(
     {

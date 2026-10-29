@@ -334,6 +334,18 @@
   /* Full-strength foreground: a field label is not secondary information, and the
      previous /80 was the main source of the washed-out look on long forms. */
   .label { @apply mb-1 block text-sm font-medium text-foreground; }
+  /* A composed message body — the rich-text editor and the read-only view of a
+     sent message share it, so what was written is what is shown. Tailwind's
+     preflight strips list bullets and heading sizes; this puts back the ones the
+     editor's toolbar can produce. */
+  .prose-message { @apply break-words leading-relaxed; }
+  .prose-message p, .prose-message div { @apply my-0; }
+  .prose-message h1, .prose-message h2, .prose-message h3 { @apply mb-1 mt-2 text-base font-semibold; }
+  .prose-message ul { @apply my-1 list-disc pl-6; }
+  .prose-message ol { @apply my-1 list-decimal pl-6; }
+  .prose-message blockquote { @apply my-1 border-l-2 border-border pl-3 text-muted-foreground; }
+  .prose-message a { @apply text-primary-600 underline; }
+  .prose-message hr { @apply my-2 border-border; }
 
   /* §4.18 — the required marker. Add `required` to a label's class rather than
      typing a star into the label text, so every screen renders the same glyph in

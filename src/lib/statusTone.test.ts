@@ -53,6 +53,14 @@ describe('statusTone', () => {
     expect(statusTone('No Expiry Date')).toBe('slate');
   });
 
+  // Communication → Email & WhatsApp send outcomes.
+  it('reads the outbound message statuses', () => {
+    expect(statusTone('Sending')).toBe('sky');
+    expect(statusTone('Sent')).toBe('sky');
+    expect(statusTone('Partial')).toBe('amber');
+    expect(statusTone('Failed')).toBe('rose');
+  });
+
   it('is neutral for text it does not know, and for nothing', () => {
     expect(statusTone('TRUCK AT KASUMBALESA')).toBe('slate');
     expect(statusTone('')).toBe('slate');

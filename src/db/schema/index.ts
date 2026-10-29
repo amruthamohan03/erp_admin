@@ -98,6 +98,7 @@ export * from './paymentMethodMaster';
 export * from './paymentTermMaster';
 export * from './clearingBasisMaster';
 export * from './notifications';
+export * from './outboundMessages';
 export * from './dataImport';
 export * from './paymentRecollection';
 export * from './delayRuleMaster';

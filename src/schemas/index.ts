@@ -83,6 +83,7 @@ export * from './payment-terms';
 export * from './clearing-bases';
 export * from './fileCancellation';
 export * from './notifications';
+export * from './outboundMessages';
 export * from './dataImport';
 export * from './pageConditions';
 export * from './import-dashboard';
