@@ -18,6 +18,7 @@ import SealPickerControl from '@/components/ui/SealPickerControl';
 import { fetchClientOptions } from '@/lib/clientOptions';
 import { fetchMasterOptions, type MasterOption } from '@/lib/selectOptions';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // No. of Seals is derived from the comma-joined seal numbers — same rule the
 // single form applies via its `count` derive on dgda_seal_no.
@@ -1053,7 +1054,7 @@ export default function BulkNewExportsPage() {
                   <td className="is-ref sticky left-12 z-10 border-e-2 border-e-brand font-mono font-semibold">
                     {previewRefs[i] ?? <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="text-muted-foreground">{licenseLabel || '—'}</td>
+                  <td className="text-muted-foreground">{licenseLabel || NO_VALUE}</td>
                   <td>
                     <input
                       type="date"

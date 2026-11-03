@@ -99,6 +99,7 @@ export * from './paymentTermMaster';
 export * from './clearingBasisMaster';
 export * from './notifications';
 export * from './outboundMessages';
+export * from './communicationTemplateMaster';
 export * from './dataImport';
 export * from './paymentRecollection';
 export * from './delayRuleMaster';

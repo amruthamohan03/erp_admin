@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { Plus, Search, Eye, Edit2, Trash2, Truck, MapPin, X } from 'lucide-react';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import { formatDate as fmtDate } from '@/lib/formatDate';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Local Tracking list. The create/edit form is a transaction-page
 // (/local/new, /local/[id]); this page owns the stat cards (total + per-office
@@ -37,6 +39,8 @@ const OFFICE_GRAD: Record<number, string> = {
 
 
 export default function LocalPage() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('local');
   const [items, setItems] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -91,7 +95,7 @@ export default function LocalPage() {
     load(); loadStats();
   }
 
-  const D = (k: string) => { const v = view?.[k]; return v === null || v === undefined || v === '' ? '—' : String(v); };
+  const D = (k: string) => { const v = view?.[k]; return v === null || v === undefined || v === '' ? NO_VALUE : String(v); };
   const Ddate = (k: string) => fmtDate((view?.[k] as string) ?? null);
 
   return (
@@ -150,6 +154,7 @@ export default function LocalPage() {
           { key: 'arrival_date', header: 'Arrival', render: (r: Row) => fmtDate(r.arrival_date) },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           view: () => openView(r.id),
           edit: `/local/${r.id}`,
           remove: () => del(r.id),
@@ -204,6 +209,7 @@ export default function LocalPage() {
       )}
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
+      {messaging.dialog}
     </>
   );
 }

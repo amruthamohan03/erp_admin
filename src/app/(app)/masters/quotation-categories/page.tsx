@@ -7,7 +7,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import Toggle from '@/components/ui/Toggle';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface QuotationCategoryRow {
   id: number;
@@ -103,7 +104,7 @@ export default function QuotationCategoriesPage() {
         { key: 'category_header', header: 'Section Header', className: 'text-muted-foreground text-xs', render: (r: QuotationCategoryRow) => (
             <>
             {r.category_header || (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">{NO_VALUE}</span>
                       )}
             </>
           ) },

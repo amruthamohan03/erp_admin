@@ -8,6 +8,7 @@ import {
 } from '@/modules/tracking/dashboardUi';
 import type { FicheDuties, HsCodeSummary } from '@/db/queries/ficheDashboardTabs';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Duties & HS codes — what the duty is levied on, read from the fiche lines:
 // each line's tariff position (HS code), origin, DDI rate and DDI in CDF.
@@ -87,7 +88,7 @@ export default function DutiesTab({ active }: { active: boolean }) {
               key: 'description',
               header: 'Tariff Description',
               sortable: true,
-              render: (h) => <span className="block max-w-md truncate" title={h.description ?? undefined}>{h.description ?? '—'}</span>,
+              render: (h) => <span className="block max-w-md truncate" title={h.description ?? undefined}>{h.description || NO_VALUE}</span>,
             },
             { key: 'lines', header: 'Lines', align: 'right', sortable: true },
             { key: 'fiches', header: 'Fiches', align: 'right', sortable: true },

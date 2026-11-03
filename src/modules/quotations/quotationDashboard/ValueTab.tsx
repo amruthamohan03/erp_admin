@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/formatDate';
 import { QuotationTable } from './OverviewTab';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { QuotationValue, ValueBand } from '@/db/queries/quotationDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Value Analysis — where the money is.
 //
@@ -160,8 +161,8 @@ export default function ValueTab({ active }: { active: boolean }) {
             >
               {data.top.map((r) => (
                 <Tr key={r.id}>
-                  <Td align="left">{r.quotation_ref ?? '—'}</Td>
-                  <Td align="left">{r.client_name ?? '—'}</Td>
+                  <Td align="left">{r.quotation_ref || NO_VALUE}</Td>
+                  <Td align="left">{r.client_name || NO_VALUE}</Td>
                   <Td>{formatDate(r.quotation_date)}</Td>
                   <Td>{nf.format(r.line_count)}</Td>
                   <Td align="right">{nf2.format(r.sub_total)}</Td>

@@ -11,6 +11,7 @@ import DataTable, { type DataTableColumn } from '@/components/ui/DataTable';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 type Kind = 'export' | 'import';
 
@@ -269,7 +270,7 @@ export default function InvoiceListPage({ kind }: { kind: Kind }) {
               {err && <div className="rounded-md bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
               <p className="text-sm text-muted-foreground">{confirmText}</p>
               <div className="text-sm text-muted-foreground">
-                {confirm.row.invoice_ref || '—'} · {confirm.row.client_name || 'N/A'} · {fmt(confirm.row.total_usd)} USD
+                {confirm.row.invoice_ref || NO_VALUE} · {confirm.row.client_name || NO_VALUE} · {fmt(confirm.row.total_usd)} USD
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-border px-5 py-3">

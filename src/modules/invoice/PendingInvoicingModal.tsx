@@ -13,6 +13,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 type Kind = 'export' | 'import';
 
@@ -67,7 +68,7 @@ export default function PendingInvoicingModal({ kind, open, onClose, onChanged }
   const clients = useMemo(() => {
     const m = new Map<string, { code: string; active: number; held: number }>();
     for (const r of rows) {
-      const code = r.client_code ?? '—';
+      const code = r.client_code || NO_VALUE;
       const c = m.get(code) ?? { code, active: 0, held: 0 };
       if (r.disabled) c.held += 1;
       else c.active += 1;
@@ -76,7 +77,7 @@ export default function PendingInvoicingModal({ kind, open, onClose, onChanged }
     return [...m.values()];
   }, [rows]);
 
-  const shown = useMemo(() => (client ? rows.filter((r) => (r.client_code ?? '—') === client) : rows), [rows, client]);
+  const shown = useMemo(() => (client ? rows.filter((r) => (r.client_code || NO_VALUE) === client) : rows), [rows, client]);
   const activeCount = rows.filter((r) => !r.disabled).length;
 
   async function commitToggle(): Promise<void> {
@@ -156,7 +157,7 @@ export default function PendingInvoicingModal({ kind, open, onClose, onChanged }
               exportHref={`/api/v1/${kind}-invoices/pending/export`}
               emptyMessage="Nothing is waiting — every cleared file is on an invoice."
               columns={[
-                { key: 'client_code', header: 'Client', sortable: true, value: (r) => `${r.client_code ?? ''} ${r.client_name ?? ''}`, render: (r) => <span title={r.client_name ?? undefined}>{r.client_code ?? '—'}</span> },
+                { key: 'client_code', header: 'Client', sortable: true, value: (r) => `${r.client_code ?? ''} ${r.client_name ?? ''}`, render: (r) => <span title={r.client_name ?? undefined}>{r.client_code || NO_VALUE}</span> },
                 { key: 'mca_ref', header: 'File Reference', sortable: true, className: 'font-mono font-medium' },
                 { key: 'quittance_date', header: 'Quittance Date', sortable: true, render: (r) => formatDate(r.quittance_date) },
                 { key: 'weight', header: kind === 'export' ? 'Weight (MT)' : 'Weight (KG)', align: 'right', className: 'tabular-nums', render: (r) => num(r.weight, kind === 'export' ? 3 : 2) },

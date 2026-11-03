@@ -11,7 +11,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
-import { formatDateTime } from '@/lib/formatDate';
+import { formatDateTime } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface SentRow {
   id: number;
@@ -211,7 +212,7 @@ export default function MessagesPage() {
           {
             key: 'roles',
             header: 'To',
-            render: (r) => <span className="block max-w-xs truncate" title={r.roles ?? ''}>{r.roles ?? '—'}</span>,
+            render: (r) => <span className="block max-w-xs truncate" title={r.roles ?? ''}>{r.roles || NO_VALUE}</span>,
           },
           { key: 'created_at', header: 'Sent', render: (r) => formatDateTime(r.created_at) },
           {

@@ -13,6 +13,7 @@ import {
 import { gradient } from '@/components/ui/cardGradient';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { OverviewDashboard } from '@/db/queries/overviewDashboard';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.29 — the home dashboard.
 //
@@ -297,7 +298,7 @@ export default function DashboardPage() {
               format={(v) => nf.format(v)}
               emptyLabel="Nothing open against any client."
               items={data.top_clients.map((c) => ({
-                label: c.client_name ?? '—',
+                label: c.client_name || NO_VALUE,
                 value: c.total,
               }))}
             />

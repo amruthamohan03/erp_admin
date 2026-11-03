@@ -46,6 +46,7 @@ import {
 } from '@/lib/payments/stageConfig';
 import type { PaymentStage } from '@/db/schema';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /** A grant from payment_stage_role_master_t — null location is every office. */
 interface StageGrant {
@@ -718,7 +719,7 @@ export default function PaymentsPage() {
           {
             key: 'pay_for',
             header: 'For',
-            render: (r) => (r.pay_for != null ? PAY_FOR_LABELS[r.pay_for] ?? '—' : '—'),
+            render: (r) => (r.pay_for != null ? PAY_FOR_LABELS[r.pay_for] || NO_VALUE : NO_VALUE),
           },
           { key: 'payment_type', header: 'Type', sortable: true },
           { key: 'currency_short_name', header: 'Currency' },

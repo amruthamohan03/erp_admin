@@ -9,6 +9,7 @@ import {
 } from '@/modules/tracking/dashboardUi';
 import type { ClientSummary, FicheClients } from '@/db/queries/ficheDashboardTabs';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Clients — whose files the fiches are calculated on, ranked by the duty (DDI)
 // they carry, with the fiche count beside it.
@@ -40,7 +41,7 @@ export default function ClientsTab({ active }: { active: boolean }) {
         <KpiCard value={nf.format(data.total_clients)} label="Clients with Fiches" color="blue" icon={<Users />} />
         <KpiCard value={nf2.format(data.ddi_total)} label="Total DDI (CDF)" color="rose" icon={<Landmark />} />
         <KpiCard
-          value={top ? name(top) : '—'}
+          value={top ? name(top) : NO_VALUE}
           label="Top Client by DDI"
           color="purple"
           icon={<Trophy />}

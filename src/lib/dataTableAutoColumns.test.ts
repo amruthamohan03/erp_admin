@@ -79,8 +79,9 @@ describe('derived date columns', () => {
     expect(render([{ invoice_ref: '2026-NMI-EXP-0001' }], 'invoice_ref')).toBe('2026-NMI-EXP-0001');
   });
 
-  it('shows an em dash for an empty value', () => {
-    expect(render([{ address: null }], 'address')).toBe('—');
+  it('shows N/A for an empty value (§4.41)', () => {
+    expect(render([{ address: null }], 'address')).toBe('N/A');
+    expect(render([{ address: '  ' }], 'address')).toBe('N/A');
   });
 
   it('keeps the date searchable in both forms it can be typed', () => {

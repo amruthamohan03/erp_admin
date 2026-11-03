@@ -6,6 +6,7 @@ import { nf2 } from '@/modules/tracking/dashboardUi';
 import type { InvoiceRow } from '@/db/queries/invoiceDashboardTabs';
 import type { InvoiceExportScope, InvoiceKind } from '@/schemas/invoice-dashboard';
 import { exportHref, invoiceHref } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /**
  * The invoice list every tab shows — one set of columns, one money format, one
@@ -44,7 +45,7 @@ export default function InvoiceTable({
           // §4.15 — the column shows the code; searching accepts the legal
           // name too, so text from an outside document still finds the row.
           value: (r) => `${r.client_name ?? ''} ${r.client_company ?? ''}`.trim(),
-          render: (r) => <span title={r.client_company ?? undefined}>{r.client_name ?? '—'}</span>,
+          render: (r) => <span title={r.client_company ?? undefined}>{r.client_name || NO_VALUE}</span>,
         },
         { key: 'goods_type', header: 'Type of Goods', sortable: true },
         { key: 'payment_mode', header: 'Payment Mode', sortable: true },

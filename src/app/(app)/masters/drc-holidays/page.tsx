@@ -23,6 +23,7 @@ import {
   WEEKDAY_HEADINGS,
   weekendDaysInYear,
 } from '@/lib/calendarMonth';
+import { NO_VALUE } from '@/lib/displayValue';
 
 type HolidayType = 'fixed' | 'variable';
 
@@ -298,7 +299,7 @@ export default function DrcHolidaysPage() {
           {
             key: 'name_fr',
             header: 'Name (French)',
-            render: (r: Row) => r.name_fr || '—',
+            render: (r: Row) => r.name_fr || NO_VALUE,
           },
           {
             key: 'holiday_type',

@@ -40,6 +40,7 @@ import { splitSeals } from '@/db/queries/sealUsage';
 import { assertPaymentMcaRefs, firstMcaRef } from '@/db/queries/paymentMca';
 import { announceFiche, computeFicheSave } from '@/db/queries/fiches';
 import { announcePayment } from '@/db/queries/payments';
+import { queueStageMessages } from '@/db/queries/communicationTemplates';
 import { loadPaymentStages } from '@/db/queries/paymentStages';
 import { applicableStages } from '@/lib/payments/stageConfig';
 import {
@@ -616,6 +617,19 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Ctx) =
     if (slug === 'fiche' && isCreate) {
       await announceFiche(tx, 'fiche.created', savedId, session.uid);
     }
+
+    // The client hears about it through any communication template listening
+    // for this stage (Masters → Communication Templates): rendered and queued in
+    // this transaction, sent once it has committed. Compared as text — a form
+    // posts "6" for a status the row holds as 6, and that is not a change.
+    await queueStageMessages(tx, {
+      slug,
+      entityId: savedId,
+      actorId: session.uid,
+      trigger: isCreate
+        ? { on: 'create' }
+        : { on: 'update', changed: Object.keys(patch).filter((c) => String(before?.[c] ?? '') !== String(patch[c] ?? '')) },
+    });
 
     return savedId;
   });

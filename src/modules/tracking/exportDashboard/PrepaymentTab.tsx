@@ -13,6 +13,7 @@ import {
 } from '../dashboardUi';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { ExportPrepayment } from '@/db/queries/exportDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Prepayment — what the five agencies charged, and how far each file has got
 // through liquidation and quittance.
@@ -170,17 +171,17 @@ export default function PrepaymentTab({ active }: { active: boolean }) {
         autoColumns={false}
         emptyMessage="No export files yet — agency fees appear here once a file carries them."
         columns={[
-          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
-          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref || NO_VALUE}</strong> },
+          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name || NO_VALUE },
           { key: 'weight', header: 'Weight', align: 'right', sortable: true, render: (r) => nf2.format(r.weight ?? 0) },
           { key: 'ceec', header: 'CEEC', align: 'right', sortable: true, render: (r) => money(r.ceec) },
           { key: 'cgea', header: 'CGEA', align: 'right', render: (r) => money(r.cgea) },
           { key: 'occ', header: 'OCC', align: 'right', render: (r) => money(r.occ) },
           { key: 'lmc', header: 'LMC', align: 'right', sortable: true, render: (r) => money(r.lmc) },
-          { key: 'lmc_id', header: 'LMC ID', render: (r) => r.lmc_id ?? '—', defaultHidden: true },
+          { key: 'lmc_id', header: 'LMC ID', render: (r) => r.lmc_id || NO_VALUE, defaultHidden: true },
           { key: 'lmc_date', header: 'LMC Date', render: (r) => formatDate(r.lmc_date), defaultHidden: true },
           { key: 'ogefrem', header: 'OGEFREM', align: 'right', sortable: true, render: (r) => money(r.ogefrem) },
-          { key: 'ogefrem_ref', header: 'OGEFREM Ref', render: (r) => r.ogefrem_ref ?? '—', defaultHidden: true },
+          { key: 'ogefrem_ref', header: 'OGEFREM Ref', render: (r) => r.ogefrem_ref || NO_VALUE, defaultHidden: true },
           { key: 'ogefrem_date', header: 'OGEFREM Date', render: (r) => formatDate(r.ogefrem_date), defaultHidden: true },
           {
             key: 'total_fees',

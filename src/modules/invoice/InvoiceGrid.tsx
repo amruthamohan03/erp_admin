@@ -39,6 +39,7 @@ import {
   type AllGridHeadings,
   type GridKey,
 } from '@/lib/invoiceGrid/columns';
+import { NO_VALUE } from '@/lib/displayValue';
 
 type Kind = 'export' | 'import';
 
@@ -662,7 +663,7 @@ export default function InvoiceGrid({
   }, [pickers, fileQuotations]);
 
   const mcaLabel = useCallback(
-    (id: number | null) => pickers.availableMcas.find((m) => m.id === id)?.mca_ref ?? (id ? `File #${id}` : '—'),
+    (id: number | null) => pickers.availableMcas.find((m) => m.id === id)?.mca_ref ?? (id ? `File #${id}` : NO_VALUE),
     [pickers],
   );
 
@@ -1056,7 +1057,7 @@ export default function InvoiceGrid({
                                   title={it.item_name ?? ''}
                                 />
                               </td>
-                              <td className="text-center text-muted-foreground">{it.unit_text || '—'}</td>
+                              <td className="text-center text-muted-foreground">{it.unit_text || NO_VALUE}</td>
                               {g.cdf ? (
                                 <>
                                   <td className="text-right font-mono tabular-nums text-muted-foreground">{money(it.cif_split)}</td>

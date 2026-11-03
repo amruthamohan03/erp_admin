@@ -1,7 +1,7 @@
 // §4.26 — read and update the per-action colour/icon configuration.
 //
 // GET returns a complete set (missing rows fall back to defaults) so the settings
-// screen always renders all sixteen actions. PUT upserts the submitted rows in one
+// screen always renders every configurable action. PUT upserts the submitted rows in one
 // transaction and records an audit entry (§4.28 — application-settings changes are
 // logged like any other consequential change).
 import { NextRequest } from 'next/server';

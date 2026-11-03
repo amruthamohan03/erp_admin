@@ -11,6 +11,7 @@ import type { ClientSummary, InvoiceClients } from '@/db/queries/invoiceDashboar
 import type { InvoiceKind } from '@/schemas/invoice-dashboard';
 import { usd } from './OverviewTab';
 import { KIND_LABEL, exportHref, tabEndpoint, useTabData } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Clients — who the invoices are for. Ranked by billed value, with the count
 // beside it, because a client billed twice for $80k matters more than one
@@ -41,7 +42,7 @@ export default function ClientsTab({ kind, active }: { kind: InvoiceKind; active
         <KpiCard value={nf.format(data.total_clients)} label="Clients Invoiced" color="blue" icon={<Users />} />
         <KpiCard value={usd(data.total_usd)} label="Total Billed (USD)" color="green" icon={<Coins />} />
         <KpiCard
-          value={top ? name(top) : '—'}
+          value={top ? name(top) : NO_VALUE}
           label="Top Client"
           color="purple"
           icon={<Trophy />}

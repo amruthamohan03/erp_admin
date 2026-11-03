@@ -12,10 +12,20 @@
 
 export type TemplateContext = Record<string, string | number | null | undefined>;
 
-export function renderTemplate(template: string, context: TemplateContext): string {
+/** Escapes a value for an HTML template, so record data cannot add markup to an email body. */
+export function escapeHtml(s: string): string {
+  return s.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;').replace(/"/gu, '&quot;');
+}
+
+export function renderTemplate(
+  template: string,
+  context: TemplateContext,
+  opts: { escape?: (value: string) => string } = {},
+): string {
   const filled = template.replace(/\{(\w+)\}/gu, (_, key: string) => {
     const v = context[key];
-    return v === null || v === undefined ? '' : String(v);
+    if (v === null || v === undefined) return '';
+    return opts.escape ? opts.escape(String(v)) : String(v);
   });
   return filled
     .replace(/[ \t]{2,}/gu, ' ')

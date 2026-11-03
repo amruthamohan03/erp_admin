@@ -12,7 +12,8 @@ import { usePagedList } from '@/lib/hooks/usePagedList';
 import ConditionsTab from '@/modules/page-builder/ConditionsTab';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.12 page-builder — configure one master_page (accordions, role grants,
 // fields, field grants). Ported from main onto /api/v1 + { ok, data }.
@@ -336,7 +337,7 @@ function AccordionsTab({ pageId }: { pageId: number }) {
             header: 'Icon',
             className: 'text-xs',
             render: (a: MasterPageAccordion) =>
-              a.icon ? <code className="font-mono">{a.icon}</code> : <span className="text-muted-foreground">—</span>,
+              a.icon ? <code className="font-mono">{a.icon}</code> : <span className="text-muted-foreground">{NO_VALUE}</span>,
           },
           {
             key: 'display',
@@ -945,7 +946,7 @@ function FieldsTab({ pageId }: { pageId: number }) {
             key: 'options_source',
             header: 'Options Source',
             className: 'font-mono text-xs',
-            render: (f: MasterPageField) => f.options_source ?? <span className="text-muted-foreground">—</span>,
+            render: (f: MasterPageField) => f.options_source ?? <span className="text-muted-foreground">{NO_VALUE}</span>,
           },
           // §4.14 — the per-field grant column only appears once a role is chosen.
           ...(showAccess

@@ -65,6 +65,7 @@ import {
 import { tabEndpoint, useTabData } from './useTabData';
 import { TabError, TabSkeleton } from '../dashboardUi';
 import type { ImportOverviewExtras } from '@/db/queries/importDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Overview — the uploaded dashboard's main tab, section for section.
 //
@@ -346,7 +347,7 @@ export default function OverviewTab({ active }: { active: boolean }) {
       <ChartCard title={`Top 10 Clients — ${year}`} icon={<Trophy className="h-4 w-4" />}>
         <HBarChart
           items={data.top_clients.map((c) => ({
-            label: c.client_name ?? '—',
+            label: c.client_name || NO_VALUE,
             value: c.files,
             note: `${c.completion_rate}% done`,
           }))}

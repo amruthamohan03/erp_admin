@@ -37,7 +37,8 @@ import {
   type DescribeContext,
   type RuleEffect,
   type RuleOperator,
-} from '@/lib/pages/conditionRules';
+} from '@/lib/pages/conditionRules';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface ConditionField {
   id: number;
@@ -136,7 +137,7 @@ export default function ConditionsTab({ pageId }: { pageId: number }) {
     () => ({
       labelOf: (name) => byName.get(name)?.label ?? name,
       valueOf: (name, v: Scalar) =>
-        options.get(name)?.find((o) => o.value === String(v))?.label ?? String(v ?? '—'),
+        options.get(name)?.find((o) => o.value === String(v))?.label ?? String(v || NO_VALUE),
     }),
     [byName, options],
   );

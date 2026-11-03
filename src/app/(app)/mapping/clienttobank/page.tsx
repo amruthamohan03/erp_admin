@@ -10,6 +10,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.1 — Client → Invoice Bank. Which of OUR accounts a client is invoiced
 // through, and which one an invoice reaches for when nobody picks.
@@ -268,10 +269,10 @@ export default function ClientToBankPage() {
                       <td className="font-medium">{r.invoice_bank_name}</td>
                       <td className="text-sm text-muted-foreground">
                         <div className="max-w-0 truncate" title={r.invoice_bank_account_name ?? undefined}>
-                          {r.invoice_bank_account_name || '—'}
+                          {r.invoice_bank_account_name || NO_VALUE}
                         </div>
                         <div className="font-mono text-xs">
-                          {r.invoice_bank_account_number || '—'}
+                          {r.invoice_bank_account_number || NO_VALUE}
                           {r.invoice_bank_swift ? ` · ${r.invoice_bank_swift}` : ''}
                         </div>
                       </td>

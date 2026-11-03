@@ -9,6 +9,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { clientOptionLabel } from '@/lib/clientOptions';
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 const fmtDate = (v: unknown): string => formatDate(v, '-');
 
@@ -306,7 +307,7 @@ export default function BivacPage() {
             {/* Summary bar */}
             <div className="flex flex-wrap gap-2 mb-4">
               {[
-                ['CRF', viewLicense.ref_cod ?? 'N/A'], ['Client', viewLicense.client_name ?? 'N/A'],
+                ['CRF', viewLicense.ref_cod || NO_VALUE], ['Client', viewLicense.client_name || NO_VALUE],
                 ['AV Wt', `${fmt(totals.av_w)} KG`], ['AV FOB', fmt(totals.av_f)],
                 ['AV Frt', fmt(totals.av_fr)], ['AV Ins', fmt(totals.av_i)], ['AV Other', fmt(totals.av_o)],
                 ['Used Wt', `${fmt(totals.used_w)} KG`], ['Used FOB', fmt(totals.used_f)],
@@ -398,13 +399,13 @@ export default function BivacPage() {
                 {!filesLoading && files?.map((f, i) => (
                   <tr key={f.id} className="hover:bg-muted/50 text-xs">
                     <td className="text-muted-foreground">{i + 1}</td>
-                    <td className="font-mono">{f.mca_ref || '—'}</td>
-                    <td>{f.inspection_reports || '—'}</td>
-                    <td>{f.declaration_reference || '—'}</td>
+                    <td className="font-mono">{f.mca_ref || NO_VALUE}</td>
+                    <td>{f.inspection_reports || NO_VALUE}</td>
+                    <td>{f.declaration_reference || NO_VALUE}</td>
                     <td>{fmtDate(f.dgda_in_date)}</td>
-                    <td>{f.liquidation_reference || '—'}</td>
+                    <td>{f.liquidation_reference || NO_VALUE}</td>
                     <td>{fmtDate(f.liquidation_date)}</td>
-                    <td>{f.quittance_reference || '—'}</td>
+                    <td>{f.quittance_reference || NO_VALUE}</td>
                     <td>{fmtDate(f.quittance_date)}</td>
                     <td className="text-right tabular-nums font-semibold">{fmt(f.weight)} KG</td>
                     <td className="text-right tabular-nums font-semibold">{fmt(f.fob)}</td>

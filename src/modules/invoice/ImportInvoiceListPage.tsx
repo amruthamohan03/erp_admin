@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, FileText, FileSpreadsheet, Printer } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
@@ -33,6 +34,8 @@ const fmt = (n: number): string =>
   (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function ImportInvoiceListPage() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('import-invoices');
   const [items, setItems] = useState<Row[]>([]);
   // §4.39 — a failed load says why, in the table, instead of looking like "no invoices".
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -179,6 +182,7 @@ export default function ImportInvoiceListPage() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           // A validated invoice is final — the save route refuses it too.
           edit: r.validated === 0 ? () => { setFormId(String(r.id)); setFormOpen(true); } : undefined,
           remove: r.validated === 0 ? () => actions.askDelete(r) : undefined,
@@ -204,6 +208,7 @@ export default function ImportInvoiceListPage() {
 
       {actions.dialogs}
       <PendingInvoicingModal kind="import" open={pendingOpen} onClose={() => setPendingOpen(false)} onChanged={loadStats} />
+      {messaging.dialog}
     </>
   );
 }

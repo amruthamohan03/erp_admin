@@ -8,6 +8,7 @@ import { optionRows } from '@/lib/selectOptions';
 import { accentFor } from './accents';
 import type { PageDef, PageFieldDef, PageFetchResponse } from '@/types';
 import { formatDate } from '@/lib/formatDate';
+import { emptyFor, hiddenWhileEmpty, isBlank, NO_VALUE } from '@/lib/displayValue';
 import { companionOf } from '@/lib/pages/companion';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
@@ -209,8 +210,9 @@ export default function RecordViewModal({
 
   function renderValue(f: PageFieldDef): React.ReactNode {
     const v = values[f.name];
-    if (v === null || v === undefined || v === '') {
-      return <span className="text-muted-foreground">—</span>;
+    if (isBlank(v)) {
+      // §4.41 — "N/A" for a field that holds words, the em dash for a date or number.
+      return <span className="text-muted-foreground">{emptyFor(f.field_type)}</span>;
     }
 
     switch (f.field_type) {
@@ -237,12 +239,12 @@ export default function RecordViewModal({
         const joinChar = getString(f.props, 'joinChar') ?? '';
         const set = new Set(String(v).split(joinChar).filter(Boolean));
         const picked = opts.filter((o) => set.has(o.value)).map((o) => o.label);
-        return picked.length ? picked.join(', ') : <span className="text-muted-foreground">—</span>;
+        return picked.length ? picked.join(', ') : <span className="text-muted-foreground">{NO_VALUE}</span>;
       }
       // A dated log reads as a list, not as one run-on line.
       case 'remark-log': {
         const lines = Array.isArray(v) ? (v as Array<{ date?: string; remark?: string }>) : [];
-        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        if (lines.length === 0) return <span className="text-muted-foreground">{NO_VALUE}</span>;
         return (
           <ul className="space-y-1">
             {lines.map((line, i) => (
@@ -263,7 +265,7 @@ export default function RecordViewModal({
         const lines = Array.isArray(v)
           ? (v as Array<{ numero?: number; description?: string; position_tarif?: string; ddi_percent?: number; fob_article?: number; cif_article?: number; ddi?: number }>)
           : [];
-        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        if (lines.length === 0) return <span className="text-muted-foreground">{NO_VALUE}</span>;
         const sum = (k: 'fob_article' | 'cif_article' | 'ddi'): number => lines.reduce((s, l) => s + (Number(l[k]) || 0), 0);
         return (
           <div className="overflow-x-auto">
@@ -283,8 +285,8 @@ export default function RecordViewModal({
                 {lines.map((l, i) => (
                   <tr key={i}>
                     <td className="text-muted-foreground">{l.numero ?? i + 1}</td>
-                    <td>{l.description || '—'}</td>
-                    <td className="font-mono">{l.position_tarif || '—'}</td>
+                    <td>{l.description || NO_VALUE}</td>
+                    <td className="font-mono">{l.position_tarif || NO_VALUE}</td>
                     <td className="text-right tabular-nums">{money(l.ddi_percent)}</td>
                     <td className="text-right tabular-nums">{money(l.fob_article)}</td>
                     <td className="text-right tabular-nums">{money(l.cif_article)}</td>
@@ -307,7 +309,7 @@ export default function RecordViewModal({
       }
       case 'mca-grid': {
         const lines = Array.isArray(v) ? (v as Array<{ mca_ref?: string; amount?: number }>) : [];
-        if (lines.length === 0) return <span className="text-muted-foreground">—</span>;
+        if (lines.length === 0) return <span className="text-muted-foreground">{NO_VALUE}</span>;
         const total = lines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
         return (
           <div className="overflow-x-auto">
@@ -323,7 +325,7 @@ export default function RecordViewModal({
                 {lines.map((line, i) => (
                   <tr key={`${line.mca_ref ?? ''}-${i}`}>
                     <td className="text-muted-foreground">{i + 1}</td>
-                    <td className="font-mono">{line.mca_ref ?? '—'}</td>
+                    <td className="font-mono">{line.mca_ref || NO_VALUE}</td>
                     <td className="text-right tabular-nums">{money(line.amount)}</td>
                   </tr>
                 ))}
@@ -347,7 +349,7 @@ export default function RecordViewModal({
           ? (v as Array<Record<string, unknown>>)
           : [];
         const priced = lines.filter((l) => l.item_id);
-        if (priced.length === 0) return <span className="text-muted-foreground">—</span>;
+        if (priced.length === 0) return <span className="text-muted-foreground">{NO_VALUE}</span>;
         return (
           <div className="overflow-x-auto">
             <table className="table-base text-xs">
@@ -496,7 +498,12 @@ export default function RecordViewModal({
                             return acc.fields
                               // The invoice file picker only edits the grid's
                               // value — the grid is what the view shows.
-                              .filter((f) => !consumed.has(f.name) && f.field_type !== 'invoice-files')
+                              .filter(
+                                (f) =>
+                                  !consumed.has(f.name) &&
+                                  f.field_type !== 'invoice-files' &&
+                                  !hiddenWhileEmpty(f.props, values[f.name]),
+                              )
                               .map((f) => {
                                 const mate = mates.get(f.name);
                                 return (

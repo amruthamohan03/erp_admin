@@ -7,7 +7,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
-import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface ItemRow {
   id: number;
@@ -147,12 +148,12 @@ export default function ItemsPage() {
         { key: 'item_name', header: 'Item Name', sortable: true, className: 'font-medium' },
         { key: 'item_code', header: 'Code', className: 'text-muted-foreground text-xs', render: (r: ItemRow) => (
             <>
-            {r.item_code || <span className="text-muted-foreground">—</span>}
+            {r.item_code || <span className="text-muted-foreground">{NO_VALUE}</span>}
             </>
           ) },
         { key: 'category_name', header: 'Category', className: 'text-foreground text-xs', render: (r: ItemRow) => (
             <>
-            {r.category_name || <span className="text-muted-foreground">—</span>}
+            {r.category_name || <span className="text-muted-foreground">{NO_VALUE}</span>}
             </>
           ) },
         { key: '5', header: 'Type', className: 'inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-foreground', render: (r: ItemRow) => (

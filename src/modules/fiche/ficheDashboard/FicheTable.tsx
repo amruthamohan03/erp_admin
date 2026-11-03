@@ -6,6 +6,7 @@ import { nf, nf2 } from '@/modules/tracking/dashboardUi';
 import type { FicheRow } from '@/db/queries/ficheDashboardTabs';
 import type { FicheExportScope } from '@/schemas/fiche-dashboard';
 import { exportHref, ficheHref } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /**
  * The fiche list every tab shows — one set of columns, one money format, one
@@ -46,7 +47,7 @@ export default function FicheTable({
           // §4.15 — the column shows the code; searching accepts the legal
           // name too, so text from an outside document still finds the row.
           value: (r) => `${r.client_name ?? ''} ${r.client_company ?? ''}`.trim(),
-          render: (r) => <span title={r.client_company ?? undefined}>{r.client_name ?? '—'}</span>,
+          render: (r) => <span title={r.client_company ?? undefined}>{r.client_name || NO_VALUE}</span>,
         },
         { key: 'license_number', header: 'License Number', sortable: true, defaultHidden: true },
         { key: 'mca_ref', header: 'File Ref', sortable: true, className: 'font-mono' },

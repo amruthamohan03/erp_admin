@@ -10,7 +10,8 @@ import Link from 'next/link';
 import { Clock, Search, X, FileInput, ChartBar, AlertOctagon, CircleCheck, Route, CalendarOff, Users, Download } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { formatDate } from '@/lib/formatDate';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface StageKpi {
   key: string; label: string; short: string; from: string; to: string; threshold: number; priority: boolean; color: string; icon: string;
@@ -417,9 +418,9 @@ export default function KpiDelayView({ cfg }: { cfg: KpiConfig }) {
                             <tr className={`cursor-pointer hover:bg-muted/50 ${st === 'Delayed' ? 'bg-rose-50/40 dark:bg-rose-500/5' : pending ? 'bg-amber-50/40 dark:bg-amber-500/5' : ''}`} onClick={() => setExpanded(expanded === idx ? null : idx)}>
                             <td className="text-muted-foreground">{expanded === idx ? '▾' : '▸'}</td>
                             <td className="font-mono text-muted-foreground">{String(r.id)}</td>
-                            <td><span className="font-mono font-bold text-blue-600 dark:text-blue-400">{String(r.mca_ref ?? '—')}</span></td>
-                            <td className="font-semibold">{String(r.client_short ?? '—')}</td>
-                            <td><span className="rounded bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 text-[10px] font-bold">{String(r.clearance_name ?? '—')}</span></td>
+                            <td><span className="font-mono font-bold text-blue-600 dark:text-blue-400">{String(r.mca_ref || NO_VALUE)}</span></td>
+                            <td className="font-semibold">{String(r.client_short || NO_VALUE)}</td>
+                            <td><span className="rounded bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 text-[10px] font-bold">{String(r.clearance_name || NO_VALUE)}</span></td>
                             {/* §4.19 — these two printed the raw ISO the query returns. */}
                             <td className="font-mono">{formatDate(r.stage_from_date as string | null)}</td>
                             <td className="font-mono">{pending ? <span className="text-amber-600 dark:text-amber-400 italic">{formatDate(today)} →</span> : formatDate(r.stage_to_date as string | null)}</td>

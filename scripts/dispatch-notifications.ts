@@ -3,6 +3,7 @@ import {
   dispatchPendingNotifications,
   buildDefaultChannels,
 } from '@/lib/notifications';
+import { drainQueuedOutbound } from '@/db/queries/communicationTemplates';
 
 // `npm run dispatch:notifications` entry point.
 //
@@ -19,6 +20,11 @@ import {
 // row's status flips between SELECT and UPDATE — extremely unlikely at
 // minute-cadence and harmless if it does (the second runner sees status
 // already moved off 'pending').
+//
+// It also sends any stage message (licence … invoice, to the client) still
+// queued in outbound_message_t. Those normally go out the moment the request
+// that queued them answers; a message queued outside a request — the delay
+// sweep — or left behind by a server restart waits for this run.
 
 async function main(): Promise<void> {
   const r = await dispatchPendingNotifications(db, {
@@ -28,6 +34,8 @@ async function main(): Promise<void> {
     `[dispatch] attempted=${r.attempted} sent=${r.sent} failed=${r.failed} ` +
       `retrying=${r.retrying} skipped=${r.skipped}`,
   );
+  const stage = await drainQueuedOutbound();
+  console.log(`[dispatch] stage messages sent=${stage}`);
 }
 
 main()

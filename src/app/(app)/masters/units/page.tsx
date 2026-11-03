@@ -6,7 +6,8 @@ import DataTable from '@/components/ui/DataTable';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface UnitRow {
   id: number;
@@ -101,7 +102,7 @@ export default function UnitsPage() {
                           {u.unit_code}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">{NO_VALUE}</span>
                       )}
             </>
           ) },

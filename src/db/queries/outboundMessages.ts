@@ -45,6 +45,11 @@ export interface OutboundListItem {
   attachment_count: number;
   sent_by_name: string | null;
   created_at: string;
+  /** The stage record it is about, when sent from a stage or about one. */
+  entity_type: string | null;
+  entity_id: number | null;
+  /** `auto` — sent by a communication template, not by a person. */
+  origin: 'manual' | 'auto';
 }
 
 const iso = (v: unknown): string => (v instanceof Date ? v.toISOString() : String(v));
@@ -88,6 +93,9 @@ export async function listOutbound(q: OutboundListQuery): Promise<{ items: Outbo
       attachment_count: outboundMessage.attachmentCount,
       sent_by_name: usersT.fullName,
       created_at: outboundMessage.createdAt,
+      entity_type: outboundMessage.entityType,
+      entity_id: outboundMessage.entityId,
+      origin: outboundMessage.origin,
     })
     .from(outboundMessage)
     .leftJoin(usersT, eq(usersT.id, outboundMessage.sentBy))
@@ -102,6 +110,7 @@ export async function listOutbound(q: OutboundListQuery): Promise<{ items: Outbo
       ...r,
       channel: r.channel as OutboundChannel,
       status: r.status as OutboundStatus,
+      origin: r.origin === 'auto' ? 'auto' : 'manual',
       created_at: iso(r.created_at),
     })),
   };
@@ -133,6 +142,9 @@ export async function getOutbound(id: number): Promise<OutboundDetail | null> {
       sent_by_name: usersT.fullName,
       created_at: outboundMessage.createdAt,
       sent_at: outboundMessage.sentAt,
+      entity_type: outboundMessage.entityType,
+      entity_id: outboundMessage.entityId,
+      origin: outboundMessage.origin,
     })
     .from(outboundMessage)
     .leftJoin(usersT, eq(usersT.id, outboundMessage.sentBy))
@@ -150,6 +162,7 @@ export async function getOutbound(id: number): Promise<OutboundDetail | null> {
     ...row,
     channel: row.channel as OutboundChannel,
     status: row.status as OutboundStatus,
+    origin: row.origin === 'auto' ? 'auto' : 'manual',
     created_at: iso(row.created_at),
     sent_at: row.sent_at ? iso(row.sent_at) : null,
     attachments: attachments.map((a) => ({ ...a, name: a.name ?? `File #${a.id}` })),

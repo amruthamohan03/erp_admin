@@ -278,6 +278,8 @@
   .btn-download { @apply btn-action; --action-base: var(--action-download); --action-hover: var(--action-download-hover); --action-fg: var(--action-download-fg); }
   .btn-restore { @apply btn-action; --action-base: var(--action-restore); --action-hover: var(--action-restore-hover); --action-fg: var(--action-restore-fg); }
   .btn-permanent-delete { @apply btn-action; --action-base: var(--action-permanent_delete); --action-hover: var(--action-permanent_delete-hover); --action-fg: var(--action-permanent_delete-fg); }
+  .btn-email { @apply btn-action; --action-base: var(--action-email); --action-hover: var(--action-email-hover); --action-fg: var(--action-email-fg); }
+  .btn-whatsapp { @apply btn-action; --action-base: var(--action-whatsapp); --action-hover: var(--action-whatsapp-hover); --action-fg: var(--action-whatsapp-fg); }
 
   /* Kept under their producing-artifact names because ~20 call sites use them:
      a spreadsheet export is the `export` action, print/PDF is `print`. */
@@ -320,7 +322,10 @@
   .ico-edit { @apply ico; color: hsl(var(--action-edit)); }
   .ico-delete { @apply ico; color: hsl(var(--action-delete)); }
   .ico-restore { @apply ico; color: hsl(var(--action-restore)); }
-  .ico-view:hover, .ico-edit:hover, .ico-delete:hover, .ico-restore:hover { @apply bg-accent; }
+  .ico-email { @apply ico; color: hsl(var(--action-email)); }
+  .ico-whatsapp { @apply ico; color: hsl(var(--action-whatsapp)); }
+  .ico-view:hover, .ico-edit:hover, .ico-delete:hover, .ico-restore:hover,
+  .ico-email:hover, .ico-whatsapp:hover { @apply bg-accent; }
 
   /* Size variants. Declared AFTER the colour classes so their padding wins —
      both are single-class selectors, so source order is what decides. */

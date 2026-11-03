@@ -16,7 +16,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { MenuItem } from '@/types/menu';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
-import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface CardRow {
   id: number;
@@ -150,7 +151,7 @@ export default function DashboardCardsPage() {
             sortable: true,
             render: (m: CardRow) => (
               <span className="inline-block rounded bg-muted px-2 py-0.5 text-xs text-foreground">
-                {m.card_category || '—'}
+                {m.card_category || NO_VALUE}
               </span>
             ),
           },
@@ -159,7 +160,7 @@ export default function DashboardCardsPage() {
             header: 'Color',
             render: (m: CardRow) => (
               <span className={`inline-block rounded px-2 py-0.5 text-xs text-white ${colorClass(m.card_color)}`}>
-                {m.card_color || '—'}
+                {m.card_color || NO_VALUE}
               </span>
             ),
           },

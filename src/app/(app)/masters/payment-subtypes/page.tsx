@@ -10,7 +10,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
-import { fetchMasterOptions, type MasterOption } from '@/lib/selectOptions';
+import { fetchMasterOptions, type MasterOption } from '@/lib/selectOptions';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Row {
   id: number;
@@ -103,7 +104,7 @@ export default function PaymentSubtypesPage() {
             key: 'payment_type_name',
             header: 'Payment Type',
             sortable: true,
-            render: (r) => r.payment_type_name ?? '—',
+            render: (r) => r.payment_type_name || NO_VALUE,
           },
           displayStatusColumn<Row>({ nameOf: (r) => r.payment_subtype, onToggle: handleToggle }),
         ]}

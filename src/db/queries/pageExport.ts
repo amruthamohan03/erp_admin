@@ -11,11 +11,12 @@
 // the export with no code change (§4.1, §4.10).
 import { and, asc, desc, eq, getTableColumns, inArray, type SQL } from 'drizzle-orm';
 import { type PgColumn } from 'drizzle-orm/pg-core';
-import { db } from '@/lib/db';
+import { db, type Database, type Transaction } from '@/lib/db';
 import { masterPage, masterPageAccordion, masterPageAccordionField, usersT } from '@/db/schema';
 import { getPageTarget } from '@/lib/pages/targets';
 import { getSoftDeleteResource } from '@/db/queries/softDelete';
 import { formatDate } from '@/lib/formatDate';
+import { emptyFor, isBlank, NO_VALUE } from '@/lib/displayValue';
 import type { XlsxColumn, XlsxRowTone, XlsxSheet } from '@/lib/xlsx';
 
 interface FieldDef {
@@ -88,8 +89,11 @@ function flattenRows(rows: unknown[]): string {
 }
 
 function cell(value: unknown, field: FieldDef, labels: Map<string, string> | undefined): string {
-  if (value === null || value === undefined || value === '') return '';
-  if (Array.isArray(value)) return flattenRows(value);
+  // §4.41 — a blank text field reads "N/A"; a blank date or number stays an
+  // empty cell, so a spreadsheet can still sum and sort the column.
+  const empty = emptyFor(field.fieldType) === NO_VALUE ? NO_VALUE : '';
+  if (isBlank(value)) return empty;
+  if (Array.isArray(value)) return value.length ? flattenRows(value) : empty;
   if (labels) {
     const hit = labels.get(String(value));
     if (hit !== undefined) return hit;
@@ -147,27 +151,28 @@ export interface PageExportOptions {
 }
 
 /**
- * Every field on a page, for every matching row, as one spreadsheet sheet.
- *
- * Fields whose `name` is not a real column on the target table (layout-only or
- * renamed entries) are skipped rather than throwing — a stale config row should
- * not take the whole export down with it.
+ * A page's configured fields, matched to real columns. Fields whose `name` is
+ * not a real column on the target table (layout-only or renamed entries) are
+ * skipped rather than throwing — a stale config row should not take the whole
+ * export down with it.
  */
-export async function buildPageExportSheet(
-  slug: string,
-  opts: PageExportOptions = {},
-): Promise<XlsxSheet> {
+async function loadPageFields(exec: Database | Transaction, slug: string): Promise<{
+  target: NonNullable<ReturnType<typeof getPageTarget>>;
+  title: string;
+  fields: FieldDef[];
+  columnsByName: Map<string, PgColumn>;
+}> {
   const target = getPageTarget(slug);
   if (!target) throw new Error(`Unknown page: ${slug}`);
 
-  const [pageRow] = await db
+  const [pageRow] = await exec
     .select({ id: masterPage.id, title: masterPage.title })
     .from(masterPage)
     .where(eq(masterPage.slug, slug))
     .limit(1);
   if (!pageRow) throw new Error(`Unknown page: ${slug}`);
 
-  const fieldRows = await db
+  const fieldRows = await exec
     .select({
       name: masterPageAccordionField.name,
       label: masterPageAccordionField.label,
@@ -201,15 +206,102 @@ export async function buildPageExportSheet(
   );
 
   const fields: FieldDef[] = [];
-  const selection: Record<string, PgColumn> = {};
   const seen = new Set<string>();
   for (const f of fieldRows) {
-    const col = columnsByName.get(f.name);
-    if (!col || seen.has(f.name)) continue;
+    if (!columnsByName.has(f.name) || seen.has(f.name)) continue;
     seen.add(f.name);
     fields.push(f as FieldDef);
-    selection[f.name] = col;
   }
+  return { target, title: pageRow.title, fields, columnsByName };
+}
+
+/**
+ * Id → label maps for every select field, over the given rows. One lookup per
+ * distinct source, not per row — a 90-column export over a few thousand rows
+ * would otherwise issue hundreds of thousands of queries.
+ */
+async function resolveLabelMaps(
+  exec: Database | Transaction,
+  fields: FieldDef[],
+  rows: unknown[],
+): Promise<Map<string, Map<string, string>>> {
+  const labelMaps = new Map<string, Map<string, string>>();
+  for (const f of fields) {
+    const stat = staticLabels(f.optionsStatic);
+    if (stat) {
+      labelMaps.set(f.name, stat);
+      continue;
+    }
+    if (!f.optionsSource) continue;
+    const cols = labelColumns(f.optionsSource);
+    if (!cols) continue;
+
+    const ids = [
+      ...new Set(
+        rows
+          .map((r) => (r as Record<string, unknown>)[f.name])
+          .filter((v): v is number | string => v !== null && v !== undefined && v !== '')
+          .map(Number)
+          .filter((n) => Number.isInteger(n) && n > 0),
+      ),
+    ];
+    if (ids.length === 0) continue;
+
+    const lookup = await exec
+      .select({ id: cols.id, label: cols.label })
+      .from(cols.id.table)
+      .where(inArray(cols.id, ids));
+    labelMaps.set(
+      f.name,
+      new Map(lookup.map((l) => [String(l.id), String(l.label ?? '')])),
+    );
+  }
+  return labelMaps;
+}
+
+/**
+ * One record of a page as its form shows it: every column of the target table,
+ * with each configured field rendered the way the export renders it — a select
+ * by its label, a date as DD-MM-YYYY. The stage messages fill their `{token}`s
+ * from this, so a template says "CLEARING COMPLETED", not "6".
+ *
+ * Takes the executor so it can run inside the transaction that has just
+ * written the record — a separate connection would not see it yet.
+ */
+export async function pageRecordDisplay(
+  exec: Database | Transaction,
+  slug: string,
+  id: number,
+): Promise<{ title: string; raw: Record<string, unknown>; values: Record<string, string> } | null> {
+  const { target, title, fields, columnsByName } = await loadPageFields(exec, slug);
+  const idColumn = columnsByName.get('id');
+  if (!idColumn) return null;
+  const [raw] = await exec
+    .select(Object.fromEntries(columnsByName) as Record<string, PgColumn>)
+    .from(target.table)
+    .where(eq(idColumn, id))
+    .limit(1);
+  if (!raw) return null;
+  const row = raw as Record<string, unknown>;
+  const labelMaps = await resolveLabelMaps(exec, fields, [row]);
+  const byName = new Map(fields.map((f) => [f.name, f]));
+
+  const values: Record<string, string> = {};
+  for (const name of columnsByName.keys()) {
+    const field = byName.get(name) ?? { name, label: name, fieldType: '', optionsSource: null, optionsLabelField: null, optionsStatic: null };
+    values[name] = cell(row[name], field, labelMaps.get(name));
+  }
+  return { title, raw: row, values };
+}
+
+/** Every field on a page, for every matching row, as one spreadsheet sheet. */
+export async function buildPageExportSheet(
+  slug: string,
+  opts: PageExportOptions = {},
+): Promise<XlsxSheet> {
+  const { target, title, fields, columnsByName } = await loadPageFields(db, slug);
+  const selection: Record<string, PgColumn> = {};
+  for (const f of fields) selection[f.name] = columnsByName.get(f.name) as PgColumn;
 
   // The id is not a form field but every export wants it as the row's handle.
   const idColumn = columnsByName.get('id');
@@ -235,39 +327,7 @@ export async function buildPageExportSheet(
         .limit(opts.limit ?? 10000)
     : await db.select(selection).from(target.table).where(where).limit(opts.limit ?? 10000);
 
-  // One lookup per distinct source, not per row — a 90-column export over a few
-  // thousand rows would otherwise issue hundreds of thousands of queries.
-  const labelMaps = new Map<string, Map<string, string>>();
-  for (const f of fields) {
-    const stat = staticLabels(f.optionsStatic);
-    if (stat) {
-      labelMaps.set(f.name, stat);
-      continue;
-    }
-    if (!f.optionsSource) continue;
-    const cols = labelColumns(f.optionsSource);
-    if (!cols) continue;
-
-    const ids = [
-      ...new Set(
-        rows
-          .map((r) => (r as Record<string, unknown>)[f.name])
-          .filter((v): v is number | string => v !== null && v !== undefined && v !== '')
-          .map(Number)
-          .filter((n) => Number.isInteger(n) && n > 0),
-      ),
-    ];
-    if (ids.length === 0) continue;
-
-    const lookup = await db
-      .select({ id: cols.id, label: cols.label })
-      .from(cols.id.table)
-      .where(inArray(cols.id, ids));
-    labelMaps.set(
-      f.name,
-      new Map(lookup.map((l) => [String(l.id), String(l.label ?? '')])),
-    );
-  }
+  const labelMaps = await resolveLabelMaps(db, fields, rows);
 
   const columns: XlsxColumn[] = [
     { key: 'id', header: 'ID', width: 8 },
@@ -289,7 +349,7 @@ export async function buildPageExportSheet(
   });
 
   return {
-    name: opts.sheetName ?? pageRow.title,
+    name: opts.sheetName ?? title,
     columns,
     rows: sheetRows,
     ...(opts.rowTone ? { rowTone: (row: Record<string, unknown>) => toneById.get(row.id) ?? null } : {}),

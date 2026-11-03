@@ -9,8 +9,17 @@ import { htmlToText, htmlToWhatsApp, isBlankHtml, sanitizeHtml } from '@/lib/mes
 export const OUTBOUND_CHANNELS = ['email', 'whatsapp'] as const;
 export type OutboundChannel = (typeof OUTBOUND_CHANNELS)[number];
 
-export const OUTBOUND_STATUSES = ['sending', 'sent', 'partial', 'failed'] as const;
+export const OUTBOUND_STATUSES = ['queued', 'sending', 'sent', 'partial', 'failed'] as const;
 export type OutboundStatus = (typeof OUTBOUND_STATUSES)[number];
+
+/** How a send status reads in the log and its detail view. */
+export const OUTBOUND_STATUS_LABEL: Record<OutboundStatus, string> = {
+  queued: 'Queued',
+  sending: 'Sending',
+  sent: 'Sent',
+  partial: 'Partial',
+  failed: 'Failed',
+};
 
 export const MAX_RECIPIENTS = 50;
 export const SUBJECT_MAX = 200;

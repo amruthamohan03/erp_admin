@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Truck, Files, CalendarClock, CalendarCheck, Calendar, Clock, Weight, Package, MapPin, List } from 'lucide-react';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { TabError } from '@/modules/tracking/dashboardUi';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Dash {
   kpi: { total_files: number; today_files: number; week_files: number; month_files: number; year_files: number; avg_ceec_days: number; total_weight: number; total_bags: number };
@@ -189,10 +190,10 @@ export default function LocalDashboardPage() {
                     return (
                       <tr key={String(t.id)} className="hover:bg-muted/50 text-xs">
                         <td className="font-mono font-semibold">#{String(t.id)}</td>
-                        <td className="font-mono">{String(t.mca_lt_reference ?? 'N/A')}</td>
-                        <td>{String(t.short_name ?? 'N/A')}</td>
-                        <td>{String(t.location_name ?? 'N/A')}</td>
-                        <td>{String(t.horse ?? 'N/A')}</td>
+                        <td className="font-mono">{String(t.mca_lt_reference || NO_VALUE)}</td>
+                        <td>{String(t.short_name || NO_VALUE)}</td>
+                        <td>{String(t.location_name || NO_VALUE)}</td>
+                        <td>{String(t.horse || NO_VALUE)}</td>
                         <td className="text-right tabular-nums">{dec(Number(t.weight ?? 0))}</td>
                         <td className="text-right tabular-nums">{num(Number(t.nbr_of_bags ?? 0))}</td>
                         <td>

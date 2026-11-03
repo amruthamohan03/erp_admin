@@ -4,6 +4,8 @@
 // directly. Every list screen in the app now depends on these two functions, so
 // a change here is a change to how sixty-six tables behave.
 
+import { isBlank, NO_VALUE } from '@/lib/displayValue';
+
 export interface SortableColumn<T> {
   key: string;
   /** Comparable/searchable value when the cell is computed rather than a field. */
@@ -22,7 +24,9 @@ export function cellValue<T>(row: T, col: SortableColumn<T>): string | number | 
 const STORED_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/;
 
 /**
- * The cell as searchable text. Null and undefined are empty, never "null".
+ * The cell as searchable text — and, for a column with no `render`, as shown.
+ * An empty cell reads "N/A" (§4.41), never "null", so typing what a blank cell
+ * shows finds it.
  *
  * A date cell contributes BOTH forms: the ISO the row actually carries, and the
  * `DD-MM-YYYY` the column puts on screen. Search reads the underlying field
@@ -33,7 +37,7 @@ const STORED_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/;
  */
 export function cellText<T>(row: T, col: SortableColumn<T>): string {
   const raw = cellValue(row, col);
-  if (raw === null || raw === undefined) return '';
+  if (isBlank(raw)) return NO_VALUE;
   const text = String(raw);
   const iso = STORED_DATE.exec(text);
   return iso ? `${text} ${iso[3]}-${iso[2]}-${iso[1]}` : text;

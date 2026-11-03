@@ -8,7 +8,8 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { buildXlsx, type XlsxColumn } from '@/lib/xlsx';
-import { formatDate } from '@/lib/formatDate';
+import { formatDate } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 export type ExportProfile = 'dn' | 'inv';
 
@@ -159,16 +160,16 @@ export async function buildExportInvoiceExport(
 
       const base: Record<string, unknown> = {
         n: serial++,
-        mca_ref: m.mca_ref ?? '',
-        lot_number: m.lot_number ?? '',
-        license_number: inv.license_number ?? '',
-        client: inv.client_name ?? '',
-        encoded_by: inv.encoded_by ?? '',
-        decl_ref: m.declaration_no ?? '',
+        mca_ref: m.mca_ref || NO_VALUE,
+        lot_number: m.lot_number || NO_VALUE,
+        license_number: inv.license_number || NO_VALUE,
+        client: inv.client_name || NO_VALUE,
+        encoded_by: inv.encoded_by || NO_VALUE,
+        decl_ref: m.declaration_no || NO_VALUE,
         decl_date: d(m.declaration_date),
-        liq_ref: m.liquidation_no ?? '',
+        liq_ref: m.liquidation_no || NO_VALUE,
         liq_date: d(m.liquidation_date),
-        quit_ref: m.quittance_no ?? '',
+        quit_ref: m.quittance_no || NO_VALUE,
         quit_date: d(m.quittance_date),
         facture: (profile === 'dn' ? 'ND-' : '') + String(inv.invoice_ref ?? ''),
         inv_date: invDate,
@@ -177,11 +178,11 @@ export async function buildExportInvoiceExport(
         qty_mt: r2(weight),
       };
       const tail: Record<string, unknown> = {
-        container: m.container ?? '',
+        container: m.container || NO_VALUE,
         status,
-        dgi_code: inv.dgi_code ?? '',
+        dgi_code: inv.dgi_code || NO_VALUE,
         dgi_amount: r2(num(inv.dgi_amount) / cnt),
-        normalized_by: inv.normalizer_name ?? '',
+        normalized_by: inv.normalizer_name || NO_VALUE,
       };
 
       if (profile === 'dn') {

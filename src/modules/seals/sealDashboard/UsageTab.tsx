@@ -12,6 +12,7 @@ import {
 } from '@/modules/tracking/dashboardUi';
 import type { ClientUsage, FileRow, SealUsage } from '@/db/queries/sealDashboardTabs';
 import { exportFileHref, exportHref, tabEndpoint, useTabData } from './useTabData';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Usage — where the seals went: per month, per client, per export file, and how
 // many were lost to damage on the way.
@@ -184,7 +185,7 @@ export default function UsageTab({ active }: { active: boolean }) {
               sortable: true,
               // §4.15 — shows the code, searches the legal name too.
               value: (f) => `${f.client_name ?? ''} ${f.client_company ?? ''}`.trim(),
-              render: (f) => <span title={f.client_company ?? undefined}>{f.client_name ?? '—'}</span>,
+              render: (f) => <span title={f.client_company ?? undefined}>{f.client_name || NO_VALUE}</span>,
             },
             {
               key: 'seal_count',

@@ -19,6 +19,7 @@ import { fetchMasterOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import type { ClientDashboard } from '@/db/queries/clientDashboard';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.29 — one client, everything open on them.
 //
@@ -193,7 +194,7 @@ export default function ClientActivityDashboardPage() {
         <>
           <div className="card p-4">
             <div className="text-lg font-semibold text-foreground">
-              {data.client.short_name ?? '—'}
+              {data.client.short_name || NO_VALUE}
               {data.client.company_name && (
                 <span className="ms-2 text-sm font-normal text-muted-foreground">
                   {data.client.company_name}
@@ -321,9 +322,9 @@ export default function ClientActivityDashboardPage() {
                 key: 'license_number',
                 header: 'Licence',
                 className: 'font-mono text-xs',
-                render: (l) => l.license_number ?? '—',
+                render: (l) => l.license_number || NO_VALUE,
               },
-              { key: 'kind_name', header: 'Kind', render: (l) => l.kind_name ?? '—' },
+              { key: 'kind_name', header: 'Kind', render: (l) => l.kind_name || NO_VALUE },
               { key: 'status', header: 'Status', badge: true },
               {
                 key: 'license_expiry_date',
@@ -355,7 +356,7 @@ export default function ClientActivityDashboardPage() {
             autoColumns={false}
             emptyMessage="Nothing recorded for this client yet."
             columns={[
-              { key: 'ref', header: 'Reference', className: 'font-mono text-xs', render: (r) => r.ref ?? '—' },
+              { key: 'ref', header: 'Reference', className: 'font-mono text-xs', render: (r) => r.ref || NO_VALUE },
               {
                 key: 'kind',
                 header: 'Type',

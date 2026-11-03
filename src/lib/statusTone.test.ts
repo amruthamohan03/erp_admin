@@ -55,6 +55,7 @@ describe('statusTone', () => {
 
   // Communication → Email & WhatsApp send outcomes.
   it('reads the outbound message statuses', () => {
+    expect(statusTone('Queued')).toBe('amber');
     expect(statusTone('Sending')).toBe('sky');
     expect(statusTone('Sent')).toBe('sky');
     expect(statusTone('Partial')).toBe('amber');

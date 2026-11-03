@@ -9,7 +9,8 @@ import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface OfficeLocationRow {
   id: number;
@@ -129,7 +130,7 @@ export default function OfficeLocationsPage() {
         { key: 'location_name', header: 'Office Location', sortable: true, className: 'font-medium' },
         { key: 'province_name', header: 'Province', className: 'text-foreground', render: (o: OfficeLocationRow) => (
             <>
-            {o.province_name ?? '—'}
+            {o.province_name || NO_VALUE}
             </>
           ) },
         displayStatusColumn<OfficeLocationRow>({ nameOf: (o) => o.location_name, onToggle: handleToggle }),

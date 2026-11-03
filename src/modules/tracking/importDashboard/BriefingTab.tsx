@@ -19,6 +19,7 @@ import {
 import BorderSection from './BorderSection';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { BriefingFile, ImportBriefing } from '@/db/queries/importDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Briefing — which dated milestones are still blank on files the operation has
 // already cleared.
@@ -238,12 +239,12 @@ export default function BriefingTab({ active }: { active: boolean }) {
             : 'No cleared files match these filters.'
         }
         columns={[
-          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
-          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
-          { key: 'transport_mode', header: 'Transport', render: (r) => r.transport_mode ?? '—' },
-          { key: 'clearance_type', header: 'Clearance', render: (r) => r.clearance_type ?? '—', defaultHidden: true },
-          { key: 'entry_point', header: 'Entry Point', render: (r) => r.entry_point ?? '—' },
-          { key: 'goods_type', header: 'Goods', render: (r) => r.goods_type ?? '—', defaultHidden: true },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref || NO_VALUE}</strong> },
+          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name || NO_VALUE },
+          { key: 'transport_mode', header: 'Transport', render: (r) => r.transport_mode || NO_VALUE },
+          { key: 'clearance_type', header: 'Clearance', render: (r) => r.clearance_type || NO_VALUE, defaultHidden: true },
+          { key: 'entry_point', header: 'Entry Point', render: (r) => r.entry_point || NO_VALUE },
+          { key: 'goods_type', header: 'Goods', render: (r) => r.goods_type || NO_VALUE, defaultHidden: true },
           ...IMPORT_DATE_FIELDS.map((f) => ({
             key: f.key,
             header: f.short,

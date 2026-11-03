@@ -12,6 +12,7 @@ import { recordAudit } from '@/lib/audit/recordAudit';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 import { renderTemplate, type TemplateContext } from '@/lib/notificationTemplate';
 import type { NotificationKind, NotificationPriority } from '@/db/schema';
+import { queueStageMessages } from '@/db/queries/communicationTemplates';
 
 type Exec = Database | Transaction;
 type Rows<T> = { rows: T[] };
@@ -27,6 +28,12 @@ export interface RaiseEventInput {
   creatorUserId?: number | null;
   /** Filled into the event's templates: {ref}, {stage}, {reason}, … */
   context?: TemplateContext;
+  /**
+   * The stage record the event is about (a page slug and its id). When given,
+   * the client is also told, by any communication template listening for this
+   * event (Masters → Communication Templates).
+   */
+  entity?: { slug: string; id: number };
 }
 
 /**
@@ -34,6 +41,15 @@ export interface RaiseEventInput {
  * so a rolled-back approval never tells anyone it happened.
  */
 export async function raiseEvent(exec: Exec, eventKey: string, input: RaiseEventInput): Promise<number | null> {
+  // The client's message does not depend on whether any role is told below.
+  if (input.entity) {
+    await queueStageMessages(exec, {
+      slug: input.entity.slug,
+      entityId: input.entity.id,
+      actorId: input.actorUserId,
+      trigger: { on: 'event', eventKey },
+    });
+  }
   const ev = await exec.execute(sql`
     SELECT e.id, e.module, e.title_template, e.message_template, e.link_template, e.notify_creator, e.priority,
            COALESCE(array_agg(r.role_id) FILTER (WHERE r.role_id IS NOT NULL), '{}') AS role_ids

@@ -9,7 +9,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import type { MenuItem } from '@/types/menu';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface MenuRow extends MenuItem {
   parent_name: string | null;
@@ -140,7 +141,7 @@ export default function MenuPage() {
           {
             key: 'url',
             header: 'URL',
-            render: (m) => <code className="text-xs text-muted-foreground">{m.url || '—'}</code>,
+            render: (m) => <code className="text-xs text-muted-foreground">{m.url || NO_VALUE}</code>,
           },
           {
             key: 'icon',

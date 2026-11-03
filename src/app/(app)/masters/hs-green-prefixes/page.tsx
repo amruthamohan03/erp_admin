@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/formatDate';
 import { normaliseHsCode } from '@/lib/hscodes/greenCertificate';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.1 — the standing green-certificate rule, as data an operator maintains.
 //
@@ -148,7 +149,7 @@ export default function HsGreenPrefixesPage() {
           {
             key: 'note',
             header: 'Covers',
-            render: (r) => r.note || <span className="text-muted-foreground">—</span>,
+            render: (r) => r.note || <span className="text-muted-foreground">{NO_VALUE}</span>,
           },
           {
             key: 'created_at',

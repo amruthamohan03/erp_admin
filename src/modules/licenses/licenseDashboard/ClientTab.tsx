@@ -19,6 +19,7 @@ import {
   clientEndpoint, exportHref, tabEndpoint, useTabData, type LicenseUseForValue,
 } from './useTabData';
 import type { LicenseClientDetail, LicenseClients } from '@/db/queries/licenseDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Client Analysis — who holds the book, and one client's profile in full.
 //
@@ -112,10 +113,10 @@ function ClientProfile({
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-2xl font-bold text-white" title={client.short_name ?? ''}>
-              {client.short_name ?? '—'}
+              {client.short_name || NO_VALUE}
             </h3>
             <p className="truncate text-sm text-white/90" title={client.company_name ?? ''}>
-              {client.company_name ?? '—'}
+              {client.company_name || NO_VALUE}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {[...(client.client_type ?? '')]
@@ -185,9 +186,9 @@ function ClientProfile({
         </InfoCard>
 
         <InfoCard icon={<Contact className="h-5 w-5" />} title="Contact">
-          <InfoItem label="Contact Person" value={client.contact_person ?? '—'} />
-          <InfoItem label="Email" value={client.email ?? '—'} />
-          <InfoItem label="Payment Terms" value={client.payment_term ?? '—'} />
+          <InfoItem label="Contact Person" value={client.contact_person || NO_VALUE} />
+          <InfoItem label="Email" value={client.email || NO_VALUE} />
+          <InfoItem label="Payment Terms" value={client.payment_term || NO_VALUE} />
           <InfoItem label="Last License" value={formatDate(client.last_license_date)} />
         </InfoCard>
 

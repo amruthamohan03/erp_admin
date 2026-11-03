@@ -14,7 +14,8 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate, toDateInputValue } from '@/lib/formatDate';
 import StatusBadge from '@/components/ui/StatusBadge';
-import type { ToneKey } from '@/lib/statusTone';
+import type { ToneKey } from '@/lib/statusTone';
+import { NO_VALUE } from '@/lib/displayValue';
 
 export interface FilePayment {
   payment_id: number;
@@ -89,7 +90,7 @@ export function PaymentList({
                 </td>
                 <td className="px-2 py-1.5 text-foreground">
                   <span className="block max-w-[10rem] truncate" title={p.beneficiary ?? p.requestee ?? ''}>
-                    {p.beneficiary || p.requestee || '—'}
+                    {p.beneficiary || p.requestee || NO_VALUE}
                   </span>
                 </td>
                 <td className="px-2 py-1.5">

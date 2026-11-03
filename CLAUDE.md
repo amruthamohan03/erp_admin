@@ -928,7 +928,7 @@ Rules that follow:
 - **A configured tone beats the text.** Where a master row already carries a hue (payment stages' `tone`), pass it as `tone` / `badge: (r) => r.tone`. Use `tone` too when two statuses share a meaning but must stay apart — DGI Verified is violet because it is a step past Validated. Do not use `tone` to re-colour a status the resolver already classifies correctly.
 - **One palette.** `badgeClass(tone)` in [statusTone.ts](src/lib/statusTone.ts) is the only set of badge classes; [stageConfig.ts](src/lib/payments/stageConfig.ts) re-exports it rather than keeping a copy. Every hue states both themes — a light `-100` fill with `-800` text, and a translucent `-500/20` fill with `-300` text in dark mode (§4.32). Slate uses the `muted` tokens.
 - **A `display` flag says Active / Disabled, through `displayLabel`.** Not "Yes/No", not "Off", not "Inactive" on one screen and "Disabled" on the next.
-- **An empty status is an em dash**, not an empty pill — `<StatusBadge>` does this for you.
+- **An empty status reads "N/A"** (§4.41), not an empty pill — `<StatusBadge>` does this for you.
 - **The badge truncates and keeps the full text as its `title`** (§4.36), so a long document status cannot widen its column.
 - **Search and column filters still match the words.** The badge is how the cell is *drawn*; `cellText` reads the field, so typing `cancelled` finds the red rows (§4.25.1).
 - **This is not the action palette.** View / Edit / Delete hues (§4.20) and the configured action colours (§4.26) mark what a *button* does. A badge marks what state a *record* is in. Do not reuse one for the other.
@@ -1004,6 +1004,57 @@ Rules that follow:
 - **A warning must never block.** Not on the client, not on the server, not "just this once" — if it should block, it is an error, and belongs in the rule above.
 - **The marked-field line shows the server's sentence**, never a fixed "This field needs a value" over an error that says something else.
 - **Tests pin the sentences** — [fields.test.ts](src/lib/validation/fields.test.ts). Add a case with every new rule.
+
+### 4.41 An empty text value reads "N/A" — on screen, never in the database
+
+**Wherever a person reads a text value that is empty — a list cell, a record view, a detail panel, a dropdown label, an Excel cell, a printed PDF, an email built from a template — it shows `N/A`.** The value itself stays `NULL` in the database. There is one constant and one helper, in [src/lib/displayValue.ts](src/lib/displayValue.ts):
+
+```ts
+import { NO_VALUE, displayText, emptyFor, isBlank } from '@/lib/displayValue';
+
+{r.supplier || NO_VALUE}                 // ✅ a text cell
+displayText(r.supplier)                  // ✅ same, as a function — also catches '   '
+emptyFor(field.field_type)               // ✅ a config-driven field: 'N/A' for words, '—' otherwise
+{r.supplier ?? '—'}                      // ❌ the old em dash
+{r.supplier ?? ''}                       // ❌ a blank cell reads as "not loaded yet"
+'N/A'                                    // ❌ the literal — use NO_VALUE so it stays one string
+```
+
+**Text only.** "N/A" is for a value that is words: text, textarea, email, tel, a select's label, a file link, a list such as the remarks log (`TEXT_FIELD_TYPES`). A **date** keeps `formatDate`'s em dash (§4.19) and a **number or amount** keeps its own rendering — "N/A" in a column of tonnages is noise, and an Excel cell for a number stays empty so the column can still be summed. A Yes/No flag whose absence means "no" (Default, Customs, a permission) is not an empty value either; it keeps its own marker.
+
+**Never store it.** Writing the text `'N/A'` into an empty column was considered and refused, because an unfilled field would then look filled to every rule that asks "is this empty?":
+
+- the licence `fromRelated` derive fills only BLANK fields (§4.12), so a stored `'N/A'` stops Supplier, CRF Reference and License Invoice Number from ever filling;
+- `required` would pass on a field nobody touched (§4.18);
+- an email or phone field would fail its own validation (§4.40);
+- a unique column would collide on the second `'N/A'`;
+- an attachment column holds a `files_t` id, and `'N/A'` is a broken link (§4.24);
+- the reference generator blanks a reference when a code is missing (§4.33) — `'N/A'` would be printed into it instead.
+
+**Most screens get this for free — keep it that way:**
+
+| Path | Where |
+| --- | --- |
+| A `<DataTable>` column with no `render` | `cellText` in [dataTableSort.ts](src/lib/dataTableSort.ts) returns `NO_VALUE` for a blank |
+| Auto-derived columns (§4.25.1) | `autoCell` in [dataTableAutoColumns.tsx](src/lib/dataTableAutoColumns.tsx) |
+| An empty status | `<StatusBadge>` (§4.38) |
+| The read-only record view | [RecordViewModal](src/components/transactional/RecordViewModal.tsx) via `emptyFor(field_type)` |
+| A module's Excel export | `cell()` in [pageExport.ts](src/db/queries/pageExport.ts) — text fields only |
+| Stage email / WhatsApp tokens | the same `cell()`, through `pageRecordDisplay` |
+
+**The one exception: `props.hideWhenEmpty`.** A read-only mirror whose absence is the whole message — Import Tracking's Global License link, copied from the licence — is configured with `"hideWhenEmpty": true` on its field row and is simply not drawn while empty (`hiddenWhileEmpty` in the same module, read by [Accordion](src/components/transactional/Accordion.tsx) and the record view). Do **not** get the same effect with a `visibleWhen` on the field's own value: the form and the save route both skip a hidden field, so the field could never be cleared, and switching to a licence without a file would leave the previous licence's link stored.
+
+**Search must find it.** Because `cellText` is also what the global search and the column filters read (§4.25.1), typing `n/a` finds the rows whose cell shows N/A — the §4.15 pairing again. Sorting reads the raw value, so blanks still sink to the bottom rather than sorting as the letters "N/A".
+
+**A hand-written cell must say it too.** A `render`, a hand-built `<td>`, a detail panel, a `*Print.ts` or `*Export.ts` builder writes `|| NO_VALUE` for a text value. Prefer `||` over `??` for strings so an empty string is caught as well as `null` — but keep `??` where the value may legitimately be `0` or `false`.
+
+**Sweep for it, don't trust a reading:**
+
+```bash
+grep -rnE "(\?\?|\|\|) '—'" src/          # each hit: a date or number (fine) or a text value (fix)
+grep -rn ">—<" src/                        # bare dashes in JSX — same question
+grep -rn "'N/A'" src/                      # literals that should be NO_VALUE
+```
 
 ## 5. Directory layout
 
@@ -1210,6 +1261,9 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to show a status column as plain text, or to hand-build a coloured pill for one → no, it is a `<StatusBadge>` / `badge: true` on the column (§4.38).
 - Requests to give one screen its own status-colour map, or to colour a status at the call site → no, add the word to `statusTone` so every screen agrees (§4.38).
 - Requests to colour a "… to be validated" / "to be paid" status green → no, it is waiting, so it is amber (§4.38).
+- Requests to store the text 'N/A' in an empty column "so it shows everywhere" → no, it is display only; a stored 'N/A' defeats every "is this empty?" check (§4.41).
+- Requests to show an empty text value as a blank, an em dash or a hand-typed 'N/A' → no, it is `NO_VALUE` from `displayValue.ts` (§4.41).
+- Requests to show "N/A" for an empty date or number → no, a date keeps the em dash and a number its own rendering (§4.41).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

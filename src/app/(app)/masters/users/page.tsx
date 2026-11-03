@@ -13,6 +13,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import FieldMessages from '@/components/ui/FieldMessages';
 import { useFieldCheck } from '@/lib/hooks/useFieldCheck';
 import type { User, Role } from '@/types';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /**
  * Which accounts the list is showing. `display` is both the §4.27 soft-delete
@@ -264,13 +265,13 @@ export default function UsersPage() {
           key: 'location_name',
           header: 'Location',
           sortable: true,
-          render: (u: User) => u.location_name || <span className="text-muted-foreground">—</span>,
+          render: (u: User) => u.location_name || <span className="text-muted-foreground">{NO_VALUE}</span>,
         },
         {
           key: 'department_name',
           header: 'Department',
           sortable: true,
-          render: (u: User) => u.department_name || <span className="text-muted-foreground">—</span>,
+          render: (u: User) => u.department_name || <span className="text-muted-foreground">{NO_VALUE}</span>,
         },
         {
           key: 'display',

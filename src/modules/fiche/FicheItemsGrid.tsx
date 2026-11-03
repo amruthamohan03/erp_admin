@@ -26,7 +26,8 @@ import {
   type FicheComputed,
   type FicheRules,
 } from '@/lib/fiche/calc';
-import type { FicheItem } from '@/db/schema/fiche';
+import type { FicheItem } from '@/db/schema/fiche';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface FicheItemsGridProps {
   value: FicheItem[];
@@ -301,7 +302,7 @@ export default function FicheItemsGrid({ value, onChange, readonly = false, valu
                         className={`px-1.5 py-1 ${typeof v === 'number' ? 'text-right tabular-nums' : ''} ${c.kind === 'computed' ? 'bg-primary-50/60 font-semibold text-foreground' : ''}`}
                         title={text}
                       >
-                        <span className="block truncate">{text || '—'}</span>
+                        <span className="block truncate">{text || NO_VALUE}</span>
                       </td>
                     );
                   }
