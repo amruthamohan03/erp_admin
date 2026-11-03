@@ -25,6 +25,7 @@ import {
   type ToneKey,
 } from '@/lib/payments/stageConfig';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { displayText, NO_VALUE } from '@/lib/displayValue';
 
 interface McaLine {
   mca_ref: string;
@@ -60,7 +61,7 @@ const money = (v: unknown): string => {
   return (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const text = (v: unknown): string => (v == null || String(v).trim() === '' ? 'N/A' : String(v));
+const text = (v: unknown): string => displayText(v);
 
 function Badge({ tone, children }: { tone: ToneKey; children: React.ReactNode }) {
   return <StatusBadge status={children} tone={tone} />;
@@ -122,21 +123,21 @@ export default function PaymentViewModal({
   const infoRows: Array<[string, React.ReactNode]> = d
     ? [
         ['ID', `#${id}`],
-        ['Status', status ? <Badge tone={statusTone}>{status.label}</Badge> : 'N/A'],
+        ['Status', status ? <Badge tone={statusTone}>{status.label}</Badge> : NO_VALUE],
         ['Department', text(d.department_name)],
         ['Location', text(d.location_name)],
         ['Beneficiary', text(d.beneficiary)],
         ['Requestee', text(d.requestee)],
         ['Client', text(d.client_name)],
-        ['Payment For', d.pay_for == null ? 'N/A' : (PAY_FOR_LABELS[Number(d.pay_for)] ?? 'N/A')],
+        ['Payment For', d.pay_for == null ? NO_VALUE : (PAY_FOR_LABELS[Number(d.pay_for)] || NO_VALUE)],
         ['Payment Type', text(d.payment_type)],
         ['Currency', text(d.currency_short_name)],
         ['Amount', <strong key="amt" className="tabular-nums">{money(d.amount)}</strong>],
         ['Expense Type', text(d.expense_type_name)],
         ['Cash Collector', text(d.cash_collector)],
-        ['Chargeback', d.chargeback == null ? 'N/A' : money(d.chargeback)],
-        ['Created Date', formatDateTime(d.created_at, 'N/A')],
-        ['Updated Date', formatDateTime(d.updated_at, 'N/A')],
+        ['Chargeback', d.chargeback == null ? '—' : money(d.chargeback)],
+        ['Created Date', formatDateTime(d.created_at)],
+        ['Updated Date', formatDateTime(d.updated_at)],
       ]
     : [];
 

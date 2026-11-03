@@ -1,10 +1,16 @@
 import { smtpSender } from '@/lib/notificationChannels/email';
 import type { OutboundResult } from '@/db/schema';
 import { CHANNEL_NOT_CONFIGURED } from './setup';
+import { outlookConfigured, sendOutlookEmail } from './outlook';
 
-// Sends one composed email through the configured SMTP server and reports how
-// each recipient fared. The SMTP connection itself is configured in .env and
-// shared with the notification outbox (smtpSender).
+// Sends one composed email and reports how each recipient fared, through
+// whichever provider is configured:
+//
+//   outlook — Microsoft 365 via Graph (OUTLOOK_* in .env, see outlook.ts)
+//   smtp    — any SMTP server (SMTP_* in .env), shared with the notification
+//             outbox (smtpSender)
+//
+// Outlook wins when both are set; EMAIL_PROVIDER=smtp|outlook forces one.
 
 export interface OutgoingFile {
   name: string;
@@ -12,8 +18,19 @@ export interface OutgoingFile {
   data: Buffer;
 }
 
+export type EmailProvider = 'outlook' | 'smtp';
+
+export function emailProvider(): EmailProvider | null {
+  const forced = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  const smtp = Boolean(process.env.SMTP_HOST);
+  if (forced === 'smtp') return smtp ? 'smtp' : null;
+  if (forced === 'outlook') return outlookConfigured() ? 'outlook' : null;
+  if (outlookConfigured()) return 'outlook';
+  return smtp ? 'smtp' : null;
+}
+
 export function emailConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST);
+  return emailProvider() !== null;
 }
 
 
@@ -57,6 +74,7 @@ export async function sendEmail(args: {
   text: string;
   files: OutgoingFile[];
 }): Promise<OutboundResult[]> {
+  if (emailProvider() === 'outlook') return sendOutlookEmail(args);
   const smtp = smtpSender();
   if (!smtp) throw new Error(CHANNEL_NOT_CONFIGURED.email);
   const all = [...args.to, ...args.cc, ...args.bcc];

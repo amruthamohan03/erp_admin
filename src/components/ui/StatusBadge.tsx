@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { badgeClass, statusTone, type ToneKey } from '@/lib/statusTone';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.38 — the one status pill. Its colour comes from the status text through
 // statusTone, so the same status is the same colour on every screen; pass
@@ -17,7 +18,7 @@ interface Props {
 export default function StatusBadge({ status, tone, title, className }: Props) {
   const text = typeof status === 'string' || typeof status === 'number' ? String(status) : '';
   if (status === null || status === undefined || status === '') {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-muted-foreground">{NO_VALUE}</span>;
   }
   return (
     <span

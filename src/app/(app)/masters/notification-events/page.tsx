@@ -15,7 +15,8 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import { renderTemplate, templateTokens } from '@/lib/notificationTemplate';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { displayLabel } from '@/lib/statusTone';
+import { displayLabel } from '@/lib/statusTone';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface EventRow {
   id: number;
@@ -159,7 +160,7 @@ export default function NotificationEventsPage() {
           {
             key: 'role_names',
             header: 'Roles told',
-            render: (r) => <span className="block max-w-xs truncate" title={r.role_names ?? ''}>{r.role_names ?? '—'}</span>,
+            render: (r) => <span className="block max-w-xs truncate" title={r.role_names ?? ''}>{r.role_names || NO_VALUE}</span>,
           },
           { key: 'notify_creator', header: 'Creator told', value: (r) => (r.notify_creator ? 'Yes' : 'No'), render: (r) => (r.notify_creator ? 'Yes' : 'No') },
           { key: 'priority', header: 'Priority', render: (r) => (r.priority === 'high' ? 'High' : 'Normal') },

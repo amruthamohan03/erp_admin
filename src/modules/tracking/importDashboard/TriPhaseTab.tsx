@@ -21,6 +21,7 @@ import {
 } from '../dashboardUi';
 import { tabEndpoint, useTabData } from './useTabData';
 import type { ImportTriPhase } from '@/db/queries/importDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Tri Phase — the month split into thirds by the day a file was opened.
 //
@@ -143,7 +144,7 @@ export default function TriPhaseTab({ active }: { active: boolean }) {
             {data.by_client.map((r) => (
               <Tr key={r.client_name ?? 'unknown'}>
                 {/* §4.15 — the client is a column on someone else's row, so the code. */}
-                <Td align="left"><strong>{r.client_name ?? '—'}</strong></Td>
+                <Td align="left"><strong>{r.client_name || NO_VALUE}</strong></Td>
                 <Td><strong>{nf.format(r.total)}</strong></Td>
                 <Td>{nf.format(r.phase1)}</Td>
                 <Td>{nf.format(r.phase2)}</Td>

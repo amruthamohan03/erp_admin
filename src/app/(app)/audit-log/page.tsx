@@ -26,6 +26,7 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDateTime } from '@/lib/formatDate';
 import type { AuditStats } from '@/db/queries/auditLog';
 import AuditDetailDialog from './AuditDetailDialog';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.28 — the read side of the audit trail, and §4.29 for its dashboard: every
 // figure is a SQL aggregate over live rows, honouring the same filters as the
@@ -427,7 +428,7 @@ export default function AuditLogPage() {
             render: (r) => (
               <>
                 <span className="font-medium text-foreground">
-                  {r.actor_name ?? (r.actor_type === 'system' ? 'System' : '—')}
+                  {r.actor_name ?? (r.actor_type === 'system' ? 'System' : NO_VALUE)}
                 </span>
                 {r.actor_role && (
                   <span className="block text-xs text-muted-foreground">{r.actor_role}</span>
@@ -436,7 +437,7 @@ export default function AuditLogPage() {
             ),
           },
           { key: 'action', header: 'Action', render: (r) => humanize(r.action) },
-          { key: 'module', header: 'Module', render: (r) => (r.module ? humanize(r.module) : '—') },
+          { key: 'module', header: 'Module', render: (r) => (r.module ? humanize(r.module) : NO_VALUE) },
           {
             key: 'entity_id',
             header: 'Record',
@@ -453,7 +454,7 @@ export default function AuditLogPage() {
             align: 'right',
             render: (r) => (r.change_count > 0 ? String(r.change_count) : '—'),
           },
-          { key: 'ip_address', header: 'IP', render: (r) => r.ip_address ?? '—' },
+          { key: 'ip_address', header: 'IP', render: (r) => r.ip_address || NO_VALUE },
         ]}
         actions={(row) => ({ view: () => setDetailId(row.id) })}
         server={{

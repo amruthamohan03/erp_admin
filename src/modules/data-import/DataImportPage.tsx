@@ -27,7 +27,8 @@ import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDateTime } from '@/lib/formatDate';
-import { missingRequired, type TargetField } from '@/lib/dataImport/mapping';
+import { missingRequired, type TargetField } from '@/lib/dataImport/mapping';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Target {
   id: number;
@@ -485,7 +486,7 @@ export default function DataImportPage() {
                 <span className="text-muted-foreground">0</span>
               ),
           },
-          { key: 'created_by_name', header: 'By', render: (r) => r.created_by_name ?? '—' },
+          { key: 'created_by_name', header: 'By', render: (r) => r.created_by_name || NO_VALUE },
           { key: 'created_at', header: 'When', render: (r) => formatDateTime(r.created_at) },
         ]}
       />

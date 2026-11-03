@@ -70,6 +70,10 @@ export const importT = pgTable(
     mcaRef: varchar('mca_ref', { length: 100 }),
     currency: integer('currency').references(() => currencyMaster.id),
     licenseInvoiceNumber: varchar('license_invoice_number', { length: 100 }),
+    // The licence's global licence PDF (license_t.license_file), copied when the
+    // licence is picked — the same way license_invoice_number is — so the form
+    // can link it without reading the licence on every load.
+    licenseFile: varchar('license_file', { length: 255 }),
     supplier: varchar('supplier', { length: 255 }),
     regime: integer('regime').references(() => regimeMaster.id),
     typesOfClearance: integer('types_of_clearance').references(() => clearanceMaster.id),
@@ -96,19 +100,24 @@ export const importT = pgTable(
     insuranceAmount: numeric('insurance_amount', { precision: 15, scale: 2 }),
     insuranceAmountCurrency: integer('insurance_amount_currency').references(() => currencyMaster.id),
     insuranceReference: varchar('insurance_reference', { length: 100 }),
+    // Attachments hold a files_t id, like license_t.license_file.
+    insuranceFile: varchar('insurance_file', { length: 255 }),
 
     // ── CRF & Declaration ──
     crfReference: varchar('crf_reference', { length: 100 }),
     crfReceivedDate: date('crf_received_date'),
+    crfFile: varchar('crf_file', { length: 255 }),
     clearingBasisId: integer('clearing_basis_id').references(() => clearingBasisMaster.id),
     adDate: date('ad_date'),
     inspectionReports: varchar('inspection_reports', { length: 100 }),
+    inspectionFile: varchar('inspection_file', { length: 255 }),
     archiveReference: varchar('archive_reference', { length: 100 }),
     auditedDate: date('audited_date'),
     archivedDate: date('archived_date'),
 
     // ── Transport Documents ──
     roadManif: varchar('road_manif', { length: 100 }),
+    roadManifFile: varchar('road_manif_file', { length: 255 }),
     airwayBill: varchar('airway_bill', { length: 100 }),
     container: varchar('container', { length: 100 }),
     entryPointId: integer('entry_point_id').references(() => transitPointMaster.id),

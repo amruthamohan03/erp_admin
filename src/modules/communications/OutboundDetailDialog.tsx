@@ -8,11 +8,14 @@ import { formatDateTime } from '@/lib/formatDate';
 import { formatBytes } from '@/lib/messaging/attachments';
 import { sanitizeHtml } from '@/lib/messaging/richText';
 import type { OutboundDetail } from '@/db/queries/outboundMessages';
+import { OUTBOUND_STATUS_LABEL as STATUS_LABEL } from '@/schemas/outboundMessages';
+import { stageLabel } from '@/schemas/communicationTemplates';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // A sent message in full: who it went to, how each recipient fared, what it
 // said and what was attached. Read-only — a sent message cannot be changed.
 
-const STATUS_LABEL: Record<string, string> = { sent: 'Sent', partial: 'Partial', failed: 'Failed', sending: 'Sending' };
+
 
 export default function OutboundDetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const [row, setRow] = useState<OutboundDetail | null>(null);
@@ -71,7 +74,8 @@ export default function OutboundDetailDialog({ id, onClose }: { id: number; onCl
                 {[
                   ['Channel', row.channel === 'whatsapp' ? 'WhatsApp' : 'Email'],
                   ['Status', <StatusBadge key="s" status={STATUS_LABEL[row.status] ?? row.status} />],
-                  ['Sent by', row.sent_by_name ?? '—'],
+                  ['Sent by', row.origin === 'auto' ? 'Automatic (communication template)' : (row.sent_by_name || NO_VALUE)],
+                  ...(row.entity_type ? [['About', `${stageLabel(row.entity_type)} #${row.entity_id}`]] : []),
                   ['Sent', formatDateTime(row.sent_at ?? row.created_at)],
                   ['To', row.to_recipients.join(', ')],
                   ...(row.cc_recipients.length ? [['Cc', row.cc_recipients.join(', ')]] : []),
@@ -139,7 +143,7 @@ export default function OutboundDetailDialog({ id, onClose }: { id: number; onCl
                               <StatusBadge status={r.status === 'sent' ? 'Sent' : 'Failed'} />
                             </td>
                             <td className="max-w-[22rem] break-words px-3 py-2 text-muted-foreground">
-                              {r.error ?? (r.provider_id ? `Reference ${r.provider_id}` : '—')}
+                              {r.error ?? (r.provider_id ? `Reference ${r.provider_id}` : NO_VALUE)}
                             </td>
                           </tr>
                         ))}

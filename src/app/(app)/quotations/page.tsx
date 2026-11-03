@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Boxes, CalendarClock, Copy, FileSpreadsheet, FileText, Layers, Plus, Send, X } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDate } from '@/lib/formatDate';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §2 step 2 — the Quotations list.
 //
@@ -77,6 +79,8 @@ function clientIdFromUrl(search: string): string {
 }
 
 export default function QuotationsPage() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('quotation');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<DashboardCard[]>([]);
@@ -237,7 +241,7 @@ export default function QuotationsPage() {
             header: 'Kind',
             render: (r) => (
               <span className="inline-block rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
-                {r.kind_name ?? '—'}
+                {r.kind_name || NO_VALUE}
               </span>
             ),
           },
@@ -269,6 +273,7 @@ export default function QuotationsPage() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           view: () => setViewId(r.id),
           edit: `/quotations/${r.id}`,
           remove: () => setConfirmDelete(r),
@@ -318,6 +323,7 @@ export default function QuotationsPage() {
       </ConfirmDialog>
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
+      {messaging.dialog}
     </>
   );
 }

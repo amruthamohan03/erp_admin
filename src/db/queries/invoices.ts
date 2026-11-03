@@ -938,6 +938,7 @@ export async function announceInvoiceStatus(
     actorUserId: uid,
     creatorUserId: row?.createdBy ?? null,
     context: { ref: row?.invoiceRef ?? `#${invoiceId}`, kind: kind === 'export' ? 'Export' : 'Import' },
+    entity: { slug: `${kind}-invoices`, id: invoiceId },
   });
 }
 

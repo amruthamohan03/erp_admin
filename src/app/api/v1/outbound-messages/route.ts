@@ -3,6 +3,8 @@
 //
 // POST fields: channel, to / cc / bcc (JSON arrays of addresses or numbers),
 // subject, message (the body as HTML), and any number of `attachments` files.
+// Sent from a stage list's mail / WhatsApp button it also carries entity_type,
+// entity_id and template_key, so the record's messages can be traced.
 //
 // The message row and its attachments are committed BEFORE the provider is
 // called, and the outcome is written after — so the log holds every attempt,
@@ -16,10 +18,11 @@ import { recordAudit } from '@/lib/audit';
 import { outboundMessage } from '@/db/schema';
 import { storeFile } from '@/db/queries/files';
 import { finishOutbound, listOutbound, OUTBOUND_ENTITY } from '@/db/queries/outboundMessages';
-import { outboundListQuerySchema, sendOutboundSchema } from '@/schemas';
+import { outboundLinkSchema, outboundListQuerySchema, sendOutboundSchema } from '@/schemas';
 import { attachmentError } from '@/lib/messaging/attachments';
-import { emailConfigured, sendEmail, type OutgoingFile } from '@/lib/messaging/email';
-import { sendWhatsApp, whatsappConfigured } from '@/lib/messaging/whatsapp';
+import { emailConfigured, type OutgoingFile } from '@/lib/messaging/email';
+import { whatsappConfigured } from '@/lib/messaging/whatsapp';
+import { deliverOutbound } from '@/lib/messaging/deliver';
 import { CHANNEL_NOT_CONFIGURED } from '@/lib/messaging/setup';
 
 const MENU = '/communications';
@@ -66,6 +69,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     subject: form.get('subject') ?? '',
     message: form.get('message') ?? '',
   });
+  const optional = (key: string): string | undefined => {
+    const v = form.get(key);
+    return typeof v === 'string' && v.trim() !== '' ? v : undefined;
+  };
+  const link = outboundLinkSchema.parse({
+    entity_type: optional('entity_type'),
+    entity_id: optional('entity_id'),
+    template_key: optional('template_key'),
+  });
 
   const files = form.getAll('attachments').filter((f): f is File => f instanceof File);
   const tooMuch = attachmentError(files);
@@ -91,6 +103,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         bodyText: input.body_text,
         attachmentCount: outgoing.length,
         sentBy: session.uid,
+        entityType: link.entity_type ?? null,
+        entityId: link.entity_id ?? null,
+        templateKey: link.template_key ?? null,
       })
       .returning({ id: outboundMessage.id });
     for (const f of outgoing) {
@@ -106,18 +121,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return row.id;
   });
 
-  const results =
-    input.channel === 'email'
-      ? await sendEmail({
-          to: input.to,
-          cc: input.cc,
-          bcc: input.bcc,
-          subject: input.subject,
-          html: input.body_html,
-          text: input.body_text,
-          files: outgoing,
-        })
-      : await sendWhatsApp({ to: input.to, text: input.body_text, files: outgoing });
+  const results = await deliverOutbound({
+    channel: input.channel,
+    to: input.to,
+    cc: input.cc,
+    bcc: input.bcc,
+    subject: input.subject,
+    html: input.body_html,
+    text: input.body_text,
+    files: outgoing,
+  });
 
   const outcome = await db.transaction(async (tx) => {
     const o = await finishOutbound(tx, id, results);
@@ -136,7 +149,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         attachments: outgoing.map((f) => f.name),
         status: o.status,
       },
-      metadata: { results },
+      metadata: { results, ...(link.entity_type ? { record: `${link.entity_type}#${link.entity_id}` } : {}) },
     });
     return o;
   });

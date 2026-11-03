@@ -7,7 +7,8 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import Toggle from '@/components/ui/Toggle';
 import { usePagedList } from '@/lib/hooks/usePagedList';
 import { safeFetchJson } from '@/lib/safeFetch';
-import type { Role } from '@/types';
+import type { Role } from '@/types';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface MappingRow {
   card_id: number;
@@ -310,7 +311,7 @@ export default function RoleToDashboardCardPage() {
                       </td>
                       <td>
                         <span className="inline-block rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {r.card_category || '—'}
+                          {r.card_category || NO_VALUE}
                         </span>
                       </td>
                       <td className="text-muted-foreground">{r.default_order}</td>

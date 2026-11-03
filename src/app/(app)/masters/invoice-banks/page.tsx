@@ -8,7 +8,8 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import ActiveToggleField from '@/components/ui/ActiveToggleField';
 import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
-import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Row {
   id: number;
@@ -102,7 +103,7 @@ export default function InvoiceBanksPage() {
         { key: 'invoice_bank_account_number', header: 'Account Number', sortable: true, className: 'font-mono text-xs' },
         { key: 'invoice_bank_swift', header: 'SWIFT', className: 'font-mono text-xs', render: (r: Row) => (
             <>
-            {r.invoice_bank_swift || '—'}
+            {r.invoice_bank_swift || NO_VALUE}
             </>
           ) },
         displayStatusColumn<Row>({ nameOf: (r) => r.invoice_bank_name, onToggle: handleToggle }),

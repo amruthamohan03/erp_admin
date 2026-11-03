@@ -81,7 +81,7 @@ const SOURCES: Record<string, DeriveSource> = {
 
       return queryOne(sql`
         SELECT l.kind_id, l.type_of_goods_id, l.transport_mode_id, l.currency_id,
-               l.supplier, l.ref_cod, l.invoice_number,
+               l.supplier, l.ref_cod, l.invoice_number, l.license_file,
                (COALESCE(l.weight,0)
                   - COALESCE(${usedImports('weight')},0)
                   - COALESCE(${usedExports('weight')},0)) AS remaining_weight,

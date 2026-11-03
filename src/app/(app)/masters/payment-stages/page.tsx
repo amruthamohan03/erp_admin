@@ -23,7 +23,8 @@ import { formatDateTime } from '@/lib/formatDate';
 import { type ToneKey } from '@/lib/payments/stageConfig';
 import { PAYMENT_STAGE_TONES } from '@/db/schema';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Row {
   id: number;
@@ -118,7 +119,7 @@ export default function PaymentStagesPage() {
             value: (r) => asksFor(r).join(', '),
             render: (r) =>
               asksFor(r).length === 0 ? (
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">{NO_VALUE}</span>
               ) : (
                 <span className="flex flex-wrap gap-1">
                   {asksFor(r).map((a) => (

@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /**
  * An export file still holding a seal that this edit would free, as reported by
@@ -867,7 +868,7 @@ function ViewModal({ data, onClose }: { data: Record<string, unknown>; onClose: 
           {fields.map(([label, value]) => (
             <div key={label} className="border-b border-border pb-2">
               <div className="text-[11px] uppercase tracking-wide text-primary-600 font-semibold">{label}</div>
-              <div className="text-sm text-foreground">{value !== null && value !== undefined && value !== '' ? String(value) : <span className="text-muted-foreground">—</span>}</div>
+              <div className="text-sm text-foreground">{value !== null && value !== undefined && value !== '' ? String(value) : <span className="text-muted-foreground">{NO_VALUE}</span>}</div>
             </div>
           ))}
         </div>

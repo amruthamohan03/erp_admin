@@ -16,6 +16,7 @@ import {
 } from '../dashboardUi';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { ExportOverview } from '@/db/queries/exportDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Overview — the uploaded Export dashboard's main tab, section for section.
 //
@@ -303,12 +304,12 @@ export default function OverviewTab({ active }: { active: boolean }) {
         autoColumns={false}
         emptyMessage="No export files yet — create the first one from the Exports list."
         columns={[
-          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
-          { key: 'invoice', header: 'Invoice', render: (r) => r.invoice ?? '—' },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref || NO_VALUE}</strong> },
+          { key: 'invoice', header: 'Invoice', render: (r) => r.invoice || NO_VALUE },
           // §4.15 — the client is a column on someone else's row, so the code.
-          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
-          { key: 'buyer', header: 'Buyer', render: (r) => r.buyer ?? '—' },
-          { key: 'kind', header: 'Kind', render: (r) => r.kind ?? '—' },
+          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name || NO_VALUE },
+          { key: 'buyer', header: 'Buyer', render: (r) => r.buyer || NO_VALUE },
+          { key: 'kind', header: 'Kind', render: (r) => r.kind || NO_VALUE },
           { key: 'weight', header: 'Weight', align: 'right', sortable: true, render: (r) => nf2.format(r.weight ?? 0) },
           { key: 'fob', header: 'FOB', align: 'right', sortable: true, render: (r) => nf2.format(r.fob ?? 0) },
           { key: 'status', header: 'Status', badge: true, render: (r) => <StatusBadge status={r.status ?? 'Pending'} /> },

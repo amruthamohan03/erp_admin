@@ -29,6 +29,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import BulkUpdateModal from '@/modules/imports/BulkUpdateModal';
 import { isPendingFilter } from '@/lib/imports/bulkFields';
@@ -38,7 +39,8 @@ import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/sel
 import { formatDate } from '@/lib/formatDate';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { statusFiltersFromParam } from '@/lib/tracking/statusFiltersParam';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -157,6 +159,8 @@ function buildParams(f: FilterState): URLSearchParams {
 }
 
 function ImportsListPageInner() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('import');
   const searchParams = useSearchParams();
   const [items, setItems] = useState<ImportRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -513,7 +517,7 @@ function ImportsListPageInner() {
                   {r.mca_ref}
                 </span>
               ) : (
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">{NO_VALUE}</span>
               ),
           },
           { key: 'client_name', header: 'Client', className: 'font-medium' },
@@ -546,6 +550,7 @@ function ImportsListPageInner() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           view: () => setViewId(r.id),
           edit: `/imports/${r.id}`,
           extra: (
@@ -603,6 +608,7 @@ function ImportsListPageInner() {
       )}
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
+      {messaging.dialog}
     </>
   );
 }

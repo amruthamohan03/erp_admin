@@ -20,6 +20,7 @@ import type {
   QuotationClientDetail,
   QuotationClients,
 } from '@/db/queries/quotationDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Client Analysis — who is being quoted, and for how much.
 //
@@ -99,10 +100,10 @@ function ClientProfile({ client }: { client: QuotationClientDetail }) {
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-2xl font-bold text-white" title={client.short_name ?? ''}>
-              {client.short_name ?? '—'}
+              {client.short_name || NO_VALUE}
             </h3>
             <p className="truncate text-sm text-white/90" title={client.company_name ?? ''}>
-              {client.company_name ?? '—'}
+              {client.company_name || NO_VALUE}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {[...(client.client_type ?? '')]
@@ -142,9 +143,9 @@ function ClientProfile({ client }: { client: QuotationClientDetail }) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <InfoCard icon={<Contact className="h-5 w-5" />} title="Contact">
-          <InfoItem label="Contact Person" value={client.contact_person ?? '—'} />
-          <InfoItem label="Email" value={client.email ?? '—'} />
-          <InfoItem label="Payment Terms" value={client.payment_term ?? '—'} />
+          <InfoItem label="Contact Person" value={client.contact_person || NO_VALUE} />
+          <InfoItem label="Email" value={client.email || NO_VALUE} />
+          <InfoItem label="Payment Terms" value={client.payment_term || NO_VALUE} />
           <InfoItem label="Last Quotation" value={formatDate(client.last_quotation_date)} />
           <InfoItem label="Total Lines" value={nf.format(client.lines)} />
         </InfoCard>
@@ -188,9 +189,9 @@ function ClientProfile({ client }: { client: QuotationClientDetail }) {
           >
             {client.recent.map((r) => (
               <Tr key={r.id}>
-                <Td align="left">{r.quotation_ref ?? '—'}</Td>
+                <Td align="left">{r.quotation_ref || NO_VALUE}</Td>
                 <Td>{formatDate(r.quotation_date)}</Td>
-                <Td align="left">{r.kind_name ?? '—'}</Td>
+                <Td align="left">{r.kind_name || NO_VALUE}</Td>
                 <Td>{nf.format(r.line_count)}</Td>
                 <Td align="right">
                   <strong>{nf2.format(r.total_amount)}</strong>

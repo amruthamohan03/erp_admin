@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, FileSpreadsheet, FileText } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
 import PendingInvoicingModal from './PendingInvoicingModal';
@@ -29,6 +30,8 @@ interface Row {
 }
 
 export default function ExportInvoiceListPage() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('export-invoices');
   const [items, setItems] = useState<Row[]>([]);
   // §4.39 — a failed load says why, in the table, instead of looking like "no invoices".
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -170,6 +173,7 @@ export default function ExportInvoiceListPage() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           // A validated invoice is final — the save route refuses it too.
           edit: r.validated === 0 ? () => { setFormId(String(r.id)); setFormOpen(true); } : undefined,
           remove: r.validated === 0 ? () => actions.askDelete(r) : undefined,
@@ -197,6 +201,7 @@ export default function ExportInvoiceListPage() {
 
       {actions.dialogs}
       <PendingInvoicingModal kind="export" open={pendingOpen} onClose={() => setPendingOpen(false)} onChanged={loadStats} />
+      {messaging.dialog}
     </>
   );
 }

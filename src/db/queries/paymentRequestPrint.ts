@@ -23,6 +23,7 @@ import { PAY_FOR_LABELS, STAGE_COLUMNS, flagOf, paymentStatus, type PaymentAppro
 import { applicableStages } from '@/lib/payments/stageConfig';
 import { loadBranding } from './branding';
 import { loadPaymentStages } from './paymentStages';
+import { NO_VALUE } from '@/lib/displayValue';
 
 const esc = (v: unknown): string =>
   String(v ?? '').replace(
@@ -68,7 +69,7 @@ function signCell(title: string, signed: boolean, name: unknown, at: unknown): s
     <div class="sign-title">${esc(title)}</div>
     <div class="sign-body">${
       signed
-        ? `<div class="sign-name">${esc(name || '—')}</div><div class="sign-time">${esc(stamp(at))}</div><div class="sign-ok">APPROUVÉ</div>`
+        ? `<div class="sign-name">${esc(name || NO_VALUE)}</div><div class="sign-time">${esc(stamp(at))}</div><div class="sign-ok">APPROUVÉ</div>`
         : ''
     }</div>
   </td>`;
@@ -229,35 +230,35 @@ th,td{border:1px solid #000 !important;padding:5px 7px;vertical-align:top;}
   <div class="title-band"><span>Demande de Fonds</span><span class="no">N° ${esc(r.id)}</span></div>
   <div class="meta">
     <div><b>Date :</b> ${esc(day(r.created_at))} &nbsp; <b>Heure :</b> ${esc(stamp(r.created_at).split(' ')[1] ?? '')}</div>
-    <div><b>Lieu :</b> ${esc(r.main_location_name ?? '—')}</div>
+    <div><b>Lieu :</b> ${esc(r.main_location_name || NO_VALUE)}</div>
     <div><b>Statut :</b> <span class="status">${esc(status.label)}</span></div>
   </div>
 
   <table class="info">
     <tr>
-      <td class="lbl">Département</td><td class="val"><strong>${esc(r.department_name ?? '')}</strong></td>
-      <td class="lbl">Demandeur</td><td class="val"><strong>${esc(r.requestee ?? '')}</strong></td>
+      <td class="lbl">Département</td><td class="val"><strong>${esc(r.department_name || NO_VALUE)}</strong></td>
+      <td class="lbl">Demandeur</td><td class="val"><strong>${esc(r.requestee || NO_VALUE)}</strong></td>
     </tr>
     <tr>
-      <td class="lbl">Bénéficiaire</td><td class="val" colspan="3"><strong>${esc(r.beneficiary ?? '')}</strong></td>
+      <td class="lbl">Bénéficiaire</td><td class="val" colspan="3"><strong>${esc(r.beneficiary || NO_VALUE)}</strong></td>
     </tr>
     <tr>
       <td class="lbl">Montant</td><td class="val amount">${esc(moneyFr(r.amount))} ${esc(r.currency_short_name ?? '')}</td>
-      <td class="lbl">Mode</td><td class="val"><strong>${esc(r.payment_type ?? '')}</strong></td>
+      <td class="lbl">Mode</td><td class="val"><strong>${esc(r.payment_type || NO_VALUE)}</strong></td>
     </tr>
     <tr>
       <td class="lbl">En lettres</td><td class="val words" colspan="3">${esc(amountWords || moneyFr(r.amount))}</td>
     </tr>
     ${chargebackRow}
     <tr>
-      <td class="lbl">Client</td><td class="val" colspan="3"><strong>${esc(clientName || '—')}</strong></td>
+      <td class="lbl">Client</td><td class="val" colspan="3"><strong>${esc(clientName || NO_VALUE)}</strong></td>
     </tr>
     <tr>
-      <td class="lbl">Paiement pour</td><td class="val">${esc(r.pay_for == null ? '' : (PAY_FOR_LABELS[Number(r.pay_for)] ?? ''))}</td>
-      <td class="lbl">Dépense</td><td class="val">${esc(r.expense_type_name ?? '')}</td>
+      <td class="lbl">Paiement pour</td><td class="val">${esc(r.pay_for == null ? NO_VALUE : (PAY_FOR_LABELS[Number(r.pay_for)] || NO_VALUE))}</td>
+      <td class="lbl">Dépense</td><td class="val">${esc(r.expense_type_name || NO_VALUE)}</td>
     </tr>
     <tr>
-      <td class="lbl">Motif</td><td class="val" colspan="3">${esc(r.motif ?? '')}</td>
+      <td class="lbl">Motif</td><td class="val" colspan="3">${esc(r.motif || NO_VALUE)}</td>
     </tr>
   </table>
 

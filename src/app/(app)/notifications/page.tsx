@@ -22,7 +22,8 @@ import {
   type NotificationKind,
   type UnreadCounts,
 } from '@/lib/notificationsClient';
-import StatusBadge from '@/components/ui/StatusBadge';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // useSearchParams needs a Suspense boundary for the static build.
 export default function NotificationsPage() {
@@ -184,7 +185,7 @@ function NotificationsInbox() {
               </span>
             ),
           },
-          { key: 'module', header: 'Module', render: (r) => r.module ?? '—' },
+          { key: 'module', header: 'Module', render: (r) => r.module || NO_VALUE },
           {
             key: 'sender_name',
             header: 'From',

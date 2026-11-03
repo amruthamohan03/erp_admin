@@ -4,7 +4,7 @@
 
 export const CHANNEL_NOT_CONFIGURED = {
   email:
-    'Email is not set up on this server — an administrator must set SMTP_HOST and SMTP_FROM (and SMTP_USER / SMTP_PASSWORD if the server needs them) in the environment, then restart the application.',
+    'Email is not set up on this server — an administrator must set either the Outlook settings (OUTLOOK_TENANT_ID, OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_SENDER) or SMTP_HOST and SMTP_FROM in the environment, then restart the application.',
   whatsapp:
     'WhatsApp is not set up on this server — an administrator must set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN (from Meta Business → WhatsApp → API setup) in the environment, then restart the application.',
 } as const;

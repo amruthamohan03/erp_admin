@@ -11,9 +11,9 @@ import {
 // gap here is invisible in code review and very visible on screen.
 
 describe('action style defaults', () => {
-  it('covers all sixteen configurable actions', () => {
-    expect(ACTION_KEYS).toHaveLength(16);
-    expect(ACTION_STYLE_DEFAULTS).toHaveLength(16);
+  it('covers every configurable action', () => {
+    expect(ACTION_KEYS).toHaveLength(18);
+    expect(ACTION_STYLE_DEFAULTS).toHaveLength(18);
     for (const key of ACTION_KEYS) expect(ACTION_DEFAULTS[key]).toBeDefined();
   });
 

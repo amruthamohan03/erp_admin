@@ -10,7 +10,8 @@
 // onChanged so the picker's dropdown refreshes.
 import { useCallback, useEffect, useState } from 'react';
 import { X, Plus, Save, Loader2, Layers } from 'lucide-react';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Row {
   id: number;
@@ -176,8 +177,8 @@ export default function PartielleManageModal({
               {/* Budget + available boxes */}
               <div className="grid sm:grid-cols-2 gap-3">
                 <div className="rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3 text-sm text-sky-900 dark:text-sky-200 space-y-0.5">
-                  <div><span className="font-semibold">Client:</span> {lic.client_name || '—'}</div>
-                  <div><span className="font-semibold">REF COD:</span> {lic.ref_cod || '—'}</div>
+                  <div><span className="font-semibold">Client:</span> {lic.client_name || NO_VALUE}</div>
+                  <div><span className="font-semibold">REF COD:</span> {lic.ref_cod || NO_VALUE}</div>
                   <div><span className="font-semibold">License Weight:</span> {money(lic.license_weight)} KG</div>
                   <div><span className="font-semibold">License FOB:</span> {money(lic.license_fob)}</div>
                 </div>
@@ -309,7 +310,7 @@ export default function PartielleManageModal({
                       return (
                         <tr key={r.id} className="hover:bg-muted/50">
                           <td className="text-muted-foreground">{idx + 1}</td>
-                          <td>{lic.ref_cod || '—'}</td>
+                          <td>{lic.ref_cod || NO_VALUE}</td>
                           <td className="font-mono">{r.partial_name}</td>
                           <td className="text-right tabular-nums">{money(lic.license_weight)}</td>
                           <td className="text-right tabular-nums">{money(lic.license_fob)}</td>

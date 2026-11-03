@@ -1058,6 +1058,34 @@
       "when": 1793700000000,
       "tag": "0149_outbound_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1793800000000,
+      "tag": "0150_stage_communications",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1793900000000,
+      "tag": "0151_import_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0152_global_license_visible_when_uploaded",
+      "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0153_global_license_hide_when_empty",
+      "breakpoints": true
     }
   ]
 }

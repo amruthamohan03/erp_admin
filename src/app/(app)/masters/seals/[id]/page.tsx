@@ -17,7 +17,8 @@ import {
 import Toggle from '@/components/ui/Toggle';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { safeFetchJson } from '@/lib/safeFetch';
-import { formatDate } from '@/lib/formatDate';
+import { formatDate } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 /**
  * An export file that still names a seal being released, as reported by
@@ -333,10 +334,10 @@ export default function SealBatchDetailPage() {
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <dt className="text-muted-foreground">Office</dt>
-                <dd className="text-foreground">{batch.location_name ?? '—'}</dd>
+                <dd className="text-foreground">{batch.location_name || NO_VALUE}</dd>
                 <dt className="text-muted-foreground">Sub-office</dt>
                 <dd className="text-foreground">
-                  {batch.sub_office_code ?? '—'}
+                  {batch.sub_office_code || NO_VALUE}
                 </dd>
                 <dt className="text-muted-foreground">Purchase date</dt>
                 {/* §4.19 — was printing the stored ISO. */}
@@ -508,7 +509,7 @@ export default function SealBatchDetailPage() {
                           </span>
                         </td>
                         <td className="text-xs text-muted-foreground">
-                          {n.notes ?? '—'}
+                          {n.notes || NO_VALUE}
                         </td>
                       </tr>
                     ))}

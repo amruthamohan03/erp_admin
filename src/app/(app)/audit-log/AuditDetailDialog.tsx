@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { History, X } from 'lucide-react';
 import { safeFetchJson } from '@/lib/safeFetch';
-import { formatDateTime } from '@/lib/formatDate';
+import { formatDateTime } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.28 — an update must show a per-field before → after diff, not two opaque
 // snapshots. This is where an investigation actually reads what changed.
@@ -96,13 +97,13 @@ export default function AuditDetailDialog({
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                 {[
                   ['When', formatDateTime(entry.created_at)],
-                  ['User', entry.actor_name ?? (entry.actor_type === 'system' ? 'System' : '—')],
-                  ['Role', entry.actor_role ?? '—'],
+                  ['User', entry.actor_name ?? (entry.actor_type === 'system' ? 'System' : NO_VALUE)],
+                  ['Role', entry.actor_role || NO_VALUE],
                   ['Action', humanize(entry.action)],
-                  ['Module', entry.module ?? '—'],
+                  ['Module', entry.module || NO_VALUE],
                   ['Record', `${entry.entity_type} #${entry.entity_id}`],
-                  ['IP address', entry.ip_address ?? '—'],
-                  ['Device / browser', entry.user_agent ?? '—'],
+                  ['IP address', entry.ip_address || NO_VALUE],
+                  ['Device / browser', entry.user_agent || NO_VALUE],
                 ].map(([label, value]) => (
                   <div key={label} className="min-w-0">
                     <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>

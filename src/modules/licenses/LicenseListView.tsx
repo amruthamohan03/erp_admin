@@ -23,6 +23,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
@@ -52,7 +53,7 @@ export interface LicenseListConfig {
   /** The toolbar button's words — 'New Export License' (§4.35). */
   createLabel: string;
   /** The page-config slug the view/edit form runs on (§4.12). */
-  slug: string;
+  slug: 'license' | 'export-license';
 }
 
 // A row of the licenses list — mirrors the /api/v1/licenses GET select.
@@ -183,6 +184,8 @@ function buildParams(f: FilterState, useFor: string): URLSearchParams {
 }
 
 export default function LicenseListView({ config }: { config: LicenseListConfig }) {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging(config.slug);
   const [items, setItems] = useState<LicenseRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -480,6 +483,7 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
           },
         ]}
         actions={(l) => ({
+          ...messaging.actions(l.id),
           view: () => setViewId(l.id),
           edit: `${config.basePath}/${l.id}`,
           extra: (
@@ -513,6 +517,7 @@ export default function LicenseListView({ config }: { config: LicenseListConfig 
           onClose={() => setViewId(null)}
         />
       )}
+      {messaging.dialog}
     </>
   );
 }

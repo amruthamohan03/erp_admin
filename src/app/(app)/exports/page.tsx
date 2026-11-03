@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import RecordViewModal from '@/components/transactional/RecordViewModal';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { statusFiltersFromParam } from '@/lib/tracking/statusFiltersParam';
@@ -37,7 +38,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
 import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/selectOptions';
 import { formatDate } from '@/lib/formatDate';
-import { safeFetchJson } from '@/lib/safeFetch';
+import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -123,6 +125,8 @@ function fmtNum(v: string | null | undefined): string {
 
 
 function ExportsListPageInner() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('export');
   const searchParams = useSearchParams();
   const [items, setItems] = useState<ExportRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -423,7 +427,7 @@ function ExportsListPageInner() {
                   {r.mca_ref}
                 </span>
               ) : (
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">{NO_VALUE}</span>
               ),
           },
           { key: 'client_name', header: 'Client', className: 'font-medium' },
@@ -456,6 +460,7 @@ function ExportsListPageInner() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           view: () => setViewId(r.id),
           edit: `/exports/${r.id}`,
           extra: (
@@ -513,6 +518,7 @@ function ExportsListPageInner() {
       )}
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
+      {messaging.dialog}
     </>
   );
 }

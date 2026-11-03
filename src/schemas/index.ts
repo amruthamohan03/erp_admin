@@ -84,6 +84,7 @@ export * from './clearing-bases';
 export * from './fileCancellation';
 export * from './notifications';
 export * from './outboundMessages';
+export * from './communicationTemplates';
 export * from './dataImport';
 export * from './pageConditions';
 export * from './import-dashboard';

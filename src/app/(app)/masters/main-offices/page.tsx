@@ -9,6 +9,7 @@ import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface MainOfficeRow {
   id: number;
@@ -105,7 +106,7 @@ export default function MainOfficesPage() {
         columns={[
         { key: 'main_location_name', header: 'Main Office', className: 'font-medium', render: (o: MainOfficeRow) => (
             <>
-            {o.main_location_name || '—'}
+            {o.main_location_name || NO_VALUE}
             </>
           ) },
         displayStatusColumn<MainOfficeRow>({ nameOf: (o) => o.main_location_name || 'This main office', onToggle: handleToggle }),

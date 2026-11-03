@@ -10,6 +10,7 @@ import {
 } from '@/modules/tracking/dashboardUi';
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { QuotationCategories } from '@/db/queries/quotationDashboardTabs';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Category Analysis — the quotation's own structure, one level down.
 //
@@ -184,8 +185,8 @@ export default function CategoryTab({ active }: { active: boolean }) {
             >
               {data.items.map((i) => (
                 <Tr key={`${i.item_name}-${i.category_name}`}>
-                  <Td align="left" title={i.item_name ?? ''}>{i.item_name ?? '—'}</Td>
-                  <Td align="left">{i.category_name ?? '—'}</Td>
+                  <Td align="left" title={i.item_name ?? ''}>{i.item_name || NO_VALUE}</Td>
+                  <Td align="left">{i.category_name || NO_VALUE}</Td>
                   <Td>{nf.format(i.lines)}</Td>
                   <Td align="right">{nf2.format(i.quantity)}</Td>
                   <Td align="right">{nf2.format(i.value_usd)}</Td>

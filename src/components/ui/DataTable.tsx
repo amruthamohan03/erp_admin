@@ -67,6 +67,9 @@ export interface DataTableRowActions {
   edit?: string | (() => void);
   remove?: () => void;
   restore?: () => void;
+  /** Write to the record's client — the stage lists' mail and WhatsApp buttons (§4.26). */
+  email?: () => void;
+  whatsapp?: () => void;
   /** Module-specific actions, rendered after the reserved three (§4.20). */
   extra?: ReactNode;
 }
@@ -487,7 +490,7 @@ export default function DataTable<T>({
                           ? c.render(row, idx)
                           : c.badge
                             ? <StatusBadge status={cellValue(row, c) ?? null} tone={typeof c.badge === 'function' ? c.badge(row) ?? undefined : undefined} />
-                            : cellText(row, c) || '—'}
+                            : cellText(row, c)}
                       </td>
                     ))}
                     {hasActions && (
@@ -519,6 +522,16 @@ export default function DataTable<T>({
                           {act?.remove && (
                             <button type="button" onClick={act.remove} title="Delete" className="ico-delete">
                               <ActionIcon action="delete" className="h-4 w-4" />
+                            </button>
+                          )}
+                          {act?.email && (
+                            <button type="button" onClick={act.email} title="Send email" aria-label="Send email" className="ico-email">
+                              <ActionIcon action="email" className="h-4 w-4" />
+                            </button>
+                          )}
+                          {act?.whatsapp && (
+                            <button type="button" onClick={act.whatsapp} title="Send WhatsApp" aria-label="Send WhatsApp" className="ico-whatsapp">
+                              <ActionIcon action="whatsapp" className="h-4 w-4" />
                             </button>
                           )}
                           {act?.extra}

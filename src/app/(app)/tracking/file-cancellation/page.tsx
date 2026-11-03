@@ -23,7 +23,8 @@ import { safeFetchJson } from '@/lib/safeFetch';
 import { fetchMasterOptions } from '@/lib/selectOptions';
 import { fetchClientOptions, type ClientOption } from '@/lib/clientOptions';
 import { formatDate, toDateInputValue } from '@/lib/formatDate';
-import type { FileKind } from '@/schemas/fileCancellation';
+import type { FileKind } from '@/schemas/fileCancellation';
+import { NO_VALUE } from '@/lib/displayValue';
 
 const KIND_OPTIONS: { value: FileKind; label: string }[] = [
   { value: 'import', label: 'Import' },
@@ -399,14 +400,14 @@ export default function FileCancellationPage() {
             sortable: true,
             // The column shows the code; the search also finds the legal name (§4.15).
             value: (r) => `${r.client_name ?? ''} ${r.client_legal_name ?? ''}`,
-            render: (r) => r.client_name ?? '—',
+            render: (r) => r.client_name || NO_VALUE,
           },
-          { key: 'license_number', header: 'License Number', sortable: true, render: (r) => r.license_number ?? '—' },
+          { key: 'license_number', header: 'License Number', sortable: true, render: (r) => r.license_number || NO_VALUE },
           { key: 'weight', header: 'Weight (kg)', align: 'right', sortable: true, render: (r) => money(r.weight) },
           { key: 'fob', header: 'FOB', align: 'right', sortable: true, render: (r) => (r.fob == null ? '—' : money(r.fob)) },
-          { key: 'reason', header: 'Reason', sortable: true, render: (r) => r.reason ?? '—' },
+          { key: 'reason', header: 'Reason', sortable: true, render: (r) => r.reason || NO_VALUE },
           { key: 'cancelled_date', header: 'Cancelled Date', sortable: true, render: (r) => formatDate(r.cancelled_date) },
-          { key: 'cancelled_by', header: 'Cancelled By', sortable: true, render: (r) => r.cancelled_by ?? '—' },
+          { key: 'cancelled_by', header: 'Cancelled By', sortable: true, render: (r) => r.cancelled_by || NO_VALUE },
           {
             key: 'payment_count',
             header: 'Payments',

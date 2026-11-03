@@ -465,6 +465,7 @@ export async function cancelFiles(
           reason,
           date: formatDate(input.cancelledDate),
         },
+        entity: { slug: input.kind, id },
       });
     }
     // A request still in approval has nothing left to pay for — the file it was

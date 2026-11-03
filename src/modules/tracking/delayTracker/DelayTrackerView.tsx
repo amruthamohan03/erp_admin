@@ -16,6 +16,7 @@ import { ChartCard, Empty, KpiCard, TabError, TabSkeleton, nf } from '../dashboa
 import { useFetchedData } from '@/lib/hooks/useFetchedData';
 import type { DelayRow, DelayTrackerData } from '@/db/queries/delayTracker';
 import type { DelayStatus, StageOutcome } from '@/lib/delayTracker/resolve';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // §4.29 — the Delay Tracker.
 //
@@ -302,11 +303,11 @@ export default function DelayTrackerView() {
                   </button>
                 ),
               },
-              { key: 'mca_ref', header: 'Reference', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
+              { key: 'mca_ref', header: 'Reference', sortable: true, render: (r) => <strong>{r.mca_ref || NO_VALUE}</strong> },
               // §4.15 — the client is a column on someone else's row, so the code.
-              { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
+              { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name || NO_VALUE },
               { key: 'module', header: 'Module', render: (r) => (r.module === 'import' ? 'Import' : 'Export') },
-              { key: 'transport_mode', header: 'Transport', render: (r) => r.transport_mode ?? '—', defaultHidden: true },
+              { key: 'transport_mode', header: 'Transport', render: (r) => r.transport_mode || NO_VALUE, defaultHidden: true },
               {
                 key: 'rule',
                 header: 'Rule',

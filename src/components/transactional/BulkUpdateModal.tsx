@@ -22,6 +22,7 @@ import PaginationFooter from '@/components/ui/PaginationFooter';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { fetchMasterOptions, type SelectOption } from '@/lib/selectOptions';
 import { CLIENT_OPTION_LABEL_FIELD } from '@/lib/clientOptions';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface BulkData {
   relevant_fields: string[];
@@ -416,8 +417,8 @@ export default function BulkUpdateModal({
                         <td className="text-muted-foreground">
                           {(data.page - 1) * data.page_size + idx + 1}
                         </td>
-                        <td className="font-mono">{String(row.mca_ref ?? '—')}</td>
-                        <td>{String(row.client_name ?? '—')}</td>
+                        <td className="font-mono">{String(row.mca_ref || NO_VALUE)}</td>
+                        <td>{String(row.client_name || NO_VALUE)}</td>
                         {leadColumns.map((c) => (
                           <td key={c.header} className="text-muted-foreground">
                             {c.render(row)}
@@ -425,7 +426,7 @@ export default function BulkUpdateModal({
                         ))}
                         {data.readonly_fields.map((f) => (
                           <td key={f} className="text-muted-foreground">
-                            {String(row[f] ?? '—')}
+                            {String(row[f] ?? NO_VALUE)}
                           </td>
                         ))}
                         {data.relevant_fields.map((f) => {

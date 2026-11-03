@@ -10,6 +10,7 @@ import FieldRenderer from './FieldRenderer';
 import FieldHints from './FieldHints';
 import { repeatedContactWarnings } from '@/lib/validation/fields';
 import { companionOf } from '@/lib/pages/companion';
+import { hiddenWhileEmpty } from '@/lib/displayValue';
 
 // §4.17 — presentational only. The accordion renders fields and reports clicks; it
 // owns no save button and no save state, because a transaction page has exactly one
@@ -99,7 +100,15 @@ export default function Accordion({
     if (mate) companions.set(r.field.name, mate);
   }
   const consumed = new Set([...companions.values()].map((r) => r.field.name));
-  const laidOut = visibleFields.filter((r) => !consumed.has(r.field.name));
+  // `props.hideWhenEmpty` — a read-only mirror that only means something when it
+  // holds a value (Import Tracking's Global License link) is not drawn while
+  // empty. Layout only: the field stays visible to the rules and in the save
+  // payload, so clearing it is still written. A visibleWhen on the field's own
+  // value could never be cleared — both the form and the save route skip a
+  // hidden field.
+  const laidOut = visibleFields.filter(
+    (r) => !consumed.has(r.field.name) && !hiddenWhileEmpty(r.field.props, values[r.field.name]),
+  );
   // §4.40 — the same email or phone typed into two fields of this section.
   const repeated = repeatedContactWarnings(
     visibleFields.map((r) => ({ name: r.field.name, label: r.field.label, type: r.field.field_type, value: values[r.field.name] })),

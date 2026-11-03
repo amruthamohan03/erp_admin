@@ -11,13 +11,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, CheckCircle2, Plus, Printer } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
+import useRecordMessaging from '@/modules/communications/useRecordMessaging';
 import StatCard from '@/components/ui/StatCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import TransactionFormPanel from '@/components/transactional/TransactionFormPanel';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { formatDate } from '@/lib/formatDate';
-import StatusBadge from '@/components/ui/StatusBadge';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { NO_VALUE } from '@/lib/displayValue';
 
 interface Row {
   id: number;
@@ -47,6 +49,8 @@ const words = (s: string | null | undefined): string =>
 
 
 export default function FicheListPage() {
+  // Mail / WhatsApp to the record's client (Masters → Communication Templates).
+  const messaging = useRecordMessaging('fiche');
   const [items, setItems] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -205,10 +209,10 @@ export default function FicheListPage() {
             header: 'Client',
             // The column shows the code; the search finds the legal name too (§4.15).
             value: (r) => `${r.client_name ?? ''} ${r.client_legal_name ?? ''}`,
-            render: (r) => r.client_name ?? '—',
+            render: (r) => r.client_name || NO_VALUE,
           },
-          { key: 'license_number', header: 'License Number', render: (r) => r.license_number ?? '—' },
-          { key: 'mca_ref', header: 'File Ref', className: 'font-mono', render: (r) => r.mca_ref ?? '—' },
+          { key: 'license_number', header: 'License Number', render: (r) => r.license_number || NO_VALUE },
+          { key: 'mca_ref', header: 'File Ref', className: 'font-mono', render: (r) => r.mca_ref || NO_VALUE },
           { key: 'fiche_date', header: 'Fiche Date', render: (r) => formatDate(r.fiche_date) },
           { key: 'poids', header: 'Weight', align: 'right', className: 'tabular-nums', render: (r) => fmt(r.poids) },
           { key: 'cif', header: 'CIF', align: 'right', className: 'tabular-nums', render: (r) => fmt(r.cif) },
@@ -223,6 +227,7 @@ export default function FicheListPage() {
           },
         ]}
         actions={(r) => ({
+          ...messaging.actions(r.id),
           edit: editable(r.state) ? () => { setFormId(String(r.id)); setFormOpen(true); } : undefined,
           remove: editable(r.state) ? () => setPending({ row: r, kind: 'delete' }) : undefined,
           extra: (
@@ -279,6 +284,7 @@ export default function FicheListPage() {
       </ConfirmDialog>
 
       <ResultDialog result={result} onDismiss={() => setResult(null)} />
+      {messaging.dialog}
     </>
   );
 }

@@ -449,6 +449,7 @@ export async function announceFiche(tx: Transaction, eventKey: string, id: numbe
       client: f.client,
       state: String(f.state ?? '').replace(/_/gu, ' ').toUpperCase(),
     },
+    entity: { slug: 'fiche', id },
   });
 }
 

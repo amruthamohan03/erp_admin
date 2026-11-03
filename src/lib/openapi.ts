@@ -5,6 +5,8 @@ import {
   OpenApiGeneratorV3,
 } from '@asteasolutions/zod-to-openapi';
 import {
+  communicationTemplateBaseSchema,
+  stageDraftQuerySchema,
   loginSchema,
   loginResponseSchema,
   meResponseSchema,
@@ -797,6 +799,111 @@ function buildRegistry(): OpenAPIRegistry {
       ),
       401: jsonError('Unauthorized'),
       422: jsonError('Unknown reference target'),
+    },
+  });
+
+  // Stage communications — what the client is told from licence to invoice.
+  const communicationTemplateResponseSchema = z.object({
+    id: z.number().int(),
+    template_key: z.string(),
+    name: z.string(),
+    page_slug: z.string(),
+    stage: z.string(),
+    trigger: z.enum(['create', 'field_change', 'event', 'manual']),
+    trigger_key: z.string(),
+    trigger_value: z.string(),
+    auto_email: z.boolean(),
+    auto_whatsapp: z.boolean(),
+    recipient: z.enum(['client', 'client_payment', 'client_all']),
+    extra_to: z.string(),
+    cc: z.string(),
+    email_subject: z.string(),
+    email_body: z.string(),
+    whatsapp_body: z.string(),
+    display: z.enum(['Y', 'N']),
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/communication-templates',
+    summary:
+      'Every stage communication template (Masters → Communication Templates). meta says whether email (and through Outlook or SMTP) and WhatsApp are set up.',
+    tags: ['communication-templates'],
+    responses: {
+      200: jsonOk('Templates', z.array(communicationTemplateResponseSchema)),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /masters/communication-templates'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/communication-templates',
+    summary: 'Add a template. A field_change trigger must name a field of the stage; a manual template cannot send automatically.',
+    tags: ['communication-templates'],
+    request: { body: { required: true, content: { 'application/json': { schema: communicationTemplateBaseSchema } } } },
+    responses: {
+      201: jsonOk('Created', z.object({ id: z.number().int() })),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /masters/communication-templates'),
+      422: jsonError('A field is missing or invalid — the message names it'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'put',
+    path: '/communication-templates/{id}',
+    summary: 'Replace a template. Audited with a before → after diff.',
+    tags: ['communication-templates'],
+    request: {
+      params: z.object({ id: z.coerce.number().int().positive() }),
+      body: { required: true, content: { 'application/json': { schema: communicationTemplateBaseSchema } } },
+    },
+    responses: {
+      200: jsonOk('Saved', z.object({ id: z.number().int() })),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Template not found'),
+      422: jsonError('A field is missing or invalid — the message names it'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/communication-templates/{id}',
+    summary: 'Soft delete — the template stops sending; it can be switched back on by editing it.',
+    tags: ['communication-templates'],
+    request: { params: z.object({ id: z.coerce.number().int().positive() }) },
+    responses: {
+      200: jsonOk('Disabled', z.object({ id: z.number().int() })),
+      401: jsonError('Unauthorized'),
+      404: jsonError('Template not found'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/outbound-messages/draft',
+    summary:
+      "The email / WhatsApp composer pre-filled for one stage record — the client's contacts and the stage's manual template rendered with the record's values. Sends nothing.",
+    tags: ['communication-templates'],
+    request: { query: stageDraftQuerySchema },
+    responses: {
+      200: jsonOk(
+        'Draft',
+        z.object({
+          channel: z.enum(['email', 'whatsapp']),
+          to: z.array(z.string()),
+          cc: z.array(z.string()),
+          subject: z.string(),
+          message: z.string(),
+          template_key: z.string().nullable(),
+          record_label: z.string(),
+          notes: z.array(z.string()),
+        }),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /communications'),
+      404: jsonError('Record not found'),
     },
   });
 

@@ -31,6 +31,7 @@ import {
 import { exportHref, tabEndpoint, useTabData } from './useTabData';
 import type { BorderFile, ImportBorder } from '@/db/queries/importDashboardTabs';
 import type { RemarkLine } from '@/db/schema/imports';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // The border overstay section — trucks sitting at a DRC border post longer than
 // the agreed allowance.
@@ -195,18 +196,18 @@ export default function BorderSection({
         autoColumns={false}
         emptyMessage="Nothing is waiting at a border post — every file that entered has been dispatched."
         columns={[
-          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref ?? '—'}</strong> },
-          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name ?? '—' },
-          { key: 'horse', header: 'Horse', render: (r) => r.horse || '—' },
-          { key: 'trailer_1', header: 'Trailer 1', render: (r) => r.trailer_1 || '—' },
-          { key: 'trailer_2', header: 'Trailer 2', render: (r) => r.trailer_2 || '—' },
+          { key: 'mca_ref', header: 'File Ref', sortable: true, render: (r) => <strong>{r.mca_ref || NO_VALUE}</strong> },
+          { key: 'client_name', header: 'Client', sortable: true, render: (r) => r.client_name || NO_VALUE },
+          { key: 'horse', header: 'Horse', render: (r) => r.horse || NO_VALUE },
+          { key: 'trailer_1', header: 'Trailer 1', render: (r) => r.trailer_1 || NO_VALUE },
+          { key: 'trailer_2', header: 'Trailer 2', render: (r) => r.trailer_2 || NO_VALUE },
           {
             key: 'entry_point',
             header: 'Entry Point',
             badge: true,
-            render: (r) => <StatusBadge status={r.entry_point ?? '—'} tone="sky" />,
+            render: (r) => <StatusBadge status={r.entry_point} tone="sky" />,
           },
-          { key: 'commodity', header: 'Commodity', render: (r) => r.commodity ?? '—' },
+          { key: 'commodity', header: 'Commodity', render: (r) => r.commodity || NO_VALUE },
           { key: 'drc_entry_date', header: 'DRC Entry', sortable: true, render: (r) => formatDate(r.drc_entry_date) },
           {
             key: 'border_warehouse_arrival_date',

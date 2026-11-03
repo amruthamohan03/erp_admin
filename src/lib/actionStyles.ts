@@ -25,6 +25,8 @@ export const ACTION_KEYS = [
   'print',
   'restore',
   'permanent_delete',
+  'email',
+  'whatsapp',
 ] as const;
 
 export type ActionKey = (typeof ACTION_KEYS)[number];
@@ -58,6 +60,10 @@ export const ACTION_DEFAULTS: Record<ActionKey, Omit<ActionStyle, 'action_key'>>
   print: { label: 'Print', color: '#e11d48', icon: 'Printer' },
   restore: { label: 'Restore', color: '#7c3aed', icon: 'RotateCcw' },
   permanent_delete: { label: 'Permanent Delete', color: '#991b1b', icon: 'ShieldX' },
+  // A record's row actions that write to its client — sky for email, and
+  // WhatsApp's own green, which is what operators look for.
+  email: { label: 'Send Email', color: '#0284c7', icon: 'Mail' },
+  whatsapp: { label: 'Send WhatsApp', color: '#16a34a', icon: 'MessageCircle' },
 };
 
 export const ACTION_STYLE_DEFAULTS: ActionStyle[] = ACTION_KEYS.map((key) => ({

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { displayLabel } from '@/lib/statusTone';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
+import { isBlank, NO_VALUE } from '@/lib/displayValue';
 import { humanizeFieldPath } from '@/lib/validation/messages';
 import type { DataTableColumn } from '@/components/ui/DataTable';
 
@@ -58,7 +59,9 @@ function isRenderable(value: unknown): boolean {
  * is the single most likely way a derived column would have broken a rule.
  */
 function autoCell(value: unknown): ReactNode {
-  if (value === null || value === undefined || value === '') return '—';
+  // §4.41 — a blank reads "N/A". The type of an empty value is unknowable here,
+  // and the fields a row carries beyond its declared columns are mostly words.
+  if (isBlank(value)) return NO_VALUE;
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   const text = String(value);
   if (ISO_DATETIME.test(text)) return formatDateTime(text);

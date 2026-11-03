@@ -6,6 +6,7 @@ import { Anchor, ChevronRight, ClipboardList, FileText, Ship } from 'lucide-reac
 import StatusBadge from '@/components/ui/StatusBadge';
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
+import { NO_VALUE } from '@/lib/displayValue';
 
 // Recent-activity feed for /dashboard. Four panels (imports, exports,
 // quotations, licences), each showing the most recently created rows with the
@@ -204,7 +205,7 @@ export default function RecentActivity() {
                                   <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                     {/* §4.15 — the client is a column on someone
                                         else's row here, so the short code. */}
-                                    <span className="truncate">{r.client_name ?? '—'}</span>
+                                    <span className="truncate">{r.client_name || NO_VALUE}</span>
                                     <span aria-hidden="true">·</span>
                                     <span className="shrink-0">{formatDate(r.date, '')}</span>
                                   </span>

@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { buildXlsx, type XlsxColumn } from '@/lib/xlsx';
 import { formatDate } from '@/lib/formatDate';
+import { NO_VALUE } from '@/lib/displayValue';
 
 export type ExportProfile = 'debit' | 'invoice' | 'full';
 
@@ -271,33 +272,33 @@ export async function buildImportInvoiceExport(
 
       rows.push({
         n: serial++,
-        mca_ref: mca?.mca_ref ?? '',
-        dgi_code: inv.tally_ref ?? '',
+        mca_ref: mca?.mca_ref || NO_VALUE,
+        dgi_code: inv.tally_ref || NO_VALUE,
         dgi_amount: r2(num(inv.dgi_amount) / cnt),
-        normalized_by: inv.normalizer_name ?? '',
-        client: inv.client_name ?? '',
-        encoded_by: inv.created_by_name ?? '',
-        product_category: inv.product_category ?? '',
-        commodity: mca?.commodity_name ?? '',
-        tariff_code: inv.tariff_code_client ?? '',
+        normalized_by: inv.normalizer_name || NO_VALUE,
+        client: inv.client_name || NO_VALUE,
+        encoded_by: inv.created_by_name || NO_VALUE,
+        product_category: inv.product_category || NO_VALUE,
+        commodity: mca?.commodity_name || NO_VALUE,
+        tariff_code: inv.tariff_code_client || NO_VALUE,
         poids: mca ? r2(mca.weight) : r2(num(inv.poids_kg)),
         fob: mca ? r2(mca.fob) : r2(num(inv.fob_usd)),
-        kind: inv.kind_name ?? '',
-        transport_mode: inv.transport_mode_name ?? '',
-        payment_method: inv.payment_method ?? '',
+        kind: inv.kind_name || NO_VALUE,
+        transport_mode: inv.transport_mode_name || NO_VALUE,
+        payment_method: inv.payment_method || NO_VALUE,
         scelle_qty: scelleQty,
         scelle_amount: r2(scelleAmount / cnt),
         frais_tresco: r2(fraisTresco / cnt),
-        decl_ref: mca?.declaration_reference ?? '',
+        decl_ref: mca?.declaration_reference || NO_VALUE,
         decl_date: d(mca?.dgda_in_date),
-        liq_ref: mca?.liquidation_reference ?? '',
+        liq_ref: mca?.liquidation_reference || NO_VALUE,
         liq_date: d(mca?.liquidation_date),
-        quit_ref: mca?.quittance_reference ?? '',
+        quit_ref: mca?.quittance_reference || NO_VALUE,
         quit_date: d(mca?.quittance_date),
         facture_no: factureNo,
         inv_date: invDate,
         dossiers,
-        po_ref: inv.po_ref ?? 'N/A',
+        po_ref: inv.po_ref || NO_VALUE,
         liq_amt_cdf: showLiq ? r2(liqAmtCdf / cnt) : 0,
         rate_bcc: showLiq ? rateCdf : 0,
         liq_amt_usd: showLiq ? liqUsdPer : 0,

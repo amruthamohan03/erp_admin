@@ -502,6 +502,11 @@ function FileUpload({ field, value, readonly, onChange, entityType, entityId }: 
           )}
         </div>
       )}
+      {readonly && !fileId && (
+        // A read-only slot with nothing in it — the Global License of a licence
+        // nobody uploaded a file to — says so rather than rendering blank.
+        <p className="py-2 text-sm text-muted-foreground">No file uploaded</p>
+      )}
       {!readonly && (
         <input
           type="file"
