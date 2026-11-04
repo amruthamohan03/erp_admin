@@ -9,6 +9,7 @@ import { accentFor } from './accents';
 import type { PageDef, PageFieldDef, PageFetchResponse } from '@/types';
 import { formatDate } from '@/lib/formatDate';
 import { emptyFor, hiddenWhileEmpty, isBlank, NO_VALUE } from '@/lib/displayValue';
+import { parseConditions, resolveFieldState } from '@/lib/pages/conditions';
 import { companionOf } from '@/lib/pages/companion';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
@@ -497,12 +498,16 @@ export default function RecordViewModal({
                             const consumed = new Set([...mates.values()].map((m) => m.name));
                             return acc.fields
                               // The invoice file picker only edits the grid's
-                              // value — the grid is what the view shows.
+                              // value — the grid is what the view shows. A field
+                              // the form hides by its visibleWhen (M3 outside
+                              // Type of Goods 3) is not part of this record, so
+                              // the view hides it by the same rule.
                               .filter(
                                 (f) =>
                                   !consumed.has(f.name) &&
                                   f.field_type !== 'invoice-files' &&
-                                  !hiddenWhileEmpty(f.props, values[f.name]),
+                                  !hiddenWhileEmpty(f.props, values[f.name]) &&
+                                  resolveFieldState(parseConditions(f.conditions), f.required, values).visible,
                               )
                               .map((f) => {
                                 const mate = mates.get(f.name);
