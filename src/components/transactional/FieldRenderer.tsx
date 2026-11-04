@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, FileText, Plus, Settings, X } from 'lucide-react';
+import { Check, FileText, Plus, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/components/transactional/PartielleManageModal';
 import McaRefGrid from '@/modules/payments/McaRefGrid';
@@ -935,9 +935,11 @@ function PartiellePicker({ field, value, readonly, onChange, requiredOverride, v
             title={licenseId ? 'Manage PARTIELLE allotments' : 'Select a licence first'}
             disabled={!licenseId}
             onClick={() => setShowManage(true)}
-            className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40"
+            aria-label={licenseId ? 'Manage PARTIELLE allotments' : 'Select a licence first'}
+            // Same configured create hue and glyph as the quick-add "+" (§4.26).
+            className="btn-create h-9 w-9 shrink-0 justify-center p-0 disabled:opacity-40"
           >
-            <Settings className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
           </button>
         )}
       </div>
