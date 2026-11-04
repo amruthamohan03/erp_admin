@@ -1086,6 +1086,34 @@
       "when": 1794100000000,
       "tag": "0153_global_license_hide_when_empty",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0154_drop_stale_retargeted_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0155_import_hide_unused_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0156_import_drc_entry_drop_zambia_min",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0157_export_license_payment_subtype_unlink_method",
+      "breakpoints": true
     }
   ]
 }
