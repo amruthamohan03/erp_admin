@@ -342,6 +342,8 @@ The one sanctioned exception is a **calendar tile** that stacks the day over an 
 
 **Filenames are not display.** An export or a generated document names itself with the sortable `YYYYMMDD` form (`src/lib/csv.ts`, `src/lib/xlsx.ts`) so a directory listing sorts chronologically. That is not a date a user reads *in the app*, and it stays as it is.
 
+**The one exception: the Import and Export Tracking downloads.** Operators file and pass these on by name, and asked for them day-first with the time: `<Client>_<Status>_<Imports|Exports>_DD_MM_YYYY_HH_MM_SS.xlsx` — e.g. `MultiClient_All_Exports_05_11_2026_10_57_55`, `BNF_InTransit_Imports_05_11_2026_10_57_55`. Client is the 3-letter code when the list is narrowed to one client (§4.15), else `MultiClient`; Status is the clearing status or the dashboard cards switched on, else `All`. `trackingExportFileName` in [pageExport.ts](src/db/queries/pageExport.ts) is the one place that builds it, from `fileStamp` / `stampedFileName` in `src/lib/xlsx.ts`. The trade-off is accepted: these do not sort by date in a folder. Do not extend the day-first form to other downloads without the same request. The time is the server's clock, so the server runs with `TZ` set to the office timezone.
+
 **"Display" is wider than a page of the app.** The rule follows the *reader*, not the file the code lives in. Every one of these is a date a person reads, so every one of them goes through `formatDate` / `formatDateTime`:
 
 | Surface | Was found doing |

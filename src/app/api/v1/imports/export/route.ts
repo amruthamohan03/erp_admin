@@ -4,9 +4,9 @@ import { db } from '@/lib/db';
 import { importT, clientMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { importListQuerySchema } from '@/schemas/imports';
-import { buildPageExportSheet } from '@/db/queries/pageExport';
+import { buildTransportModeSheets, trackingExportFileName } from '@/db/queries/pageExport';
 import { importFilterCondition } from '@/db/queries/importFilters';
-import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
+import { buildXlsx, xlsxResponse } from '@/lib/xlsx';
 
 // GET /api/v1/imports/export
 //
@@ -70,19 +70,30 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // with the whole book: it looks like it worked and is silently the wrong
   // file. The EXPORT tracking route already did this; the two now match (§4.10).
   const statusFilters = searchParams.get('status_filters');
+  const statusKeys: string[] = [];
   if (statusFilters?.trim()) {
     for (const key of statusFilters.split(',').map((s) => s.trim()).filter(Boolean)) {
       const cond = importFilterCondition(key);
-      if (cond) conds.push(cond);
+      if (cond) {
+        conds.push(cond);
+        statusKeys.push(key);
+      }
     }
   }
 
-  const sheet = await buildPageExportSheet('import', {
+  // One tab per transport mode, each with the columns that mode's form shows —
+  // the same workbook layout as the Export Tracking download.
+  const sheets = await buildTransportModeSheets('import', {
     where: conds.length > 0 ? and(...conds) : undefined,
-    sheetName: 'Import Tracking',
+    emptySheetName: 'Import Tracking',
   });
 
-  const buf = await buildXlsx([sheet]);
-  const res = xlsxResponse(buf, `imports-${dateStamp()}.xlsx`);
+  const buf = await buildXlsx(sheets);
+  const filename = await trackingExportFileName('Imports', {
+    clientId: q.client_id,
+    clearingStatusId: q.clearing_status_id,
+    statusKeys,
+  });
+  const res = xlsxResponse(buf, filename);
   return new NextResponse(res.body, { status: res.status, headers: res.headers });
 });

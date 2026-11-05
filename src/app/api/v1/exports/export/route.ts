@@ -5,8 +5,8 @@ import { exportT, clientMaster } from '@/db/schema';
 import { requireAuth, isResponse, withErrorHandler } from '@/lib/api';
 import { exportListQuerySchema } from '@/schemas/exports';
 import { exportFilterCondition } from '@/db/queries/exportFilters';
-import { buildPageExportSheet } from '@/db/queries/pageExport';
-import { buildXlsx, xlsxResponse, dateStamp } from '@/lib/xlsx';
+import { buildTransportModeSheets, trackingExportFileName } from '@/db/queries/pageExport';
+import { buildXlsx, xlsxResponse } from '@/lib/xlsx';
 
 // GET /api/v1/exports/export
 //
@@ -65,19 +65,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Respect the active dashboard status cards (same shared predicates as the grid).
   const statusFilters = searchParams.get('status_filters');
+  const statusKeys: string[] = [];
   if (statusFilters?.trim()) {
     for (const key of statusFilters.split(',').map((s) => s.trim()).filter(Boolean)) {
       const cond = exportFilterCondition(key);
-      if (cond) conds.push(cond);
+      if (cond) {
+        conds.push(cond);
+        statusKeys.push(key);
+      }
     }
   }
 
-  const sheet = await buildPageExportSheet('export', {
+  // One tab per transport mode, each with the columns that mode's form shows.
+  const sheets = await buildTransportModeSheets('export', {
     where: conds.length > 0 ? and(...conds) : undefined,
-    sheetName: 'Export Tracking',
+    emptySheetName: 'Export Tracking',
   });
 
-  const buf = await buildXlsx([sheet]);
-  const res = xlsxResponse(buf, `exports-${dateStamp()}.xlsx`);
+  const buf = await buildXlsx(sheets);
+  const filename = await trackingExportFileName('Exports', {
+    clientId: q.client_id,
+    clearingStatusId: q.clearing_status_id,
+    statusKeys,
+  });
+  const res = xlsxResponse(buf, filename);
   return new NextResponse(res.body, { status: res.status, headers: res.headers });
 });

@@ -21,6 +21,7 @@ import {
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import InboxMenu from './InboxMenu';
+import AiSearchBox from '@/modules/ai-search/AiSearchBox';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useBranding } from '@/lib/hooks/useBranding';
 import { safeFetchJson } from '@/lib/safeFetch';
@@ -103,6 +104,11 @@ export default function Topbar() {
             </span>
           )}
         </div>
+      </div>
+
+      {/* AI Search — draws nothing unless the role has the /ask menu. */}
+      <div className="flex min-w-0 flex-1 justify-end px-1 md:justify-center md:px-4">
+        <AiSearchBox />
       </div>
 
       {/* Controls read as white glass on the gradient; their dropdowns still open

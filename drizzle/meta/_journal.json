@@ -1114,6 +1114,27 @@
       "when": 1794500000000,
       "tag": "0157_export_license_payment_subtype_unlink_method",
       "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0158_live_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1794700000000,
+      "tag": "0159_ai_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0160_document_status_reseed",
+      "breakpoints": true
     }
   ]
 }

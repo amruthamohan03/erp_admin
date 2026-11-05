@@ -163,6 +163,31 @@ export function xlsxResponse(buf: Buffer, filename: string): Response {
   });
 }
 
+/**
+ * `DD_MM_YYYY_HH_MM_SS` on the server's clock — the tracking downloads' stamp.
+ * Day-first because that is how operators read and file them (§4.19 notes the
+ * exception); the time keeps two downloads on one day from colliding.
+ */
+export function fileStamp(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return [pad(d.getDate()), pad(d.getMonth() + 1), d.getFullYear(), pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds())].join('_');
+}
+
+/** A free-text value as one filename word: `in_transit` → `InTransit`, `CLEARING COMPLETED` → `ClearingCompleted`. */
+export function filenameWord(text: string): string {
+  return text
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase())
+    .join('');
+}
+
+/** Parts joined with `_`, the stamp appended — anything unsafe in a filename removed. */
+export function stampedFileName(parts: string[], ext = 'xlsx'): string {
+  const safe = parts.map((p) => p.replace(/[^A-Za-z0-9-]+/g, '')).filter(Boolean);
+  return `${[...safe, fileStamp()].join('_')}.${ext}`;
+}
+
 export function dateStamp(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');

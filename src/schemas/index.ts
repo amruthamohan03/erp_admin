@@ -85,6 +85,8 @@ export * from './fileCancellation';
 export * from './notifications';
 export * from './outboundMessages';
 export * from './communicationTemplates';
+export * from './chat';
+export * from './aiSearch';
 export * from './dataImport';
 export * from './pageConditions';
 export * from './import-dashboard';
