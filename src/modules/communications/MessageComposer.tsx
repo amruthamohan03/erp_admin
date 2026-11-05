@@ -8,11 +8,12 @@
 // so a problem is named before the upload rather than after it (§4.23); the
 // route checks it all again.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Info, Mail, MessageCircle, Paperclip, Send, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Filter, Info, Mail, MessageCircle, Paperclip, Send, Trash2, Upload, X } from 'lucide-react';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import FieldMessages from '@/components/ui/FieldMessages';
 import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import RecipientInput from '@/modules/communications/RecipientInput';
+import AudiencePicker, { type AudienceSelection } from '@/modules/communications/AudiencePicker';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { summarizeZodError } from '@/lib/validation/messages';
 import { attachmentError, formatBytes, MAX_ATTACHMENTS, MAX_TOTAL_ATTACHMENT_BYTES } from '@/lib/messaging/attachments';
@@ -22,6 +23,8 @@ import { cn } from '@/lib/utils';
 import {
   SUBJECT_MAX,
   WHATSAPP_TEXT_MAX,
+  bulkContentSchema,
+  bulkSendSchema,
   sendOutboundSchema,
   whatsappText,
   type OutboundChannel,
@@ -35,6 +38,31 @@ const CHANNELS: Array<{ value: OutboundChannel; label: string; icon: typeof Mail
 ];
 
 type FieldErrors = Partial<Record<'to' | 'cc' | 'bcc' | 'subject' | 'message' | 'attachments', string>>;
+
+type RecipientMode = 'addresses' | 'conditions';
+const RECIPIENT_MODES: Array<{ value: RecipientMode; label: string; icon: typeof Mail }> = [
+  { value: 'addresses', label: 'Choose addresses', icon: AtSign },
+  { value: 'conditions', label: 'Clients by condition', icon: Filter },
+];
+
+/** What a bulk send reports back. */
+interface BulkOutcome {
+  batch_id: number;
+  messages: number;
+  sent: number;
+  partial: number;
+  failed: number;
+  failures: Array<{ client: string; reason: string }>;
+  skipped: Array<{ client: string; reason: string }>;
+}
+
+/** `{ client, reason }` lines from a bulk outcome or refusal, as readable sentences. */
+function outcomeLines(list: unknown, prefix: string): string[] {
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((x: unknown) =>
+    x && typeof x === 'object' && 'client' in x && 'reason' in x ? [`${prefix} ${String(x.client)} — ${String(x.reason)}.`] : [],
+  );
+}
 
 export interface ComposerInitial {
   channel: OutboundChannel;
@@ -60,6 +88,12 @@ export interface MessageComposerProps {
   onSent?: () => void;
   /** Given in a dialog: the header gets a close button and the footer a Cancel (§4.21). */
   onClose?: () => void;
+  /**
+   * Offer "Clients by condition" beside typed addresses: pick tracking files by
+   * status, reason, pending stage, delay or pre-alert, and send one message to
+   * each client owning them.
+   */
+  allowConditions?: boolean;
   className?: string;
 }
 
@@ -72,9 +106,15 @@ export default function MessageComposer({
   notes = [],
   onSent,
   onClose,
+  allowConditions = false,
   className,
 }: MessageComposerProps) {
   const [channel, setChannel] = useState<OutboundChannel>(initial?.channel ?? 'email');
+  const [mode, setMode] = useState<RecipientMode>('addresses');
+  const [selection, setSelection] = useState<AudienceSelection>({ audience: null, contacts: [], clientIds: [] });
+  // Bumped to remount the picker with its conditions cleared.
+  const [audienceKey, setAudienceKey] = useState(0);
+  const byCondition = allowConditions && mode === 'conditions';
   // Kept apart per channel — switching to WhatsApp must not throw away the
   // email addresses already chosen, nor try to dial them.
   const [emailTo, setEmailTo] = useState<string[]>(initial?.channel === 'email' ? (initial.to ?? []) : []);
@@ -137,9 +177,81 @@ export default function MessageComposer({
     setBodyHtml('');
     setFiles([]);
     setErrors({});
+    setAudienceKey((k) => k + 1);
+  };
+
+  const sendBulk = async (): Promise<void> => {
+    setCloseOnDismiss(false);
+    const content = bulkContentSchema.safeParse({ channel, subject, message: bodyHtml });
+    const pick = bulkSendSchema.safeParse({
+      audience: selection.audience ?? {},
+      contacts: selection.contacts,
+      client_ids: selection.clientIds,
+    });
+    const attachmentProblem = attachmentError(files);
+    if (!content.success || !pick.success || attachmentProblem) {
+      const summary = content.success ? null : summarizeZodError(content.error);
+      const next: FieldErrors = {};
+      for (const [key, messages] of Object.entries(summary?.fields ?? {})) {
+        next[key as keyof FieldErrors] = messages[0];
+      }
+      if (attachmentProblem) next.attachments = attachmentProblem;
+      setErrors(next);
+      setResult({
+        status: 'error',
+        title: 'Not sent',
+        message:
+          summary?.message ??
+          (pick.success ? null : summarizeZodError(pick.error).message) ??
+          attachmentProblem ??
+          'Check the fields marked in red.',
+      });
+      return;
+    }
+    setErrors({});
+    setSending(true);
+    const body = new FormData();
+    body.set('channel', channel);
+    body.set('subject', subject);
+    body.set('message', bodyHtml);
+    body.set('audience', JSON.stringify(selection.audience));
+    body.set('contacts', JSON.stringify(selection.contacts));
+    body.set('client_ids', JSON.stringify(selection.clientIds));
+    for (const f of files) body.append('attachments', f);
+
+    const res = await safeFetchJson<BulkOutcome>('/api/v1/outbound-messages/bulk', { method: 'POST', body });
+    setSending(false);
+    if (!res.ok) {
+      const field = res.field as keyof FieldErrors | undefined;
+      if (field) setErrors({ [field]: res.fieldMessages?.[field]?.[0] ?? res.message });
+      const lines = [...outcomeLines(res.details?.failures, 'Failed:'), ...outcomeLines(res.details?.skipped, 'Skipped:')];
+      setResult({ status: 'error', title: 'Not sent', message: res.message, detail: lines.join(' ') || undefined });
+      onSent?.();
+      return;
+    }
+    const d = res.data;
+    const noun = channel === 'email' ? 'email' : 'WhatsApp message';
+    const asked = d.messages + d.skipped.length;
+    const lines = [...outcomeLines(d.failures, 'Not delivered:'), ...outcomeLines(d.skipped, 'Skipped:')];
+    const clean = d.partial === 0 && d.failed === 0 && d.skipped.length === 0;
+    setResult({
+      status: clean ? 'success' : 'error',
+      title: clean ? 'Sent' : 'Partly sent',
+      message: clean
+        ? `The ${noun}${subject.trim() ? ` "${subject.trim()}"` : ''} was sent to ${d.sent} client${d.sent === 1 ? '' : 's'}, each in a message of their own.`
+        : `The ${noun} reached ${d.sent + d.partial} of ${asked} chosen clients.`,
+      detail: lines.join(' ') || undefined,
+    });
+    setCloseOnDismiss(Boolean(onClose));
+    reset();
+    onSent?.();
   };
 
   const send = async (): Promise<void> => {
+    if (byCondition) {
+      await sendBulk();
+      return;
+    }
     setCloseOnDismiss(false);
     const parsed = sendOutboundSchema.safeParse({ channel, to, cc, bcc, subject, message: bodyHtml });
     const attachmentProblem = attachmentError(files);
@@ -262,6 +374,32 @@ export default function MessageComposer({
       )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-4">
+        {allowConditions && (
+          <div role="radiogroup" aria-label="Recipients" className="flex flex-wrap gap-1 justify-self-start rounded-lg border border-border bg-muted/40 p-1">
+            {RECIPIENT_MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                role="radio"
+                aria-checked={mode === m.value}
+                onClick={() => {
+                  setMode(m.value);
+                  setErrors({});
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-colors',
+                  mode === m.value ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <m.icon className="h-3.5 w-3.5" /> {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {byCondition && <AudiencePicker key={audienceKey} channel={channel} onChange={setSelection} />}
+
+        {!byCondition && (
         <div className="min-w-0">
           <div className="flex items-center justify-between">
             <label htmlFor="out-to" className="label required">
@@ -294,8 +432,9 @@ export default function MessageComposer({
           />
           <FieldMessages error={errors.to} />
         </div>
+        )}
 
-        {channel === 'email' && showCopies && (
+        {!byCondition && channel === 'email' && showCopies && (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="min-w-0">
               <label htmlFor="out-cc" className="label">Cc</label>
@@ -435,6 +574,10 @@ export default function MessageComposer({
         <p className="text-xs text-muted-foreground">
           {Object.values(errors).some(Boolean)
             ? 'Fix the fields marked in red.'
+            : byCondition
+              ? selection.clientIds.length > 0
+                ? `Each of the ${selection.clientIds.length} chosen client${selection.clientIds.length === 1 ? '' : 's'} gets a ${channel === 'email' ? 'separate email' : 'separate WhatsApp message'}${files.length ? ` with ${files.length} attachment${files.length === 1 ? '' : 's'}` : ''} — no client sees another's address.`
+                : 'Choose conditions above — the clients whose files meet them are listed there.'
             : to.length > 0
               ? `Goes to ${to.length + (channel === 'email' ? cc.length + bcc.length : 0)} recipient${to.length === 1 ? '' : 's'}${files.length ? ` with ${files.length} attachment${files.length === 1 ? '' : 's'}` : ''}.`
               : channel === 'whatsapp'
@@ -453,7 +596,13 @@ export default function MessageComposer({
           )}
           <button type="button" onClick={() => void send()} disabled={sending || Boolean(notReady)} className="btn-primary">
             <Send className="h-4 w-4" />
-            {sending ? 'Sending…' : channel === 'email' ? 'Send email' : 'Send WhatsApp'}
+            {sending
+              ? 'Sending…'
+              : byCondition
+                ? `Send to ${selection.clientIds.length} client${selection.clientIds.length === 1 ? '' : 's'}`
+                : channel === 'email'
+                  ? 'Send email'
+                  : 'Send WhatsApp'}
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowDown, ArrowUp, ChevronsUpDown, FileSpreadsheet, FilterX, ListFilter, Search } from 'lucide-react';
@@ -139,6 +139,18 @@ interface DataTableProps<T> {
 }
 
 const ALIGN = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
+
+/**
+ * §4.42 — the classes that pin a leading cell. `pos` counts RENDERED cells, so
+ * with the `#` column on the frozen pair is `#` + the first data column, and
+ * with it off it is the first two data columns — whichever pair identifies the
+ * row once the rest has scrolled away.
+ */
+function frozenClass(pos: number): string {
+  if (pos === 0) return 'col-frozen col-frozen-first';
+  if (pos === 1) return 'col-frozen col-frozen-next col-frozen-edge';
+  return '';
+}
 
 export default function DataTable<T>({
   rows,
@@ -292,6 +304,28 @@ export default function DataTable<T>({
     else paged.resetPage();
   }
 
+  // §4.42 — the second frozen column sits exactly where the first one ends. That
+  // width depends on the content (and on the operator's column layout), so it is
+  // measured rather than assumed, and re-measured whenever the first cell resizes.
+  // Written straight to the table's style: a per-pixel resize is not React state.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const firstColumnKey = serial ? '#' : (visibleColumns[0]?.key ?? '');
+  useEffect(() => {
+    const table = tableRef.current;
+    const first = table?.querySelector('thead tr:first-child > th:first-child');
+    if (!table || !first) return;
+    const publish = () =>
+      table.style.setProperty('--frozen-offset', `${first.getBoundingClientRect().width}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(first);
+    return () => observer.disconnect();
+  }, [firstColumnKey]);
+
+  const lead = serial ? 1 : 0;
+  const cellClass = (pos: number, ...extra: (string | undefined)[]) =>
+    [frozenClass(pos), ...extra].filter(Boolean).join(' ');
+
   const hasActions = !!actions;
   const colCount = visibleColumns.length + (serial ? 1 : 0) + (hasActions ? 1 : 0);
   const activeFilters = activeFilterCount(filterValues);
@@ -368,16 +402,16 @@ export default function DataTable<T>({
       )}
 
       <div className="overflow-x-auto">
-        <table className="table-base">
+        <table ref={tableRef} className="table-base">
           <thead>
             <tr>
-              {serial && <th className="w-16">#</th>}
-              {visibleColumns.map((c) => {
+              {serial && <th className={cellClass(0, 'w-16')}>#</th>}
+              {visibleColumns.map((c, i) => {
                 const active = sort?.key === c.key;
                 return (
                   <th
                     key={c.key}
-                    className={[ALIGN[c.align ?? 'left'], c.headerClassName ?? ''].join(' ').trim()}
+                    className={cellClass(i + lead, ALIGN[c.align ?? 'left'], c.headerClassName)}
                   >
                     {canSort(c) ? (
                       <button
@@ -412,7 +446,7 @@ export default function DataTable<T>({
             {canFilterColumns && filterRowOpen && (
               <tr className="bg-muted/30">
                 {serial && (
-                  <th className="p-1">
+                  <th className={cellClass(0, 'p-1')}>
                     <button
                       type="button"
                       onClick={clearColumnFilters}
@@ -425,10 +459,10 @@ export default function DataTable<T>({
                     </button>
                   </th>
                 )}
-                {visibleColumns.map((c) => {
+                {visibleColumns.map((c, i) => {
                   const label = typeof c.header === 'string' ? c.header : c.key;
                   return (
-                    <th key={c.key} className="p-1">
+                    <th key={c.key} className={cellClass(i + lead, 'p-1')}>
                       <input
                         className="input h-8 w-full min-w-0 text-xs font-normal"
                         placeholder="Filter…"
@@ -450,7 +484,7 @@ export default function DataTable<T>({
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
                   {Array.from({ length: colCount }).map((__, j) => (
-                    <td key={j}>
+                    <td key={j} className={cellClass(j) || undefined}>
                       <div className="h-4 animate-pulse rounded bg-muted" />
                     </td>
                   ))}
@@ -472,11 +506,11 @@ export default function DataTable<T>({
                   <tr key={rowKey ? rowKey(row) : idx} className="hover:bg-accent/40">
                     {serial && (
                       // §4.9 — a running number, never the primary key.
-                      <td className="font-medium text-muted-foreground">
+                      <td className={cellClass(0, 'font-medium text-muted-foreground')}>
                         {view.startIndex + idx + 1}
                       </td>
                     )}
-                    {visibleColumns.map((c) => (
+                    {visibleColumns.map((c, i) => (
                       // `data-no-translate` — a body cell holds operator data, and
                       // the language switcher must not rewrite it. A client's short
                       // name, a file reference or a tonnage is not prose; the column
@@ -484,7 +518,7 @@ export default function DataTable<T>({
                       <td
                         key={c.key}
                         data-no-translate
-                        className={[ALIGN[c.align ?? 'left'], c.className ?? ''].join(' ').trim()}
+                        className={cellClass(i + lead, ALIGN[c.align ?? 'left'], c.className)}
                       >
                         {c.render
                           ? c.render(row, idx)

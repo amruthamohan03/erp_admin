@@ -78,6 +78,7 @@ export default function CommunicationsPage() {
       <MessageComposer
         title="New message"
         configured={configured}
+        allowConditions
         className="mb-4"
         onSent={() => {
           setPage(1);

@@ -1058,6 +1058,34 @@ grep -rn ">—<" src/                        # bare dashes in JSX — same quest
 grep -rn "'N/A'" src/                      # literals that should be NO_VALUE
 ```
 
+### 4.42 The first two columns of every table are frozen
+
+**In every `<DataTable>` the first two rendered columns stay pinned to the left edge, and every column after them scrolls horizontally underneath.** A list with twenty columns is read across, and by column twelve the operator has lost which file they are on. The frozen pair keeps the row's identity on screen however far the grid is scrolled.
+
+"First two" counts **rendered** cells, not declared columns:
+
+| `serial` | Frozen pair |
+| --- | --- |
+| on (default) | `#` + the first data column |
+| off | the first two data columns |
+
+Either way, **the first data column should be the one that names the row**: the file reference, licence number or client code. Put it first in `columns`. The freeze pins whatever is first, so a list that leads with a date or an amount pins a date or an amount. If an operator reorders columns in the chooser (§4.25.1), the freeze follows their order.
+
+All of this lives in the shared component. No call site does anything:
+
+- **`frozenClass(pos)` in [DataTable](src/components/ui/DataTable.tsx)** tags the leading cells in each row: the header, the column-filter row, body rows and the skeleton rows. The full-width empty-state cell is never frozen.
+- **The second column's offset is measured, not assumed.** The first column's width depends on its content and on the saved layout, so a `ResizeObserver` on the first header cell writes `--frozen-offset` onto the `<table>`. Do not swap this for a fixed width like `left: 4rem`. It works until the first column is wider than the guess, and then the two frozen columns overlap.
+- **The CSS is `.col-frozen*` in globals.css.** A sticky cell must be **opaque**, or the columns scrolling under it show through. The header and hover tints are therefore drawn *over* a solid `--card` fill as a gradient rather than replacing it. Those are tokens, so both themes hold (§4.32). The seam carries a border rule and a soft shadow so it reads as an edge.
+- **It uses `inset-inline-start`, not `left`**, so the pinned columns would sit on the correct side under `dir="rtl"`.
+
+Rules that follow:
+
+- **Never add a `freeze` / `frozenColumns` prop to opt a screen out**, or a different count for one screen. One table means the same behaviour on all sixty-six lists (§4.25).
+- **Never give a column `className` a translucent `bg-*`** (`bg-muted/40`, `bg-red-500/10`). In one of the first two positions it lets the scrolled columns show through. Colour the cell's content (a `<StatusBadge>`, §4.38) instead of the cell.
+- **Keep the first data column narrow.** A 200-character legal name in the frozen pair leaves no room for anything to scroll on a laptop screen. That is one more reason the Client column is the short code (§4.15).
+- **The action column is not frozen.** It is the last column (§4.25) and scrolls like the rest.
+- **Hand-built `table-base` tables** (data-entry grids, modals, mapping matrices) do not get this automatically. A hand-built table that lists records should be a `<DataTable>` (§4.25). A grid that must stay hand-built can use the same `col-frozen*` classes and set `--frozen-offset` the same way. It must not get a second sticky implementation.
+
 ## 5. Directory layout
 
 ```
@@ -1266,6 +1294,8 @@ The only file that may import from `pg` is `src/lib/db.ts`. Everywhere else uses
 - Requests to store the text 'N/A' in an empty column "so it shows everywhere" → no, it is display only; a stored 'N/A' defeats every "is this empty?" check (§4.41).
 - Requests to show an empty text value as a blank, an em dash or a hand-typed 'N/A' → no, it is `NO_VALUE` from `displayValue.ts` (§4.41).
 - Requests to show "N/A" for an empty date or number → no, a date keeps the em dash and a number its own rendering (§4.41).
+- Requests to unfreeze a table's leading columns, freeze a different count on one screen, or pin the second column at a hardcoded offset → no, every `<DataTable>` freezes its first two rendered columns and measures the offset (§4.42).
+- Requests to give a frozen-position cell a translucent background → no, a sticky cell must be opaque or the scrolled columns show through (§4.42).
 
 If the user insists after pushback, comply but add a `// TODO(config): move to <name>_master_t` comment.
 

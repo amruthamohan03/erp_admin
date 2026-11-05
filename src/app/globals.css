@@ -483,4 +483,32 @@
   .table-base td { @apply px-4 py-3 border-b border-border; }
   .table-base tbody tr { @apply transition-colors; }
   .table-base tbody tr:hover { @apply bg-muted/40; }
+
+  /* §4.42 — the first two columns of a <DataTable> stay put while the rest
+     scroll underneath them. A sticky cell must be OPAQUE, or the scrolled
+     columns show through it — so the translucent tints the rest of the row
+     uses are laid over a solid card fill as a gradient rather than replacing it. */
+  .table-base .col-frozen {
+    position: sticky;
+    z-index: 1;
+    background-color: hsl(var(--card));
+  }
+  .table-base th.col-frozen {
+    background-image: linear-gradient(hsl(var(--muted) / 0.6), hsl(var(--muted) / 0.6));
+  }
+  .table-base tbody tr:hover > td.col-frozen {
+    background-image: linear-gradient(hsl(var(--accent) / 0.4), hsl(var(--accent) / 0.4));
+  }
+  .table-base .col-frozen-first { inset-inline-start: 0; }
+  /* The first column's width is content-driven, so DataTable measures it and
+     publishes it here rather than guessing a fixed offset. */
+  .table-base .col-frozen-next { inset-inline-start: var(--frozen-offset, 0px); }
+  /* A rule and a soft shadow on the seam, so it reads as an edge that columns
+     pass under — not as columns being clipped mid-cell. */
+  .table-base .col-frozen-edge {
+    box-shadow: inset -1px 0 0 hsl(var(--border)), 6px 0 6px -6px rgb(0 0 0 / 0.25);
+  }
+  [dir='rtl'] .table-base .col-frozen-edge {
+    box-shadow: inset 1px 0 0 hsl(var(--border)), -6px 0 6px -6px rgb(0 0 0 / 0.25);
+  }
 }

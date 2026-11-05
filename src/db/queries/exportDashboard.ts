@@ -6,7 +6,7 @@ import { getTrackingDashboard, type TrackingDashboard } from './trackingDashboar
 // themselves live in `trackingDashboard`.
 
 /** The stages an export file waits at, keyed as the list's `status_filters`. */
-const STAGES = [
+export const EXPORT_STAGES = [
   { key: 'ceec_pending', label: 'CEEC Pending' },
   { key: 'min_div_pending', label: 'Min Div Pending' },
   { key: 'gov_docs_pending', label: 'Gov Docs Pending' },
@@ -35,6 +35,6 @@ export function getExportDashboard(): Promise<TrackingDashboard> {
     fob: exportT.fob,
     display: exportT.display,
     predicates: exportFilterPredicates(),
-    stages: STAGES,
+    stages: EXPORT_STAGES,
   });
 }

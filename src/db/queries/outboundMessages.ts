@@ -145,6 +145,7 @@ export async function getOutbound(id: number): Promise<OutboundDetail | null> {
       entity_type: outboundMessage.entityType,
       entity_id: outboundMessage.entityId,
       origin: outboundMessage.origin,
+      bulk_parent_id: outboundMessage.bulkParentId,
     })
     .from(outboundMessage)
     .leftJoin(usersT, eq(usersT.id, outboundMessage.sentBy))
@@ -152,14 +153,16 @@ export async function getOutbound(id: number): Promise<OutboundDetail | null> {
     .limit(1);
   if (!row) return null;
 
+  // A bulk send stores its attachments once, on the batch's first row.
+  const { bulk_parent_id: bulkParentId, ...detail } = row;
   const attachments = await db
     .select({ id: filesT.id, name: filesT.originalName, size: filesT.size, mime: filesT.mime })
     .from(filesT)
-    .where(and(eq(filesT.entityType, OUTBOUND_ENTITY), eq(filesT.entityId, String(id))))
+    .where(and(eq(filesT.entityType, OUTBOUND_ENTITY), eq(filesT.entityId, String(bulkParentId ?? id))))
     .orderBy(asc(filesT.id));
 
   return {
-    ...row,
+    ...detail,
     channel: row.channel as OutboundChannel,
     status: row.status as OutboundStatus,
     origin: row.origin === 'auto' ? 'auto' : 'manual',
