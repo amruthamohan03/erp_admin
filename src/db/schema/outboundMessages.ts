@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  type AnyPgColumn,
   index,
   integer,
   jsonb,
@@ -58,11 +59,16 @@ export const outboundMessage = pgTable(
     templateKey: varchar('template_key', { length: 100 }),
     // `auto` — queued by a stage change and sent once that change committed.
     origin: varchar('origin', { length: 10 }).notNull().default('manual'),
+    // A bulk send by condition writes one row per client. The attachments are
+    // stored once, on the batch's first row, and every other row points at it
+    // — so fifty clients do not mean fifty copies of the same PDF.
+    bulkParentId: integer('bulk_parent_id').references((): AnyPgColumn => outboundMessage.id, { onDelete: 'set null' }),
     display: varchar('display', { length: 1 }).notNull().default('Y'),
   },
   (t) => ({
     createdIdx: index('idx_outbound_message_t_created').on(t.createdAt),
     entityIdx: index('idx_outbound_message_t_entity').on(t.entityType, t.entityId),
+    bulkParentIdx: index('idx_outbound_message_t_bulk_parent').on(t.bulkParentId).where(sql`${t.bulkParentId} IS NOT NULL`),
     queuedIdx: index('idx_outbound_message_t_queued').on(t.id).where(sql`${t.status} = 'queued'`),
     originCheck: check('outbound_message_t_origin_check', sql`${t.origin} IN ('manual', 'auto')`),
     channelCheck: check('outbound_message_t_channel_check', sql`${t.channel} IN ('email', 'whatsapp')`),

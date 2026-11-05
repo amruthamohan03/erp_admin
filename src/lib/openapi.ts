@@ -10,6 +10,7 @@ import {
   sendChatMessageSchema,
   communicationTemplateBaseSchema,
   stageDraftQuerySchema,
+  audienceSchema,
   loginSchema,
   loginResponseSchema,
   meResponseSchema,
@@ -907,6 +908,80 @@ function buildRegistry(): OpenAPIRegistry {
       401: jsonError('Unauthorized'),
       403: jsonError('Role lacks add on /communications'),
       404: jsonError('Record not found'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/outbound-messages/audience',
+    summary: 'Bulk messages by condition: the pending stages each tracking module offers as a condition, labelled as on its dashboard.',
+    tags: ['communications'],
+    responses: {
+      200: jsonOk(
+        'Stages',
+        z.object({ stages: z.record(z.array(z.object({ key: z.string(), label: z.string() }))) }),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /communications'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/outbound-messages/audience',
+    summary:
+      'Bulk messages by condition: the clients owning Import or Export tracking files that meet the conditions (clearing / document status, cancellation reason, pending stage, delay, invoicing hold, pre-alert), with their contacts. Any pick within a condition, every condition chosen. Sends nothing.',
+    tags: ['communications'],
+    request: { body: { required: true, content: { 'application/json': { schema: audienceSchema } } } },
+    responses: {
+      200: jsonOk(
+        'Matching clients',
+        z.array(
+          z.object({
+            client_id: z.number().int(),
+            short_name: z.string(),
+            company_name: z.string(),
+            file_count: z.number().int(),
+            refs: z.array(z.string()),
+            email: z.string().nullable(),
+            email_secondary: z.string().nullable(),
+            payment_email: z.string().nullable(),
+            phone: z.string().nullable(),
+            phone_secondary: z.string().nullable(),
+            payment_phone: z.string().nullable(),
+          }),
+        ),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /communications'),
+      422: jsonError('No condition chosen, or a condition is invalid — the message names it'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/outbound-messages/bulk',
+    summary:
+      'Bulk messages by condition: one email or WhatsApp message to EACH chosen client (no client sees another\'s address). Multipart: channel, subject, message, audience (JSON), contacts (JSON: main / secondary / payment), client_ids (JSON), attachments. The conditions are re-checked; clients that no longer match or have no usable address are skipped and named.',
+    tags: ['communications'],
+    responses: {
+      201: jsonOk(
+        'Sent (fully or partly)',
+        z.object({
+          batch_id: z.number().int(),
+          messages: z.number().int(),
+          sent: z.number().int(),
+          partial: z.number().int(),
+          failed: z.number().int(),
+          failures: z.array(z.object({ client: z.string(), reason: z.string() })),
+          skipped: z.array(z.object({ client: z.string(), reason: z.string() })),
+        }),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /communications'),
+      422: jsonError('Message or selection invalid, or no chosen client has a usable address'),
+      502: jsonError('Every message failed at the provider — each attempt is on the log'),
+      503: jsonError('The channel is not set up on this server'),
     },
   });
 

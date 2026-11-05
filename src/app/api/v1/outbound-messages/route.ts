@@ -13,17 +13,16 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { ok, requirePermission, isResponse, withErrorHandler } from '@/lib/api';
-import { AppError, BadRequestError, ValidationError } from '@/lib/errors';
+import { AppError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
 import { outboundMessage } from '@/db/schema';
 import { storeFile } from '@/db/queries/files';
 import { finishOutbound, listOutbound, OUTBOUND_ENTITY } from '@/db/queries/outboundMessages';
 import { outboundLinkSchema, outboundListQuerySchema, sendOutboundSchema } from '@/schemas';
-import { attachmentError } from '@/lib/messaging/attachments';
-import { emailConfigured, type OutgoingFile } from '@/lib/messaging/email';
+import { emailConfigured } from '@/lib/messaging/email';
 import { whatsappConfigured } from '@/lib/messaging/whatsapp';
 import { deliverOutbound } from '@/lib/messaging/deliver';
-import { CHANNEL_NOT_CONFIGURED } from '@/lib/messaging/setup';
+import { assertChannelConfigured, jsonField, readAttachments } from '@/lib/messaging/outboundForm';
 
 const MENU = '/communications';
 
@@ -45,17 +44,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 });
 
-/** A recipient list field: a JSON array of strings, or absent. */
-function listField(form: FormData, key: 'to' | 'cc' | 'bcc'): unknown {
-  const raw = form.get(key);
-  if (typeof raw !== 'string' || raw.trim() === '') return [];
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new BadRequestError(`${key.toUpperCase()} must be a JSON list of recipients, e.g. ["name@company.com"].`);
-  }
-}
-
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const session = await requirePermission(MENU, 'add');
   if (isResponse(session)) return session;
@@ -63,9 +51,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const form = await req.formData();
   const input = sendOutboundSchema.parse({
     channel: form.get('channel'),
-    to: listField(form, 'to'),
-    cc: listField(form, 'cc'),
-    bcc: listField(form, 'bcc'),
+    to: jsonField(form, 'to', 'To'),
+    cc: jsonField(form, 'cc', 'Cc'),
+    bcc: jsonField(form, 'bcc', 'Bcc'),
     subject: form.get('subject') ?? '',
     message: form.get('message') ?? '',
   });
@@ -79,16 +67,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     template_key: optional('template_key'),
   });
 
-  const files = form.getAll('attachments').filter((f): f is File => f instanceof File);
-  const tooMuch = attachmentError(files);
-  if (tooMuch) throw new ValidationError(tooMuch, { fields: { attachments: tooMuch } });
-
-  const configured = input.channel === 'email' ? emailConfigured() : whatsappConfigured();
-  if (!configured) throw new AppError(CHANNEL_NOT_CONFIGURED[input.channel], 503, 'INTERNAL_ERROR');
-
-  const outgoing: OutgoingFile[] = await Promise.all(
-    files.map(async (f) => ({ name: f.name, mime: f.type || null, data: Buffer.from(await f.arrayBuffer()) })),
-  );
+  const outgoing = await readAttachments(form);
+  assertChannelConfigured(input.channel);
 
   const id = await db.transaction(async (tx) => {
     const [row] = await tx

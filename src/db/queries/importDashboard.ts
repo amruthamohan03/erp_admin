@@ -12,7 +12,7 @@ import { getTrackingDashboard, type TrackingDashboard } from './trackingDashboar
  * Keys are the list's own `status_filters` keys, so every tile links to the
  * exact rows it counted (§4.29) and the two can never drift (§4.10).
  */
-const STAGES = [
+export const IMPORT_STAGES = [
   { key: 'crf_missing', label: 'CRF Missing' },
   { key: 'ad_missing', label: 'AD Missing' },
   { key: 'insurance_missing', label: 'Insurance Missing' },
@@ -40,6 +40,6 @@ export function getImportDashboard(): Promise<TrackingDashboard> {
     fob: importT.fob,
     display: importT.display,
     predicates: importFilterPredicates(),
-    stages: STAGES,
+    stages: IMPORT_STAGES,
   });
 }
