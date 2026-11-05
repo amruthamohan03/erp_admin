@@ -9,15 +9,17 @@
 // Reading the same `master_page_accordion_field_t` rows the form renders makes
 // the export complete by construction: add a field to a page and it appears in
 // the export with no code change (§4.1, §4.10).
-import { and, asc, desc, eq, getTableColumns, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { type PgColumn } from 'drizzle-orm/pg-core';
 import { db, type Database, type Transaction } from '@/lib/db';
-import { masterPage, masterPageAccordion, masterPageAccordionField, usersT } from '@/db/schema';
+import { clearingStatusMaster, clientMaster, masterPage, masterPageAccordion, masterPageAccordionField, transportModeMaster, usersT } from '@/db/schema';
 import { getPageTarget } from '@/lib/pages/targets';
+import { evaluatePredicate, parseConditions } from '@/lib/pages/conditions';
+import { fieldsOf } from '@/lib/pages/conditionRules';
 import { getSoftDeleteResource } from '@/db/queries/softDelete';
 import { formatDate } from '@/lib/formatDate';
 import { emptyFor, isBlank, NO_VALUE } from '@/lib/displayValue';
-import type { XlsxColumn, XlsxRowTone, XlsxSheet } from '@/lib/xlsx';
+import { filenameWord, sanitizeSheetName, stampedFileName, type XlsxColumn, type XlsxRowTone, type XlsxSheet } from '@/lib/xlsx';
 
 interface FieldDef {
   name: string;
@@ -26,6 +28,7 @@ interface FieldDef {
   optionsSource: string | null;
   optionsLabelField: string | null;
   optionsStatic: unknown;
+  conditions?: unknown;
 }
 
 /**
@@ -121,6 +124,14 @@ export interface PageExportOptions {
   /** Sheet name; defaults to the page title. */
   sheetName?: string;
   /**
+   * Keep only the columns the FORM shows for these values — e.g.
+   * `{ transport_mode: 1 }` drops the wagon column from a ROAD sheet, because
+   * the field's own visibleWhen hides it there. Judged by the field's
+   * configured rule (§4.1), not by a column list kept here. A rule that also
+   * reads fields NOT given here cannot be judged per sheet, so that column stays.
+   */
+  visibleFor?: Record<string, unknown>;
+  /**
    * Shade each row by what the record IS (§4.20's reasoning, in a spreadsheet).
    *
    * Handed the RAW database row, not the formatted one: by the time a cell has
@@ -180,6 +191,7 @@ async function loadPageFields(exec: Database | Transaction, slug: string): Promi
       optionsSource: masterPageAccordionField.optionsSource,
       optionsLabelField: masterPageAccordionField.optionsLabelField,
       optionsStatic: masterPageAccordionField.optionsStatic,
+      conditions: masterPageAccordionField.conditions,
     })
     .from(masterPageAccordionField)
     .innerJoin(
@@ -272,7 +284,13 @@ export async function pageRecordDisplay(
   exec: Database | Transaction,
   slug: string,
   id: number,
-): Promise<{ title: string; raw: Record<string, unknown>; values: Record<string, string> } | null> {
+): Promise<{
+  title: string;
+  raw: Record<string, unknown>;
+  values: Record<string, string>;
+  /** Each page field's label, by column — what the form calls the value. */
+  labels: Record<string, string>;
+} | null> {
   const { target, title, fields, columnsByName } = await loadPageFields(exec, slug);
   const idColumn = columnsByName.get('id');
   if (!idColumn) return null;
@@ -287,11 +305,98 @@ export async function pageRecordDisplay(
   const byName = new Map(fields.map((f) => [f.name, f]));
 
   const values: Record<string, string> = {};
+  const labels: Record<string, string> = {};
   for (const name of columnsByName.keys()) {
     const field = byName.get(name) ?? { name, label: name, fieldType: '', optionsSource: null, optionsLabelField: null, optionsStatic: null };
     values[name] = cell(row[name], field, labelMaps.get(name));
+    if (byName.has(name)) labels[name] = field.label;
   }
-  return { title, raw: row, values };
+  return { title, raw: row, values, labels };
+}
+
+/**
+ * A tracking page's export as one tab per transport mode, for the rows `where`
+ * selects. Each mode is a different consignment shape — a truck has horse and
+ * trailers, a flight an airway bill — so each tab carries only the columns the
+ * form shows for that mode (visibleFor reads the fields' own visibleWhen).
+ *
+ * Tabs follow the modes the rows actually use, in the master's id order, so a
+ * mode with no files adds no empty tab. A file saved without a mode gets its own
+ * tab with every column rather than being left out. Shared by the Import and
+ * Export Tracking downloads so the two lay their workbooks out alike (§4.10).
+ */
+export async function buildTransportModeSheets(
+  slug: string,
+  opts: { where?: SQL | undefined; emptySheetName: string },
+): Promise<XlsxSheet[]> {
+  const target = getPageTarget(slug);
+  if (!target) throw new Error(`Unknown page: ${slug}`);
+  const cols = new Map(Object.values(getTableColumns(target.table)).map((c) => [c.name, c as PgColumn]));
+  const mode = cols.get('transport_mode');
+  const display = cols.get('display');
+  if (!mode) return [await buildPageExportSheet(slug, { where: opts.where, sheetName: opts.emptySheetName })];
+
+  const modes = await db
+    .select({ id: sql<number | null>`${mode}`, name: transportModeMaster.transportModeName })
+    .from(target.table)
+    .leftJoin(transportModeMaster, eq(transportModeMaster.id, mode))
+    .where(and(display ? eq(display, 'Y') : undefined, opts.where))
+    .groupBy(mode, transportModeMaster.transportModeName)
+    .orderBy(asc(mode));
+
+  const sheets: XlsxSheet[] = [];
+  for (const m of modes) {
+    sheets.push(
+      await buildPageExportSheet(slug, {
+        where: and(opts.where, m.id === null ? isNull(mode) : eq(mode, m.id)),
+        sheetName: sanitizeSheetName(m.id === null ? 'No Transport Mode' : (m.name ?? `Transport Mode ${m.id}`)),
+        visibleFor: m.id === null ? undefined : { transport_mode: m.id },
+      }),
+    );
+  }
+  // Nothing matched: one empty sheet with the headings.
+  if (!sheets.length) sheets.push(await buildPageExportSheet(slug, { where: opts.where, sheetName: opts.emptySheetName }));
+  return sheets;
+}
+
+/**
+ * The Import / Export Tracking download's name:
+ * `<Client>_<Status>_<Imports|Exports>_DD_MM_YYYY_HH_MM_SS.xlsx`.
+ *
+ * Client is the client's 3-letter code when the list is narrowed to one client
+ * (§4.15), otherwise `MultiClient`. Status names what the list was narrowed to —
+ * the clearing status picked, or the dashboard cards switched on — otherwise
+ * `All`. So the file says which rows it holds before anyone opens it.
+ */
+export async function trackingExportFileName(
+  kind: 'Imports' | 'Exports',
+  q: { clientId?: number | null; clearingStatusId?: number | null; statusKeys?: string[] },
+): Promise<string> {
+  let client = 'MultiClient';
+  if (q.clientId) {
+    const [c] = await db.select({ code: clientMaster.shortName }).from(clientMaster).where(eq(clientMaster.id, q.clientId)).limit(1);
+    if (c?.code) client = c.code.toUpperCase();
+  }
+  let status = 'All';
+  if (q.clearingStatusId) {
+    const [s] = await db
+      .select({ name: clearingStatusMaster.clearingStatus })
+      .from(clearingStatusMaster)
+      .where(eq(clearingStatusMaster.id, q.clearingStatusId))
+      .limit(1);
+    if (s?.name) status = filenameWord(s.name);
+  } else if (q.statusKeys?.length) {
+    status = q.statusKeys.map(filenameWord).join('-');
+  }
+  return stampedFileName([client, status, kind]);
+}
+
+/** Does the form show this field for `values`? See PageExportOptions.visibleFor. */
+function shownFor(field: FieldDef, values: Record<string, unknown>): boolean {
+  const rule = parseConditions(field.conditions)?.visibleWhen;
+  if (!rule) return true;
+  if (!fieldsOf(rule).every((name) => name in values)) return true;
+  return evaluatePredicate(rule, values);
 }
 
 /** Every field on a page, for every matching row, as one spreadsheet sheet. */
@@ -299,7 +404,9 @@ export async function buildPageExportSheet(
   slug: string,
   opts: PageExportOptions = {},
 ): Promise<XlsxSheet> {
-  const { target, title, fields, columnsByName } = await loadPageFields(db, slug);
+  const loaded = await loadPageFields(db, slug);
+  const { target, title, columnsByName } = loaded;
+  const fields = opts.visibleFor ? loaded.fields.filter((f) => shownFor(f, opts.visibleFor!)) : loaded.fields;
   const selection: Record<string, PgColumn> = {};
   for (const f of fields) selection[f.name] = columnsByName.get(f.name) as PgColumn;
 

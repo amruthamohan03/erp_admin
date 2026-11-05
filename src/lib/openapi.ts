@@ -5,6 +5,9 @@ import {
   OpenApiGeneratorV3,
 } from '@asteasolutions/zod-to-openapi';
 import {
+  aiSearchRequestSchema,
+  chatThreadQuerySchema,
+  sendChatMessageSchema,
   communicationTemplateBaseSchema,
   stageDraftQuerySchema,
   loginSchema,
@@ -904,6 +907,129 @@ function buildRegistry(): OpenAPIRegistry {
       401: jsonError('Unauthorized'),
       403: jsonError('Role lacks add on /communications'),
       404: jsonError('Record not found'),
+    },
+  });
+
+  const chatMessageResponse = z.object({
+    id: z.number().int(),
+    sender_user_id: z.number().int(),
+    recipient_user_id: z.number().int(),
+    body: z.string(),
+    created_at: z.string(),
+    read_at: z.string().nullable(),
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/ai-search',
+    summary: 'AI Search: whether it is set up on this server (ANTHROPIC_API_KEY), with the sentence to show when not.',
+    tags: ['ai-search'],
+    responses: {
+      200: jsonOk('Status', z.object({ configured: z.boolean(), message: z.string().nullable() })),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /ask'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/ai-search',
+    summary:
+      'AI Search: answer one plain-language question from the ERP data. Claude calls fixed, read-only lookups scoped to the modules the caller may view; it never writes SQL. Audited as a view.',
+    tags: ['ai-search'],
+    request: { body: { required: true, content: { 'application/json': { schema: aiSearchRequestSchema } } } },
+    responses: {
+      200: jsonOk(
+        'Answer',
+        z.object({
+          answer: z.string(),
+          figures: z.array(z.object({ label: z.string(), value: z.number(), tone: z.string().optional() })),
+          records: z.array(
+            z.object({
+              module: z.string(),
+              module_label: z.string(),
+              id: z.number().int(),
+              reference: z.string().nullable(),
+              client: z.string().nullable(),
+              status: z.string().nullable(),
+              date: z.string().nullable(),
+              date_label: z.string().nullable(),
+              link: z.string(),
+            }),
+          ),
+          steps: z.array(z.string()),
+        }),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /ask'),
+      422: jsonError('Question too short or too long, or declined by the model'),
+      503: jsonError('AI Search is not configured, or the AI service is unavailable — the message says which'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/chat/contacts',
+    summary:
+      'Live Chat: everyone the caller can chat with (active users whose role may view /chat), newest conversation first, with the last message and unread count. meta.can_send says whether the caller may send.',
+    tags: ['chat'],
+    responses: {
+      200: jsonOk(
+        'Contacts',
+        z.array(
+          z.object({
+            user_id: z.number().int(),
+            full_name: z.string(),
+            role_name: z.string().nullable(),
+            last_body: z.string().nullable(),
+            last_at: z.string().nullable(),
+            last_from_me: z.boolean(),
+            unread: z.number().int(),
+          }),
+        ),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /chat'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/chat/unread-count',
+    summary: 'Live Chat: how many messages are waiting for the caller — the corner button badge.',
+    tags: ['chat'],
+    responses: {
+      200: jsonOk('Unread', z.object({ unread: z.number().int() })),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /chat'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/chat/messages',
+    summary: 'Live Chat: one conversation, oldest first (newest 200). Reading it marks the other person’s messages read.',
+    tags: ['chat'],
+    request: { query: chatThreadQuerySchema },
+    responses: {
+      200: jsonOk('Messages', z.array(chatMessageResponse)),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /chat'),
+      422: jsonError('`with` is missing or not a user id'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/chat/messages',
+    summary: 'Live Chat: send one message to one user. Refused if that user can no longer use Live Chat. Audited.',
+    tags: ['chat'],
+    request: { body: { required: true, content: { 'application/json': { schema: sendChatMessageSchema } } } },
+    responses: {
+      201: jsonOk('Sent', chatMessageResponse),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks add on /chat'),
+      422: jsonError('Empty or over-long message, or a recipient who cannot chat — the message says which'),
     },
   });
 

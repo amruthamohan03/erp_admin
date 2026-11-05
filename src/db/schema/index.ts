@@ -100,6 +100,7 @@ export * from './clearingBasisMaster';
 export * from './notifications';
 export * from './outboundMessages';
 export * from './communicationTemplateMaster';
+export * from './chatMessages';
 export * from './dataImport';
 export * from './paymentRecollection';
 export * from './delayRuleMaster';

@@ -7,6 +7,7 @@ import DocumentTitle from '@/components/layout/DocumentTitle';
 import SidebarProvider, { useSidebar } from '@/components/layout/SidebarProvider';
 import Topbar from '@/components/layout/Topbar';
 import Footer from '@/components/layout/Footer';
+import ChatWidget from '@/modules/chat/ChatWidget';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
@@ -48,6 +49,8 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
         <Footer />
       </div>
+      {/* Draws nothing unless the role has the /chat menu. */}
+      <ChatWidget />
     </div>
   );
 }
