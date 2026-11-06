@@ -36,6 +36,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .select({
       id: clearingStatusMaster.id,
       clearing_status: clearingStatusMaster.clearingStatus,
+      tone: clearingStatusMaster.tone,
       display: clearingStatusMaster.display,
       created_at: clearingStatusMaster.createdAt,
       updated_at: clearingStatusMaster.updatedAt,
@@ -60,6 +61,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     .insert(clearingStatusMaster)
     .values({
       clearingStatus: data.clearing_status,
+      tone: data.tone ?? null,
       display: data.display ?? 'Y',
       createdBy: session.uid,
       updatedBy: session.uid,

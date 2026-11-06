@@ -15,6 +15,14 @@ import { usersT } from './users';
 export const clearingStatusMaster = pgTable('clearing_status_master_t', {
   id: serial('id').primaryKey(),
   clearingStatus: varchar('clearing_status', { length: 100 }).notNull(),
+  /**
+   * §4.38 — the badge hue this status wears in every list, from the statusTone
+   * palette (TONE_KEYS). NULL means "not configured": the badge then falls back
+   * to the hue its WORDS imply, so a status added later still reads sensibly.
+   * Configured so the six clearing statuses can each be told apart at a glance,
+   * where the word-based reading gives three of them the same green.
+   */
+  tone: varchar('tone', { length: 20 }),
   display: varchar('display', { length: 1 }).notNull().default('Y'),
   createdBy: integer('created_by').references(() => usersT.id, {
     onDelete: 'set null',

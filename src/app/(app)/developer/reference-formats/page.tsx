@@ -378,6 +378,7 @@ function FormatModal({
                             value={String(seg.digits ?? 2)}
                             onChange={(v) => patch(i, { digits: Number(v) })}
                             options={[
+                              { value: '1', label: '1 — 6' },
                               { value: '2', label: '2 — 26' },
                               { value: '4', label: '4 — 2026' },
                             ]}

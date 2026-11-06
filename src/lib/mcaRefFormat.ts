@@ -66,7 +66,7 @@ export interface McaRefSegment {
   value?: string;
   /** `sequence` only — digits, zero-padded. */
   width?: number;
-  /** `year` only — 2 for `26`, 4 for `2026`. */
+  /** `year` only — 1 for `6`, 2 for `26`, 4 for `2026`. */
   digits?: number;
   /** Text segments — keep only the first N letters (the office name is a full name). */
   letters?: number;
@@ -308,7 +308,10 @@ export function renderSegment(
     case 'year': {
       const y = String(tokens.year ?? '').trim();
       if (!/^\d{4}$/u.test(y)) return null;
-      return seg.digits === 2 ? y.slice(-2) : y;
+      // The last 1 or 2 digits, or the full year. A one-digit year repeats
+      // every decade, so the counter (scoped by what the format prints, §4.33)
+      // continues where the same digit was last used ten years earlier.
+      return seg.digits === 1 || seg.digits === 2 ? y.slice(-seg.digits) : y;
     }
     case 'sequence': {
       if (seq === null || seq === undefined) return null;
@@ -425,8 +428,8 @@ export function validateSegments(
     if (seg.type === 'literal' && !String(seg.value ?? '').trim()) {
       issues.push({ index: i, message: `${at} is fixed text with nothing typed in it.` });
     }
-    if (seg.type === 'year' && seg.digits !== 2 && seg.digits !== 4) {
-      issues.push({ index: i, message: `${at} is a year — choose 2 digits (26) or 4 (2026).` });
+    if (seg.type === 'year' && seg.digits !== 1 && seg.digits !== 2 && seg.digits !== 4) {
+      issues.push({ index: i, message: `${at} is a year — choose 1 digit (6), 2 (26) or 4 (2026).` });
     }
     if (seg.type === 'sequence') {
       seen += 1;

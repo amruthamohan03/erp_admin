@@ -40,6 +40,7 @@ import { fetchMasterOptions as fetchOptions, type MasterOption } from '@/lib/sel
 import { formatDate } from '@/lib/formatDate';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { NO_VALUE } from '@/lib/displayValue';
+import type { ToneKey } from '@/lib/statusTone';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -56,6 +57,8 @@ interface ExportRow {
   weight: string | null;
   fob: string | null;
   clearing_status_name: string | null;
+  /** §4.38 — configured on the Clearing Status master; null = colour by the words. */
+  clearing_status_tone: ToneKey | null;
 }
 
 type Option = MasterOption;
@@ -456,7 +459,7 @@ function ExportsListPageInner() {
           {
             key: 'clearing_status_name',
             header: 'Clearing Status',
-            badge: true,
+            badge: (r) => r.clearing_status_tone,
           },
         ]}
         actions={(r) => ({

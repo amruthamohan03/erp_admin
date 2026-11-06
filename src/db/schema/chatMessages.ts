@@ -33,3 +33,16 @@ export const chatMessage = pgTable(
     bodyLength: check('chat_message_t_body_length', sql`char_length(${t.body}) between 1 and 2000`),
   }),
 );
+
+// Live Chat presence: when each user's open app last checked in. The chat
+// button and the contact list already poll while a tab is visible, and every
+// poll stamps this row — so "online" is "polled recently", with no socket and
+// no extra request. Its own table rather than a column on users_t, because it
+// is rewritten every few seconds per signed-in user and that churn has no
+// business on the account row.
+export const chatPresence = pgTable('chat_presence_t', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references(() => usersT.id, { onDelete: 'cascade' }),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+});
