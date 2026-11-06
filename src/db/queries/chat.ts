@@ -22,6 +22,26 @@ export interface ChatContact {
   last_at: string | null;
   last_from_me: boolean;
   unread: number;
+  /** Their app polled within `ONLINE_WINDOW_SECONDS`. */
+  online: boolean;
+}
+
+/**
+ * How recently a user must have checked in to count as online. The chat
+ * button polls every 15 s and the contact list every 10 s, both only while the
+ * tab is visible — so a minute tolerates a few slow or missed polls, and a
+ * closed or hidden app drops to offline within a minute.
+ */
+export const ONLINE_WINDOW_SECONDS = 60;
+
+/**
+ * Record that `me`'s app is open. Called from the chat polls, so presence costs
+ * no request of its own.
+ */
+export async function touchChatPresence(me: number): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO chat_presence_t (user_id, last_seen_at) VALUES (${me}, now())
+    ON CONFLICT (user_id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at`);
 }
 
 export interface ChatMessage {
@@ -76,10 +96,12 @@ export async function listChatContacts(me: number): Promise<ChatContact[]> {
     )
     SELECT p.id AS user_id, p.full_name, p.role_name,
            l.body AS last_body, l.created_at AS last_at, COALESCE(l.from_me, false) AS last_from_me,
-           COALESCE(n.n, 0) AS unread
+           COALESCE(n.n, 0) AS unread,
+           COALESCE(pr.last_seen_at > now() - make_interval(secs => ${ONLINE_WINDOW_SECONDS}), false) AS online
       FROM people p
       LEFT JOIN last l ON l.other = p.id
       LEFT JOIN unread n ON n.other = p.id
+      LEFT JOIN chat_presence_t pr ON pr.user_id = p.id
      ORDER BY l.created_at DESC NULLS LAST, p.full_name ASC`)) as unknown as Rows<ChatContact>;
   return res.rows.map((r) => ({ ...r, last_at: r.last_at ? new Date(r.last_at).toISOString() : null }));
 }

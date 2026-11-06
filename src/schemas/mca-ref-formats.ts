@@ -20,8 +20,8 @@ const segmentSchema = z.object({
   separator: z.string().max(5, 'A separator can be at most 5 characters.').optional(),
   value: z.string().max(20, 'Fixed text can be at most 20 characters.').optional(),
   width: z.number().int().min(1, 'The number needs at least 1 digit.').max(10, 'The number can be at most 10 digits.').optional(),
-  digits: z.union([z.literal(2), z.literal(4)], {
-    errorMap: () => ({ message: 'A year is either 2 digits (26) or 4 (2026).' }),
+  digits: z.union([z.literal(1), z.literal(2), z.literal(4)], {
+    errorMap: () => ({ message: 'A year is 1 digit (6), 2 (26) or 4 (2026).' }),
   }).optional(),
   letters: z.number().int().min(1, 'Keep at least 1 letter.').max(20, 'Keep at most 20 letters.').optional(),
 });

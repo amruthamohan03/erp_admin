@@ -55,6 +55,28 @@ function initials(name: string): string {
     .join('');
 }
 
+/** Initials disc, with a green dot in the corner while the person is online. */
+function Avatar({ name, online }: { name: string; online: boolean }) {
+  return (
+    // The wrapper is a block of exactly the avatar's size, so the dot is placed
+    // against the circle itself — an inline wrapper sizes to the text line and
+    // the dot drifts off the edge.
+    <span className="relative block h-9 w-9 shrink-0">
+      <span className="bg-brand-gradient flex h-full w-full items-center justify-center rounded-full text-xs font-semibold text-white">
+        {initials(name)}
+      </span>
+      {online && (
+        <span
+          className="absolute bottom-0 end-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card"
+          title="Online"
+        >
+          <span className="sr-only">Online</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 interface ChatPanelProps {
   /** `popup` is the corner window; `page` fills the /chat screen. */
   variant: 'popup' | 'page';
@@ -132,9 +154,7 @@ export default function ChatPanel({ variant }: ChatPanelProps) {
                   c.user_id === activeId ? 'bg-muted' : ''
                 }`}
               >
-                <span className="bg-brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white">
-                  {initials(c.full_name)}
-                </span>
+                <Avatar name={c.full_name} online={c.online} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="truncate text-sm font-semibold text-foreground" translate="no" title={c.full_name}>
@@ -271,11 +291,16 @@ function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps)
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
+        <Avatar name={contact.full_name} online={contact.online} />
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-foreground" translate="no" title={contact.full_name}>
             {contact.full_name}
           </div>
-          {contact.role_name && <div className="truncate text-xs text-muted-foreground">{contact.role_name}</div>}
+          <div className="truncate text-xs text-muted-foreground">
+            {contact.online && <span className="font-medium text-emerald-600 dark:text-emerald-400">Online</span>}
+            {contact.online && contact.role_name && ' · '}
+            {contact.role_name}
+          </div>
         </div>
       </div>
 

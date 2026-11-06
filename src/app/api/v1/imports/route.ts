@@ -149,6 +149,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       regime_name: regimeMaster.regimeName,
       clearing_status_id: importT.clearingStatus,
       clearing_status_name: clearingStatusMaster.clearingStatus,
+      // §4.38 — the colour the Clearing Status master configures for it.
+      clearing_status_tone: clearingStatusMaster.tone,
       document_status_id: importT.documentStatus,
       document_status_name: documentStatusMaster.documentStatus,
       fob: importT.fob,

@@ -25,6 +25,7 @@ export const GET = withErrorHandler(async (_req: NextRequest, { params }: Ctx) =
     .select({
       id: clearingStatusMaster.id,
       clearing_status: clearingStatusMaster.clearingStatus,
+      tone: clearingStatusMaster.tone,
       display: clearingStatusMaster.display,
       created_at: clearingStatusMaster.createdAt,
       updated_at: clearingStatusMaster.updatedAt,
@@ -52,6 +53,8 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: Ctx) =>
   const patch: Partial<ClearingStatusMasterInsert> = {};
   if (data.clearing_status !== undefined)
     patch.clearingStatus = data.clearing_status;
+  // `null` is a real value here — it clears the colour back to word-based.
+  if (data.tone !== undefined) patch.tone = data.tone;
   if (data.display !== undefined) patch.display = data.display;
   if (Object.keys(patch).length === 0) {
     throw new BadRequestError('Nothing to update');

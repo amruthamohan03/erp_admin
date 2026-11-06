@@ -9,10 +9,18 @@ import { displayStatusColumn, setDisplay } from '@/lib/masters/displayToggle';
 import { safeFetchJson } from '@/lib/safeFetch';
 import UniquenessIndicator from '@/components/ui/UniquenessIndicator';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { TONE_KEYS, statusTone, type ToneKey } from '@/lib/statusTone';
+
+/** The palette as picker options, each named for what it is. */
+const TONE_OPTIONS = TONE_KEYS.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }));
 
 interface ClearingStatusRow {
   id: number;
   clearing_status: string;
+  /** §4.38 — null = coloured by the status's words. */
+  tone: ToneKey | null;
   display: 'Y' | 'N';
   created_at: string | null;
   updated_at: string | null;
@@ -95,7 +103,9 @@ export default function ClearingStatusesPage() {
           </button>
         }
         columns={[
-        { key: 'clearing_status', header: 'Clearing Status', sortable: true, className: 'font-medium' },
+        // Drawn exactly as the Import and Export lists draw it, so the colour
+        // configured here is the colour seen there.
+        { key: 'clearing_status', header: 'Clearing Status', sortable: true, badge: (c) => c.tone },
           displayStatusColumn<ClearingStatusRow>({ nameOf: (c) => c.clearing_status, onToggle: handleToggle }),
         ]}
         // A disabled row has nothing left to delete — the switch re-enables it.
@@ -154,6 +164,8 @@ function ClearingStatusFormModal({
   const isEdit = !!status;
   const [active, setActive] = useState(status ? status.display === 'Y' : true);
   const [name, setName] = useState(status?.clearing_status || '');
+  // '' = automatic: no colour stored, the badge reads the status's words.
+  const [tone, setTone] = useState<string>(status?.tone ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -185,7 +197,7 @@ function ClearingStatusFormModal({
       const res = await safeFetchJson(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clearing_status: name, display: active ? 'Y' : 'N' }),
+        body: JSON.stringify({ clearing_status: name, tone: tone || null, display: active ? 'Y' : 'N' }),
       });
       if (!res.ok) {
         setError(res.message);
@@ -224,6 +236,24 @@ function ClearingStatusFormModal({
               maxLength={100}
             />
             <UniquenessIndicator status={uniqueStatus} message={uniqueMessage} />
+          </div>
+          <div>
+            <label className="label">Colour</label>
+            <div className="flex items-center gap-3">
+              <SearchableSelect
+                className="flex-1"
+                value={tone}
+                onChange={setTone}
+                options={TONE_OPTIONS}
+                emptyLabel={`Automatic (${statusTone(name)})`}
+                placeholder={`Automatic (${statusTone(name)})`}
+                aria-label="Badge colour"
+              />
+              <StatusBadge status={name || 'Preview'} tone={(tone || undefined) as ToneKey | undefined} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              How this status is coloured in the Import and Export Tracking lists.
+            </p>
           </div>
           <ActiveToggleField checked={active} onChange={setActive} />
           <div className="flex justify-end gap-2 pt-2">

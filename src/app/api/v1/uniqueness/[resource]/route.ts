@@ -24,6 +24,7 @@ import {
   originMaster,
   industryMaster,
   groupCompanyMaster,
+  airOperatingCompanyMaster,
   doneByMaster,
   feetContainerMaster,
   cancellationReasonMaster,
@@ -268,6 +269,12 @@ const RESOURCES: Record<string, ResourceConfig> = {
     nameColumn: groupCompanyMaster.groupCompanyName,
     idColumn: groupCompanyMaster.id,
     displayColumn: groupCompanyMaster.display,
+  },
+  'air-operating-companies': {
+    table: airOperatingCompanyMaster,
+    nameColumn: airOperatingCompanyMaster.airOperatingCompanyName,
+    idColumn: airOperatingCompanyMaster.id,
+    displayColumn: airOperatingCompanyMaster.display,
   },
   referers: {
     table: refererMaster,

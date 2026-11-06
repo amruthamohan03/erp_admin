@@ -762,7 +762,7 @@ The dark side is a **translucent fill of the mid shade** (`-500/10`, `-500/20`) 
   { "type": "sequence", "separator": "-", "width": 4 } ]  // -0001
 ```
 
-Segment types: `client`, `kind`, `goods`, `transport`, `office` (master codes), `year` (2 or 4 digits), `literal` (fixed text), `sequence` (the incrementing number). Code segments take an optional `letters` to keep only the first N — that is how a full office name becomes `KI`.
+Segment types: `client`, `kind`, `goods`, `transport`, `office` (master codes), `year` (1, 2 or 4 digits), `literal` (fixed text), `sequence` (the incrementing number). Code segments take an optional `letters` to keep only the first N — that is how a full office name becomes `KI`.
 
 **Four rules hold this together, and all four are load-bearing:**
 

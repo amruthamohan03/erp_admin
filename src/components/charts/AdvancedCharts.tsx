@@ -171,13 +171,17 @@ export function RadialBars({
   // few pixels across and the chart says less than the list beside it.
   const shown = items.slice(0, 5);
   const max = Math.max(1, ...shown.map((i) => (Number.isFinite(i.value) ? i.value : 0)));
-  const thickness = Math.max(7, (size / 2 - 18) / shown.length - 4);
+  // Capped, because with only one or two entries the share of the radius each
+  // ring gets is huge, and a ring that thick reads as a solid disc.
+  const thickness = Math.min(16, Math.max(7, (size / 2 - 18) / shown.length - 4));
 
   return (
     <div className="flex flex-wrap items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" className="shrink-0">
         {shown.map((item, i) => {
-          const radius = size / 2 - 10 - i * (thickness + 4);
+          // The stroke is centred on the radius, so the outer ring must stand in
+          // by half its thickness or its outer edge is cut off by the viewBox.
+          const radius = size / 2 - thickness / 2 - 2 - i * (thickness + 4);
           if (radius <= thickness / 2) return null;
           const circumference = 2 * Math.PI * radius;
           const fraction = Math.max(0, item.value) / max;

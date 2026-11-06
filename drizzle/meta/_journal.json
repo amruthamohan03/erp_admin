@@ -1142,6 +1142,34 @@
       "when": 1794900000000,
       "tag": "0161_outbound_bulk_parent",
       "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0162_chat_presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1795100000000,
+      "tag": "0163_import_entry_coupon_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0164_air_operating_company_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1795300000000,
+      "tag": "0165_clearing_status_tone",
+      "breakpoints": true
     }
   ]
 }

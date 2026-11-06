@@ -17,6 +17,7 @@ import {
   expenseTypeMaster,
   feetContainerMaster,
   groupCompanyMaster,
+  airOperatingCompanyMaster,
   hscodeMaster,
   incotermMaster,
   industryMaster,
@@ -118,6 +119,7 @@ export const MASTER_EXPORTS: Record<string, MasterExport> = {
   'feet-containers': { table: feetContainerMaster, label: 'Feet Containers' },
   'goods-types': { table: typeOfGoodsMaster, label: 'Type of Goods' },
   'group-companies': { table: groupCompanyMaster, label: 'Group Companies' },
+  'air-operating-companies': { table: airOperatingCompanyMaster, label: 'Air Operating Companies' },
   hscodes: {
     table: hscodeMaster,
     label: 'HS Codes',

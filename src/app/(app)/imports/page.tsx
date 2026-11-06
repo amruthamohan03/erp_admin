@@ -41,6 +41,7 @@ import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { statusFiltersFromParam } from '@/lib/tracking/statusFiltersParam';
 import { safeFetchJson } from '@/lib/safeFetch';
 import { NO_VALUE } from '@/lib/displayValue';
+import type { ToneKey } from '@/lib/statusTone';
 
 const fmtDate = (v: unknown): string => formatDate(v, '');
 
@@ -52,6 +53,8 @@ interface ImportRow {
   license_number: string | null;
   regime_name: string | null;
   clearing_status_name: string | null;
+  /** §4.38 — configured on the Clearing Status master; null = colour by the words. */
+  clearing_status_tone: ToneKey | null;
   pre_alert_date: string | null;
   fob: string | null;
   weight: string | null;
@@ -546,7 +549,7 @@ function ImportsListPageInner() {
           {
             key: 'clearing_status_name',
             header: 'Clearing Status',
-            badge: true,
+            badge: (r) => r.clearing_status_tone,
           },
         ]}
         actions={(r) => ({

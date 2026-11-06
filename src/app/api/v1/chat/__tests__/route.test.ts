@@ -9,6 +9,7 @@ const listChatContacts = vi.fn();
 const chatUnreadCount = vi.fn();
 const chatThread = vi.fn();
 const sendChatMessage = vi.fn();
+const touchChatPresence = vi.fn();
 
 vi.mock('@/lib/auth', () => ({ getSession: () => getSession() }));
 vi.mock('@/lib/auth/permissions', async (orig) => ({
@@ -21,6 +22,7 @@ vi.mock('@/db/queries/chat', () => ({
   chatUnreadCount: (...a: unknown[]) => chatUnreadCount(...a),
   chatThread: (...a: unknown[]) => chatThread(...a),
   sendChatMessage: (...a: unknown[]) => sendChatMessage(...a),
+  touchChatPresence: (...a: unknown[]) => touchChatPresence(...a),
 }));
 
 const contacts = await import('../contacts/route');
@@ -53,6 +55,7 @@ describe('GET /api/v1/chat/contacts', () => {
     expect(json.data).toEqual([{ user_id: 2, full_name: 'General Manager', unread: 1 }]);
     expect(json.meta).toEqual({ can_send: false });
     expect(listChatContacts).toHaveBeenCalledWith(1);
+    expect(touchChatPresence).toHaveBeenCalledWith(1);
   });
 
   it('refuses a signed-out caller', async () => {
@@ -60,6 +63,7 @@ describe('GET /api/v1/chat/contacts', () => {
     const res = await contacts.GET();
     expect(res.status).toBe(401);
     expect(listChatContacts).not.toHaveBeenCalled();
+    expect(touchChatPresence).not.toHaveBeenCalled();
   });
 
   it('refuses a role without the /chat menu', async () => {
@@ -75,6 +79,8 @@ describe('GET /api/v1/chat/unread-count', () => {
     chatUnreadCount.mockResolvedValue(3);
     const json = await (await unread.GET()).json();
     expect(json).toEqual({ ok: true, data: { unread: 3 } });
+    // The badge poll is the presence heartbeat on every screen.
+    expect(touchChatPresence).toHaveBeenCalledWith(1);
   });
 });
 

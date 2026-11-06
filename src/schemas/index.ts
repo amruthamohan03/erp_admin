@@ -65,6 +65,7 @@ export * from './bank-exchange-rates';
 export * from './phases';
 export * from './incoterms';
 export * from './group-companies';
+export * from './air-operating-companies';
 export * from './referers';
 export * from './payment-types';
 export * from './payment-subtypes';

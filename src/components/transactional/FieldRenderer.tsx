@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, FileText, Plus, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, FileText, Loader2, Plus, X } from 'lucide-react';
 import type { PageFieldDef } from '@/types';
 import PartielleManageModal from '@/components/transactional/PartielleManageModal';
 import McaRefGrid from '@/modules/payments/McaRefGrid';
@@ -16,6 +17,7 @@ import RemarkLog from '@/components/transactional/RemarkLog';
 import SealPickerControl from '@/components/ui/SealPickerControl';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Toggle from '@/components/ui/Toggle';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { useUniqueCheck } from '@/lib/hooks/useUniqueCheck';
 import { safeFetchJson } from '@/lib/safeFetch';
 
@@ -760,10 +762,20 @@ function QuickAddSelect({
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SaveResult | null>(null);
+
+  const title = config.title ?? 'Add a new option';
+
+  function close(): void {
+    if (busy) return;
+    setAdding(false);
+    setDraft('');
+    setError(null);
+  }
 
   async function submit(): Promise<void> {
     const name = draft.trim();
-    if (!name) return;
+    if (!name || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -773,6 +785,8 @@ function QuickAddSelect({
         body: JSON.stringify({ [config.field]: name }),
       });
       if (!res.ok) {
+        // Stays in the modal with the typed name intact, so a duplicate or a
+        // too-long value is corrected rather than retyped (§4.22).
         setError(res.message);
         return;
       }
@@ -781,13 +795,27 @@ function QuickAddSelect({
         setError(`"${name}" may have been added, but the server did not return its id — reload the page to pick it from the list.`);
         return;
       }
-      onAdded({ value: row.id as string | number, label: String(row[labelField] ?? name) });
-      setDraft('');
+      const label = String(row[labelField] ?? name);
+      onAdded({ value: row.id as string | number, label });
       setAdding(false);
+      setDraft('');
+      setResult({ status: 'success', title: 'Created', message: `"${label}" has been added and selected.` });
     } finally {
       setBusy(false);
     }
   }
+
+  // Escape closes, as on every other dialog — but not mid-save.
+  useEffect(() => {
+    if (!adding) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const inputId = `quick-add-${source}`;
 
   return (
     <div>
@@ -796,9 +824,9 @@ function QuickAddSelect({
         {!readonly && (
           <button
             type="button"
-            title={config.title ?? 'Add a new option'}
-            aria-label={config.title ?? 'Add a new option'}
-            onClick={() => setAdding((v) => !v)}
+            title={title}
+            aria-label={title}
+            onClick={() => setAdding(true)}
             // §4.26 — the create hue is configured, not inlined. This was a
             // hardcoded emerald that ignored Settings → Application.
             className="btn-create h-9 w-9 shrink-0 justify-center p-0"
@@ -808,53 +836,89 @@ function QuickAddSelect({
         )}
       </div>
 
-      {adding && !readonly && (
-        <div className="mt-2 rounded-md border border-border bg-muted/40 p-2">
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              // min-w-0: an <input> carries an intrinsic ~20ch minimum, which as
-              // a flex item is a floor it will not shrink below — so in a narrow
-              // cell the row grew instead of the field shrinking.
-              className="input min-w-0 flex-1"
-              placeholder={config.placeholder ?? 'New value'}
-              value={draft}
-              disabled={busy}
-              // Enter must not bubble to the page form, which would fire the
-              // single page-level Save (§4.17) instead of adding the option.
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void submit();
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setAdding(false);
-                }
-              }}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => void submit()}
-              disabled={busy || !draft.trim()}
-              aria-label="Save new option"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+      {/* A modal in the shape of PARTIELLE Management. Portalled to <body>: the
+          accordion card is overflow-hidden and sits inside the page form, so
+          rendered in place it could be clipped, and its controls would belong
+          to the page's single Save (§4.17). */}
+      {adding &&
+        !readonly &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-2 sm:p-6"
+            onClick={close}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`${inputId}-title`}
+              className="card my-auto w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Check className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAdding(false); setError(null); }}
-              disabled={busy}
-              aria-label="Cancel"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
-        </div>
-      )}
+              <div className="flex items-center justify-between bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-4 text-white">
+                <h2 id={`${inputId}-title`} className="flex items-center gap-2 font-semibold">
+                  <Plus className="h-5 w-5" /> {title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={close}
+                  disabled={busy}
+                  aria-label="Close"
+                  className="rounded-md p-1 hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-2 p-5">
+                <label htmlFor={inputId} className="label required">
+                  {config.placeholder ?? 'Name'}
+                </label>
+                <input
+                  id={inputId}
+                  autoFocus
+                  required
+                  className="input w-full"
+                  placeholder={config.placeholder ?? 'New value'}
+                  value={draft}
+                  disabled={busy}
+                  aria-invalid={error ? true : undefined}
+                  // Enter adds the option. It must not reach the page form,
+                  // which would fire the page-level Save (§4.17) instead.
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void submit();
+                    }
+                  }}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    if (error) setError(null);
+                  }}
+                />
+                {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+                <p className="text-xs text-muted-foreground">It is added to the list and selected on this form.</p>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+                <button type="button" onClick={close} disabled={busy} className="btn-secondary">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submit()}
+                  disabled={busy || !draft.trim()}
+                  className="btn-primary"
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Add
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </div>
   );
 }

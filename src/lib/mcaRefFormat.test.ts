@@ -107,6 +107,13 @@ describe('a missing code blanks the whole reference', () => {
   it('rejects a year that is not four digits', () => {
     expect(renderMcaRef([{ type: 'year', digits: 2 }], { year: '26' }, 1)).toBeNull();
   });
+
+  it('prints the year as 1, 2 or 4 digits', () => {
+    const at = (digits: number): string | null => renderMcaRef([{ type: 'year', digits }], { year: '2026' }, 1);
+    expect(at(1)).toBe('6');
+    expect(at(2)).toBe('26');
+    expect(at(4)).toBe('2026');
+  });
 });
 
 describe('the PARTIELLE number is scoped by REF COD', () => {
@@ -253,6 +260,7 @@ describe('validateSegments', () => {
   it('refuses an out-of-range sequence width and year digit count', () => {
     expect(validateSegments([{ type: 'sequence', width: 0 }], 'import')).not.toEqual([]);
     expect(validateSegments([{ type: 'year', digits: 3 }], 'import')).not.toEqual([]);
+    expect(validateSegments([{ type: 'year', digits: 1 }], 'import')).toEqual([]);
   });
 });
 
