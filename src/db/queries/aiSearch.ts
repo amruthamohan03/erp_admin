@@ -10,9 +10,19 @@
 // licence expiry via licenseFilters, invoice validation via invoiceBase, payment
 // stage via paymentStatusSql. A second definition here would let the assistant
 // and the list disagree about the same record (§4.10).
+//
+// Access is TWO checks, the same two every list screen makes:
+//   1. which modules — the role's menu grants (§4.7);
+//   2. which rows    — a client login sees only its own client's rows
+//                      (lib/auth/clientScope). Without this, a client user could
+//                      ask about another client's files and be told.
+// Both are carried in `AiAccess`, and every SELECT below is built from one of
+// the per-module builders, each of which ANDs the client predicate in — so a new
+// lookup cannot be written without it.
 import { and, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { checkPermission } from '@/lib/auth/permissions';
+import { clientScopeCondition, resolveClientScope, type ClientScope } from '@/lib/auth/clientScope';
 import type { AuthPayload } from '@/lib/auth';
 import { EFFECTIVE_STATUS, IS_EXPIRED, IS_EXPIRING, IS_LIVE, EXPIRING_WINDOW_DAYS } from './licenseFilters';
 import { invoiceBase } from './invoiceDashboardTabs';
@@ -50,13 +60,28 @@ export interface AiRecord {
   link: string;
 }
 
-/** The modules this caller may view, decided once per question. */
-export async function allowedAiModules(session: AuthPayload): Promise<Set<AiModule>> {
-  const allowed = new Set<AiModule>();
+/** What one caller may see: the modules, and the rows within them. */
+export interface AiAccess {
+  modules: Set<AiModule>;
+  scope: ClientScope;
+}
+
+/**
+ * Decided afresh for EVERY question, including a follow-up in an old
+ * conversation — a role that lost a module, or an account newly tied to a
+ * client, is held to that on its very next turn, not when it starts a new chat.
+ */
+export async function resolveAiAccess(session: AuthPayload): Promise<AiAccess> {
+  const modules = new Set<AiModule>();
   for (const key of AI_MODULE_KEYS) {
-    if (await checkPermission(session, AI_MODULES[key].url, 'view')) allowed.add(key);
+    if (await checkPermission(session, AI_MODULES[key].url, 'view')) modules.add(key);
   }
-  return allowed;
+  return { modules, scope: await resolveClientScope(session) };
+}
+
+/** The client predicate for a row's own client column. */
+function scoped(access: AiAccess, clientColumn: SQL): SQL {
+  return clientScopeCondition(access.scope, clientColumn);
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +166,7 @@ const LICENSE_IS_EXPORT = sql`EXISTS (SELECT 1 FROM kind_master_t k WHERE k.id =
 // The per-module shapes, each a SELECT producing RawRow columns
 // ---------------------------------------------------------------------------
 
-function licenseSelect(side: 'import' | 'export', where: SQL, rank: SQL = sql`0`): SQL {
+function licenseSelect(access: AiAccess, side: 'import' | 'export', where: SQL, rank: SQL = sql`0`): SQL {
   const key: AiModule = side === 'import' ? 'import_license' : 'export_license';
   return sql`
     SELECT ${key}::text AS module, license_t.id, license_t.license_number AS reference,
@@ -149,6 +174,7 @@ function licenseSelect(side: 'import' | 'export', where: SQL, rank: SQL = sql`0`
            to_char(license_t.license_expiry_date, 'YYYY-MM-DD') AS date, 'Expires'::text AS date_label, ${rank} AS rank
       FROM license_t LEFT JOIN client_master_t c ON c.id = license_t.client_id
      WHERE license_t.display = 'Y'
+       AND ${scoped(access, sql`license_t.client_id`)}
        AND ${side === 'export' ? LICENSE_IS_EXPORT : sql`NOT ${LICENSE_IS_EXPORT}`}
        AND ${where}`;
 }
@@ -160,7 +186,7 @@ const TRACKING = {
 } as const;
 export type TrackingModule = keyof typeof TRACKING;
 
-function trackingSelect(module: TrackingModule, where: SQL, rank: SQL = sql`0`): SQL {
+function trackingSelect(access: AiAccess, module: TrackingModule, where: SQL, rank: SQL = sql`0`): SQL {
   const t = TRACKING[module];
   const refCol = module === 'local' ? 'mca_lt_reference' : 'mca_ref';
   return sql`
@@ -170,16 +196,26 @@ function trackingSelect(module: TrackingModule, where: SQL, rank: SQL = sql`0`):
       FROM ${sql.identifier(t.table)} f
       LEFT JOIN client_master_t c ON c.id = f.client_id
       LEFT JOIN clearing_status_master_t cs ON cs.id = f.clearing_status
-     WHERE f.display = 'Y' AND ${where}`;
+     WHERE f.display = 'Y' AND ${scoped(access, sql`f.client_id`)} AND ${where}`;
 }
 
-function invoiceSelect(kind: 'import' | 'export', where: SQL, rank: SQL = sql`0`): SQL {
+function invoiceSelect(access: AiAccess, kind: 'import' | 'export', where: SQL, rank: SQL = sql`0`): SQL {
   const key: AiModule = kind === 'import' ? 'import_invoice' : 'export_invoice';
   return sql`
     SELECT ${key}::text AS module, b.id, b.invoice_ref AS reference, b.client_name AS client,
            b.status, to_char(b.inv_date, 'YYYY-MM-DD') AS date, 'Created'::text AS date_label, ${rank} AS rank
       FROM (${invoiceBase(kind)}) b
-     WHERE ${where}`;
+     WHERE ${scoped(access, sql`b.client_id`)} AND ${where}`;
+}
+
+/** One builder for payment rows — findRecords and findRecordById both read it. */
+async function paymentSelect(access: AiAccess, where: SQL, rank: SQL = sql`0`): Promise<SQL> {
+  const stages = await loadPaymentStages();
+  return sql`
+    SELECT 'payment'::text AS module, pr.id, pr.mca_ref AS reference, c.short_name AS client,
+           ${paymentStatusSql(stages)} AS status, to_char(pr.created_at, 'YYYY-MM-DD') AS date, 'Requested'::text AS date_label, ${rank} AS rank
+      FROM payment_request_t pr LEFT JOIN client_master_t c ON c.id = pr.client_id
+     WHERE pr.display = 'Y' AND ${scoped(access, sql`pr.client_id`)} AND ${where}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,33 +223,29 @@ function invoiceSelect(kind: 'import' | 'export', where: SQL, rank: SQL = sql`0`
 // ---------------------------------------------------------------------------
 
 /** Find any record by a reference, across every module the caller may view. */
-export async function findRecords(allowed: Set<AiModule>, reference: string, limit = 10): Promise<AiRecord[]> {
+export async function findRecords(access: AiAccess, reference: string, limit = 10): Promise<AiRecord[]> {
   const needle = normaliseReference(reference);
   if (needle.length < 2) return [];
+  const allowed = access.modules;
   const parts: SQL[] = [];
   for (const side of ['import', 'export'] as const) {
     if (!allowed.has(side === 'import' ? 'import_license' : 'export_license')) continue;
     const m = refMatch([sql`license_t.license_number`, sql`license_t.mca_ref`, sql`license_t.invoice_number`, sql`license_t.ref_cod`], needle);
-    parts.push(licenseSelect(side, m.where, m.rank));
+    parts.push(licenseSelect(access, side, m.where, m.rank));
   }
   for (const mod of ['import', 'export', 'local'] as const) {
     if (!allowed.has(mod)) continue;
     const m = refMatch(TRACKING[mod].refs.map((c) => sql`f.${sql.identifier(c)}`), needle);
-    parts.push(trackingSelect(mod, m.where, m.rank));
+    parts.push(trackingSelect(access, mod, m.where, m.rank));
   }
   for (const kind of ['import', 'export'] as const) {
     if (!allowed.has(kind === 'import' ? 'import_invoice' : 'export_invoice')) continue;
     const m = refMatch([sql`b.invoice_ref`], needle);
-    parts.push(invoiceSelect(kind, m.where, m.rank));
+    parts.push(invoiceSelect(access, kind, m.where, m.rank));
   }
   if (allowed.has('payment')) {
-    const stages = await loadPaymentStages();
     const m = refMatch([sql`pr.mca_ref`], needle);
-    parts.push(sql`
-      SELECT 'payment'::text AS module, pr.id, pr.mca_ref AS reference, c.short_name AS client,
-             ${paymentStatusSql(stages)} AS status, to_char(pr.created_at, 'YYYY-MM-DD') AS date, 'Requested'::text AS date_label, ${m.rank} AS rank
-        FROM payment_request_t pr LEFT JOIN client_master_t c ON c.id = pr.client_id
-       WHERE pr.display = 'Y' AND ${m.where}`);
+    parts.push(await paymentSelect(access, m.where, m.rank));
   }
   if (!parts.length) return [];
   const res = (await db.execute(sql`
@@ -275,20 +307,20 @@ function licenseFilterSql(q: LicenseQuery): SQL {
   return and(...parts) as SQL;
 }
 
-function licenseSides(allowed: Set<AiModule>, side: LicenseQuery['side']): Array<'import' | 'export'> {
+function licenseSides(access: AiAccess, side: LicenseQuery['side']): Array<'import' | 'export'> {
   const want: Array<'import' | 'export'> = side === 'import' ? ['import'] : side === 'export' ? ['export'] : ['import', 'export'];
-  return want.filter((s) => allowed.has(s === 'import' ? 'import_license' : 'export_license'));
+  return want.filter((s) => access.modules.has(s === 'import' ? 'import_license' : 'export_license'));
 }
 
 /** Licences matching a status filter: the total, and the first `limit` of them. */
 export async function listLicenses(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   q: LicenseQuery,
 ): Promise<{ total: number; records: AiRecord[]; denied: boolean }> {
-  const sides = licenseSides(allowed, q.side);
+  const sides = licenseSides(access, q.side);
   if (!sides.length) return { total: 0, records: [], denied: true };
   const where = licenseFilterSql(q);
-  const union = sql.join(sides.map((s) => licenseSelect(s, where)), sql` UNION ALL `);
+  const union = sql.join(sides.map((s) => licenseSelect(access, s, where)), sql` UNION ALL `);
   // Expired: most recently lapsed first. Everything else: soonest to lapse first.
   const order = q.filter === 'expired' ? sql`date DESC NULLS LAST` : sql`date ASC NULLS LAST`;
   const res = (await db.execute(sql`
@@ -301,10 +333,10 @@ export async function listLicenses(
 
 /** Every licence status bucket at once — the licence dashboard's KPI row. */
 export async function licenseSummary(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   q: Pick<LicenseQuery, 'side' | 'client'>,
 ): Promise<{ counts: Record<string, number>; denied: boolean }> {
-  const sides = licenseSides(allowed, q.side);
+  const sides = licenseSides(access, q.side);
   if (!sides.length) return { counts: {}, denied: true };
   const sideSql = sides.length === 2 ? sql`TRUE` : sides[0] === 'export' ? LICENSE_IS_EXPORT : sql`NOT ${LICENSE_IS_EXPORT}`;
   const res = (await db.execute(sql`
@@ -318,7 +350,8 @@ export async function licenseSummary(
            count(*) FILTER (WHERE license_t.status = 'PROROGATED')::int AS prorogated,
            count(*) FILTER (WHERE license_t.status = 'INACTIVE')::int AS inactive
       FROM license_t
-     WHERE license_t.display = 'Y' AND ${sideSql} AND ${clientMatch('license_t', q.client)}`)) as unknown as Rows<
+     WHERE license_t.display = 'Y' AND ${scoped(access, sql`license_t.client_id`)}
+       AND ${sideSql} AND ${clientMatch('license_t', q.client)}`)) as unknown as Rows<
     Record<string, number>
   >;
   return { counts: res.rows[0] ?? {}, denied: false };
@@ -342,40 +375,40 @@ function trackingWhere(q: TrackingQuery): SQL {
 
 /** How many files sit in each clearing status. */
 export async function trackingSummary(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   q: TrackingQuery,
 ): Promise<{ total: number; by_status: Array<{ status: string; count: number }>; denied: boolean }> {
-  if (!allowed.has(q.module)) return { total: 0, by_status: [], denied: true };
+  if (!access.modules.has(q.module)) return { total: 0, by_status: [], denied: true };
   const res = (await db.execute(sql`
     SELECT COALESCE(status, 'No status') AS status, count(*)::int AS count
-      FROM (${trackingSelect(q.module, trackingWhere(q))}) u
+      FROM (${trackingSelect(access, q.module, trackingWhere(q))}) u
      GROUP BY 1 ORDER BY 2 DESC`)) as unknown as Rows<{ status: string; count: number }>;
   return { total: res.rows.reduce((n, r) => n + r.count, 0), by_status: res.rows, denied: false };
 }
 
 /** Files matching the filters: the total, and the newest `limit` of them. */
 export async function listTrackingFiles(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   q: TrackingQuery,
 ): Promise<{ total: number; records: AiRecord[]; denied: boolean }> {
-  if (!allowed.has(q.module)) return { total: 0, records: [], denied: true };
+  if (!access.modules.has(q.module)) return { total: 0, records: [], denied: true };
   const res = (await db.execute(sql`
-    SELECT *, count(*) OVER ()::int AS total FROM (${trackingSelect(q.module, trackingWhere(q))}) u
+    SELECT *, count(*) OVER ()::int AS total FROM (${trackingSelect(access, q.module, trackingWhere(q))}) u
      ORDER BY date DESC LIMIT ${q.limit ?? 10}`)) as unknown as Rows<RawRow & { total: number }>;
   return { total: res.rows[0]?.total ?? 0, records: res.rows.map(toRecord), denied: false };
 }
 
 /** Payment requests by the stage they wait on — the payments dashboard's split. */
 export async function paymentSummary(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   q: { client?: string | null },
 ): Promise<{ total: number; by_status: Array<{ status: string; count: number }>; denied: boolean }> {
-  if (!allowed.has('payment')) return { total: 0, by_status: [], denied: true };
+  if (!access.modules.has('payment')) return { total: 0, by_status: [], denied: true };
   const stages = await loadPaymentStages();
   const res = (await db.execute(sql`
     SELECT ${paymentStatusSql(stages)} AS status, count(*)::int AS count
       FROM payment_request_t pr
-     WHERE pr.display = 'Y' AND ${clientMatch('pr', q.client)}
+     WHERE pr.display = 'Y' AND ${scoped(access, sql`pr.client_id`)} AND ${clientMatch('pr', q.client)}
      GROUP BY 1 ORDER BY 2 DESC`)) as unknown as Rows<{ status: string; count: number }>;
   const label = await paymentStatusLabeler();
   return {
@@ -390,11 +423,16 @@ export async function paymentSummary(
  * values the record view shows (dates DD-MM-YYYY, ids resolved to names).
  */
 export async function recordDetails(
-  allowed: Set<AiModule>,
+  access: AiAccess,
   module: AiModule,
   id: number,
 ): Promise<{ title: string; fields: Record<string, string>; record: AiRecord | null } | { denied: true } | null> {
-  if (!allowed.has(module)) return { denied: true };
+  if (!access.modules.has(module)) return { denied: true };
+  // Resolved through the SCOPED builder before anything is read: a record that
+  // belongs to another client is "not found" to a client login — the assistant
+  // cannot even confirm that it exists.
+  const [record] = await findRecordById(access, module, id);
+  if (!record) return null;
   const shown = await pageRecordDisplay(db, AI_MODULES[module].slug, id);
   if (!shown || String(shown.raw['display'] ?? 'Y') !== 'Y') return null;
   const fields: Record<string, string> = {};
@@ -402,26 +440,20 @@ export async function recordDetails(
     const v = shown.values[name];
     if (v && v !== 'N/A' && v !== '—') fields[label] = v;
   }
-  const [record] = await findRecordById(module, id);
-  return { title: shown.title, fields, record: record ?? null };
+  return { title: shown.title, fields, record };
 }
 
-async function findRecordById(module: AiModule, id: number): Promise<AiRecord[]> {
+async function findRecordById(access: AiAccess, module: AiModule, id: number): Promise<AiRecord[]> {
   const byId = (alias: string): SQL => sql`${sql.raw(alias)}.id = ${id}`;
   let select: SQL;
   if (module === 'import_license' || module === 'export_license') {
-    select = licenseSelect(module === 'import_license' ? 'import' : 'export', sql`license_t.id = ${id}`);
+    select = licenseSelect(access, module === 'import_license' ? 'import' : 'export', sql`license_t.id = ${id}`);
   } else if (module === 'import' || module === 'export' || module === 'local') {
-    select = trackingSelect(module, byId('f'));
+    select = trackingSelect(access, module, byId('f'));
   } else if (module === 'import_invoice' || module === 'export_invoice') {
-    select = invoiceSelect(module === 'import_invoice' ? 'import' : 'export', byId('b'));
+    select = invoiceSelect(access, module === 'import_invoice' ? 'import' : 'export', byId('b'));
   } else {
-    const stages = await loadPaymentStages();
-    select = sql`
-      SELECT 'payment'::text AS module, pr.id, pr.mca_ref AS reference, c.short_name AS client,
-             ${paymentStatusSql(stages)} AS status, to_char(pr.created_at, 'YYYY-MM-DD') AS date, 'Requested'::text AS date_label, 0 AS rank
-        FROM payment_request_t pr LEFT JOIN client_master_t c ON c.id = pr.client_id
-       WHERE ${byId('pr')}`;
+    select = await paymentSelect(access, byId('pr'));
   }
   const res = (await db.execute(select)) as unknown as Rows<RawRow>;
   return labelPaymentStatuses(res.rows.map(toRecord));

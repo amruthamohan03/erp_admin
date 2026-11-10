@@ -28,7 +28,9 @@ export default function ChatWidget() {
 
   // The menu's own name, so renaming the menu renames the window (§4.1).
   const title = resolveMenuTitle(CHAT_PATH, menus);
-  const enabled = title !== null && normalisePath(pathname) !== CHAT_PATH;
+  // Hidden on /chat (the full-screen chat is open) and on /ask, whose own
+  // composer sits exactly where this button floats.
+  const enabled = title !== null && ![CHAT_PATH, '/ask'].includes(normalisePath(pathname));
 
   const refresh = useCallback(async (): Promise<void> => {
     const res = await safeFetchJson<{ unread: number }>('/api/v1/chat/unread-count');

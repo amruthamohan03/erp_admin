@@ -4,15 +4,28 @@ import { z } from 'zod';
 
 export const AI_QUESTION_MAX = 500;
 
-/** POST /ai-search — one question in plain language. */
+/**
+ * POST /ai-search — one question in plain language. With `conversation_id` it
+ * continues that conversation (one of the caller's own); without, it starts one.
+ */
 export const aiSearchRequestSchema = z.object({
   question: z
     .string()
     .trim()
     .min(3, 'Question must be at least 3 characters — e.g. "status of NMI-IDCOR26-0001".')
     .max(AI_QUESTION_MAX, `Question must be ${AI_QUESTION_MAX} characters or fewer.`),
+  conversation_id: z
+    .number({ invalid_type_error: 'Conversation must be a conversation number.' })
+    .int()
+    .positive()
+    .nullish(),
 });
 export type AiSearchRequest = z.infer<typeof aiSearchRequestSchema>;
+
+/** GET /ai-search/conversations — my conversations, optionally searched by title. */
+export const aiConversationListQuerySchema = z.object({
+  q: z.string().trim().max(120, 'Search must be 120 characters or fewer.').optional(),
+});
 
 // The arguments the model may pass to each lookup. The model is a client like
 // any other: what it sends is parsed at the boundary before it reaches a query.
