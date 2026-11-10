@@ -82,6 +82,7 @@ export * from './phaseMaster';
 export * from './incotermMaster';
 export * from './groupCompanyMaster';
 export * from './airOperatingCompanyMaster';
+export * from './aiConversation';
 export * from './refererMaster';
 export * from './paymentTypeMaster';
 export * from './paymentSubtypeMaster';

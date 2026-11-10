@@ -10,7 +10,18 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { badgeClass, statusTone } from '@/lib/statusTone';
 import { formatDate } from '@/lib/formatDate';
 import { NO_VALUE } from '@/lib/displayValue';
-import type { AiSearchResult } from '@/lib/ai/search';
+import type { AiTurnFigure, AiTurnRecord } from '@/db/schema';
+
+/**
+ * What an answer panel draws. A live result (AiSearchResult) and a saved turn
+ * re-opened from a conversation both fit it, so the two render identically.
+ */
+export interface AiAnswerData {
+  answer: string;
+  figures: AiTurnFigure[];
+  records: AiTurnRecord[];
+  steps: string[];
+}
 
 /** **bold** inside a line — the only inline markup the assistant is asked for. */
 function inline(text: string): ReactNode[] {
@@ -94,24 +105,31 @@ export function AiError({ message }: { message: string }) {
 }
 
 interface AiAnswerProps {
-  result: AiSearchResult;
+  result: AiAnswerData;
   /** The header panel: fewer columns, smaller type. */
   compact?: boolean;
   /** Called when a record card is opened — the header panel closes itself. */
   onNavigate?: () => void;
 }
 
-export default function AiAnswer({ result, compact = false, onNavigate }: AiAnswerProps) {
+export default function AiAnswer({ result, compact = false, onNavigate, bare = false }: AiAnswerProps & {
+  /** In a chat thread the avatar is drawn by the message row, not here. */
+  bare?: boolean;
+}) {
   return (
     <div className="space-y-4">
-      <div className="flex gap-3">
-        <span className="bg-brand-gradient mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm">
-          <Sparkles className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <AnswerText text={result.answer} />
+      {bare ? (
+        <AnswerText text={result.answer} />
+      ) : (
+        <div className="flex gap-3">
+          <span className="bg-brand-gradient mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <AnswerText text={result.answer} />
+          </div>
         </div>
-      </div>
+      )}
 
       {result.figures.length > 0 && (
         <div className={`grid gap-2 ${compact ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>

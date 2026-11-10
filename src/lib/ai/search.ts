@@ -11,11 +11,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaTool } from '@anthropic-ai/sdk/helpers/beta/json-schema';
 import type { z } from 'zod';
+import type { AiTurn } from '@/db/schema';
 import { AppError } from '@/lib/errors';
 import type { AuthPayload } from '@/lib/auth';
 import {
   AI_MODULES,
-  allowedAiModules,
+  resolveAiAccess,
   findRecords,
   licenseSummary,
   listLicenses,
@@ -76,6 +77,8 @@ How to work:
 - "Recently" with no period means the last 30 days. Today's date is given with each question.
 - Clients are known by a 3-letter code (e.g. NMI) or by their company name; pass either as \`client\`.
 - If a tool says the person has no access to a module, tell them that module is not available to their role — do not try to work around it.
+- This is a conversation: earlier questions and answers come before the newest question. Use them to understand follow-ups ("and the export side?", "details of the second one"). Records named in an earlier answer list their module and id, so you can look one up directly.
+- Earlier answers describe the data AS IT WAS when they were given. For anything about the current state (a status, a count, a date), call the tools again rather than repeating an earlier figure. If a tool no longer finds a record mentioned earlier, say it is no longer available to them — do not repeat what an earlier answer said about it.
 
 How to answer:
 - Lead with the direct answer in one sentence, then only the detail that helps. Keep it short.
@@ -94,10 +97,40 @@ const NO_ACCESS = (what: string): string => JSON.stringify({ no_access: `The per
 
 const clientProp = { type: 'string', description: 'Client 3-letter code (e.g. NMI) or part of the company name.' } as const;
 
-export async function runAiSearch(session: AuthPayload, question: string): Promise<AiSearchResult> {
+/** How many earlier turns a follow-up carries — enough for "and the second one?", bounded in cost. */
+const HISTORY_TURNS = 20;
+
+/**
+ * Earlier turns as the model reads them. An answer is replayed as its text plus
+ * the records it surfaced (module + id + reference), so "show me the details
+ * of the second one" can be resolved to an id — but only as a POINTER: the
+ * lookup that follows goes through the same access check as any other, so a
+ * record the person can no longer see stays unseen.
+ */
+function historyMessages(history: AiTurn[]): Anthropic.Beta.BetaMessageParam[] {
+  const out: Anthropic.Beta.BetaMessageParam[] = [];
+  for (const t of history.slice(-HISTORY_TURNS)) {
+    if (t.role === 'user') {
+      out.push({ role: 'user', content: t.content });
+    } else {
+      const refs = (t.records ?? []).map((r) => `${r.module} #${r.id}${r.reference ? ` (${r.reference})` : ''}`);
+      const text = refs.length ? `${t.content}\n\n[Records shown with this answer: ${refs.join('; ')}]` : t.content;
+      out.push({ role: 'assistant', content: text || '(no answer)' });
+    }
+  }
+  // The API needs strict user/assistant alternation starting with a user turn;
+  // a trimmed window can start mid-exchange, so drop a leading assistant turn.
+  while (out[0]?.role === 'assistant') out.shift();
+  return out;
+}
+
+export async function runAiSearch(session: AuthPayload, question: string, history: AiTurn[] = []): Promise<AiSearchResult> {
   if (!aiSearchConfigured()) throw new AppError(AI_NOT_CONFIGURED, 503, 'INTERNAL_ERROR');
 
-  const allowed = await allowedAiModules(session);
+  // Re-resolved every turn — a follow-up in an old conversation is held to the
+  // person's access as it is NOW, not as it was when the chat began.
+  const access = await resolveAiAccess(session);
+  const allowed = access.modules;
   const records = new Map<string, AiRecord>();
   const figures: AiFigure[] = [];
   const steps: string[] = [];
@@ -120,7 +153,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       run: async (input) => {
         const a = parse(aiFindRecordsInput, input);
         steps.push(`Reference "${a.reference}"`);
-        const found = await findRecords(allowed, a.reference);
+        const found = await findRecords(access, a.reference);
         keep(found);
         return JSON.stringify({ matches: found.map(({ link: _l, ...r }) => r) });
       },
@@ -140,7 +173,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       },
       run: async (input) => {
         const a = parse(aiRecordDetailsInput, input);
-        const shown = await recordDetails(allowed, a.module as AiModule, a.id);
+        const shown = await recordDetails(access, a.module as AiModule, a.id);
         if (shown && 'denied' in shown) return NO_ACCESS(AI_MODULES[a.module as AiModule].label);
         if (!shown) return JSON.stringify({ not_found: true });
         if (shown.record) keep([shown.record]);
@@ -159,7 +192,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       },
       run: async (input) => {
         const a = parse(aiLicenseSummaryInput, input);
-        const res = await licenseSummary(allowed, a);
+        const res = await licenseSummary(access, a);
         if (res.denied) return NO_ACCESS('licences');
         steps.push(`Licence summary${a.client ? ` for ${a.client}` : ''}`);
         const c = res.counts;
@@ -190,7 +223,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       },
       run: async (input) => {
         const a = parse(aiLicenseQueryInput, input);
-        const res = await listLicenses(allowed, a);
+        const res = await listLicenses(access, a);
         if (res.denied) return NO_ACCESS('licences');
         steps.push(`Licences: ${a.filter ?? 'all'}${a.client ? ` for ${a.client}` : ''}`);
         keep(res.records);
@@ -214,7 +247,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       },
       run: async (input) => {
         const a = parse(aiTrackingQueryInput, input);
-        const res = await trackingSummary(allowed, a);
+        const res = await trackingSummary(access, a);
         if (res.denied) return NO_ACCESS(AI_MODULES[a.module].label);
         steps.push(`${AI_MODULES[a.module].label} by status${a.client ? ` for ${a.client}` : ''}`);
         figures.push({ label: `${AI_MODULES[a.module].label} files`, value: res.total });
@@ -240,7 +273,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       },
       run: async (input) => {
         const a = parse(aiTrackingQueryInput, input);
-        const res = await listTrackingFiles(allowed, a);
+        const res = await listTrackingFiles(access, a);
         if (res.denied) return NO_ACCESS(AI_MODULES[a.module].label);
         steps.push(`${AI_MODULES[a.module].label} files${a.status ? ` "${a.status}"` : ''}${a.client ? ` for ${a.client}` : ''}`);
         keep(res.records);
@@ -254,7 +287,7 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       inputSchema: { type: 'object', properties: { client: clientProp }, additionalProperties: false },
       run: async (input) => {
         const a = parse(aiPaymentSummaryInput, input);
-        const res = await paymentSummary(allowed, a);
+        const res = await paymentSummary(access, a);
         if (res.denied) return NO_ACCESS('payment requests');
         steps.push(`Payment requests by stage${a.client ? ` for ${a.client}` : ''}`);
         figures.push({ label: 'Payment requests', value: res.total });
@@ -281,11 +314,14 @@ export async function runAiSearch(session: AuthPayload, question: string): Promi
       system: SYSTEM,
       tools,
       messages: [
+        ...historyMessages(history),
         {
           role: 'user',
           // Volatile context goes in the message, not the system prompt, so the
           // system prompt and tools stay a stable prefix.
-          content: `Today is ${today}. Modules this person can view: ${moduleNames}.\n\nQuestion: ${question}`,
+          content: `Today is ${today}. Modules this person can view: ${moduleNames}.${
+            access.scope.kind === 'all' ? '' : ' This person is a client login: they can only see their own company’s records.'
+          }\n\nQuestion: ${question}`,
         },
       ],
     });

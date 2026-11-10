@@ -6,6 +6,7 @@ import {
 } from '@asteasolutions/zod-to-openapi';
 import {
   aiSearchRequestSchema,
+  aiConversationListQuerySchema,
   chatThreadQuerySchema,
   sendChatMessageSchema,
   communicationTemplateBaseSchema,
@@ -1010,7 +1011,7 @@ function buildRegistry(): OpenAPIRegistry {
     method: 'post',
     path: '/ai-search',
     summary:
-      'AI Search: answer one plain-language question from the ERP data. Claude calls fixed, read-only lookups scoped to the modules the caller may view; it never writes SQL. Audited as a view.',
+      'AI Search: answer one plain-language question from the ERP data and save the exchange to the caller\'s conversation (conversation_id continues one of their own; omitted starts a new one). Claude calls fixed, read-only lookups scoped to the modules the caller may view AND to their client scope, re-checked every turn; it never writes SQL. Audited as a view.',
     tags: ['ai-search'],
     request: { body: { required: true, content: { 'application/json': { schema: aiSearchRequestSchema } } } },
     responses: {
@@ -1033,12 +1034,72 @@ function buildRegistry(): OpenAPIRegistry {
             }),
           ),
           steps: z.array(z.string()),
+          conversation: z.object({ id: z.number().int(), title: z.string() }),
         }),
       ),
       401: jsonError('Unauthorized'),
       403: jsonError('Role lacks view on /ask'),
-      422: jsonError('Question too short or too long, or declined by the model'),
+      404: jsonError('conversation_id is not one of the caller\'s conversations'),
+      422: jsonError('Question too short or too long, declined by the model, or the conversation is full'),
       503: jsonError('AI Search is not configured, or the AI service is unavailable — the message says which'),
+    },
+  });
+
+  const aiConversationSummary = z.object({
+    id: z.number().int(),
+    title: z.string(),
+    updated_at: z.string(),
+    turns: z.number().int(),
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/ai-search/conversations',
+    summary: "AI Search: the caller's own saved conversations, most recent first, optionally searched by title (q).",
+    tags: ['ai-search'],
+    request: { query: aiConversationListQuerySchema },
+    responses: {
+      200: jsonOk('Conversations', z.array(aiConversationSummary)),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /ask'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/ai-search/conversations/{id}',
+    summary: "AI Search: one of the caller's conversations with every turn. Another user's id is 404.",
+    tags: ['ai-search'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: jsonOk(
+        'Conversation',
+        z.object({
+          id: z.number().int(),
+          title: z.string(),
+          updated_at: z.string(),
+          messages: z.array(
+            z.object({ role: z.enum(['user', 'assistant']), content: z.string(), at: z.string() }).passthrough(),
+          ),
+        }),
+      ),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /ask'),
+      404: jsonError('Not one of the caller\'s conversations, or deleted'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/ai-search/conversations/{id}',
+    summary: "AI Search: remove one of the caller's conversations from their list (soft delete, audited).",
+    tags: ['ai-search'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: jsonOk('Deleted', z.object({ id: z.number().int(), title: z.string() })),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks view on /ask'),
+      404: jsonError('Not one of the caller\'s conversations, or already deleted'),
     },
   });
 

@@ -9,19 +9,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Clock, Maximize2, Sparkles, X } from 'lucide-react';
+import { Maximize2, MessageSquare, Sparkles, X } from 'lucide-react';
 import { useMenus } from '@/components/layout/MenuProvider';
 import { normalisePath, resolveMenuTitle } from '@/lib/pageTitle';
 import { AI_QUESTION_MAX } from '@/schemas/aiSearch';
 import AiAnswer, { AiError, AiThinking } from './AiAnswer';
-import { AI_EXAMPLES, useAiSearch } from './useAiSearch';
+import { AI_EXAMPLES, useAiConversations, useAiSearch } from './useAiSearch';
 
 const ASK_PATH = '/ask';
 
 export default function AiSearchBox() {
   const pathname = usePathname();
   const { menus } = useMenus();
-  const { question, result, error, loading, ask, history, setupMessage } = useAiSearch();
+  const { question, result, error, loading, ask, setupMessage } = useAiSearch();
+  // The four most recent saved chats, offered as one-click ways back in.
+  const recent = useAiConversations(4);
   const [draft, setDraft] = useState('');
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -106,11 +108,13 @@ export default function AiSearchBox() {
               </span>
               <span className="flex items-center gap-1">
                 <Link
-                  href={question ? `${ASK_PATH}?q=${encodeURIComponent(question)}` : ASK_PATH}
+                  // An answered question is already a saved conversation: open THAT, so
+                  // the next question in the full screen is a follow-up to this one.
+                  href={result ? `${ASK_PATH}?c=${result.conversation.id}` : question ? `${ASK_PATH}?q=${encodeURIComponent(question)}` : ASK_PATH}
                   onClick={() => setOpen(false)}
                   className="btn-neutral btn-icon"
-                  title="Open in AI Search"
-                  aria-label="Open in AI Search"
+                  title={result ? "Continue this in AI Search" : "Open in AI Search"}
+                  aria-label={result ? "Continue this in AI Search" : "Open in AI Search"}
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Link>
@@ -131,18 +135,38 @@ export default function AiSearchBox() {
                   Ask in plain words about licences, tracking files, invoices or payments. Answers use only the modules your role can open.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {(history.length ? history.slice(0, 4) : AI_EXAMPLES).map((q) => (
+                  {AI_EXAMPLES.map((q) => (
                     <button
                       key={q}
                       type="button"
                       onClick={() => submit(q)}
                       className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-primary/10"
                     >
-                      {history.length ? <Clock className="h-3 w-3 shrink-0" /> : <Sparkles className="h-3 w-3 shrink-0 text-primary" />}
+                      <Sparkles className="h-3 w-3 shrink-0 text-primary" />
                       <span className="truncate">{q}</span>
                     </button>
                   ))}
                 </div>
+                {recent.items && recent.items.length > 0 && (
+                  <div>
+                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recent chats</div>
+                    <ul className="space-y-0.5">
+                      {recent.items.map((c) => (
+                        <li key={c.id}>
+                          <Link
+                            href={`${ASK_PATH}?c=${c.id}`}
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
+                            title={c.title}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{c.title}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
