@@ -9,6 +9,7 @@ const listChatContacts = vi.fn();
 const chatUnreadCount = vi.fn();
 const chatThread = vi.fn();
 const sendChatMessage = vi.fn();
+const deleteChatMessage = vi.fn();
 const touchChatPresence = vi.fn();
 
 vi.mock('@/lib/auth', () => ({ getSession: () => getSession() }));
@@ -22,12 +23,14 @@ vi.mock('@/db/queries/chat', () => ({
   chatUnreadCount: (...a: unknown[]) => chatUnreadCount(...a),
   chatThread: (...a: unknown[]) => chatThread(...a),
   sendChatMessage: (...a: unknown[]) => sendChatMessage(...a),
+  deleteChatMessage: (...a: unknown[]) => deleteChatMessage(...a),
   touchChatPresence: (...a: unknown[]) => touchChatPresence(...a),
 }));
 
 const contacts = await import('../contacts/route');
 const unread = await import('../unread-count/route');
 const messages = await import('../messages/route');
+const messageById = await import('../messages/[id]/route');
 
 const SESSION = { uid: 1, username: 'admin', role_id: 1 };
 
@@ -53,7 +56,7 @@ describe('GET /api/v1/chat/contacts', () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.data).toEqual([{ user_id: 2, full_name: 'General Manager', unread: 1 }]);
-    expect(json.meta).toEqual({ can_send: false });
+    expect(json.meta).toEqual({ can_send: false, can_delete: false });
     expect(listChatContacts).toHaveBeenCalledWith(1);
     expect(touchChatPresence).toHaveBeenCalledWith(1);
   });
@@ -86,10 +89,11 @@ describe('GET /api/v1/chat/unread-count', () => {
 
 describe('/api/v1/chat/messages', () => {
   it('reads one conversation, only past `after` when given', async () => {
-    chatThread.mockResolvedValue([]);
+    chatThread.mockResolvedValue({ messages: [], deleted: [7] });
     const res = await messages.GET(new NextRequest('http://localhost/api/v1/chat/messages?with=2&after=10'));
     expect(res.status).toBe(200);
     expect(chatThread).toHaveBeenCalledWith(1, 2, 10);
+    expect(await res.json()).toEqual({ ok: true, data: [], meta: { deleted: [7] } });
   });
 
   it('names the missing contact rather than failing anonymously', async () => {
@@ -119,5 +123,32 @@ describe('/api/v1/chat/messages', () => {
     const res = await messages.POST(post({ to: 2, body: 'hi' }));
     expect(res.status).toBe(401);
     expect(sendChatMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/v1/chat/messages/{id}', () => {
+  const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+  const del = () => new NextRequest('http://localhost/api/v1/chat/messages/5', { method: 'DELETE' });
+
+  it('deletes the caller’s message, gated on delete', async () => {
+    deleteChatMessage.mockResolvedValue(undefined);
+    const res = await messageById.DELETE(del(), ctx('5'));
+    expect(res.status).toBe(200);
+    expect(deleteChatMessage).toHaveBeenCalledWith(1, 5);
+    expect(checkPermission).toHaveBeenCalledWith(SESSION, '/chat', 'delete');
+  });
+
+  it('refuses a role without delete on /chat', async () => {
+    checkPermission.mockResolvedValue(false);
+    const res = await messageById.DELETE(del(), ctx('5'));
+    expect(res.status).toBe(403);
+    expect(deleteChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('refuses a signed-out caller', async () => {
+    getSession.mockResolvedValue(null);
+    const res = await messageById.DELETE(del(), ctx('5'));
+    expect(res.status).toBe(401);
+    expect(deleteChatMessage).not.toHaveBeenCalled();
   });
 });

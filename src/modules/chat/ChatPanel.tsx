@@ -9,8 +9,10 @@
 // hidden, and the open thread asks only for messages newer than the last one it
 // holds, so a quiet conversation costs one tiny request every few seconds.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Search, Send } from 'lucide-react';
+import { ArrowLeft, Search, Send, Trash2 } from 'lucide-react';
 import { safeFetchJson } from '@/lib/safeFetch';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ResultDialog, { type SaveResult } from '@/components/ui/ResultDialog';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import type { ChatContact, ChatMessage } from '@/db/queries/chat';
 import { CHAT_MESSAGE_MAX } from '@/schemas/chat';
@@ -85,6 +87,7 @@ interface ChatPanelProps {
 export default function ChatPanel({ variant }: ChatPanelProps) {
   const [contacts, setContacts] = useState<ChatContact[] | null>(null);
   const [canSend, setCanSend] = useState(true);
+  const [canDelete, setCanDelete] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -98,6 +101,7 @@ export default function ChatPanel({ variant }: ChatPanelProps) {
     setListError(null);
     setContacts(res.data);
     setCanSend(res.meta?.['can_send'] !== false);
+    setCanDelete(res.meta?.['can_delete'] === true);
   }, []);
 
   usePoll(() => void loadContacts(), CONTACTS_POLL_MS, true);
@@ -186,6 +190,7 @@ export default function ChatPanel({ variant }: ChatPanelProps) {
       key={active.user_id}
       contact={active}
       canSend={canSend}
+      canDelete={canDelete}
       onBack={() => setActiveId(null)}
       showBack={!split}
       onActivity={() => void loadContacts()}
@@ -210,14 +215,19 @@ export default function ChatPanel({ variant }: ChatPanelProps) {
 interface ThreadProps {
   contact: ChatContact;
   canSend: boolean;
+  /** Role holds delete on /chat — offers the bin on the caller's own messages. */
+  canDelete: boolean;
   showBack: boolean;
   onBack: () => void;
   /** Something was read or sent — the list's previews and badges are stale. */
   onActivity: () => void;
 }
 
-function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps) {
+function Thread({ contact, canSend, canDelete, showBack, onBack, onActivity }: ThreadProps) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  const [toDelete, setToDelete] = useState<ChatMessage | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [result, setResult] = useState<SaveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -235,12 +245,15 @@ function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps)
     setError(null);
     const fresh = res.data;
     if (fresh.length) lastId.current = fresh[fresh.length - 1]!.id;
-    // A poll and a send can both fetch the same new message, so append by id.
+    const deleted = new Set(Array.isArray(res.meta?.['deleted']) ? (res.meta['deleted'] as unknown[]).map(Number) : []);
+    // A poll and a send can both fetch the same new message, so append by id;
+    // drop any held message the other side has since deleted.
     setMessages((prev) => {
       if (!prev || !after) return fresh;
       const seen = new Set(prev.map((m) => m.id));
-      return [...prev, ...fresh.filter((m) => !seen.has(m.id))];
+      return [...prev.filter((m) => !deleted.has(m.id)), ...fresh.filter((m) => !seen.has(m.id))];
     });
+    if (deleted.size) onActivity();
     // Opening the thread marked its messages read on the server.
     if (fresh.some((m) => m.sender_user_id === contact.user_id)) {
       window.dispatchEvent(new Event(CHAT_CHANGED));
@@ -272,6 +285,20 @@ function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps)
     }
     setDraft('');
     await load();
+    onActivity();
+  };
+
+  const remove = async (m: ChatMessage): Promise<void> => {
+    setDeleting(true);
+    const res = await safeFetchJson<{ id: number }>(`/api/v1/chat/messages/${m.id}`, { method: 'DELETE' });
+    setDeleting(false);
+    setToDelete(null);
+    if (!res.ok) {
+      setResult({ status: 'error', title: 'Not deleted', message: res.message });
+      return;
+    }
+    setMessages((prev) => prev?.filter((x) => x.id !== m.id) ?? prev);
+    setResult({ status: 'success', title: 'Deleted', message: `The message has been deleted for you and ${contact.full_name}.` });
     onActivity();
   };
 
@@ -313,7 +340,18 @@ function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps)
         {messages?.map((m) => {
           const mine = m.sender_user_id !== contact.user_id;
           return (
-            <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`flex items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+              {mine && canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setToDelete(m)}
+                  className="ico-delete shrink-0 p-1"
+                  title="Delete message"
+                  aria-label="Delete message"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
               <div
                 className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
                   mine ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm border border-border bg-card text-foreground'
@@ -362,6 +400,20 @@ function Thread({ contact, canSend, showBack, onBack, onActivity }: ThreadProps)
           Your role can read Live Chat but not send — an administrator can allow sending under Mapping → Role to Menu (Add).
         </p>
       )}
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Delete this message?"
+        confirmLabel="Delete"
+        tone="danger"
+        icon={<Trash2 className="h-5 w-5" />}
+        busy={deleting}
+        onCancel={() => setToDelete(null)}
+        onConfirm={() => toDelete && void remove(toDelete)}
+      >
+        It will be removed for you and {contact.full_name}.
+      </ConfirmDialog>
+      <ResultDialog result={result} onDismiss={() => setResult(null)} />
     </div>
   );
 }

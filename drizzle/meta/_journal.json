@@ -1177,6 +1177,27 @@
       "when": 1795400000000,
       "tag": "0166_ai_conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1795500000000,
+      "tag": "0167_chat_message_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1795600000000,
+      "tag": "0168_import_hide_seguce_manifest_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1795700000000,
+      "tag": "0169_import_border_warehouse_order",
+      "breakpoints": true
     }
   ]
 }

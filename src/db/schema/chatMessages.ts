@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { usersT } from './users';
 
 // Communication → Live Chat: one row per message one signed-in user sends to
@@ -9,7 +9,9 @@ import { usersT } from './users';
 //
 // Distinct from the role inbox (notification_t, kind 'message'): that is a
 // one-way note to every member of a role, this is a back-and-forth between two
-// people. Messages are never edited; `read_at` is the only column that changes.
+// people. Messages are never edited; `read_at` changes when the message is
+// read, and `display` goes to 'N' when its sender deletes it (§4.27 — the row
+// is kept, both sides stop seeing it).
 export const chatMessage = pgTable(
   'chat_message_t',
   {
@@ -22,6 +24,7 @@ export const chatMessage = pgTable(
       .references(() => usersT.id),
     body: text('body').notNull(),
     readAt: timestamp('read_at', { withTimezone: true }),
+    display: varchar('display', { length: 1 }).notNull().default('Y'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

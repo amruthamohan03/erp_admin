@@ -15,5 +15,6 @@ export const GET = withErrorHandler(async () => {
   await touchChatPresence(session.uid);
   const contacts = await listChatContacts(session.uid);
   const canSend = await checkPermission(session, CHAT_RESOURCE, 'add');
-  return ok(contacts, { meta: { can_send: canSend } });
+  const canDelete = await checkPermission(session, CHAT_RESOURCE, 'delete');
+  return ok(contacts, { meta: { can_send: canSend, can_delete: canDelete } });
 });
