@@ -7,7 +7,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit/recordAudit';
-import { ValidationError } from '@/lib/errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 
 type Rows<T> = { rows: T[] };
 
@@ -84,14 +84,15 @@ export async function listChatContacts(me: number): Promise<ChatContact[]> {
         FROM (
           SELECT c.*, CASE WHEN c.sender_user_id = ${me} THEN c.recipient_user_id ELSE c.sender_user_id END AS other
             FROM chat_message_t c
-           WHERE c.sender_user_id = ${me} OR c.recipient_user_id = ${me}
+           WHERE (c.sender_user_id = ${me} OR c.recipient_user_id = ${me})
+             AND c.display = 'Y'
         ) x
        ORDER BY other, id DESC
     ),
     unread AS (
       SELECT sender_user_id AS other, count(*)::int AS n
         FROM chat_message_t
-       WHERE recipient_user_id = ${me} AND read_at IS NULL
+       WHERE recipient_user_id = ${me} AND read_at IS NULL AND display = 'Y'
        GROUP BY sender_user_id
     )
     SELECT p.id AS user_id, p.full_name, p.role_name,
@@ -110,38 +111,93 @@ export async function listChatContacts(me: number): Promise<ChatContact[]> {
 export async function chatUnreadCount(me: number): Promise<number> {
   const res = (await db.execute(sql`
     SELECT count(*)::int AS n FROM chat_message_t
-     WHERE recipient_user_id = ${me} AND read_at IS NULL`)) as unknown as Rows<{ n: number }>;
+     WHERE recipient_user_id = ${me} AND read_at IS NULL AND display = 'Y'`)) as unknown as Rows<{ n: number }>;
   return res.rows[0]?.n ?? 0;
 }
 
 /** The newest messages a thread opens with; older history is not paged in yet. */
 const THREAD_LIMIT = 200;
 
+export interface ChatThread {
+  messages: ChatMessage[];
+  /**
+   * On a poll: ids among the conversation's newest messages that have been
+   * deleted. A poll asks only for messages past the last one the screen holds,
+   * so without this a message the other person deleted would stay on screen
+   * until the thread was reopened.
+   */
+  deleted: number[];
+}
+
 /**
  * The conversation between `me` and `other`, oldest first. Opening it is
  * reading it, so the messages `other` sent are marked read in the same call —
  * the badge and the thread can never disagree about what has been seen.
  */
-export async function chatThread(me: number, other: number, afterId?: number): Promise<ChatMessage[]> {
+export async function chatThread(me: number, other: number, afterId?: number): Promise<ChatThread> {
+  const pair = sql`((sender_user_id = ${me} AND recipient_user_id = ${other})
+                 OR (sender_user_id = ${other} AND recipient_user_id = ${me}))`;
   return db.transaction(async (tx) => {
     await tx.execute(sql`
       UPDATE chat_message_t SET read_at = now()
-       WHERE recipient_user_id = ${me} AND sender_user_id = ${other} AND read_at IS NULL`);
+       WHERE recipient_user_id = ${me} AND sender_user_id = ${other} AND read_at IS NULL AND display = 'Y'`);
     const res = (await tx.execute(sql`
       SELECT * FROM (
         SELECT id, sender_user_id, recipient_user_id, body, created_at, read_at
           FROM chat_message_t
-         WHERE ((sender_user_id = ${me} AND recipient_user_id = ${other})
-             OR (sender_user_id = ${other} AND recipient_user_id = ${me}))
+         WHERE ${pair} AND display = 'Y'
            ${afterId ? sql`AND id > ${afterId}` : sql``}
          ORDER BY id DESC
          LIMIT ${THREAD_LIMIT}
       ) t ORDER BY id ASC`)) as unknown as Rows<ChatMessage>;
-    return res.rows.map((r) => ({
-      ...r,
-      created_at: new Date(r.created_at).toISOString(),
-      read_at: r.read_at ? new Date(r.read_at).toISOString() : null,
-    }));
+    // Only a poll needs this — a first load already leaves deleted rows out.
+    const deleted = afterId
+      ? ((await tx.execute(sql`
+          SELECT id FROM (
+            SELECT id, display FROM chat_message_t
+             WHERE ${pair} AND id <= ${afterId}
+             ORDER BY id DESC
+             LIMIT ${THREAD_LIMIT}
+          ) t WHERE display = 'N'`)) as unknown as Rows<{ id: number }>).rows.map((r) => r.id)
+      : [];
+    return {
+      messages: res.rows.map((r) => ({
+        ...r,
+        created_at: new Date(r.created_at).toISOString(),
+        read_at: r.read_at ? new Date(r.read_at).toISOString() : null,
+      })),
+      deleted,
+    };
+  });
+}
+
+/**
+ * Delete one message `me` sent, for both sides (§4.27 — display = 'N', the row
+ * is kept). Only the sender may delete it; checked here rather than trusted
+ * from the screen, so a direct DELETE cannot remove someone else's words.
+ */
+export async function deleteChatMessage(me: number, id: number): Promise<void> {
+  await db.transaction(async (tx) => {
+    const found = (await tx.execute(sql`
+      SELECT sender_user_id, recipient_user_id, display
+        FROM chat_message_t WHERE id = ${id}
+         FOR UPDATE`)) as unknown as Rows<{ sender_user_id: number; recipient_user_id: number; display: string }>;
+    const row = found.rows[0];
+    if (!row || row.display !== 'Y' || (row.sender_user_id !== me && row.recipient_user_id !== me)) {
+      throw new NotFoundError(`Message #${id} was not found. It may already have been deleted — reload the conversation.`);
+    }
+    if (row.sender_user_id !== me) {
+      throw new ForbiddenError('You can only delete messages you sent.');
+    }
+    await tx.execute(sql`UPDATE chat_message_t SET display = 'N' WHERE id = ${id}`);
+    await recordAudit(tx, {
+      actorId: me,
+      action: 'delete',
+      entityType: 'chat_message',
+      entityId: id,
+      before: { display: 'Y' },
+      after: { display: 'N', recipient_user_id: row.recipient_user_id },
+    });
   });
 }
 

@@ -1,5 +1,6 @@
 // GET  /api/v1/chat/messages?with=&after= — one conversation; reading it marks
-//      the other person's messages read. Needs view on /chat.
+//      the other person's messages read. Needs view on /chat. `meta.deleted`
+//      names messages, up to `after`, deleted since the screen loaded them.
 // POST /api/v1/chat/messages { to, body } — send one message. Needs add on /chat.
 import { NextRequest } from 'next/server';
 import { ok, requirePermission, isResponse, withErrorHandler } from '@/lib/api';
@@ -10,7 +11,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await requirePermission(CHAT_RESOURCE, 'view');
   if (isResponse(session)) return session;
   const q = chatThreadQuerySchema.parse(Object.fromEntries(new URL(req.url).searchParams));
-  return ok(await chatThread(session.uid, q.with, q.after));
+  const thread = await chatThread(session.uid, q.with, q.after);
+  // `meta.deleted` lets a polling screen drop messages it already holds.
+  return ok(thread.messages, { meta: { deleted: thread.deleted } });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {

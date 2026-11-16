@@ -25,3 +25,8 @@ export const chatThreadQuerySchema = z.object({
   with: z.coerce.number().int().positive('Choose who the conversation is with.'),
   after: z.coerce.number().int().nonnegative().optional(),
 });
+
+/** DELETE /chat/messages/{id} — one message the caller sent. */
+export const chatMessageIdParamSchema = z.object({
+  id: z.coerce.number().int().positive('Choose which message to delete.'),
+});

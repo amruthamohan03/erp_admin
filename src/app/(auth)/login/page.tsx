@@ -14,8 +14,8 @@ function LoginForm() {
   const next = sp.get('next') || '/dashboard';
   const branding = useBranding();
 
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('Admin@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

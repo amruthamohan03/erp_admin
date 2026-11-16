@@ -8,6 +8,7 @@ import {
   aiSearchRequestSchema,
   aiConversationListQuerySchema,
   chatThreadQuerySchema,
+  chatMessageIdParamSchema,
   sendChatMessageSchema,
   communicationTemplateBaseSchema,
   stageDraftQuerySchema,
@@ -1166,6 +1167,20 @@ function buildRegistry(): OpenAPIRegistry {
       401: jsonError('Unauthorized'),
       403: jsonError('Role lacks add on /chat'),
       422: jsonError('Empty or over-long message, or a recipient who cannot chat — the message says which'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/chat/messages/{id}',
+    summary: 'Live Chat: delete a message the caller sent, for both sides (soft delete). Audited.',
+    tags: ['chat'],
+    request: { params: chatMessageIdParamSchema },
+    responses: {
+      200: jsonOk('Deleted', z.object({ id: z.number().int() })),
+      401: jsonError('Unauthorized'),
+      403: jsonError('Role lacks delete on /chat, or the message was sent by the other person'),
+      404: jsonError('No such message in the caller’s conversations, or already deleted'),
     },
   });
 
