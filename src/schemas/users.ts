@@ -15,8 +15,10 @@ const masterId = z
   .transform((v) => (v === '' || v === undefined ? null : v));
 
 export const userCreateSchema = z.object({
-  username: z.string().min(3).max(255),
-  password: z.string().min(6).max(100),
+  // Trimmed before the length checks, so spaces copied in around a username or
+  // password can't pad a too-short value past `min`, and are never stored.
+  username: z.string().trim().min(3).max(255),
+  password: z.string().trim().min(6).max(100),
   email: emailField('Email'),
   full_name: z.string().min(1).max(255),
   mobile: phoneField('Mobile', { optional: true }),

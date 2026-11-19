@@ -406,8 +406,8 @@ function UserFormModal({
     };
 
     if (!isEdit) {
-      payload.username = form.username;
-      payload.password = form.password;
+      payload.username = form.username.trim();
+      payload.password = form.password.trim();
     } else if (form.password) {
       payload.password = form.password;
     }
