@@ -25,6 +25,7 @@ export const MCA_REF_TARGET_KEYS = [
   'import-invoice',
   'partielle',
   'fiche',
+  'import-apurement',
 ] as const;
 
 export type McaRefTargetKey = (typeof MCA_REF_TARGET_KEYS)[number];
@@ -179,6 +180,14 @@ export const MCA_REF_TARGETS: Record<McaRefTargetKey, McaRefTargetMeta> = {
     tokens: ['mca', 'client', ...ALWAYS],
     sample: SAMPLE,
   },
+  'import-apurement': {
+    key: 'import-apurement',
+    label: 'Import Apurement',
+    fieldLabel: 'Transmission Reference',
+    hint: "The client code from the transmission. The number counts per client, so two clients can each hold transmission 0001 — put the client in the format only if the reference itself must say whose it is.",
+    tokens: ['client', ...ALWAYS],
+    sample: SAMPLE,
+  },
 };
 
 /**
@@ -250,6 +259,13 @@ export const MCA_REF_DEFAULTS: Record<McaRefTargetKey, McaRefSegment[]> = {
   fiche: [
     { type: 'literal', value: 'FICHE' },
     { type: 'mca', separator: '-' },
+  ],
+  // 0001-IB-MCA-26 — the legacy screen's NNNN-IB-MCA-YY, numbered per client.
+  'import-apurement': [
+    { type: 'sequence', width: 4 },
+    { type: 'literal', separator: '-', value: 'IB' },
+    { type: 'literal', separator: '-', value: 'MCA' },
+    { type: 'year', separator: '-', digits: 2 },
   ],
 };
 

@@ -29,6 +29,7 @@ import {
   feetContainerMaster,
   groupCompanyMaster,
   airOperatingCompanyMaster,
+  apurementOptionMaster,
   hscodeMaster,
   incotermMaster,
   industryMaster,
@@ -144,6 +145,11 @@ export const SOFT_DELETE_RESOURCES: Record<string, SoftDeleteResource> = {
     label: 'Air Operating Companies', menu: '/masters/air-operating-companies', table: airOperatingCompanyMaster,
     idColumn: airOperatingCompanyMaster.id, displayColumn: airOperatingCompanyMaster.display,
     labelColumn: airOperatingCompanyMaster.airOperatingCompanyName,
+  },
+  'apurement-options': {
+    label: 'Apurement Options', menu: '/masters/apurement-options', table: apurementOptionMaster,
+    idColumn: apurementOptionMaster.id, displayColumn: apurementOptionMaster.display,
+    labelColumn: apurementOptionMaster.optionName,
   },
   hscodes: {
     label: 'HS Codes', menu: '/masters/hscodes', table: hscodeMaster,

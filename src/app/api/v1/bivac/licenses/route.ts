@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
-import { ok, requireAuth, isResponse, withErrorHandler } from '@/lib/api';
+import { ok, requirePermission, isResponse, withErrorHandler } from '@/lib/api';
 import { bivacLicenseListQuerySchema } from '@/schemas';
-import { countBivacLicenses, listBivacLicenses } from '@/db/queries/bivac';
+import { BIVAC_RESOURCE, countBivacLicenses, listBivacLicenses } from '@/db/queries/bivac';
 
 // GET /api/v1/bivac/licenses?q=&client_id=&page=&pageSize=
 // Import licences (kind 1,2) with PARTIELLE count + used/balance rollups.
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const session = await requireAuth();
+  const session = await requirePermission(BIVAC_RESOURCE, 'view');
   if (isResponse(session)) return session;
 
   const { searchParams } = new URL(req.url);
@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const [total, items] = await Promise.all([
     countBivacLicenses(q.client_id, q.q),
-    listBivacLicenses(q.client_id, q.q, q.pageSize, offset),
+    listBivacLicenses(q.client_id, q.q, { limit: q.pageSize, offset }),
   ]);
 
   return ok(items, { meta: { total, page: q.page, pageSize: q.pageSize } });

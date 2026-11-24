@@ -29,8 +29,15 @@ type Values = Record<string, unknown>;
 type Row = Record<string, unknown>;
 type Executor = Database | Transaction;
 
-/** The table and column each reference is written to. Vetted — never config. */
-const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string }> = {
+/**
+ * The table and column each reference is written to. Vetted — never config.
+ *
+ * `scope` narrows the counter to rows sharing one of the caller's values, for a
+ * reference numbered per owner rather than app-wide: an apurement transmission
+ * is 0001 for every client, so its counter must only see that client's rows.
+ * The column is vetted here; only the value comes from the request.
+ */
+const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string; scope?: { column: string; valueKey: string } }> = {
   import: { table: 'imports_t', column: 'mca_ref' },
   export: { table: 'exports_t', column: 'mca_ref' },
   license: { table: 'license_t', column: 'license_number' },
@@ -41,6 +48,11 @@ const REF_TABLES: Record<McaRefTargetKey, { table: string; column: string }> = {
   // NAME, so this column is the reference and it is unique app-wide.
   partielle: { table: 'partial_t', column: 'partial_name' },
   fiche: { table: 'fiche_de_calcul_t', column: 'fiche_reference' },
+  'import-apurement': {
+    table: 'import_transmission_t',
+    column: 'transmission_reference',
+    scope: { column: 'client_id', valueKey: 'client_id' },
+  },
 };
 
 async function queryOne(exec: Executor, query: ReturnType<typeof sql>): Promise<Row | null> {
@@ -126,6 +138,7 @@ const TOKEN_RESOLVERS: Record<
   'import-invoice': (values, exec) => clientOnlyTokens(values, exec),
   partielle: partielleTokens,
   fiche: ficheTokens,
+  'import-apurement': (values, exec) => clientOnlyTokens(values, exec),
 };
 
 /**
@@ -233,17 +246,23 @@ async function highestSequence(
   key: McaRefTargetKey,
   segments: McaRefSegment[],
   tokens: McaRefTokens,
+  values: Values,
   exec: Executor,
 ): Promise<number | null> {
   const built = buildSequencePattern(segments, tokens);
   if (!built) return null;
 
-  const { table, column } = REF_TABLES[key];
+  const { table, column, scope } = REF_TABLES[key];
   const col = sql.identifier(column);
+  // A scoped counter with no owner to scope by cannot be trusted — the resolver
+  // already refused, but say so here too rather than count across every owner.
+  const scopeValue = scope ? toId(values[scope.valueKey]) : null;
+  if (scope && !scopeValue) return null;
+  const scoped = scope ? sql` AND ${sql.identifier(scope.column)} = ${scopeValue}` : sql``;
   const row = await queryOne(exec, sql`
     SELECT COALESCE(MAX(((regexp_match(${col}, ${built.pattern}))[1])::bigint), 0) AS max_seq
     FROM ${sql.identifier(table)}
-    WHERE ${col} ~ ${built.pattern}`);
+    WHERE ${col} ~ ${built.pattern}${scoped}`);
   return Number(row?.max_seq ?? 0);
 }
 
@@ -289,7 +308,7 @@ export async function generateReferences(
   }
 
   const width = sequenceWidthOf(seqSeg);
-  const highest = (await highestSequence(key, segments, tokens, exec)) ?? 0;
+  const highest = (await highestSequence(key, segments, tokens, values, exec)) ?? 0;
 
   const out: GeneratedReference[] = [];
   for (let i = 1; i <= count; i += 1) {

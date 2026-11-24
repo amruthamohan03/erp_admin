@@ -64,6 +64,12 @@ export interface XlsxSheet {
   borders?: boolean;
   /** Header row height in points (default 24). */
   headerHeight?: number;
+  /**
+   * Lines printed above the header — a letterhead and a document title, for a
+   * sheet that is itself the document sent out (a bank transmission). The first
+   * line is the largest. Blank lines are kept, as spacing.
+   */
+  title?: string[];
 }
 
 // Excel sheet names: max 31 chars, none of \ / ? * [ ] :
@@ -142,9 +148,24 @@ export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
       });
     }
 
+    // Inserted last, so every rule above still addresses the header as row 1;
+    // the rows (and their styles) move down together.
+    const titleLines = s.title ?? [];
+    if (titleLines.length > 0) {
+      ws.spliceRows(1, 0, ...titleLines.map((line) => [line]), []);
+      const last = Math.max(s.columns.length, 1);
+      titleLines.forEach((line, i) => {
+        const row = ws.getRow(i + 1);
+        if (last > 1) ws.mergeCells(i + 1, 1, i + 1, last);
+        row.font = { bold: i === 0 || i === titleLines.length - 1, size: i === titleLines.length - 1 ? 14 : 11 };
+        row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+    }
+    const headerRow = titleLines.length > 0 ? titleLines.length + 2 : 1;
+
     if (s.columns.length > 0) {
-      ws.views = [{ state: 'frozen', ySplit: 1 }];
-      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: s.columns.length } };
+      ws.views = [{ state: 'frozen', ySplit: headerRow }];
+      ws.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: headerRow, column: s.columns.length } };
     }
   }
 
