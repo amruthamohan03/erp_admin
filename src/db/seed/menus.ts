@@ -177,6 +177,8 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Masters', name: 'Group Companies', order: 203, url: '/masters/group-companies' },
   // Import Tracking's Operating Company reads it (0164).
   { parent: 'Masters', name: 'Air Operating Companies', order: 207, url: '/masters/air-operating-companies' },
+  // Import Apurement's Type / Remarque dropdowns (0171).
+  { parent: 'Masters', name: 'Apurement Options', order: 208, url: '/masters/apurement-options' },
   // Read by the delay KPIs to exclude non-working days, and republished by the
   // DRC each year — so it needs a screen, not a hand-edited table (§4.1).
   { parent: 'Masters', name: 'DRC Public Holidays', order: 204, url: '/masters/drc-holidays' },
@@ -214,33 +216,16 @@ const CHILDREN: ChildSpec[] = [
   { parent: 'Export License', name: 'Create Export License', order: 1, url: '/export-licenses/new' },
   { parent: 'Export License', name: 'Export License Dashboard', order: 2, url: '/export-licenses/dashboard' },
   { parent: 'Export License', name: 'Export Licenses (list)', order: 3, url: '/export-licenses' },
-  {
-    parent: 'Import License',
-    name: 'Bivac',
-    order: 88,
-    url: '#',
-    note: 'TODO(port): bivac module not on branch.',
-  },
-  {
-    parent: 'Import License',
-    name: 'IMPORT APURMENT',
-    order: 103,
-    url: '#',
-    note: 'TODO(port): import apurment module not on branch.',
-  },
+  // PARTIELLE management — licence allocations against import usage (0170).
+  { parent: 'Import License', name: 'Bivac', order: 88, url: '/bivac', icon: 'ti ti-layers' },
+  // Licence clearance with the bank — pending files and transmissions (0171).
+  { parent: 'Import License', name: 'Import Apurement', order: 103, url: '/import-apurement' },
   {
     parent: 'Import License',
     name: 'Import Synthesis',
     order: 109,
-    url: '#',
-    note: 'TODO(port): import synthesis report not on branch.',
-  },
-  {
-    parent: 'Import License',
-    name: 'PARTIELLE (Bivac)',
-    order: 110,
-    url: '/bivac',
-    icon: 'ti ti-layers',
+    // Licence synthesis per kind and client (0172).
+    url: '/import-synthesis',
   },
 
   // ── Tracking Management (original menu_id=55) ───────────────────

@@ -13,7 +13,7 @@
 // are not held to the licence weight. FOB limits apply to every type alike:
 // file ≤ inspection report ≤ licence, and the files' total ≤ licence FOB.
 import { and, eq, sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
+import { db, type Database, type Transaction } from '@/lib/db';
 import { fileNotCancelled } from '@/db/queries/fileCancellation';
 import { partialT, licenseT, clientMaster } from '@/db/schema';
 import { generateReferences } from '@/db/queries/mcaRefGenerator';
@@ -299,13 +299,24 @@ export async function createPartielle(input: PartielleInput, uid: number): Promi
   return { id: row.id };
 }
 
+/**
+ * Resize an allotment, guarded. Pass `tx` to write inside the caller's
+ * transaction (so the audit entry commits with the change, §4.28). Returns the
+ * amounts as they were, for that entry's before → after.
+ */
 export async function updatePartielle(
   id: number,
   input: { partial_weight: number; partial_fob: number },
   uid: number,
-): Promise<void> {
-  const [existing] = await db
-    .select({ name: partialT.partialName, licenseId: partialT.licenseId })
+  tx: Database | Transaction = db,
+): Promise<{ partial_name: string; license_id: number; before: { partial_weight: number; partial_fob: number } }> {
+  const [existing] = await tx
+    .select({
+      name: partialT.partialName,
+      licenseId: partialT.licenseId,
+      weight: partialT.partialWeight,
+      fob: partialT.partialFob,
+    })
     .from(partialT)
     .where(and(eq(partialT.id, id), eq(partialT.display, 'Y')));
   if (!existing || existing.licenseId == null) throw new PartielleError('Allotment not found');
@@ -335,7 +346,7 @@ export async function updatePartielle(
     }
   }
 
-  await db
+  await tx
     .update(partialT)
     .set({
       partialWeight: String(input.partial_weight),
@@ -344,6 +355,12 @@ export async function updatePartielle(
       updatedAt: new Date(),
     })
     .where(eq(partialT.id, id));
+
+  return {
+    partial_name: existing.name,
+    license_id: existing.licenseId,
+    before: { partial_weight: N(existing.weight), partial_fob: N(existing.fob) },
+  };
 }
 
 // §5 C-02 — reject a save that would over-draw its selected allotment.

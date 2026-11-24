@@ -38,6 +38,8 @@ describe('the shipped defaults reproduce the references already in the database'
     // (COD 2026 234480-0001). An import links to its allotment by this exact
     // string, so a different shape here is a different allotment.
     ['partielle', 'COD 2026 234480-0001'],
+    // The legacy apurement screen's NNNN-IB-MCA-YY — the number comes FIRST.
+    ['import-apurement', '0001-IB-MCA-26'],
   ] as const)('%s renders %s', (target, expected) => {
     expect(renderMcaRef(MCA_REF_DEFAULTS[target], TOKENS, 1)).toBe(expected);
   });
@@ -149,6 +151,12 @@ describe('the PARTIELLE number is scoped by REF COD', () => {
 });
 
 describe('buildSequencePattern', () => {
+  it('finds the apurement counter at the start of the reference, scoped by year', () => {
+    const re = new RegExp(buildSequencePattern(MCA_REF_DEFAULTS['import-apurement'], TOKENS)!.pattern);
+    expect('0042-IB-MCA-26'.match(re)![1]).toBe('0042');
+    expect(re.test('0042-IB-MCA-27')).toBe(false); // a new year starts again at 0001
+  });
+
   it('anchors on every other segment and captures the digits', () => {
     const built = buildSequencePattern(MCA_REF_DEFAULTS.import, TOKENS);
     expect(built).not.toBeNull();

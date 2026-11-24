@@ -1,8 +1,25 @@
 import { z } from 'zod';
 
+/**
+ * A menu URL is the permission resource itself (§4.7): role_menu_mapping_t is
+ * matched on it exactly, and routes ask for '/import-apurement', not
+ * 'import-apurement'. A path typed without its leading slash therefore grants
+ * nothing to anyone — Super Admin included — while still rendering as a working
+ * link, which is what made it hard to spot. '#' is a group with no screen.
+ */
+const menuUrl = z
+  .string()
+  .trim()
+  .max(255, 'URL must be 255 characters or fewer.')
+  .refine((v) => v === '' || v === '#' || v.startsWith('/') || /^https?:\/\//u.test(v), {
+    message: 'URL must start with "/" (for example /import-apurement), or be # for a group with no screen.',
+  })
+  .optional()
+  .nullable();
+
 export const menuCreateSchema = z.object({
   menu_name: z.string().min(1).max(255),
-  url: z.string().max(255).optional().nullable(),
+  url: menuUrl,
   text: z.string().max(100).optional().nullable(),
   icon: z.string().max(100).optional().nullable(),
   badge: z.string().max(50).optional().nullable(),
@@ -13,7 +30,7 @@ export type MenuCreateInput = z.infer<typeof menuCreateSchema>;
 
 export const menuUpdateSchema = z.object({
   menu_name: z.string().min(1).max(255).optional(),
-  url: z.string().max(255).optional().nullable(),
+  url: menuUrl,
   text: z.string().max(100).optional().nullable(),
   icon: z.string().max(100).optional().nullable(),
   badge: z.string().max(50).optional().nullable(),

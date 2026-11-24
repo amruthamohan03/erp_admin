@@ -1,15 +1,20 @@
-// Bivac / PARTIELLE balance queries (§7.4). All the "used" and "remaining"
-// figures are DERIVED here — never stored — so the numbers can never drift
-// from the underlying licences/imports:
+// Bivac / PARTIELLE management queries (§7.4) — the licence-level view over the
+// SAME allotments Import Tracking creates (partial_t, see partielle.ts). Nothing
+// here is stored: the "used" and "balance" figures are derived, so they can
+// never drift from the licences and files they summarise.
 //   • licence capacity  → license_t columns
-//   • used              → SUM(imports_t.*) WHERE inspection_reports = partial_name
-//   • balance/remaining → capacity − used (computed in SQL)
-// Imports link to a PARTIELLE by name (imports_t.inspection_reports), matching
-// main's model.
-import { and, eq, ne, or, ilike, sql, count, desc, type SQL } from 'drizzle-orm';
+//   • used              → SUM of the import AND export files whose
+//                         inspection_reports names one of the licence's
+//                         allotments, cancelled files excluded — the same rule
+//                         listForLicense applies per allotment
+//   • balance           → capacity − used
+import { and, eq, or, ilike, sql, count, desc, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { fileNotCancelled } from '@/db/queries/fileCancellation';
-import { licenseT, clientMaster, currencyMaster, typeOfGoodsMaster, bivacPartial } from '@/db/schema';
+import { licenseT, clientMaster, currencyMaster, typeOfGoodsMaster, partialT } from '@/db/schema';
+
+/** §4.7 — the menu URL every Bivac route checks permissions against (0170). */
+export const BIVAC_RESOURCE = '/bivac';
 
 // ---- Licences list (import kinds 1,2) with allocation + usage rollups --------
 
@@ -26,6 +31,8 @@ export interface BivacLicenseRow {
   freight: number;
   other_costs: number;
   partielle_count: number;
+  total_allocated_weight: number;
+  total_allocated_fob: number;
   total_used_weight: number;
   total_used_fob: number;
   balance_weight: number;
@@ -37,7 +44,9 @@ function licenseSearch(qLike: string | null): SQL | undefined {
   return or(
     ilike(licenseT.licenseNumber, qLike),
     ilike(licenseT.refCod, qLike),
+    // §4.15 — the column shows the code; an outside document carries the name.
     ilike(clientMaster.shortName, qLike),
+    ilike(clientMaster.companyName, qLike),
     ilike(currencyMaster.currencyShortName, qLike),
     ilike(typeOfGoodsMaster.goodsType, qLike),
   );
@@ -62,27 +71,46 @@ export async function countBivacLicenses(clientId?: number, q?: string): Promise
   return row?.total ?? 0;
 }
 
-// A scalar subquery summing one imports_t column across every import linked to
-// any active PARTIELLE of the licence row `l`.
+/** Live (not deleted, not cancelled) import and export files, as one set. */
+const CONSIGNMENTS = sql`(
+  SELECT inspection_reports, weight, fob FROM imports_t
+   WHERE display = 'Y' AND inspection_reports IS NOT NULL AND ${fileNotCancelled(sql`imports_t.clearing_status`)}
+  UNION ALL
+  SELECT inspection_reports, weight, fob FROM exports_t
+   WHERE display = 'Y' AND inspection_reports IS NOT NULL AND ${fileNotCancelled(sql`exports_t.clearing_status`)}
+)`;
+
+/** What the files on the licence row's allotments have consumed. */
 function usedSum(col: 'weight' | 'fob'): SQL<string> {
   return sql<string>`(
-    SELECT COALESCE(SUM(i.${sql.raw(col)}), 0)
-    FROM imports_t i
-    INNER JOIN bivac_partial_t p ON i.inspection_reports = p.partial_name
-    WHERE p.license_id = ${licenseT.id} AND p.display = 'Y' AND i.display = 'Y'
-      AND ${fileNotCancelled(sql`i.clearing_status`)}
+    SELECT COALESCE(SUM(c.${sql.raw(col)}), 0)
+    FROM ${CONSIGNMENTS} c
+    INNER JOIN partial_t p ON p.partial_name = c.inspection_reports
+    WHERE p.license_id = ${licenseT.id} AND p.display = 'Y'
   )`;
 }
 
+/** What the licence row's allotments have been given between them. */
+function allocatedSum(col: 'partial_weight' | 'partial_fob'): SQL<string> {
+  return sql<string>`(
+    SELECT COALESCE(SUM(p.${sql.raw(col)}), 0) FROM partial_t p
+    WHERE p.license_id = ${licenseT.id} AND p.display = 'Y'
+  )`;
+}
+
+/**
+ * One page of the list, or, with no `page`, every matching licence. The Excel
+ * export asks for the latter so the file holds every row the grid's filter
+ * matched, not just one page (§4.15).
+ */
 export async function listBivacLicenses(
   clientId: number | undefined,
   q: string | undefined,
-  limit: number,
-  offset: number,
+  page?: { limit: number; offset: number },
 ): Promise<BivacLicenseRow[]> {
   const usedWeight = usedSum('weight');
   const usedFob = usedSum('fob');
-  const rows = await db
+  const query = db
     .select({
       id: licenseT.id,
       license_number: licenseT.licenseNumber,
@@ -96,13 +124,13 @@ export async function listBivacLicenses(
       freight: sql<number>`COALESCE(${licenseT.freight}, 0)::float`,
       other_costs: sql<number>`COALESCE(${licenseT.otherCosts}, 0)::float`,
       partielle_count: sql<number>`(
-        SELECT COUNT(*) FROM bivac_partial_t p
+        SELECT COUNT(*) FROM partial_t p
         WHERE p.license_id = ${licenseT.id} AND p.display = 'Y'
       )::int`,
+      total_allocated_weight: sql<number>`${allocatedSum('partial_weight')}::float`,
+      total_allocated_fob: sql<number>`${allocatedSum('partial_fob')}::float`,
       total_used_weight: sql<number>`${usedWeight}::float`,
       total_used_fob: sql<number>`${usedFob}::float`,
-      balance_weight: sql<number>`(COALESCE(${licenseT.weight}, 0) - ${usedWeight})::float`,
-      balance_fob: sql<number>`(COALESCE(${licenseT.fobDeclared}, 0) - ${usedFob})::float`,
     })
     .from(licenseT)
     .leftJoin(clientMaster, eq(clientMaster.id, licenseT.clientId))
@@ -110,9 +138,20 @@ export async function listBivacLicenses(
     .leftJoin(typeOfGoodsMaster, eq(typeOfGoodsMaster.id, licenseT.typeOfGoodsId))
     .where(licenseWhere(clientId, q))
     .orderBy(desc(licenseT.id))
-    .limit(limit)
-    .offset(offset);
-  return rows as BivacLicenseRow[];
+    .$dynamic();
+  const rows = page ? await query.limit(page.limit).offset(page.offset) : await query;
+  // Balance here rather than in SQL: Postgres re-runs a correlated subquery
+  // each time it is written, so `weight - (usage scan)` would scan the files a
+  // second time per row for a figure already selected.
+  return rows.map((r) => ({
+    ...r,
+    balance_weight: round3(r.weight - r.total_used_weight),
+    balance_fob: round3(r.fob_declared - r.total_used_fob),
+  }));
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 // Clients that own at least one import licence — the filter dropdown source.
@@ -122,114 +161,85 @@ export async function listBivacClients(): Promise<Array<{ id: number; short_name
     .from(clientMaster)
     .innerJoin(licenseT, eq(licenseT.clientId, clientMaster.id))
     .where(and(eq(clientMaster.display, 'Y'), eq(licenseT.display, 'Y'), sql`${licenseT.kindId} IN (1, 2)`))
-    .orderBy(clientMaster.shortName);
+    .orderBy(clientMaster.id);
 }
 
-// ---- PARTIELLE rows for a licence, with per-row used + remaining -------------
+// ---- Licence header (the PARTIELLE export's repeated licence columns) --------
 
-export interface BivacPartialView {
+export interface BivacLicenseHeader {
   id: number;
-  partial_name: string;
-  partial_weight: number;
-  partial_fob: number;
-  partial_insurance: number;
-  partial_freight: number;
-  partial_other_costs: number;
-  used_weight: number;
-  used_fob: number;
-  remaining_weight: number;
-  remaining_fob: number;
-  import_count: number;
-}
-
-// Shared projection: a PARTIELLE row + its used/remaining/import-count derived
-// from imports_t. `whereSql` scopes it (by license or by id).
-function partialSelect() {
-  const usedW = sql<string>`(SELECT COALESCE(SUM(i.weight),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y' AND ${fileNotCancelled(sql`i.clearing_status`)})`;
-  const usedF = sql<string>`(SELECT COALESCE(SUM(i.fob),0) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y' AND ${fileNotCancelled(sql`i.clearing_status`)})`;
-  return {
-    id: bivacPartial.id,
-    partial_name: bivacPartial.partialName,
-    partial_weight: sql<number>`${bivacPartial.partialWeight}::float`,
-    partial_fob: sql<number>`${bivacPartial.partialFob}::float`,
-    partial_insurance: sql<number>`${bivacPartial.partialInsurance}::float`,
-    partial_freight: sql<number>`${bivacPartial.partialFreight}::float`,
-    partial_other_costs: sql<number>`${bivacPartial.partialOtherCosts}::float`,
-    used_weight: sql<number>`${usedW}::float`,
-    used_fob: sql<number>`${usedF}::float`,
-    remaining_weight: sql<number>`(${bivacPartial.partialWeight} - ${usedW})::float`,
-    remaining_fob: sql<number>`(${bivacPartial.partialFob} - ${usedF})::float`,
-    import_count: sql<number>`(SELECT COUNT(*) FROM imports_t i WHERE i.inspection_reports = ${bivacPartial.partialName} AND i.display = 'Y')::int`,
-  };
-}
-
-export async function listPartialsForLicense(licenseId: number): Promise<BivacPartialView[]> {
-  const rows = await db
-    .select(partialSelect())
-    .from(bivacPartial)
-    .where(and(eq(bivacPartial.licenseId, licenseId), eq(bivacPartial.display, 'Y')))
-    .orderBy(bivacPartial.partialName);
-  return rows as BivacPartialView[];
-}
-
-export async function getPartialView(id: number): Promise<BivacPartialView | null> {
-  const [row] = await db
-    .select(partialSelect())
-    .from(bivacPartial)
-    .where(and(eq(bivacPartial.id, id), eq(bivacPartial.display, 'Y')))
-    .limit(1);
-  return (row as BivacPartialView) ?? null;
-}
-
-// ---- Capacity check (§ update validation) ------------------------------------
-
-export interface LicenseCapacity {
-  license_id: number;
+  license_number: string | null;
+  ref_cod: string | null;
+  /** The legal name — this feeds export cells, which leave the office (§4.15). */
+  client_company_name: string | null;
   weight: number;
-  fob: number;
-  insurance: number;
-  freight: number;
-  other_costs: number;
+  fob_declared: number;
 }
 
-// The licence's own totals plus what every OTHER active PARTIELLE already
-// allocates — used to reject an update that would over-allocate the licence.
-export async function getAllocationContext(
-  licenseId: number,
-  excludePartialId: number,
-): Promise<{ capacity: LicenseCapacity; allocatedByOthers: Omit<LicenseCapacity, 'license_id'> } | null> {
-  const [lic] = await db
+export async function getBivacLicenseHeader(licenseId: number): Promise<BivacLicenseHeader | null> {
+  const [row] = await db
     .select({
-      weight: sql<number>`COALESCE(${licenseT.weight},0)::float`,
-      fob: sql<number>`COALESCE(${licenseT.fobDeclared},0)::float`,
-      insurance: sql<number>`COALESCE(${licenseT.insurance},0)::float`,
-      freight: sql<number>`COALESCE(${licenseT.freight},0)::float`,
-      other_costs: sql<number>`COALESCE(${licenseT.otherCosts},0)::float`,
+      id: licenseT.id,
+      license_number: licenseT.licenseNumber,
+      ref_cod: licenseT.refCod,
+      client_company_name: clientMaster.companyName,
+      weight: sql<number>`COALESCE(${licenseT.weight}, 0)::float`,
+      fob_declared: sql<number>`COALESCE(${licenseT.fobDeclared}, 0)::float`,
     })
     .from(licenseT)
+    .leftJoin(clientMaster, eq(clientMaster.id, licenseT.clientId))
     .where(and(eq(licenseT.id, licenseId), eq(licenseT.display, 'Y')))
     .limit(1);
-  if (!lic) return null;
+  return row ?? null;
+}
 
-  const [alloc] = await db
-    .select({
-      weight: sql<number>`COALESCE(SUM(${bivacPartial.partialWeight}),0)::float`,
-      fob: sql<number>`COALESCE(SUM(${bivacPartial.partialFob}),0)::float`,
-      insurance: sql<number>`COALESCE(SUM(${bivacPartial.partialInsurance}),0)::float`,
-      freight: sql<number>`COALESCE(SUM(${bivacPartial.partialFreight}),0)::float`,
-      other_costs: sql<number>`COALESCE(SUM(${bivacPartial.partialOtherCosts}),0)::float`,
-    })
-    .from(bivacPartial)
-    .where(
-      and(
-        eq(bivacPartial.licenseId, licenseId),
-        ne(bivacPartial.id, excludePartialId),
-        eq(bivacPartial.display, 'Y'),
-      ),
-    );
+// ---- The files drawing on one allotment ---------------------------------------
 
-  return {
-    capacity: { license_id: licenseId, ...lic },
-    allocatedByOthers: alloc ?? { weight: 0, fob: 0, insurance: 0, freight: 0, other_costs: 0 },
-  };
+export async function getActivePartialName(id: number): Promise<string | null> {
+  const [row] = await db
+    .select({ name: partialT.partialName })
+    .from(partialT)
+    .where(and(eq(partialT.id, id), eq(partialT.display, 'Y')))
+    .limit(1);
+  return row?.name ?? null;
+}
+
+export interface BivacFileRow {
+  /** Unique across both tables — an import and an export can share an id. */
+  key: string;
+  side: 'Import' | 'Export';
+  mca_ref: string | null;
+  inspection_reports: string | null;
+  declaration_reference: string | null;
+  dgda_in_date: string | null;
+  liquidation_reference: string | null;
+  liquidation_date: string | null;
+  quittance_reference: string | null;
+  quittance_date: string | null;
+  weight: number;
+  fob: number;
+}
+
+/**
+ * The import and export files consuming an allotment — linked by
+ * `inspection_reports = partial_name`, cancelled files excluded. The same set
+ * listForLicense counts as the allotment's files and usage, so the list a
+ * badge opens always has the number of rows the badge showed.
+ */
+export async function listFilesForPartial(partialName: string): Promise<BivacFileRow[]> {
+  const cols = sql`mca_ref, inspection_reports, declaration_reference,
+    to_char(dgda_in_date, 'YYYY-MM-DD') AS dgda_in_date, liquidation_reference,
+    to_char(liquidation_date, 'YYYY-MM-DD') AS liquidation_date, quittance_reference,
+    to_char(quittance_date, 'YYYY-MM-DD') AS quittance_date,
+    COALESCE(weight, 0)::float AS weight, COALESCE(fob, 0)::float AS fob`;
+  const result = await db.execute(sql`
+    SELECT 'import-' || id AS key, 'Import' AS side, ${cols}, id FROM imports_t
+     WHERE inspection_reports = ${partialName} AND display = 'Y'
+       AND ${fileNotCancelled(sql`imports_t.clearing_status`)}
+    UNION ALL
+    SELECT 'export-' || id AS key, 'Export' AS side, ${cols}, id FROM exports_t
+     WHERE inspection_reports = ${partialName} AND display = 'Y'
+       AND ${fileNotCancelled(sql`exports_t.clearing_status`)}
+    ORDER BY side DESC, id ASC`);
+  return (result as unknown as { rows: BivacFileRow[] }).rows;
 }
